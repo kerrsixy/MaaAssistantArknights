@@ -16,6 +16,7 @@ protected:
 
 private:
     int detect_current_difficulty() const;
+    int detect_current_difficulty_with_retry(const int max_retry = 3) const;
     bool select_difficulty(const int difficulty = 0);
 
     int m_current_difficulty = -1;

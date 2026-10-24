@@ -112,6 +112,20 @@ int asst::RoguelikeDifficultySelectionTaskPlugin::detect_current_difficulty() co
     }
 }
 
+int asst::RoguelikeDifficultySelectionTaskPlugin::detect_current_difficulty_with_retry(const int max_retry) const
+{
+    int difficulty = -1;
+    for (int retry = 0; retry <= max_retry; ++retry) {
+        difficulty = detect_current_difficulty();
+        if (difficulty >= 0) {
+            break;
+        }
+        LogWarn << __FUNCTION__ << "| failed to detect current difficulty, retry:" << retry + 1 << "/"
+                << max_retry + 1;
+    }
+    return difficulty;
+}
+
 bool asst::RoguelikeDifficultySelectionTaskPlugin::select_difficulty(const int difficulty)
 {
     LogTraceFunction;
@@ -157,15 +171,15 @@ bool asst::RoguelikeDifficultySelectionTaskPlugin::select_difficulty(const int d
     if (difficulty == INT_MAX) {
         ProcessTask(*this, { "SwipeToTheDown" }).run();
         ProcessTask(*this, { "SwipeToTheDown" }).run();
-        m_current_difficulty = detect_current_difficulty();
+        m_current_difficulty = detect_current_difficulty_with_retry();
     }
     else if (difficulty == 0) {
         ProcessTask(*this, { "SwipeToTheUp" }).run();
         ProcessTask(*this, { "SwipeToTheUp" }).run();
-        m_current_difficulty = detect_current_difficulty();
+        m_current_difficulty = detect_current_difficulty_with_retry();
     }
     else {
-        m_current_difficulty = detect_current_difficulty();
+        m_current_difficulty = detect_current_difficulty_with_retry();
         Log.info("Target difficulty:", difficulty);
         Log.info("Current difficulty:", m_current_difficulty);
         if (m_current_difficulty != difficulty) {
@@ -179,7 +193,7 @@ bool asst::RoguelikeDifficultySelectionTaskPlugin::select_difficulty(const int d
             }
             Task.get<OcrTaskInfo>(theme + "@Roguelike@ChooseDifficulty_Specified")->text = difficulty_list;
             ProcessTask(*this, { theme + "@Roguelike@ChooseDifficulty_Specified", "Stop" }).run();
-            m_current_difficulty = detect_current_difficulty();
+            m_current_difficulty = detect_current_difficulty_with_retry();
         }
     }
 

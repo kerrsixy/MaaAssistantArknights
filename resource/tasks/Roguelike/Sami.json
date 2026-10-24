@@ -719,12 +719,13 @@
         "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
     },
     "Sami@Roguelike@StageEncounter": {
-        "templThreshold": 0.96
+        "templThreshold": 0.9,
+        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@FoldartalBack", "Sami@Roguelike@Stages#next"]
     },
     "Sami@Roguelike@StageEncounterAI6": {
-        "templThreshold": 0.96,
+        "templThreshold": 0.9,
         "baseTask": "Sami@Roguelike@Stage",
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@FoldartalBack", "Sami@Roguelike@Stages#next"]
     },
     "Sami@Roguelike@StageEncounterEnter": {},
     "Sami@Roguelike@StageEncounterLeaveConfirm": {},
@@ -1069,6 +1070,7 @@
             "Sami@Roguelike@NextLevel",
             "Sami@Roguelike@FoldartalGainNextLevel",
             "Sami@Roguelike@StagesChaosZero",
+            "Sami@Roguelike@FoldartalBack",
             "Sami@Roguelike@StageVerticalBoskyPassage",
             "Sami@Roguelike@StageVerticalBoskyPassageAI6",
             "Sami@Roguelike@StageBoskyPassage",
@@ -1167,6 +1169,7 @@
             "Sami@Roguelike@NextLevel",
             "Sami@Roguelike@FoldartalGainNextLevel",
             "Sami@Roguelike@StagesChaosZero",
+            "Sami@Roguelike@FoldartalBack",
             "Sami@Roguelike@StageBoskyPassage",
             "Sami@Roguelike@StageBoskyPassageAI6",
             "Sami@Roguelike@StageVerticalBoskyPassage",
@@ -1222,6 +1225,7 @@
             "Sami@Roguelike@NextLevel",
             "Sami@Roguelike@FoldartalGainNextLevel",
             "Sami@Roguelike@StagesChaosZero",
+            "Sami@Roguelike@FoldartalBack",
             "Sami@Roguelike@StageVerticalBoskyPassage",
             "Sami@Roguelike@StageVerticalBoskyPassageAI6",
             "Sami@Roguelike@StageBoskyPassage",
@@ -1305,7 +1309,7 @@
             [".*明冻土", "昧明冻土"],
             ["昧明冻土", "_pragmatic"],
             ["积冰岩.*", "_pragmatic"],
-            ["无瑕花园", "_default"],
+            ["无瑕花园", "_pragmatic"],
             ["远见之构", "_default"],
             ["深埋迷境", "_SKIP_"]
         ]
