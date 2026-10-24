@@ -126,7 +126,7 @@
         "action": "ClickRect",
         "roi": [551, 577, 174, 143],
         "specificRect": [600, 600, 1, 1],
-        "templThreshold": 0.95,
+        "templThreshold": 0.9,
         "postDelay": 1000,
         "next": [
             "Mizuki@Roguelike@StageEncounterEnter",
@@ -377,7 +377,12 @@
         "next": ["Mizuki@Roguelike@StageEncounterEnter", "Mizuki@Roguelike@Stages#next"]
     },
     "Mizuki@Roguelike@StageEncounter": {
-        "templThreshold": 0.96
+        "templThreshold": 0.9,
+        "next": [
+            "Mizuki@Roguelike@StageEncounterEnter",
+            "Mizuki@Roguelike@DiceConfirm",
+            "Roguelike@Stages#next"
+        ]
     },
     "Mizuki@Roguelike@StageEncounterEnter": {},
     "Mizuki@Roguelike@StageEncounterLeaveConfirm": {},
@@ -534,7 +539,7 @@
             ["离岸孤岛", "_aggressive"],
             ["波涛略地", "_pragmatic"],
             ["隐秘温床", "_pragmatic"],
-            ["失尘岩洞", "_default"],
+            ["失尘岩洞", "_pragmatic"],
             ["幽海丛林", "_default"],
             ["绀碧摇篮", "_SKIP_"]
         ]
