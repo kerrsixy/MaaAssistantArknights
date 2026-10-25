@@ -65,20 +65,10 @@
             "direction": "left"
         },
         {
-            "groups": ["补给站"],
-            "location": [6, 1],
-            "direction": "down"
-        },
-        {
             "groups": ["处决者", "情报官"],
             "location": [3, 2],
             "direction": "left",
             "condition": [21, 25]
-        },
-        {
-            "groups": ["无人机"],
-            "location": [5, 3],
-            "direction": "down"
         },
         {
             "groups": ["高台输出", "狙击", "辅助", "其他高台"],
@@ -86,16 +76,9 @@
             "direction": "left"
         },
         {
-            "groups": ["支援陷阱"],
-            "location": [5, 3],
-            "direction": "down",
-            "condition": [21, 30]
-        },
-        {
             "groups": ["处决者", "情报官"],
             "location": [3, 2],
             "direction": "left",
             "condition": [31, 35]
-        }
-    ]
+        }]
 }

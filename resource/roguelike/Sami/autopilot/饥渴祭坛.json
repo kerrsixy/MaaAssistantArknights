@@ -60,11 +60,6 @@
             "direction": "up"
         },
         {
-            "groups": ["大龙"],
-            "location": [8, 5],
-            "direction": "up"
-        },
-        {
             "groups": ["领主", "地面远程", "处决者"],
             "location": [9, 4],
             "direction": "left"
@@ -105,11 +100,5 @@
             "groups": ["领主", "地面远程", "补给站"],
             "location": [8, 5],
             "direction": "up"
-        },
-        {
-            "groups": ["无人机", "支援陷阱"],
-            "location": [6, 4],
-            "direction": "up"
-        }
-    ]
+        }]
 }

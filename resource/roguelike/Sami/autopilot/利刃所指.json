@@ -35,11 +35,6 @@
             "direction": "down"
         },
         {
-            "groups": ["大龙"],
-            "location": [2, 4],
-            "direction": "up"
-        },
-        {
             "groups": ["焰苇", "狙击", "高台输出", "辅助", "其他高台", "奶"],
             "location": [3, 2],
             "direction": "down"
@@ -52,11 +47,6 @@
         {
             "groups": ["益达"],
             "location": [3, 3],
-            "direction": "down"
-        },
-        {
-            "groups": ["补给站"],
-            "location": [3, 1],
             "direction": "down"
         },
         {
@@ -88,11 +78,5 @@
             "groups": ["领主", "地面阻挡", "地面远程", "处决者", "地刺"],
             "location": [2, 1],
             "direction": "down"
-        },
-        {
-            "groups": ["补给站", "无人机"],
-            "location": [4, 4],
-            "direction": "left"
-        }
-    ]
+        }]
 }

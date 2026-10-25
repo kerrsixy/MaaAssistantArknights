@@ -87,11 +87,5 @@
             "groups": ["地面阻挡"],
             "location": [6, 2],
             "direction": "left"
-        },
-        {
-            "groups": ["补给站"],
-            "location": [5, 3],
-            "direction": "left"
-        }
-    ]
+        }]
 }

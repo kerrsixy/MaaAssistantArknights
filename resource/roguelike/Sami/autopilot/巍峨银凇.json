@@ -104,24 +104,6 @@
             "condition": [1, 60]
         },
         {
-            "groups": ["补给站"],
-            "location": [6, 6],
-            "direction": "left",
-            "condition": [2, 60]
-        },
-        {
-            "groups": ["支援陷阱"],
-            "location": [9, 3],
-            "direction": "left",
-            "condition": [20, 52]
-        },
-        {
-            "groups": ["无人机"],
-            "location": [10, 4],
-            "direction": "up",
-            "condition": [13, 52]
-        },
-        {
             "groups": ["高台输出", "狙击", "盾法", "辅助", "其他高台"],
             "location": [6, 5],
             "direction": "up",
@@ -162,8 +144,7 @@
             "location": [7, 4],
             "direction": "up",
             "condition": [53, 60]
-        }
-    ],
+        }],
     "retreat_plan": [
         {
             "location": [3, 6],

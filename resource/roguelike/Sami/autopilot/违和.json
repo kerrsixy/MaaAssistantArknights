@@ -106,18 +106,7 @@
             "groups": ["高台输出", "辅助", "其他高台"],
             "location": [7, 5],
             "direction": "right"
-        },
-        {
-            "groups": ["补给站"],
-            "location": [5, 1],
-            "direction": "right"
-        },
-        {
-            "groups": ["支援陷阱", "无人机"],
-            "location": [6, 4],
-            "direction": "right"
-        }
-    ],
+        }],
     "retreat_plan": [
         {
             "location": [3, 6],

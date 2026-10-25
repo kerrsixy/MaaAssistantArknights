@@ -72,11 +72,5 @@
             "groups": ["狙击", "单奶", "高台输出"],
             "location": [8, 5],
             "direction": "left"
-        },
-        {
-            "groups": ["补给站", "无人机", "支援陷阱"],
-            "location": [6, 3],
-            "direction": "up"
-        }
-    ]
+        }]
 }

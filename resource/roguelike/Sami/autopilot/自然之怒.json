@@ -74,17 +74,11 @@
             "direction": "up"
         },
         {
-            "groups": ["补给站"],
-            "location": [3, 3],
-            "direction": "down"
-        },
-        {
             "groups": ["处决者", "情报官", "地面阻挡", "其他地面"],
             "location": [4, 3],
             "direction": "down",
             "condition": [11, 24]
-        }
-    ],
+        }],
     "retreat_plan": [
         {
             "location": [5, 6],

@@ -70,11 +70,6 @@
             "direction": "right"
         },
         {
-            "groups": ["补给站"],
-            "location": [5, 3],
-            "direction": "left"
-        },
-        {
             "groups": ["处决者", "情报官"],
             "location": [2, 2],
             "direction": "down",
@@ -85,8 +80,7 @@
             "location": [7, 3],
             "direction": "right",
             "condition": [25, 50]
-        }
-    ],
+        }],
     "retreat_plan": [
         {
             "location": [2, 2],

@@ -100,11 +100,5 @@
             "groups": ["辅助", "高台输出", "奶"],
             "location": [4, 1],
             "direction": "left"
-        },
-        {
-            "groups": ["补给站"],
-            "location": [4, 4],
-            "direction": "up"
-        }
-    ]
+        }]
 }

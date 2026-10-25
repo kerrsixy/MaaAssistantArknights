@@ -77,11 +77,5 @@
             "location": [9, 4],
             "direction": "right",
             "condition": [0, 27]
-        },
-        {
-            "groups": ["补给站", "支援陷阱", "无人机", "障碍物"],
-            "location": [6, 5],
-            "direction": "left"
-        }
-    ]
+        }]
 }

@@ -33,11 +33,6 @@
             "direction": "down"
         },
         {
-            "groups": ["大龙"],
-            "location": [5, 4],
-            "direction": "up"
-        },
-        {
             "groups": ["提丰", "凯尔希"],
             "location": [8, 4],
             "direction": "left"
@@ -66,11 +61,5 @@
             "groups": ["玛恩纳"],
             "location": [5, 2],
             "direction": "down"
-        },
-        {
-            "groups": ["补给站"],
-            "location": [4, 1],
-            "direction": "down"
-        }
-    ]
+        }]
 }

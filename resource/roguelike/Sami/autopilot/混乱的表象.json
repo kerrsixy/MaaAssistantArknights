@@ -74,19 +74,8 @@
             "direction": "left"
         },
         {
-            "groups": ["补给站"],
-            "location": [5, 2],
-            "direction": "right"
-        },
-        {
-            "groups": ["无人机", "支援陷阱"],
-            "location": [5, 4],
-            "direction": "left"
-        },
-        {
             "groups": ["奶", "高台输出"],
             "location": [9, 2],
             "direction": "left"
-        }
-    ]
+        }]
 }

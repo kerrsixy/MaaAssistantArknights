@@ -59,18 +59,7 @@
             "location": [5, 4],
             "direction": "up",
             "condition": [15, 20]
-        },
-        {
-            "groups": ["补给站"],
-            "location": [4, 6],
-            "direction": "right"
-        },
-        {
-            "groups": ["支援陷阱", "障碍物"],
-            "location": [7, 3],
-            "direction": "right"
-        }
-    ],
+        }],
     "retreat_plan": [
         {
             "location": [5, 4],

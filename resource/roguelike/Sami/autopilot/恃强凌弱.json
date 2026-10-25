@@ -71,16 +71,5 @@
             "groups": ["高台输出", "狙击"],
             "location": [4, 4],
             "direction": "left"
-        },
-        {
-            "groups": ["补给站"],
-            "location": [4, 3],
-            "direction": "right"
-        },
-        {
-            "groups": ["支援陷阱", "无人机"],
-            "location": [4, 5],
-            "direction": "up"
-        }
-    ]
+        }]
 }

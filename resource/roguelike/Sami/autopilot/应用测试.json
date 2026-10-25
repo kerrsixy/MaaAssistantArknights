@@ -84,18 +84,7 @@
             "groups": ["地刺", "处决者"],
             "location": [5, 3],
             "direction": "left"
-        },
-        {
-            "groups": ["补给站"],
-            "location": [7, 4],
-            "direction": "up"
-        },
-        {
-            "groups": ["支援陷阱", "无人机", "障碍物"],
-            "location": [10, 4],
-            "direction": "left"
-        }
-    ],
+        }],
     "retreat_plan": [
         {
             "location": [10, 3],

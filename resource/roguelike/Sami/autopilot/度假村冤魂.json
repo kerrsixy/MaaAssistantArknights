@@ -57,14 +57,7 @@
             "location": [3, 4],
             "direction": "up",
             "condition": [15, 30]
-        },
-        {
-            "groups": ["障碍物"],
-            "location": [7, 2],
-            "direction": "none",
-            "condition": [16, 28]
-        }
-    ],
+        }],
     "retreat_plan": [
         {
             "location": [7, 2],

@@ -63,11 +63,5 @@
             "groups": ["处决者", "情报官", "炮灰", "其他地面", "地刺"],
             "location": [7, 2],
             "direction": "left"
-        },
-        {
-            "groups": ["补给站", "支援陷阱", "无人机"],
-            "location": [7, 1],
-            "direction": "right"
-        }
-    ]
+        }]
 }

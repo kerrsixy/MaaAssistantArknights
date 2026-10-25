@@ -84,16 +84,5 @@
             "groups": ["高台输出", "盾法", "辅助", "其他高台"],
             "location": [5, 3],
             "direction": "right"
-        },
-        {
-            "groups": ["补给站"],
-            "location": [7, 2],
-            "direction": "down"
-        },
-        {
-            "groups": ["支援陷阱", "无人机"],
-            "location": [9, 4],
-            "direction": "down"
-        }
-    ]
+        }]
 }

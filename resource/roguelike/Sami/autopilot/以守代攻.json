@@ -76,22 +76,5 @@
             "groups": ["地面阻挡", "其他地面"],
             "location": [5, 5],
             "direction": "up"
-        },
-        {
-            "groups": ["补给站"],
-            "location": [3, 3],
-            "direction": "right"
-        },
-        {
-            "groups": ["无人机"],
-            "location": [6, 3],
-            "direction": "down"
-        },
-        {
-            "groups": ["支援陷阱"],
-            "location": [5, 4],
-            "direction": "down",
-            "condition": [17, 40]
-        }
-    ]
+        }]
 }

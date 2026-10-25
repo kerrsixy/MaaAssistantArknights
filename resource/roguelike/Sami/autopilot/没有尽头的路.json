@@ -42,11 +42,6 @@
             "direction": "right"
         },
         {
-            "groups": ["补给站"],
-            "location": [5, 3],
-            "direction": "left"
-        },
-        {
             "groups": ["地面阻挡", "回费", "处决者", "其他地面"],
             "location": [3, 5],
             "direction": "up"
@@ -60,6 +55,5 @@
             "groups": ["高台输出", "狙击", "辅助", "奶", "其他高台"],
             "location": [4, 4],
             "direction": "left"
-        }
-    ]
+        }]
 }
