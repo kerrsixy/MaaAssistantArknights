@@ -47,6 +47,9 @@ bool asst::RoguelikeShoppingConfig::parse_goods(const json::array& json, std::ve
         item.no_longer_buy = goods_json.get("no_longer_buy", false);
         item.ignore_no_longer_buy = goods_json.get("ignore_no_longer_buy", false);
         item.decrease_collapse = goods_json.get("decrease_collapse", false);
+        // 招募券门槛：is_recruit_ticket + min_hope，缺省时行为与旧版完全一致
+        item.is_recruit_ticket = goods_json.get("is_recruit_ticket", false);
+        item.min_hope = goods_json.get("min_hope", 0);
         if (const auto price = goods_json.find<int>("price")) {
             if (*price <= 0) {
                 LogError << __FUNCTION__ << "Shopping item price must be positive" << item.name;

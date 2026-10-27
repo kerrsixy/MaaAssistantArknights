@@ -167,5 +167,22 @@ protected:
     std::unordered_map<std::string, int64_t> m_oper_elite;
     // 缓存干员精英情况
     void cache_oper_elite_status();
+
+    // ==== 漏怪 / 崩盘诊断（只读观测，不改变既有部署策略）====
+    // 依据：
+    //   1)《敌人机制与 MAA 可观测性盘点》§4「MAA 侧缺什么」：战斗内 MAA 只能读到
+    //      「已击杀 / 敌人总数 / 费用」，读不到敌人血量、攻击类型、元素损伤条，也读不到
+    //      「村民」这类中立单位，因此无法做敌人级反应式决策。
+    //   2)《水月肉鸽全地图机制盘点》§5：漏怪集中在窄图（部署格少、蓝门集中）与
+    //      多蓝门图的早期费用真空期。
+    // 做法：不猜敌人，只把「本场战斗多久没涨击杀、还剩几个敌人」量化成日志事件，
+    //       供离线按地图名聚合定位漏怪图，作为下一轮行为改动的数据基础。
+    void diagnose_battle_progress();
+
+    std::chrono::steady_clock::time_point m_diag_battle_start {};   // 本场战斗首次观测时刻
+    std::chrono::steady_clock::time_point m_diag_last_kill_time {}; // 最近一次击杀数变化的时刻
+    int m_diag_last_kills = 0;                                       // 上一帧击杀数，用于检测停滞
+    int m_diag_last_heartbeat = -1;                                  // 上次打印心跳的 30 秒刻度，避免刷屏
+    bool m_diag_stall_warned = false;                                // 本轮停滞是否已告警，避免重复刷
 };
 } // namespace asst

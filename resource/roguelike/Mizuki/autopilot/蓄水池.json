@@ -40,7 +40,7 @@
     ],
     "deploy_plan": [
         {
-            "groups": ["益达"],
+            "groups": ["投锋", "回费", "益达"],
             "location": [2, 3],
             "direction": "right"
         },

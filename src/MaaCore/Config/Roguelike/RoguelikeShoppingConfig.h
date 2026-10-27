@@ -22,6 +22,12 @@ struct RoguelikeGoods
     bool ignore_no_longer_buy = false;
     bool decrease_collapse = false;
     std::optional<int> price; // 填写时余额不足就跳过，去看下一件
+
+    // ---- 招募券专用（水月/萨米等「券→消耗希望招人」的主题）----
+    // 依据：调用方 RoguelikeShoppingTaskPlugin::buy_once 的旧判断链只有白名单顺序，
+    // 招募券条目只填了 name，等于「无门槛商品」，希望为 0 时也会买，白花源石锭。
+    bool is_recruit_ticket = false; // 标记该商品是招募券
+    int min_hope = 0;               // 买它至少需要多少希望，否则券无法兑现
 };
 
 class RoguelikeShoppingConfig final : public MAA_NS::SingletonHolder<RoguelikeShoppingConfig>, public AbstractConfig

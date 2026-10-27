@@ -201,8 +201,12 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
             continue;
         }
 
+        // 匹配修正：旧实现是双向包含（tr.text 含 goods.name 或 goods.name 含 tr.text），
+        // OCR 只认出短串时（例如只认出「招募券」），列表里第一个含该子串的商品
+        // 「高级人事资深招募券」会被当成本次命中 —— 既可能买错，也会把 collections
+        // 记成错误的名字。这里只保留「货架文本包含完整商品名」这一向，宁可少买不买错。
         auto find_it = std::ranges::find_if(result, [&](const TextRect& tr) -> bool {
-            return tr.text.find(goods.name) != std::string::npos || goods.name.find(tr.text) != std::string::npos;
+            return tr.text.find(goods.name) != std::string::npos;
         });
         if (find_it == result.cend()) {
             continue;
@@ -211,6 +215,22 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
         if (strategy_shopping && goods.price && wallet && *goods.price > *wallet) {
             LogTrace << __FUNCTION__ << "Ready to buy" << goods.name << "but the wallet is not enough, skip"
                      << *goods.price << *wallet;
+            continue;
+        }
+
+        // 招募券：只有「希望足够把它兑现」时才值得买。
+        // 依据：水月/萨米招募按星级消耗希望（本账号实测 3★=1、4★=3，2★/预备干员=0），
+        //       而旧逻辑对招募券没有任何门槛 —— 券在 shopping.json 里只填了 name，
+        //       于是货架上一出现券就会买，常在希望为 0 时白花源石锭，挤占更值钱的收藏品预算。
+        //       希望值由 RoguelikeRecruitTaskPlugin 在招募界面 OCR 后回写 status().hope。
+        if (goods.is_recruit_ticket && m_config->status().hope < goods.min_hope) {
+            Log.trace(
+                "Ready to buy",
+                goods.name,
+                ", but hope is not enough, skip. hope:",
+                m_config->status().hope,
+                "need:",
+                goods.min_hope);
             continue;
         }
 

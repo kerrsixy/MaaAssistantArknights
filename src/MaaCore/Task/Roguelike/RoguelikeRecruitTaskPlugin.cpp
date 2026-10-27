@@ -1,4 +1,7 @@
 #include "RoguelikeRecruitTaskPlugin.h"
+#include "Config/Miscellaneous/BattleDataConfig.h"
+
+#include <cctype>
 
 #include "Config/TaskData.h"
 #include "Controller/Controller.h"
@@ -6,6 +9,7 @@
 #include "Utils/Logger.hpp"
 #include "Vision/Matcher.h"
 #include "Vision/OCRer.h"
+#include "Vision/RegionOCRer.h"
 #include "Vision/Roguelike/RoguelikeRecruitImageAnalyzer.h"
 #include "Vision/Roguelike/RoguelikeRecruitSupportAnalyzer.h"
 
@@ -209,6 +213,73 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
     temp_recruit_exist = temp_recruit_analyzer.analyze().has_value();
     Log.trace(__FUNCTION__, "temp_recruit_exist", temp_recruit_exist);
 
+    // 读取当前希望值（招募界面顶部「希望 ⚡N」）。
+    // 识别失败时保持 -1，此时不启用希望储蓄策略，行为与旧版完全一致。
+    int cur_hope = -1;
+    {
+        // 1280x720 下实测：色条右侧的当前希望数字位于 x≈600..640、y≈18..52。
+        // 数字为 1~2 位，48px 宽度足够；两个候选 roi 依次尝试以提高识别率。
+        static const std::vector<Rect> HopeRois = {
+            Rect { 599, 16, 48, 38 },
+            Rect { 592, 12, 62, 44 },
+            // 希望为两位数（如 10 / 19）时数字右移，靠前两个 roi 会截断，补一个更宽的
+            Rect { 594, 10, 100, 42 },
+        };
+        // 数字是黄色、底色是深棕，自动二值化的阈值波动较大；多档 bin_expansion 各试一次。
+        static const std::vector<int> HopeBinExpansions = { 1, 2, 3 };
+        for (const Rect& roi : HopeRois) {
+            for (int bin_expansion : HopeBinExpansions) {
+                RegionOCRer hope_analyzer(image);
+                hope_analyzer.set_task_info("NumberOcrReplace");
+                hope_analyzer.set_roi(roi);
+                hope_analyzer.set_bin_expansion(bin_expansion);
+                if (!hope_analyzer.analyze()) {
+                    continue;
+                }
+                const std::string hope_text = hope_analyzer.get_result().text;
+                std::string digits;
+                bool started = false;
+                for (char c : hope_text) {
+                    if (std::isdigit(static_cast<unsigned char>(c))) {
+                        started = true;
+                        digits.push_back(c);
+                    }
+                    else if (started) {
+                        break;
+                    }
+                }
+                if (!digits.empty() && digits.size() <= 2) {
+                    cur_hope = std::stoi(digits);
+                    Log.info(
+                        __FUNCTION__,
+                        "| Current hope:",
+                        cur_hope,
+                        "raw:",
+                        hope_text,
+                        "roi:",
+                        roi.x,
+                        roi.y,
+                        "bin:",
+                        bin_expansion);
+                    break;
+                }
+                Log.info(__FUNCTION__, "| Current hope raw not digit:", hope_text, "bin:", bin_expansion);
+            }
+            if (cur_hope >= 0) {
+                break;
+            }
+        }
+        if (cur_hope < 0) {
+            Log.info(__FUNCTION__, "| Current hope not recognized, hope-saving disabled");
+        }
+        else {
+            // 回写希望值，供商店插件判断「这张招募券现在买来能不能兑现」。
+            // 依据：商店旧逻辑没有任何经济性输入（RoguelikeShoppingTaskPlugin.cpp buy_once
+            // 只按白名单顺序匹配），而 status().hope 在此之前全仓没有赋值点。
+            m_config->status().hope = cur_hope;
+        }
+    }
+
     // 翻页找出所有候选干员
     for (; i != SwipeTimes; ++i) {
         if (need_exit()) {
@@ -314,7 +385,12 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
 
                     // REFACTOR ME: 不招募情况没有对 oper_list 进行处理
                     // 若遇到 offset ，最终 priority 可能为正，会导致练度不够也招募 @Daydreamer114 @Saratoga-Official
-                    priority -= 114'514;
+                    // 水月高难且招募机会少：低练度干员也强于空手，改为轻微惩罚而非直接放弃
+                    priority -= (theme == RoguelikeTheme::Mizuki) ? 300 : 114'514;
+                    // 水月：即使被扣成非正数，也保底可选中，避免"没人可招"直接把队伍停在 4 人
+                    if (theme == RoguelikeTheme::Mizuki && priority <= 0) {
+                        priority = 1;
+                    }
                 }
 
                 if (temp_recruit_exist && !oper_info.name.starts_with("预备干员")) {
@@ -450,14 +526,100 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
         return true;
     }
 
+    // 希望预算：希望不足 6 且队伍已有 4 人时，暂停招募，把希望攒够来买高星干员。
+    // 背景：MAA 原来是无条件见招募点就招，希望会一路被 1 费的 3 星干员吃光，
+    // 导致整局永远凑不齐 6 希望，也就永远招不到六星，队伍强度上不去、后期一路漏怪。
+    // 两重止损，避免「一直攒着不招」把队伍卡死在 4 人：
+    //   1) 希望达到 6 时条件自然不成立，会正常招募；
+    //   2) 连续放弃招募超过 HopeSaveMaxSkips 次后，强制恢复招募。
+    // 例外：本次候选里有｢已拥有、可晋升｣的干员时必须放行。
+    // 依据：晋升通常只要 1~2 希望，比招新干员便宜得多；被储蓄逻辑拦掉等于白丢一次强化，
+    // 表现为｢能精二的时候反而不招募了｣。
+    constexpr int HopeSaveThreshold = 6;
+    constexpr int TeamSizeWhenSaving = 4;
+    constexpr int HopeSaveMaxSkips = 5;
+    const int team_size = static_cast<int>(m_config->status().opers.size());
+    const bool has_promotable = std::ranges::any_of(recruit_list, [](const RoguelikeRecruitInfo& info) {
+        return info.is_alternate;
+    });
+    if (!has_promotable && cur_hope >= 0 && cur_hope < HopeSaveThreshold && team_size >= TeamSizeWhenSaving &&
+        m_hope_save_skips < HopeSaveMaxSkips) {
+        ++m_hope_save_skips;
+        Log.info(
+            __FUNCTION__,
+            "| Saving hope for a better oper. hope:",
+            cur_hope,
+            "team size:",
+            team_size,
+            "skips:",
+            m_hope_save_skips);
+        return true;
+    }
+    if (m_hope_save_skips >= HopeSaveMaxSkips && cur_hope >= 0 && cur_hope < HopeSaveThreshold) {
+        Log.info(
+            __FUNCTION__,
+            "| Hope saving gave up after",
+            m_hope_save_skips,
+            "skips, recruit anyway. hope:",
+            cur_hope);
+        m_hope_save_skips = 0;
+    }
+
+    // 走到这里说明本次要正常招募，把「连续放弃」计数清零。
+    m_hope_save_skips = 0;
+
+    // 临时招募（精英二）是白拿的，必须优先于任何普通候选。
+    // 依据：玩家反馈 MAA 会跳过精二临时招募、转头挑精一普通干员。
+    // 原实现只在｢候选列表为空｣的后备分支里才挑精二，有普通候选时永远轮不到它。
+    {
+        const cv::Mat recruit_image = ctrler()->get_image();
+        RoguelikeRecruitImageAnalyzer temp_analyzer(recruit_image);
+        if (temp_analyzer.analyze()) {
+            for (const auto& info : temp_analyzer.get_result()) {
+                if (info.elite != 2 || m_config->status().opers.contains(info.name)) {
+                    continue;
+                }
+                LogInfo << __FUNCTION__ << "| Choose free elite 2 recruit:" << info.name << "level:" << info.level;
+                recruit_oper(info);
+                return true;
+            }
+        }
+    }
+
     // 选择优先级最高的干员
-    auto selected_oper =
-        std::ranges::max_element(recruit_list, std::less {}, std::mem_fn(&RoguelikeRecruitInfo::priority));
+    // 希望宽裕时给六星加权。依据：n6 下六星要 6~7 希望（实测峰值 4~10），
+    // 而优先级表里 5★群奶白面鸮 810 只比 6★群奶夜莺 808 高 2 分，
+    // 不加权就永远轮不到六星（都带 6★ 的上限效益也拿不到）。
+    constexpr int SixStarBonus = 50;
+    constexpr int HopeRichThreshold = 5; // 2026-10-26 由 6 降为 5：后期阵容强度不足，提前抢六星
+    const bool hope_rich = cur_hope >= HopeRichThreshold;
+    auto oper_score = [hope_rich](const RoguelikeRecruitInfo& info) {
+        int bonus = 0;
+        if (hope_rich && BattleDataConfig::get_instance().get_rarity(battle::Role::Unknown, info.name) >= 5) {
+            bonus = SixStarBonus;
+        }
+        return info.priority + bonus;
+    };
+    auto selected_oper = std::ranges::max_element(
+        recruit_list,
+        [&oper_score](const RoguelikeRecruitInfo& a, const RoguelikeRecruitInfo& b) {
+            return oper_score(a) < oper_score(b);
+        });
     if (selected_oper == recruit_list.cend()) {
         Log.trace(__FUNCTION__, "| No opers in recruit list.");
         return false;
     }
 
+    Log.info(
+        __FUNCTION__,
+        "| Six-star bonus applied:",
+        hope_rich,
+        "hope:",
+        cur_hope,
+        "rarity:",
+        BattleDataConfig::get_instance().get_rarity(battle::Role::Unknown, selected_oper->name),
+        "base_priority:",
+        selected_oper->priority);
     std::string char_name = selected_oper->name;
     Log.trace(
         __FUNCTION__,

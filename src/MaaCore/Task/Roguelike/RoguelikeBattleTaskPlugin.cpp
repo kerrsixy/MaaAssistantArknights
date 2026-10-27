@@ -1,3 +1,5 @@
+#include <regex>
+
 #include "RoguelikeBattleTaskPlugin.h"
 
 #include <chrono>
@@ -56,6 +58,38 @@ bool asst::RoguelikeBattleTaskPlugin::verify(AsstMsg msg, const json::value& det
 
 bool asst::RoguelikeBattleTaskPlugin::_run()
 {
+
+    // 进入战斗前位于地图界面，读取「目标生命值」并记录掉血，供判断关卡风险
+    {
+        RegionOCRer hp_ocr(ctrler()->get_image());
+        hp_ocr.set_task_info("Mizuki@Roguelike@HpRecognition");
+        const auto hp_res = hp_ocr.analyze();
+        const bool hp_ok = hp_res.has_value();
+        if (hp_ok) {
+            int hp_now = -1;
+            // 只在读到 "X/Y" 形式时采信，避免把标签文字当数值
+            {
+                static const std::regex hp_re(R"((\d{1,2})\s*/\s*(\d{1,2}))");
+                std::smatch hp_match;
+                const std::string hp_text = hp_ocr.get_result().text;
+                if (std::regex_search(hp_text, hp_match, hp_re)) {
+                    try {
+                        hp_now = std::stoi(hp_match[1].str());
+                    }
+                    catch (...) {
+                        hp_now = -1;
+                    }
+                }
+            }
+            if (hp_now > 0 && hp_now <= 30) {
+                const int hp_old = m_config->status().hp;
+                if (hp_now != hp_old) {
+                    Log.info("Roguelike HP changed:", hp_old, "->", hp_now, "loss:", hp_old - hp_now);
+                }
+                m_config->status().hp = hp_now;
+            }
+        }
+    }
     using namespace std::chrono_literals;
     LogTraceFunction;
 
@@ -327,6 +361,7 @@ bool asst::RoguelikeBattleTaskPlugin::get_position_full(const battle::Deployment
 
 bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
 {
+    Log.info("deploy diag: cur_opers", m_cur_deployment_opers.size(), "homes", m_homes.size());
     LogTraceFunction;
     Log.info("m_kills", m_kills);
 
@@ -348,6 +383,12 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
     // 获取当前肉鸽的分组内排名信息
     // const auto& group_rank = RoguelikeRecruit.get_group_rank(rogue_theme);
     for (const auto& oper : m_cur_deployment_opers) {
+        // 骰子等道具永远不在任何 deploy plan 里，直接跳过。
+        // 否则每轮循环都会刷一条 "is not in ALL deploy plan"，并且它们还会被当成
+        // 候选干员参与后续的部署链判断，干扰正常干员的部署次序。
+        if (DiceSet.contains(oper.name)) {
+            continue;
+        }
         // 干员冷却中
         if (oper.cooling) {
             LogDebug << "operator" << oper.name << "is cooling now.";
@@ -401,6 +442,21 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
         }
     }
     std::sort(deploy_plan_list.begin(), deploy_plan_list.end());
+    // 部署位预留策略：记录「优先级更高但费用不足」的待命项，
+    // 非开局阶段遇到优先级更低的项时先跳过，把部署位留给待命项。
+    int best_waiting_rank = INT_MAX;
+    std::string best_waiting_name;
+    const bool early_phase = m_kills < 30;
+    // 保命优先：场上还没有医疗时，医疗干员不参与「留位」跳过，费用一够就下。
+    // 依据（用户实测）：领地意识等图有远程/爆炸原石虫，没有医疗时前期就会漏怪。
+    bool need_medic = true;
+    for (const auto& [tag, _] : m_deployed_time) {
+        if (tag.role == battle::Role::Medic) {
+            need_medic = false;
+            break;
+        }
+    }
+
     for (const auto& deploy_plan : deploy_plan_list) {
         if (!m_used_tiles.contains(deploy_plan.placed) &&
             !m_blacklist_location.contains(deploy_plan.placed) /* 判断该位置是否已被占据 */) {
@@ -410,9 +466,23 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                         return oper.role == deploy_plan.role && oper.name == deploy_plan.oper_name;
                     });
                 oper_it == m_cur_deployment_opers.end() || !oper_it->available) { // 等费
-                LogTrace << "    best deploy is" << deploy_plan.oper_name << "with rank" << deploy_plan.rank
-                         << "but now waiting for cost.";
-                return true;
+                // 费用不够时继续尝试排名更低的干员，而不是直接放弃本次部署。
+                // 否则高费干员排在 rank 1 时会把整条部署链卡死：既不放低费先锋回费，
+                // 也永远等不到高费干员所需的费用，最终一路漏怪。
+                Log.trace("    best deploy is", deploy_plan.oper_name, "with rank", deploy_plan.rank,
+                          "but now waiting for cost, try next.");
+                if (deploy_plan.rank < best_waiting_rank) {
+                    best_waiting_rank = deploy_plan.rank;
+                    best_waiting_name = deploy_plan.oper_name;
+                }
+                continue;
+            }
+            // 但也不能一味等：场上人数不足 3 时先把人放下，否则前期就漏怪。
+            if (!early_phase && m_used_tiles.size() >= 3 && deploy_plan.rank > best_waiting_rank &&
+                !(need_medic && deploy_plan.role == battle::Role::Medic)) {
+                Log.info("reserve slot: skip", deploy_plan.oper_name, "rank", deploy_plan.rank,
+                         "waiting for", best_waiting_name, "rank", best_waiting_rank);
+                continue;
             }
             deploy_oper(deploy_plan.role, deploy_plan.oper_name, deploy_plan.placed, deploy_plan.direction);
             battle::OperNameTag oper_tag { deploy_plan.role, deploy_plan.oper_name };
@@ -432,11 +502,75 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
     return is_success;
 }
 
+// 漏怪 / 崩盘诊断。
+// 依据：
+//   1)《敌人机制与 MAA 可观测性盘点》§4：战斗内可观测项只有「已击杀 / 敌人总数 / 费用」，
+//      敌人血量、攻击类型（物理/法术/真实/元素）、攻击范围、元素损伤条、以及「村民」这类
+//      中立单位全部不可读；因此元素损伤、村民扣血、精英/领袖识别在本架构下无法做反应式判断。
+//   2)《水月肉鸽全地图机制盘点》§5：漏怪集中在窄图与多蓝门图的早期费用真空期。
+// 实现取舍：本轮只「把看不见的变成看得见」，不在战斗内做任何会自动改变部署行为的判断，
+//      以免在冲 N8 的过程中引入回归。心跳 30 秒一条、停滞告警每场最多一次，日志量可控。
+void asst::RoguelikeBattleTaskPlugin::diagnose_battle_progress()
+{
+    const auto now = std::chrono::steady_clock::now();
+
+    // 击杀数回退说明已进入新的一场战斗，重置统计窗口
+    if (m_kills < m_diag_last_kills) {
+        m_diag_battle_start = now;
+        m_diag_last_kill_time = now;
+        m_diag_last_kills = m_kills;
+        m_diag_last_heartbeat = -1;
+        m_diag_stall_warned = false;
+        return;
+    }
+    if (m_diag_battle_start == std::chrono::steady_clock::time_point {}) {
+        m_diag_battle_start = now;
+        m_diag_last_kill_time = now;
+    }
+    if (m_kills != m_diag_last_kills) {
+        m_diag_last_kills = m_kills;
+        m_diag_last_kill_time = now;
+        m_diag_stall_warned = false;
+    }
+
+    const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - m_diag_battle_start).count();
+    const auto stalled = std::chrono::duration_cast<std::chrono::seconds>(now - m_diag_last_kill_time).count();
+
+    // 心跳：每 30 秒一条，记录 地图 / 已用时间 / 已击杀 / 总数 / 剩余 / 费用
+    if (elapsed >= 30 && static_cast<int>(elapsed / 30) != m_diag_last_heartbeat) {
+        m_diag_last_heartbeat = static_cast<int>(elapsed / 30);
+        Log.info("battle_progress", m_stage_name, "elapsed", elapsed, "kills", m_kills);
+        Log.info("battle_progress", m_stage_name, "total", m_total_kills, "remain", m_total_kills - m_kills,
+                 "cost", m_cost);
+    }
+
+    // 停滞告警：45 秒没有任何击杀，基本等价于「打不动 / 已经漏怪 / 输出不足」
+    if (!m_diag_stall_warned && elapsed >= 45 && stalled >= 45) {
+        m_diag_stall_warned = true;
+        Log.warn("battle_stalled", m_stage_name, "no_kill_for", stalled, "s", "kills", m_kills,
+                 "total", m_total_kills, "cost", m_cost);
+    }
+}
+
 bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Mat& image_prev)
 {
+    // 每 5 秒输出一次战斗状态快照，定位漏怪时的可用兵力
+    {
+        static auto last_snap = std::chrono::steady_clock::now();
+        const auto now_ts = std::chrono::steady_clock::now();
+        if (now_ts - last_snap >= std::chrono::seconds(5)) {
+            last_snap = now_ts;
+            Log.info(
+                "battle snap: avail",
+                m_cur_deployment_opers.size(),
+                "kills",
+                m_kills);
+        }
+    }
     check_drone_tiles();
 
-    // TODO: move this to controller
+    // 注：战斗界面无「目标生命值」显示，血量采集已移至地图阶段（见 TODO）
+
     thread_local auto prev_frame_time = std::chrono::steady_clock::time_point {};
     static const auto min_frame_interval =
         std::chrono::milliseconds(Config.get_options().roguelike_fight_screencap_interval);
@@ -481,6 +615,8 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
     }
     update_cost(image, image_prev);
     update_kills(image, image_prev);
+    // 漏怪 / 崩盘诊断：只记录，不干预部署
+    diagnose_battle_progress();
 
     std::unordered_set<std::string> cur_cooling;
     size_t cur_available_count = 0;   // without drones
@@ -514,11 +650,13 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
         if (!urgent_home_opt) {
             // 不要随便谁好了就上，等等费用，下点厉害的干员
             // TODO: 这个逻辑目前太简单了，待优化
-            bool not_battlefield_too_few = m_battlefield_opers.size() > m_homes.size();
+            // 原实现用 m_homes.size()（蓝门数量）当「应该部署几个人」的阈值，语义不成立：
+            // 蓝门多不代表该多下人，蓝门少反而会永远觉得不够。改用场上人数的绝对下限。
+            bool battlefield_enough = m_battlefield_opers.size() >= 4;
             bool available_too_few = cur_available_count <= cur_deployments_count / 2;
             bool not_too_many_cooling = cur_cooling.size() < cur_available_count;
 
-            if (not_battlefield_too_few && available_too_few && not_too_many_cooling) {
+            if (battlefield_enough && available_too_few && not_too_many_cooling) {
                 Log.info("wait a minute");
                 return true;
             }
@@ -786,6 +924,8 @@ std::optional<asst::battle::DeploymentOper> asst::RoguelikeBattleTaskPlugin::cal
             break;
         }
     }
+    // 2026-10-26 移除「随机兑底」：职业组全不匹配时强行放人，是无效站位的主要来源
+    // （会把近卫放到高台、把医疗放到没怪的路径上）。没有匹配就不放。
     if (best_oper.name.empty()) {
         Log.info("No best oper");
         return std::nullopt;
@@ -957,6 +1097,7 @@ std::optional<asst::RoguelikeBattleTaskPlugin::DeployInfo>
     Point best_location;
     DeployDirection best_direction = DeployDirection::None;
     int max_score = INT_MIN;
+    int best_raw_score = INT_MIN; // 不含距离惩罚的原始覆盖分，用于识别「无处可打」的盲放
 
     const auto& near_loc = available_loc.front();
     int min_dist = std::abs(near_loc.x - home.location.x) + std::abs(near_loc.y - home.location.y);
@@ -975,6 +1116,7 @@ std::optional<asst::RoguelikeBattleTaskPlugin::DeployInfo>
 
         if (cur_score + extra_dist_score > max_score) {
             max_score = cur_score + extra_dist_score;
+            best_raw_score = cur_score;
             best_location = loc;
             best_direction = cur_direction;
         }
@@ -985,6 +1127,13 @@ std::optional<asst::RoguelikeBattleTaskPlugin::DeployInfo>
         if (iter->second.role.contains(oper.role)) {
             best_direction = iter->second.direction;
         }
+    }
+
+    // 2026-10-26 盲放抑制：场上已有 >=2 人，而最近 4 个候选点的原始覆盖分都不为正，
+    // 说明这些位置打不到任何敌人，放出去就是浪费费用和部署位（用户反馈的「瞎放」）。
+    if (best_raw_score <= 0 && m_used_tiles.size() >= 2) {
+        Log.info("skip blind deploy: no positive coverage, best raw score", best_raw_score);
+        return std::nullopt;
     }
 
     return DeployInfo { best_location, best_direction };
