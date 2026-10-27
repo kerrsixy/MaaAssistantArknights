@@ -128,10 +128,10 @@
         "specificRect": [153, 79, 63, 29],
         "next": [
             "JieGarden@Roguelike@StageEncounterEnter",
+            "JieGarden@Roguelike@Stages#next",
             "JieGarden@Roguelike@CloseEvent@(JieGarden@Roguelike@CloseCollectionContinue)",
             "JieGarden@Roguelike@CloseEvent@(JieGarden@Roguelike@CloseCollectionClose)",
             "JieGarden@Roguelike@CloseEvent",
-            "JieGarden@Roguelike@Stages#next",
             "JieGarden@Roguelike@StageEncounterOptions#next",
             "JieGarden@Roguelike@DropsFlag"
         ]

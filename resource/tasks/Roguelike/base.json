@@ -825,7 +825,7 @@
         "algorithm": "JustReturn"
     },
     "Roguelike@HpFlag": {
-        "roi": [70, 0, 250, 70]
+        "roi": [50, 0, 340, 86]
     },
     "Roguelike@HpRecognition": {
         "baseTask": "NumberOcrReplace",

@@ -137,10 +137,10 @@
         "specificRect": [153, 79, 63, 29],
         "next": [
             "Sarkaz@Roguelike@StageEncounterEnter",
+            "Sarkaz@Roguelike@Stages#next",
             "Sarkaz@Roguelike@CloseEvent@(Sarkaz@Roguelike@CloseCollectionContinue)",
             "Sarkaz@Roguelike@CloseEvent@(Sarkaz@Roguelike@CloseCollectionClose)",
             "Sarkaz@Roguelike@CloseEvent",
-            "Sarkaz@Roguelike@Stages#next",
             "Sarkaz@Roguelike@StageEncounterOptions#next",
             "Sarkaz@Roguelike@DropsFlag"
         ]
