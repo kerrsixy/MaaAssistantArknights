@@ -718,6 +718,13 @@ public static class ResourceUpdater
             }
 
             string tempPath = Path.Combine(destDirName, file.Name);
+            if (IsProtectedResourceFile(tempPath))
+            {
+                // 本地定制过的肉鸽文件，资源更新时保留本地版本，避免被上游整包覆盖
+                _logger.Information("Skip protected resource file: {Path}", tempPath);
+                continue;
+            }
+
             file.CopyTo(tempPath, true); // 覆盖现有文件
         }
 
@@ -728,5 +735,19 @@ public static class ResourceUpdater
         }
 
         versionFile?.CopyTo(Path.Combine(destDirName, versionFile.Name), true);
+    }
+
+    /// <summary>
+    /// 判断目标路径是否为本地定制、需要跨资源更新保留的文件。
+    /// 用路径后缀匹配，避免依赖 <see cref="PathsHelper.ResourceDir"/> 的初始化时机。
+    /// 目前保护两个水月肉鸽文件：任务链定义与招募优先级表。
+    /// </summary>
+    /// <param name="destPath">待写入的目标文件路径。</param>
+    /// <returns>命中保护清单返回 true，应跳过覆盖。</returns>
+    private static bool IsProtectedResourceFile(string destPath)
+    {
+        string normalized = Path.GetFullPath(destPath).Replace('\\', '/');
+        return normalized.EndsWith("/resource/tasks/Roguelike/Mizuki.json", StringComparison.OrdinalIgnoreCase)
+            || normalized.EndsWith("/resource/roguelike/Mizuki/recruitment.json", StringComparison.OrdinalIgnoreCase);
     }
 }
