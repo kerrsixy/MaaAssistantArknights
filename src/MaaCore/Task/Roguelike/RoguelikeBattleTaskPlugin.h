@@ -46,10 +46,27 @@ protected:
         int rank {};                                  // 干员组在部署指令扁平化后的排名
         Point placed;                                 // 指令坐标
         battle::DeployDirection direction {};         // 部署朝向
+        int cost = 0;                                 // 干员部署费用，0 表示未识别
 
-        bool operator<(const DeployPlanInfo& x) const // 重载小于号,同rank时先部署组内排名靠前的
+        bool operator<(const DeployPlanInfo& x) const
         {
-            return (rank < x.rank) || (rank == x.rank && oper_order_in_group < x.oper_order_in_group);
+            if (rank != x.rank) {
+                return rank < x.rank;
+            }
+            // 同 rank（同一落点位）内先比费用，再比组内排名。
+            // 依据：实测 2511 条 `best deploy is X with rank N`，同一 rank 上维什戴尔（25+ 费）
+            // 与史都华德（19 费）交替出现、每轮都是贵的那位先被选中然后 `waiting for cost` 空转。
+            // 原因是组内排名 oper_order_in_group 排在费用前面，而两人的组内排名不同，
+            // 费用永远轮不到比较。同一位配多个组时，「谁能先落地」比「作者把谁排在组内第几」更关键。
+            // cost 取「正数」才参与比较：BattlefieldMatcher::oper_cost_analyze 识别失败时
+            // 返回的是 -1（不是 0），若直接比大小，-1 会被当成「最便宜」排到最前，反而更糟。
+            if (cost > 0 && x.cost > 0 && cost != x.cost) {
+                return cost < x.cost;
+            }
+            if (oper_order_in_group != x.oper_order_in_group) {
+                return oper_order_in_group < x.oper_order_in_group;
+            }
+            return false;
         }
     };
 
@@ -167,5 +184,22 @@ protected:
     std::unordered_map<std::string, int64_t> m_oper_elite;
     // 缓存干员精英情况
     void cache_oper_elite_status();
+
+    // ==== 漏怪 / 崩盘诊断（只读观测，不改变既有部署策略）====
+    // 依据：
+    //   1)《敌人机制与 MAA 可观测性盘点》§4「MAA 侧缺什么」：战斗内 MAA 只能读到
+    //      「已击杀 / 敌人总数 / 费用」，读不到敌人血量、攻击类型、元素损伤条，也读不到
+    //      「村民」这类中立单位，因此无法做敌人级反应式决策。
+    //   2)《水月肉鸽全地图机制盘点》§5：漏怪集中在窄图（部署格少、蓝门集中）与
+    //      多蓝门图的早期费用真空期。
+    // 做法：不猜敌人，只把「本场战斗多久没涨击杀、还剩几个敌人」量化成日志事件，
+    //       供离线按地图名聚合定位漏怪图，作为下一轮行为改动的数据基础。
+    void diagnose_battle_progress();
+
+    std::chrono::steady_clock::time_point m_diag_battle_start {};   // 本场战斗首次观测时刻
+    std::chrono::steady_clock::time_point m_diag_last_kill_time {}; // 最近一次击杀数变化的时刻
+    int m_diag_last_kills = 0;                                       // 上一帧击杀数，用于检测停滞
+    int m_diag_last_heartbeat = -1;                                  // 上次打印心跳的 30 秒刻度，避免刷屏
+    bool m_diag_stall_warned = false;                                // 本轮停滞是否已告警，避免重复刷
 };
 } // namespace asst

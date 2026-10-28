@@ -8,7 +8,7 @@
     ],
     "deploy_plan": [
         {
-            "groups": ["地面C", "百嘉"],
+            "groups": ["投锋", "回费", "地面C", "百嘉"],
             "location": [7, 5],
             "direction": "left"
         },

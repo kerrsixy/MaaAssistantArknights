@@ -12,9 +12,17 @@
     },
     "Sami@StartExplore@Roguelike@RecruitWithoutButton": {},
     "Sami@Roguelike@Abandon": {
-        "template": ["Sami@Roguelike@Abandon.png", "Sami@Roguelike@AbandonPushDoor.png"],
+        "template": [
+            "Sami@Roguelike@Abandon.png",
+            "Sami@Roguelike@AbandonPushDoor.png"
+        ],
         "crop_doc": {
-            "roi": [1112, 268, 53, 52],
+            "roi": [
+                1112,
+                268,
+                53,
+                52
+            ],
             "mask": []
         }
     },
@@ -45,17 +53,37 @@
     },
     "Sami@Roguelike@CheckCollapsalParadigmsBanner": {
         "baseTask": "Sami@Roguelike@CheckCollapsalParadigms",
-        "roi": [945, 60, 335, 660]
+        "roi": [
+            945,
+            60,
+            335,
+            660
+        ]
     },
     "Sami@Roguelike@CheckCollapsalParadigmsOnBanner": {
         "algorithm": "OcrDetect",
-        "text": ["坍缩范式加深", "坍缩范式消退"],
-        "roi": [945, 60, 335, 660]
+        "text": [
+            "坍缩范式加深",
+            "坍缩范式消退"
+        ],
+        "roi": [
+            945,
+            60,
+            335,
+            660
+        ]
     },
     "Sami@Roguelike@CheckCollapsalParadigmsOnPanel": {
         "algorithm": "OcrDetect",
-        "text": ["当前坍缩值"],
-        "roi": [350, 120, 310, 520]
+        "text": [
+            "当前坍缩值"
+        ],
+        "roi": [
+            350,
+            120,
+            310,
+            520
+        ]
     },
     "Sami@Roguelike@CheckCollapsalParadigmsOnStage": {
         "template": [
@@ -69,30 +97,69 @@
             "Sami@Roguelike@OnStage_0.png"
         ],
         "templThreshold": 0.96,
-        "roi": [590, 45, 45, 35]
+        "roi": [
+            590,
+            45,
+            45,
+            35
+        ]
     },
     "Sami@Roguelike@CheckCollapsalParadigmsPanel": {
         "baseTask": "Sami@Roguelike@CheckCollapsalParadigms",
-        "roi": [350, 120, 310, 520]
+        "roi": [
+            350,
+            120,
+            310,
+            520
+        ]
     },
     "Sami@Roguelike@CheckCollapsalParadigms_loading": {
         "algorithm": "OcrDetect",
-        "text": ["正在提交反馈至神经"],
-        "ocrReplace": [["正在提交反馈神经", "正在提交反馈至神经"]],
-        "roi": [720, 645, 355, 45]
+        "text": [
+            "正在提交反馈至神经"
+        ],
+        "ocrReplace": [
+            [
+                "正在提交反馈神经",
+                "正在提交反馈至神经"
+            ]
+        ],
+        "roi": [
+            720,
+            645,
+            355,
+            45
+        ]
     },
     "Sami@Roguelike@CheckLevel": {
-        "text": ["科考记录"]
+        "text": [
+            "科考记录"
+        ]
     },
     "Sami@Roguelike@ChooseDifficulty": {
-        "roi": [1064, 294, 216, 170]
+        "roi": [
+            1064,
+            294,
+            216,
+            170
+        ]
     },
     "Sami@Roguelike@ChooseDifficultyEnter": {
         "action": "ClickRect",
-        "specificRect": [1119, 479, 80, 22],
+        "specificRect": [
+            1119,
+            479,
+            80,
+            22
+        ],
         "postDelay": 800,
         "template": "Sami@Roguelike@StartExplore.png",
-        "roi": [958, 530, 322, 189]
+        "roi": [
+            958,
+            530,
+            322,
+            189
+        ]
     },
     "Sami@Roguelike@ChooseOper": {
         "next": [
@@ -131,14 +198,27 @@
         ]
     },
     "Sami@Roguelike@CloseCollection": {
-        "next": ["Sami@Roguelike@LastReward-EnterPoint", "Sami@Roguelike@GetLUD", "Sami@Roguelike@RolesDefault"]
+        "next": [
+            "Sami@Roguelike@LastReward-EnterPoint",
+            "Sami@Roguelike@GetLUD",
+            "Sami@Roguelike@RolesDefault"
+        ]
     },
     "Sami@Roguelike@CloseCollectionClose": {
         "action": "ClickSelf",
         "templThreshold": 0.9,
-        "roi": [572, 434, 144, 141],
-        "onErrorNext": ["#back"],
-        "next": ["#next"]
+        "roi": [
+            572,
+            434,
+            144,
+            141
+        ],
+        "onErrorNext": [
+            "#back"
+        ],
+        "next": [
+            "#next"
+        ]
     },
     "Sami@Roguelike@CloseEvent": {},
     "Sami@Roguelike@CloseInterview": {
@@ -146,9 +226,21 @@
     },
     "Sami@Roguelike@Collapsal": {
         "algorithm": "OcrDetect",
-        "text": ["目空", "目空一些", "图像", "图像损坏"],
-        "roi": [1000, 22, 280, 165],
-        "next": ["RoguelikeControlTaskPlugin-Stop"]
+        "text": [
+            "目空",
+            "目空一些",
+            "图像",
+            "图像损坏"
+        ],
+        "roi": [
+            1000,
+            22,
+            280,
+            165
+        ],
+        "next": [
+            "RoguelikeControlTaskPlugin-Stop"
+        ]
     },
     "Sami@Roguelike@CollapsalParadigmTaskBannerCheckConfig": {
         "doc": [
@@ -158,8 +250,12 @@
             "| next: 在 SubTaskCompleted 时触发 banner check 的任务"
         ],
         "algorithm": "OcrDetect",
-        "text": ["坍缩范式加深"],
-        "sub": ["Sami@Roguelike@MissionCompletedFlag"],
+        "text": [
+            "坍缩范式加深"
+        ],
+        "sub": [
+            "Sami@Roguelike@MissionCompletedFlag"
+        ],
         "next": [
             "Sami@Roguelike@GetDrop1",
             "Sami@Roguelike@GetDrop2",
@@ -228,27 +324,75 @@
             "Sami@Roguelike@StageFerociousPresage"
         ],
         "ocrReplace": [
-            ["Sami@Roguelike@OnStage_0.png", "深埋迷境"],
-            ["Sami@Roguelike@OnStage_1.png", "初霜湖泽"],
-            ["Sami@Roguelike@OnStage_2.png", "密静林地"],
-            ["Sami@Roguelike@OnStage_3.png", "昧明冻土"],
-            ["Sami@Roguelike@OnStage_4.png", "积冰岩骸"],
-            ["Sami@Roguelike@OnStage_5.png", "无瑕花园"],
-            ["Sami@Roguelike@OnStage_6.png", "远见之构"],
-            ["Sami@Roguelike@OnStage_7.png", "永恒之尘"]
+            [
+                "Sami@Roguelike@OnStage_0.png",
+                "深埋迷境"
+            ],
+            [
+                "Sami@Roguelike@OnStage_1.png",
+                "初霜湖泽"
+            ],
+            [
+                "Sami@Roguelike@OnStage_2.png",
+                "密静林地"
+            ],
+            [
+                "Sami@Roguelike@OnStage_3.png",
+                "昧明冻土"
+            ],
+            [
+                "Sami@Roguelike@OnStage_4.png",
+                "积冰岩骸"
+            ],
+            [
+                "Sami@Roguelike@OnStage_5.png",
+                "无瑕花园"
+            ],
+            [
+                "Sami@Roguelike@OnStage_6.png",
+                "远见之构"
+            ],
+            [
+                "Sami@Roguelike@OnStage_7.png",
+                "永恒之尘"
+            ]
         ],
         "text": []
     },
     "Sami@Roguelike@Continue": {
-        "roi": [967, 536, 313, 177],
-        "next": ["Sami@Roguelike@MissionFailedFlag2", "Sami@Roguelike@ExitThenAbandon", "Sami@Roguelike@ContinueClick"]
+        "roi": [
+            967,
+            536,
+            313,
+            177
+        ],
+        "next": [
+            "Sami@Roguelike@MissionFailedFlag2",
+            "Sami@Roguelike@ExitThenAbandon",
+            "Sami@Roguelike@ContinueClick"
+        ]
     },
     "Sami@Roguelike@ContinueClick": {
         "algorithm": "OcrDetect",
         "action": "ClickSelf",
-        "text": ["初霜湖泽", "密静林地", "昧明冻土", "积冰岩骸", "无瑕花园", "远见之构", "深埋迷境"],
-        "roi": [522, 525, 245, 81],
-        "next": ["Sami@Roguelike@Continue"]
+        "text": [
+            "初霜湖泽",
+            "密静林地",
+            "昧明冻土",
+            "积冰岩骸",
+            "无瑕花园",
+            "远见之构",
+            "深埋迷境"
+        ],
+        "roi": [
+            522,
+            525,
+            245,
+            81
+        ],
+        "next": [
+            "Sami@Roguelike@Continue"
+        ]
     },
     "Sami@Roguelike@DeepExploration": {
         "template": "Roguelike@DeepExploration.png"
@@ -264,61 +408,121 @@
     },
     "Sami@Roguelike@DialogSkip": {
         "template": "Roguelike@DialogSkip.png",
-        "next": ["Sami@Roguelike@DialogSkipConfirm"]
+        "next": [
+            "Sami@Roguelike@DialogSkipConfirm"
+        ]
     },
     "Sami@Roguelike@DialogSkipConfirm": {
         "template": "Roguelike@DialogSkipConfirm.png",
-        "next": ["Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@DropsFlag": {
         "template": "Roguelike@DropsFlag.png",
         "baseTask": "Sami@Roguelike@DropsFlag_default"
     },
     "Sami@Roguelike@EnterAfterRecruit": {
-        "next": ["#self", "Sami@Roguelike@NextLevel", "Sami@Roguelike@FoldartalGainNextLevel"]
+        "next": [
+            "#self",
+            "Sami@Roguelike@NextLevel",
+            "Sami@Roguelike@FoldartalGainNextLevel"
+        ]
     },
     "Sami@Roguelike@ExitThenAbandon": {
         "template": "Roguelike@ExitThenAbandon.png",
-        "next": ["Sami@Roguelike@ExitThenAbandon", "Sami@Roguelike@Abandon"]
+        "next": [
+            "Sami@Roguelike@ExitThenAbandon",
+            "Sami@Roguelike@Abandon"
+        ]
     },
     "Sami@Roguelike@ExitThenAbandon_ToHardest": {
         "template": "Roguelike@ExitThenAbandon.png",
-        "next": ["Sami@Roguelike@ExitThenAbandon_ToHardest", "Sami@Roguelike@Abandon"]
+        "next": [
+            "Sami@Roguelike@ExitThenAbandon_ToHardest",
+            "Sami@Roguelike@Abandon"
+        ]
     },
     "Sami@Roguelike@Foldartal": {
         "action": "ClickSelf",
-        "roi": [639, 599, 299, 121],
+        "roi": [
+            639,
+            599,
+            299,
+            121
+        ],
         "postDelay": 2000,
-        "next": ["#self", "Stop"]
+        "next": [
+            "#self",
+            "Stop"
+        ]
     },
     "Sami@Roguelike@FoldartalBack": {
         "action": "ClickSelf",
-        "roi": [0, 0, 146, 144],
+        "roi": [
+            0,
+            0,
+            146,
+            144
+        ],
         "postDelay": 2000
     },
     "Sami@Roguelike@FoldartalGain": {
         "doc": "本任务注册插件RoguelikeFoldartalGain",
         "action": "ClickRect",
-        "specificRect": [611, 496, 60, 51],
+        "specificRect": [
+            611,
+            496,
+            60,
+            51
+        ],
         "postDelay": 500,
-        "roi": [333, 201, 676, 307],
-        "maskRange": [1, 255],
-        "next": ["Sami@Roguelike@FoldartalGain", "Sami@Roguelike@LastRewardChoose", "Sami@Roguelike@SquadConfirm#next"]
+        "roi": [
+            333,
+            201,
+            676,
+            307
+        ],
+        "maskRange": [
+            1,
+            255
+        ],
+        "next": [
+            "Sami@Roguelike@FoldartalGain",
+            "Sami@Roguelike@LastRewardChoose",
+            "Sami@Roguelike@SquadConfirm#next"
+        ]
     },
     "Sami@Roguelike@FoldartalGainNextLevel": {
         "baseTask": "Sami@Roguelike@NextLevel",
-        "text": ["完成本层", "下一层级"],
-        "roi": [268, 600, 197, 78]
+        "text": [
+            "完成本层",
+            "下一层级"
+        ],
+        "roi": [
+            268,
+            600,
+            197,
+            78
+        ]
     },
     "Sami@Roguelike@FoldartalGainNextLevelThenExit": {
         "Doc": "点进下一层后执行退出",
         "baseTask": "Sami@Roguelike@FoldartalGainNextLevel",
-        "next": ["#self", "Sami@Roguelike@ExitThenAbandon"]
+        "next": [
+            "#self",
+            "Sami@Roguelike@ExitThenAbandon"
+        ]
     },
     "Sami@Roguelike@FoldartalGainOcr": {
         "doc": "深入调查调查装备也在这里",
         "algorithm": "OcrDetect",
-        "roi": [584, 261, 315, 46],
+        "roi": [
+            584,
+            261,
+            315,
+            46
+        ],
         "text": [
             "_布局_",
             "黜人",
@@ -373,48 +577,111 @@
             "自走车"
         ],
         "ocrReplace": [
-            ["黜", "黜人"],
-            ["满", "萨满"],
-            ["\"", ""]
+            [
+                "黜",
+                "黜人"
+            ],
+            [
+                "满",
+                "萨满"
+            ],
+            [
+                "\"",
+                ""
+            ]
         ]
     },
     "Sami@Roguelike@FoldartalGainOcrAfterCombat": {
         "baseTask": "Sami@Roguelike@FoldartalGainOcr",
-        "roi": [44, 309, 1195, 124]
+        "roi": [
+            44,
+            309,
+            1195,
+            124
+        ]
     },
     "Sami@Roguelike@FoldartalGainOcrNextLevel": {
         "baseTask": "Sami@Roguelike@FoldartalGainOcr",
-        "roi": [290, 640, 151, 34]
+        "roi": [
+            290,
+            640,
+            151,
+            34
+        ]
     },
     "Sami@Roguelike@FoldartalUseConfirm": {
         "algorithm": "OcrDetect",
         "action": "ClickSelf",
-        "text": ["开始宣告"],
-        "roi": [953, 597, 302, 113],
+        "text": [
+            "开始宣告"
+        ],
+        "roi": [
+            953,
+            597,
+            302,
+            113
+        ],
         "postDelay": 2000,
         "ocrReplace": [
-            ["开始告", "开始宣告"],
-            ["^开始宣.*", "开始宣告"]
+            [
+                "开始告",
+                "开始宣告"
+            ],
+            [
+                "^开始宣.*",
+                "开始宣告"
+            ]
         ]
     },
     "Sami@Roguelike@FoldartalUseOcr": {
         "algorithm": "OcrDetect",
-        "text": ["布局"],
-        "roi": [38, 64, 85, 578],
-        "rectMove": [150, -50, 50, 5],
+        "text": [
+            "布局"
+        ],
+        "roi": [
+            38,
+            64,
+            85,
+            578
+        ],
+        "rectMove": [
+            150,
+            -50,
+            50,
+            5
+        ],
         "specificRect_Doc": "x拿来当文字灰度二值化下限用",
-        "specificRect": [150, 0, 0, 0],
+        "specificRect": [
+            150,
+            0,
+            0,
+            0
+        ],
         "ocrReplace": [
-            ["黜", "黜人"],
-            ["满", "萨满"],
-            ["\"", ""]
+            [
+                "黜",
+                "黜人"
+            ],
+            [
+                "满",
+                "萨满"
+            ],
+            [
+                "\"",
+                ""
+            ]
         ]
     },
     "Sami@Roguelike@FoldartalUseOnStage": {
         "action": "ClickSelf",
         "template": "empty.png",
         "maxTimes": 10,
-        "roi": [429, 111, 844, 477]
+        "roi": [
+            429,
+            111,
+            844,
+            477
+        ]
     },
     "Sami@Roguelike@FoldartalUseOnStageBattle": {
         "baseTask": "Sami@Roguelike@FoldartalUseOnStage",
@@ -423,17 +690,29 @@
             "Sami@Roguelike@FoldartalUseOnEmergencyOps.png",
             "Sami@Roguelike@FoldartalUseOnFerociousPresage.png"
         ],
-        "templThreshold": [0.7, 0.7, 0.7]
+        "templThreshold": [
+            0.7,
+            0.7,
+            0.7
+        ]
     },
     "Sami@Roguelike@FoldartalUseOnStageBoss": {
         "baseTask": "Sami@Roguelike@FoldartalUseOnStage",
-        "template": ["Sami@Roguelike@FoldartalUseOnDreadfulFoe-5.png"],
-        "templThreshold": [0.7]
+        "template": [
+            "Sami@Roguelike@FoldartalUseOnDreadfulFoe-5.png"
+        ],
+        "templThreshold": [
+            0.7
+        ]
     },
     "Sami@Roguelike@FoldartalUseOnStageEncounter": {
         "baseTask": "Sami@Roguelike@FoldartalUseOnStage",
-        "template": ["Sami@Roguelike@FoldartalUseOnEncounter.png"],
-        "templThreshold": [0.7]
+        "template": [
+            "Sami@Roguelike@FoldartalUseOnEncounter.png"
+        ],
+        "templThreshold": [
+            0.7
+        ]
     },
     "Sami@Roguelike@FoldartalUseOnStageGambling": {
         "baseTask": "Sami@Roguelike@FoldartalUseOnStage",
@@ -443,7 +722,12 @@
             "Sami@Roguelike@FoldartalUseOnEmergencyTransportation.png",
             "Sami@Roguelike@FoldartalUseOnMysteriousPresage.png"
         ],
-        "templThreshold": [0.7, 0.7, 0.7, 0.7]
+        "templThreshold": [
+            0.7,
+            0.7,
+            0.7,
+            0.7
+        ]
     },
     "Sami@Roguelike@FoldartalUseOnStageSkipBattle": {
         "baseTask": "Sami@Roguelike@FoldartalUseOnStage",
@@ -452,12 +736,20 @@
             "Sami@Roguelike@FoldartalUseOnEmergencyOps.png",
             "Sami@Roguelike@FoldartalUseOnFerociousPresage.png"
         ],
-        "templThreshold": [0.7, 0.7, 0.7]
+        "templThreshold": [
+            0.7,
+            0.7,
+            0.7
+        ]
     },
     "Sami@Roguelike@FoldartalUseOnStageTrader": {
         "baseTask": "Sami@Roguelike@FoldartalUseOnStage",
-        "template": ["Sami@Roguelike@FoldartalUseOnTrader.png"],
-        "templThreshold": [0.7]
+        "template": [
+            "Sami@Roguelike@FoldartalUseOnTrader.png"
+        ],
+        "templThreshold": [
+            0.7
+        ]
     },
     "Sami@Roguelike@GamePass": {},
     "Sami@Roguelike@GamePassSkip1": {},
@@ -469,7 +761,11 @@
     "Sami@Roguelike@GetDrop3": {},
     "Sami@Roguelike@GetDrop4": {
         "baseTask": "Roguelike@GetDrop",
-        "next": ["Sami@Roguelike@DropsFlag", "Sami@Roguelike@ChooseOperFlag", "Sami@Roguelike@ClickToDrops"]
+        "next": [
+            "Sami@Roguelike@DropsFlag",
+            "Sami@Roguelike@ChooseOperFlag",
+            "Sami@Roguelike@ClickToDrops"
+        ]
     },
     "Sami@Roguelike@GetDropCompleted": {},
     "Sami@Roguelike@GetDropLeave": {},
@@ -490,9 +786,18 @@
     "Sami@Roguelike@GetDropSelectReward": {},
     "Sami@Roguelike@GetDropSelectReward2": {
         "Doc": "密文板三选一",
-        "roi": [0, 420, 1280, 175],
+        "roi": [
+            0,
+            420,
+            1280,
+            175
+        ],
         "postDelay": 800,
-        "next": ["Sami@Roguelike@GetDropSelectReward2", "Sami@Roguelike@ChooseOperFlag", "Sami@Roguelike@ClickToDrops"]
+        "next": [
+            "Sami@Roguelike@GetDropSelectReward2",
+            "Sami@Roguelike@ChooseOperFlag",
+            "Sami@Roguelike@ClickToDrops"
+        ]
     },
     "Sami@Roguelike@GetDrops": {
         "next": [
@@ -508,10 +813,19 @@
     "Sami@Roguelike@GetLUD": {
         "doc": "萨米调查装备只拿一个LUD-99X，暂时性措施",
         "algorithm": "OcrDetect",
-        "text": ["LUD"],
+        "text": [
+            "LUD"
+        ],
         "action": "ClickSelf",
-        "roi": [100, 430, 1100, 63],
-        "next": ["Sami@Roguelike@LastRewardConfirm"]
+        "roi": [
+            100,
+            430,
+            1100,
+            63
+        ],
+        "next": [
+            "Sami@Roguelike@LastRewardConfirm"
+        ]
     },
     "Sami@Roguelike@InitialDrop": {},
     "Sami@Roguelike@LastReward": {},
@@ -537,51 +851,102 @@
     "Sami@Roguelike@LastReward3": {},
     "Sami@Roguelike@LastReward4": {},
     "Sami@Roguelike@LastRewardChoose": {
-        "roi": [485, 4, 368, 119],
-        "next": ["Sami@Roguelike@SquadConfirm#next"]
+        "roi": [
+            485,
+            4,
+            368,
+            119
+        ],
+        "next": [
+            "Sami@Roguelike@SquadConfirm#next"
+        ]
     },
     "Sami@Roguelike@LastRewardConfirm": {},
     "Sami@Roguelike@LastRewardRand": {},
     "Sami@Roguelike@MapObject": {
-        "roi": [257, 488, 189, 123],
-        "next": ["Sami@StartExplore@Roguelike@RecruitOther"]
+        "roi": [
+            257,
+            488,
+            189,
+            123
+        ],
+        "next": [
+            "Sami@StartExplore@Roguelike@RecruitOther"
+        ]
     },
     "Sami@Roguelike@MissionFailedFlag": {},
     "Sami@Roguelike@MissionFailedFlag2": {},
     "Sami@Roguelike@MissionFailedFlag3": {
         "baseTask": "Sami@Roguelike@MissionFailedFlag",
         "template": "Sami@Roguelike@MissionFailedFlag3.png",
-        "roi": [504, 163, 480, 267]
+        "roi": [
+            504,
+            163,
+            480,
+            267
+        ]
     },
     "Sami@Roguelike@MonthlySquad": {
         "template": "Roguelike@MonthlySquad.png"
     },
     "Sami@Roguelike@MonthlySquadComms": {
         "template": "Roguelike@MonthlySquadComms.png",
-        "roi": [560, 420, 190, 60]
+        "roi": [
+            560,
+            420,
+            190,
+            60
+        ]
     },
     "Sami@Roguelike@MonthlySquadCommsCompleted": {
         "template": "Roguelike@CommsCompleted.png",
-        "roi": [390, 480, 160, 50]
+        "roi": [
+            390,
+            480,
+            160,
+            50
+        ]
     },
     "Sami@Roguelike@MonthlySquadRewardCompleted": {
         "template": "Roguelike@RewardCompleted.png",
-        "specificRect": [490, 530, 45, 55]
+        "specificRect": [
+            490,
+            530,
+            45,
+            55
+        ]
     },
     "Sami@Roguelike@NextLevel": {
-        "text": ["初霜湖泽", "密静林地", "昧明冻土", "积冰岩骸", "无瑕花园", "远见之构", "深埋迷境"],
-        "roi": [522, 525, 245, 81],
+        "text": [
+            "初霜湖泽",
+            "密静林地",
+            "昧明冻土",
+            "积冰岩骸",
+            "无瑕花园",
+            "远见之构",
+            "深埋迷境"
+        ],
+        "roi": [
+            522,
+            525,
+            245,
+            81
+        ],
         "next": [
+            "Sami@Roguelike@StrategyChange",
             "Sami@Roguelike@FoldartalGainNextLevel",
             "Sami@Roguelike@CloseInterview",
-            "Sami@Roguelike@StrategyChange",
             "Sami@Roguelike@NextLevel"
         ]
     },
     "Sami@Roguelike@NextLevelThenExit": {
         "Doc": "点进下一层后执行退出",
         "baseTask": "Sami@Roguelike@NextLevel",
-        "next": ["#self", "Sami@Roguelike@FoldartalGainNextLevelThenExit", "Sami@Roguelike@ExitThenAbandon"]
+        "next": [
+            "#self",
+            "Sami@Roguelike@FoldartalGainNextLevelThenExit",
+            "Sami@Roguelike@ExitThenAbandon"
+        ]
     },
     "Sami@Roguelike@RecruitMain": {
         "template": "Sami@Roguelike@Recruit.png"
@@ -607,7 +972,9 @@
     },
     "Sami@Roguelike@RolesDefault": {},
     "Sami@Roguelike@SelectTheme": {
-        "text": ["科考记录"]
+        "text": [
+            "科考记录"
+        ]
     },
     "Sami@Roguelike@SpecialValRecognition": {
         "Doc": "特殊值识别，如抗干扰值，需修改对应主题的roi",
@@ -629,12 +996,18 @@
     "Sami@Roguelike@SquadDefault": {},
     "Sami@Roguelike@StageBoons": {
         "templThreshold": 0.95,
-        "next": ["Sami@Roguelike@StageBoonsEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageBoonsEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageBoonsAI6": {
         "baseTask": "Sami@Roguelike@Stage",
         "templThreshold": 0.95,
-        "next": ["Sami@Roguelike@StageBoonsEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageBoonsEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageBoonsEnter": {
         "template": "Sami@Roguelike@StageTraderEnter.png",
@@ -648,12 +1021,18 @@
     "Sami@Roguelike@StageBoskyPassage": {
         "templThreshold": 0.9,
         "baseTask": "Sami@Roguelike@Stage",
-        "next": ["Sami@Roguelike@StageBoskyPassageEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageBoskyPassageEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageBoskyPassageAI6": {
         "templThreshold": 0.9,
         "baseTask": "Sami@Roguelike@Stage",
-        "next": ["Sami@Roguelike@StageBoskyPassageEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageBoskyPassageEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageBoskyPassageEnter": {
         "baseTask": "Sami@Roguelike@StageEnter",
@@ -681,7 +1060,9 @@
         "Doc": "第五层的boss关卡",
         "baseTask": "Sami@Roguelike@Stage",
         "templThreshold": 0.85,
-        "exceededNext": ["RoguelikeControlTaskPlugin-Stop"],
+        "exceededNext": [
+            "RoguelikeControlTaskPlugin-Stop"
+        ],
         "next": [
             "Sami@Roguelike@StageDreadfulFoe-5Enter",
             "Sami@Roguelike@StageDreadfulFoeEnter",
@@ -711,21 +1092,35 @@
         "Doc": "先行一步，拒绝可以获取2希望",
         "baseTask": "Sami@Roguelike@Stage",
         "templThreshold": 0.95,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageEmergencyTransportationAI6": {
         "baseTask": "Sami@Roguelike@Stage",
         "templThreshold": 0.95,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageEncounter": {
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@FoldartalBack", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@FoldartalBack",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageEncounterAI6": {
         "templThreshold": 0.9,
         "baseTask": "Sami@Roguelike@Stage",
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@FoldartalBack", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@FoldartalBack",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageEncounterEnter": {},
     "Sami@Roguelike@StageEncounterLeaveConfirm": {},
@@ -753,7 +1148,10 @@
         "Doc": "凶戾的预感",
         "baseTask": "Sami@Roguelike@Stage",
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageFerociousPresageEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageFerociousPresageEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageFerociousPresageEnter": {
         "baseTask": "Sami@Roguelike@StageEnterBattle"
@@ -762,35 +1160,53 @@
         "Doc": "骰子关卡",
         "baseTask": "Sami@Roguelike@Stage",
         "templThreshold": 0.95,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageGamblingAI6": {
         "baseTask": "Sami@Roguelike@Stage",
         "templThreshold": 0.95,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageMysteriousPresage": {
         "Doc": "诡秘的预感",
         "baseTask": "Sami@Roguelike@Stage",
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageMysteriousPresageEnter", "#self"]
+        "next": [
+            "Sami@Roguelike@StageMysteriousPresageEnter",
+            "#self"
+        ]
     },
     "Sami@Roguelike@StageMysteriousPresageEnter": {
         "baseTask": "Sami@Roguelike@StageEnter",
         "templThreshold": 0.85,
         "postDelay": 1000,
-        "next": ["Sami@Roguelike@TraderCheck", "Sami@Roguelike@StageEncounterJudgeClick"]
+        "next": [
+            "Sami@Roguelike@TraderCheck",
+            "Sami@Roguelike@StageEncounterJudgeClick"
+        ]
     },
     "Sami@Roguelike@StageProphecy": {
         "Doc": "结局选择关卡",
         "baseTask": "Sami@Roguelike@Stage",
         "templThreshold": 0.95,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageProphecyAI6": {
         "baseTask": "Sami@Roguelike@Stage",
         "templThreshold": 0.95,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageSafeHouse": {
         "templThreshold": 0.95
@@ -798,7 +1214,10 @@
     "Sami@Roguelike@StageSafeHouseAI6": {
         "templThreshold": 0.95,
         "baseTask": "Sami@Roguelike@Stage",
-        "next": ["Sami@Roguelike@StageSafeHouseEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageSafeHouseEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageSafeHouseEnter": {
         "next": [
@@ -811,10 +1230,19 @@
         "algorithm": "OcrDetect",
         "action": "ClickSelf",
         "withoutDet": true,
-        "roi": [880, 210, 140, 36],
-        "text": ["活用安全屋"],
+        "roi": [
+            880,
+            210,
+            140,
+            36
+        ],
+        "text": [
+            "活用安全屋"
+        ],
         "preDelay": 500,
-        "next": ["Sami@Roguelike@StageEncounterOption#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterOption#next"
+        ]
     },
     "Sami@Roguelike@StageTrader": {
         "templThreshold": 0.95
@@ -822,7 +1250,10 @@
     "Sami@Roguelike@StageTraderAI6": {
         "templThreshold": 0.95,
         "baseTask": "Sami@Roguelike@Stage",
-        "next": ["Sami@Roguelike@StageTraderEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageTraderEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageTraderEnter": {},
     "Sami@Roguelike@StageTraderLeaveConfirm": {
@@ -837,27 +1268,44 @@
     "Sami@Roguelike@StageTraderRefresh": {
         "template": "Roguelike@StageTraderRefresh.png",
         "action": "ClickSelf",
-        "roi": [230, 73, 212, 141]
+        "roi": [
+            230,
+            73,
+            212,
+            141
+        ]
     },
     "Sami@Roguelike@StageVerticalBoons": {
         "baseTask": "Roguelike@StageVertical",
         "templThreshold": 0.95,
-        "next": ["Sami@Roguelike@StageBoonsEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageBoonsEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalBoonsAI6": {
         "baseTask": "Roguelike@StageVertical",
         "templThreshold": 0.95,
-        "next": ["Sami@Roguelike@StageBoonsEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageBoonsEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalBoskyPassage": {
         "templThreshold": 0.9,
         "baseTask": "Roguelike@StageVertical",
-        "next": ["Sami@Roguelike@StageBoskyPassageEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageBoskyPassageEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalBoskyPassageAI6": {
         "templThreshold": 0.9,
         "baseTask": "Roguelike@StageVertical",
-        "next": ["Sami@Roguelike@StageBoskyPassageEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageBoskyPassageEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalCombatOps": {
         "templThreshold": 0.9,
@@ -878,7 +1326,9 @@
         ]
     },
     "Sami@Roguelike@StageVerticalConfirm": {
-        "next": ["#back"],
+        "next": [
+            "#back"
+        ],
         "exceededNext": [
             "Sami@Roguelike@ExitThenAbandon",
             "Sami@Roguelike@NextLevelThenExit",
@@ -888,12 +1338,18 @@
     "Sami@Roguelike@StageVerticalConfirmBoons": {
         "template": "Sami@Roguelike@StageVerticalConfirm.png",
         "baseTask": "Sami@Roguelike@StageVerticalConfirm",
-        "next": ["Sami@Roguelike@StageBoonsEnter", "Sami@Roguelike@StageEncounterJudgeClick"]
+        "next": [
+            "Sami@Roguelike@StageBoonsEnter",
+            "Sami@Roguelike@StageEncounterJudgeClick"
+        ]
     },
     "Sami@Roguelike@StageVerticalConfirmBoskyPassage": {
         "template": "Sami@Roguelike@StageVerticalConfirm.png",
         "baseTask": "Sami@Roguelike@StageVerticalConfirm",
-        "next": ["Sami@Roguelike@StageBoskyPassageEnter", "Sami@Roguelike@StageEncounterJudgeClick"]
+        "next": [
+            "Sami@Roguelike@StageBoskyPassageEnter",
+            "Sami@Roguelike@StageEncounterJudgeClick"
+        ]
     },
     "Sami@Roguelike@StageVerticalConfirmSafeHouse": {
         "template": "Sami@Roguelike@StageVerticalConfirm.png",
@@ -907,7 +1363,9 @@
     "Sami@Roguelike@StageVerticalConfirmStartButtonClicked": {
         "baseTask": "Sami@Roguelike@StageVerticalConfirm",
         "template": "Sami@Roguelike@StageVerticalConfirm.png",
-        "next": ["Sami@Roguelike@WaitForStartButtonClicked"]
+        "next": [
+            "Sami@Roguelike@WaitForStartButtonClicked"
+        ]
     },
     "Sami@Roguelike@StageVerticalEmergencyOps": {
         "templThreshold": 0.9,
@@ -931,97 +1389,159 @@
         "Doc": "先行一步，拒绝可以获取2希望",
         "baseTask": "Roguelike@StageVertical",
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalEmergencyTransportationAI6": {
         "baseTask": "Roguelike@StageVertical",
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalEncounter": {
         "baseTask": "Roguelike@StageVertical",
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalEncounterAI6": {
         "templThreshold": 0.9,
         "baseTask": "Roguelike@StageVertical",
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalGambling": {
         "Doc": "骰子关卡",
         "baseTask": "Roguelike@StageVertical",
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalGamblingAI6": {
         "baseTask": "Roguelike@StageVertical",
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalProphecy": {
         "Doc": "结局选择关卡",
         "baseTask": "Sami@Roguelike@StageVertical",
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalProphecyAI6": {
         "baseTask": "Sami@Roguelike@StageVertical",
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalSafeHouse": {
         "baseTask": "Roguelike@StageVertical",
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageSafeHouseEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageSafeHouseEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalSafeHouseAI6": {
         "templThreshold": 0.9,
         "baseTask": "Roguelike@StageVertical",
-        "next": ["Sami@Roguelike@StageSafeHouseEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageSafeHouseEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalTrader": {
         "baseTask": "Roguelike@StageVertical",
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageTraderEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageTraderEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalTraderAI6": {
         "baseTask": "Roguelike@StageVertical",
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageTraderEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageTraderEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalWindAndRain": {
         "Doc": "失与得",
         "baseTask": "Roguelike@StageVertical",
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageVerticalWindAndRainAI6": {
         "baseTask": "Roguelike@StageVertical",
         "templThreshold": 0.9,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageWindAndRain": {
         "Doc": "失与得",
         "baseTask": "Sami@Roguelike@Stage",
         "templThreshold": 0.95,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@StageWindAndRainAI6": {
         "baseTask": "Sami@Roguelike@Stage",
         "templThreshold": 0.95,
-        "next": ["Sami@Roguelike@StageEncounterEnter", "Sami@Roguelike@Stages#next"]
+        "next": [
+            "Sami@Roguelike@StageEncounterEnter",
+            "Sami@Roguelike@Stages#next"
+        ]
     },
     "Sami@Roguelike@Stages": {
         "baseTask": "Sami@Roguelike@Stages_default",
-        "onErrorNext": ["Sami@Roguelike@ExitThenAbandon"]
+        "onErrorNext": [
+            "Sami@Roguelike@ExitThenAbandon"
+        ]
     },
     "Sami@Roguelike@StagesChaosZero": {
         "algorithm": "OcrDetect",
         "Doc": "特殊值识别，当抗干扰为0时不进行纵向移动",
-        "text": ["0"],
-        "roi": [615, 0, 80, 45],
-        "ocrReplace": [["O", "0"]],
+        "text": [
+            "0"
+        ],
+        "roi": [
+            615,
+            0,
+            80,
+            45
+        ],
+        "ocrReplace": [
+            [
+                "O",
+                "0"
+            ]
+        ],
         "next": [
             "Sami@Roguelike@NextLevel",
             "Sami@Roguelike@FoldartalGainNextLevel",
@@ -1061,7 +1581,9 @@
             "Sami@Roguelike@StartUpThemes#next",
             "Sami@Roguelike@ClickToDrops"
         ],
-        "onErrorNext": ["Sami@Roguelike@ExitThenAbandon"]
+        "onErrorNext": [
+            "Sami@Roguelike@ExitThenAbandon"
+        ]
     },
     "Sami@Roguelike@Stages_aggressive": {
         "Doc": "优先紧急作战,1-2层",
@@ -1112,7 +1634,9 @@
             "Sami@Roguelike@StageMysteriousPresage",
             "Sami@Roguelike@Stages@(Sami@Roguelike@CloseCollectionClose)"
         ],
-        "onErrorNext": ["Sami@Roguelike@ExitThenAbandon"]
+        "onErrorNext": [
+            "Sami@Roguelike@ExitThenAbandon"
+        ]
     },
     "Sami@Roguelike@Stages_collapsal_paradigms": {
         "Doc": "为了刷隐藏坍缩而优先作战",
@@ -1159,7 +1683,9 @@
             "Sami@Roguelike@Stages@(Sami@Roguelike@CloseCollectionClose)",
             "Sami@Roguelike@Abandon"
         ],
-        "onErrorNext": ["Sami@Roguelike@ExitThenAbandon"]
+        "onErrorNext": [
+            "Sami@Roguelike@ExitThenAbandon"
+        ]
     },
     "Sami@Roguelike@Stages_default": {
         "Doc": "avoid battle,其他模式和5-6层策略",
@@ -1214,7 +1740,9 @@
             "Sami@Roguelike@StageFerociousPresage",
             "Sami@Roguelike@Stages@(Sami@Roguelike@CloseCollectionClose)"
         ],
-        "onErrorNext": ["Sami@Roguelike@ExitThenAbandon"]
+        "onErrorNext": [
+            "Sami@Roguelike@ExitThenAbandon"
+        ]
     },
     "Sami@Roguelike@Stages_pragmatic": {
         "Doc": "避紧急作战,3-4层策略",
@@ -1271,7 +1799,9 @@
             "Sami@Roguelike@StageVerticalEmergencyTransportationAI6",
             "Sami@Roguelike@Stages@(Sami@Roguelike@CloseCollectionClose)"
         ],
-        "onErrorNext": ["Sami@Roguelike@ExitThenAbandon"]
+        "onErrorNext": [
+            "Sami@Roguelike@ExitThenAbandon"
+        ]
     },
     "Sami@Roguelike@StartAction": {
         "Doc": "多一个Flag3",
@@ -1292,94 +1822,275 @@
         ]
     },
     "Sami@Roguelike@StartExplore": {
-        "roi": [958, 530, 322, 189]
+        "roi": [
+            958,
+            530,
+            322,
+            189
+        ]
     },
     "Sami@Roguelike@StartExplore-EnterCheck": {
         "template": "Sami@Roguelike@StartExplore.png",
-        "roi": [958, 530, 322, 189]
+        "roi": [
+            958,
+            530,
+            322,
+            189
+        ]
     },
     "Sami@Roguelike@StrategyChange_mode0": {
-        "text": ["_aggressive", "_pragmatic", "_default", "_SKIP_"],
+        "text": [
+            "_aggressive",
+            "_pragmatic",
+            "_default",
+            "_SKIP_"
+        ],
         "ocrReplace": [
-            ["初霜湖泽", "_aggressive"],
-            ["密静林地", "_aggressive"],
-            [".*明冻土", "昧明冻土"],
-            ["昧明冻土", "_pragmatic"],
-            ["积冰岩.*", "_pragmatic"],
-            ["无瑕花园", "_pragmatic"],
-            ["远见之构", "_default"],
-            ["深埋迷境", "_SKIP_"]
+            [
+                "初霜湖泽",
+                "_aggressive"
+            ],
+            [
+                "密静林地",
+                "_aggressive"
+            ],
+            [
+                ".*明冻土",
+                "昧明冻土"
+            ],
+            [
+                "昧明冻土",
+                "_pragmatic"
+            ],
+            [
+                "积冰岩.*",
+                "_pragmatic"
+            ],
+            [
+                "无瑕花园",
+                "_pragmatic"
+            ],
+            [
+                "远见之构",
+                "_default"
+            ],
+            [
+                "深埋迷境",
+                "_SKIP_"
+            ]
         ]
     },
     "Sami@Roguelike@StrategyChange_mode1": {
-        "text": ["_default", "_exit"],
+        "text": [
+            "_default",
+            "_exit"
+        ],
         "ocrReplace": [
-            ["初霜湖泽", "_default"],
-            ["密静林地", "_exit"],
-            ["昧明冻土", "_exit"],
-            ["积冰岩骸", "_exit"],
-            ["无瑕花园", "_exit"],
-            ["远见之构", "_exit"],
-            ["深埋迷境", "_exit"]
+            [
+                "初霜湖泽",
+                "_default"
+            ],
+            [
+                "密静林地",
+                "_exit"
+            ],
+            [
+                "昧明冻土",
+                "_exit"
+            ],
+            [
+                "积冰岩骸",
+                "_exit"
+            ],
+            [
+                "无瑕花园",
+                "_exit"
+            ],
+            [
+                "远见之构",
+                "_exit"
+            ],
+            [
+                "深埋迷境",
+                "_exit"
+            ]
         ]
     },
     "Sami@Roguelike@StrategyChange_mode4": {
-        "text": ["_default", "_exit"],
+        "text": [
+            "_default",
+            "_exit"
+        ],
         "ocrReplace": [
-            ["初霜湖泽", "_default"],
-            ["密静林地", "_default"],
-            ["昧明冻土", "_exit"],
-            ["积冰岩骸", "_exit"],
-            ["无瑕花园", "_exit"],
-            ["远见之构", "_exit"],
-            ["深埋迷境", "_exit"]
+            [
+                "初霜湖泽",
+                "_default"
+            ],
+            [
+                "密静林地",
+                "_default"
+            ],
+            [
+                "昧明冻土",
+                "_exit"
+            ],
+            [
+                "积冰岩骸",
+                "_exit"
+            ],
+            [
+                "无瑕花园",
+                "_exit"
+            ],
+            [
+                "远见之构",
+                "_exit"
+            ],
+            [
+                "深埋迷境",
+                "_exit"
+            ]
         ]
     },
     "Sami@Roguelike@StrategyChange_mode5": {
-        "text": ["_collapsal_paradigms", "_SKIP_"],
+        "text": [
+            "_collapsal_paradigms",
+            "_SKIP_"
+        ],
         "ocrReplace": [
-            ["初霜湖泽", "_collapsal_paradigms"],
-            ["密静林地", "_collapsal_paradigms"],
-            ["昧明冻土", "_SKIP_"],
-            ["积冰岩骸", "_SKIP_"],
-            ["无瑕花园", "_SKIP_"],
-            ["远见之构", "_SKIP_"],
-            ["深埋迷境", "_SKIP_"]
+            [
+                "初霜湖泽",
+                "_collapsal_paradigms"
+            ],
+            [
+                "密静林地",
+                "_collapsal_paradigms"
+            ],
+            [
+                "昧明冻土",
+                "_SKIP_"
+            ],
+            [
+                "积冰岩骸",
+                "_SKIP_"
+            ],
+            [
+                "无瑕花园",
+                "_SKIP_"
+            ],
+            [
+                "远见之构",
+                "_SKIP_"
+            ],
+            [
+                "深埋迷境",
+                "_SKIP_"
+            ]
         ]
     },
     "Sami@Roguelike@StrategyChange_mode6": {
-        "text": ["_aggressive", "_pragmatic", "_default", "_SKIP_"],
+        "text": [
+            "_aggressive",
+            "_pragmatic",
+            "_default",
+            "_SKIP_"
+        ],
         "ocrReplace": [
-            ["初霜湖泽", "_aggressive"],
-            ["密静林地", "_aggressive"],
-            [".*明冻土", "昧明冻土"],
-            ["昧明冻土", "_pragmatic"],
-            ["积冰岩.*", "_pragmatic"],
-            ["无瑕花园", "_default"],
-            ["远见之构", "_default"],
-            ["深埋迷境", "_SKIP_"]
+            [
+                "初霜湖泽",
+                "_aggressive"
+            ],
+            [
+                "密静林地",
+                "_aggressive"
+            ],
+            [
+                ".*明冻土",
+                "昧明冻土"
+            ],
+            [
+                "昧明冻土",
+                "_pragmatic"
+            ],
+            [
+                "积冰岩.*",
+                "_pragmatic"
+            ],
+            [
+                "无瑕花园",
+                "_default"
+            ],
+            [
+                "远见之构",
+                "_default"
+            ],
+            [
+                "深埋迷境",
+                "_SKIP_"
+            ]
         ]
     },
     "Sami@Roguelike@StrategyChange_mode7": {
-        "text": ["_aggressive", "_pragmatic", "_default", "_SKIP_"],
+        "text": [
+            "_aggressive",
+            "_pragmatic",
+            "_default",
+            "_SKIP_"
+        ],
         "ocrReplace": [
-            ["初霜湖泽", "_aggressive"],
-            ["密静林地", "_aggressive"],
-            [".*明冻土", "昧明冻土"],
-            ["昧明冻土", "_pragmatic"],
-            ["积冰岩.*", "_pragmatic"],
-            ["无瑕花园", "_default"],
-            ["远见之构", "_default"],
-            ["深埋迷境", "_SKIP_"]
+            [
+                "初霜湖泽",
+                "_aggressive"
+            ],
+            [
+                "密静林地",
+                "_aggressive"
+            ],
+            [
+                ".*明冻土",
+                "昧明冻土"
+            ],
+            [
+                "昧明冻土",
+                "_pragmatic"
+            ],
+            [
+                "积冰岩.*",
+                "_pragmatic"
+            ],
+            [
+                "无瑕花园",
+                "_default"
+            ],
+            [
+                "远见之构",
+                "_default"
+            ],
+            [
+                "深埋迷境",
+                "_SKIP_"
+            ]
         ]
     },
     "Sami@Roguelike@SwipeCollapsalParadigmPanelUp": {
         "doc": "向上滑动坍缩范式状态栏",
         "algorithm": "JustReturn",
         "action": "Swipe",
-        "specificRect": [640, 300, 0, 0],
-        "rectMove": [640, 0, 0, 0],
-        "specialParams": [500],
+        "specificRect": [
+            640,
+            300,
+            0,
+            0
+        ],
+        "rectMove": [
+            640,
+            0,
+            0,
+            0
+        ],
+        "specialParams": [
+            500
+        ],
         "postDelay": 500
     },
     "Sami@Roguelike@TodoEnter": {},
@@ -1387,18 +2098,43 @@
         "doc": "点击屏幕上方居中区域以展开坍缩范式状态栏",
         "algorithm": "JustReturn",
         "action": "ClickRect",
-        "specificRect": [655, 20, 10, 10],
+        "specificRect": [
+            655,
+            20,
+            10,
+            10
+        ],
         "postDelay": 500
     },
     "Sami@Roguelike@TraderCheck": {
-        "roi": [96, 210, 293, 236],
-        "next": ["Sami@Roguelike@StageTraderEnter#next"]
+        "roi": [
+            96,
+            210,
+            293,
+            236
+        ],
+        "next": [
+            "Sami@Roguelike@StageTraderEnter#next"
+        ]
     },
     "Sami@Roguelike@WaitForStartButtonClicked": {
         "template": "Roguelike@QuickFormation.png",
-        "next": ["Sami@Roguelike@StageVerticalConfirmStartButtonClicked", "Sami@Roguelike@WaitForStartButtonClicked"]
+        "next": [
+            "Sami@Roguelike@StageVerticalConfirmStartButtonClicked",
+            "Sami@Roguelike@WaitForStartButtonClicked"
+        ]
     },
     "Sami@RoguelikeSettlementConfirm": {
         "template": "RoguelikeSettlementConfirm.png"
+    },
+    "Sami@Roguelike@Stages_exit": {
+        "Doc": "投资/藏品模式目标达成后的收尾策略：优先推进到下一层或结算，不主动挑作战节点。此前该任务从未定义，导致 StrategyChange_mode1/mode4 在第 2 层起 set_task_base 失败并静默沿用默认策略。",
+        "baseTask": "Sami@Roguelike@Stages_default",
+        "algorithm": "JustReturn",
+        "next": [
+            "Sami@Roguelike@NextLevel",
+            "Sami@Roguelike@StageCombatOps",
+            "Sami@Roguelike@StageEmergencyOps"
+        ]
     }
 }

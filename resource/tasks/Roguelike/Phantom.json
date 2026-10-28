@@ -13,15 +13,27 @@
     "Phantom@StartExplore@Roguelike@RecruitWithoutButton": {},
     "Phantom@Roguelike@Abandon": {},
     "Phantom@Roguelike@CheckLevel": {
-        "text": ["古堡笔记"]
+        "text": [
+            "古堡笔记"
+        ]
     },
     "Phantom@Roguelike@ChooseDifficulty": {},
     "Phantom@Roguelike@ChooseDifficultyEnter": {
         "action": "ClickRect",
-        "specificRect": [1144, 472, 78, 24],
+        "specificRect": [
+            1144,
+            472,
+            78,
+            24
+        ],
         "postDelay": 800,
         "template": "Phantom@Roguelike@StartExplore.png",
-        "roi": [1026, 470, 254, 248]
+        "roi": [
+            1026,
+            470,
+            254,
+            248
+        ]
     },
     "Phantom@Roguelike@ChooseOper": {
         "next": [
@@ -31,9 +43,25 @@
         ]
     },
     "Phantom@Roguelike@CloseCollection": {
-        "next": ["Phantom@Roguelike@LastReward-EnterPoint", "Phantom@Roguelike@RolesDefault"]
+        "next": [
+            "Phantom@Roguelike@LastReward-EnterPoint",
+            "Phantom@Roguelike@RolesDefault"
+        ]
     },
-    "Phantom@Roguelike@CloseEvent": {},
+    "Phantom@Roguelike@CloseEvent": {
+        "action": "ClickRect",
+        "specificRect": [
+            594,
+            505,
+            88,
+            56
+        ],
+        "postDelay": 800,
+        "next": [
+            "Phantom@Roguelike@Stages",
+            "Phantom@Roguelike@StageCombatOps"
+        ]
+    },
     "Phantom@Roguelike@CloseInterview": {
         "template": "Phantom@Roguelike@StageEncounterSpecialClose.png"
     },
@@ -52,34 +80,59 @@
     },
     "Phantom@Roguelike@DialogSkip": {
         "template": "Roguelike@DialogSkip.png",
-        "next": ["Phantom@Roguelike@DialogSkipConfirm"]
+        "next": [
+            "Phantom@Roguelike@DialogSkipConfirm"
+        ]
     },
     "Phantom@Roguelike@DialogSkipConfirm": {
         "template": "Roguelike@DialogSkipConfirm.png",
-        "next": ["Phantom@Roguelike@Stages#next"]
+        "next": [
+            "Phantom@Roguelike@Stages#next"
+        ]
     },
     "Phantom@Roguelike@DialogTimeout": {
         "doc": "傀影肉鸽的小队对话会自动跳过stage导致一卡卡一串，进skip的时候已经读完对话只剩一个叉了，放一个timeout在这里抓一下",
         "template": "Phantom@Roguelike@DialogTimeout.png",
         "action": "ClickSelf",
-        "roi": [500, 590, 300, 100],
-        "next": ["Phantom@Roguelike@Stages#next"]
+        "roi": [
+            500,
+            590,
+            300,
+            100
+        ],
+        "next": [
+            "Phantom@Roguelike@Stages#next"
+        ]
     },
     "Phantom@Roguelike@DropsFlag": {
         "template": "Roguelike@DropsFlag.png",
-        "baseTask": "Phantom@Roguelike@DropsFlag_default"
+        "baseTask": "Phantom@Roguelike@DropsFlag_default",
+        "onErrorNext": [
+            "Phantom@Roguelike@SignalLost",
+            "Phantom@Roguelike@AllRewardClaimed",
+            "Phantom@Roguelike@Stages"
+        ]
     },
     "Phantom@Roguelike@EnterAfterRecruit": {},
     "Phantom@Roguelike@ExitThenAbandon": {
         "template": "Roguelike@ExitThenAbandon.png",
-        "next": ["Phantom@Roguelike@ExitThenAbandon", "Phantom@Roguelike@Abandon"]
+        "next": [
+            "Phantom@Roguelike@ExitThenAbandon",
+            "Phantom@Roguelike@Abandon"
+        ]
     },
     "Phantom@Roguelike@ExitThenAbandon_ToHardest": {
         "template": "Roguelike@ExitThenAbandon.png",
-        "next": ["Phantom@Roguelike@ExitThenAbandon_ToHardest", "Phantom@Roguelike@Abandon"]
+        "next": [
+            "Phantom@Roguelike@ExitThenAbandon_ToHardest",
+            "Phantom@Roguelike@Abandon"
+        ]
     },
     "Phantom@Roguelike@GamePass": {
-        "template": ["Phantom@Roguelike@GamePass.png", "Phantom@Roguelike@GamePass4.png"]
+        "template": [
+            "Phantom@Roguelike@GamePass.png",
+            "Phantom@Roguelike@GamePass4.png"
+        ]
     },
     "Phantom@Roguelike@GamePassSkip1": {},
     "Phantom@Roguelike@GamePassSkip1Confirm": {},
@@ -129,7 +182,12 @@
     "Phantom@Roguelike@LastRewardConfirm": {},
     "Phantom@Roguelike@LastRewardRand": {},
     "Phantom@Roguelike@MissionFailedFlag": {
-        "roi": [450, 163, 540, 267]
+        "roi": [
+            450,
+            163,
+            540,
+            267
+        ]
     },
     "Phantom@Roguelike@MissionFailedFlag2": {},
     "Phantom@Roguelike@MonthlySquad": {
@@ -146,14 +204,24 @@
         "template": "Roguelike@RewardCompleted.png"
     },
     "Phantom@Roguelike@NextLevel": {
-        "text": ["迷雾歧途", "落阳庭院", "故土残躯", "噩梦之始", "血月长廊", "渴欲大厅"],
+        "text": [
+            "迷雾歧途",
+            "落阳庭院",
+            "故土残躯",
+            "噩梦之始",
+            "血月长廊",
+            "渴欲大厅"
+        ],
         "next": [
-            "Phantom@Roguelike@CloseInterview",
             "Phantom@Roguelike@StrategyChange",
+            "Phantom@Roguelike@CloseInterview",
             "Phantom@Roguelike@DialogSkip",
             "Phantom@Roguelike@NextLevel"
         ],
-        "onErrorNext": ["Phantom@Roguelike@DialogTimeout", "Phantom@Roguelike@Stages#next"]
+        "onErrorNext": [
+            "Phantom@Roguelike@DialogTimeout",
+            "Phantom@Roguelike@Stages#next"
+        ]
     },
     "Phantom@Roguelike@RecruitMain": {
         "template": "Phantom@Roguelike@Recruit.png"
@@ -163,6 +231,8 @@
     },
     "Phantom@Roguelike@RecruitWithoutButton": {
         "next": [
+            "Phantom@Roguelike@RecruitConfirm",
+            "Phantom@Roguelike@AllRewardClaimed",
             "Phantom@Roguelike@RecruitOther",
             "Phantom@Roguelike@TraderRandomShopping",
             "Phantom@Roguelike@StageTraderLeave",
@@ -172,6 +242,12 @@
             "Phantom@Roguelike@NextLevel",
             "Phantom@Roguelike@NextLevel#next",
             "Phantom@Roguelike@RecruitWithoutButton"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@RecruitConfirm",
+            "Phantom@Roguelike@AllRewardClaimed",
+            "Phantom@Roguelike@CloseEvent",
+            "Phantom@Roguelike@Stages"
         ]
     },
     "Phantom@Roguelike@RolesConfirm": {
@@ -179,7 +255,9 @@
     },
     "Phantom@Roguelike@RolesDefault": {},
     "Phantom@Roguelike@SelectTheme": {
-        "text": ["古堡笔记"]
+        "text": [
+            "古堡笔记"
+        ]
     },
     "Phantom@Roguelike@SquadConfirm": {
         "doc": "注意：在部分深入调查条目（如 <地面推进>）中有可能跳过招募组合直接开始初始招募",
@@ -226,6 +304,11 @@
             "Phantom@Roguelike@StageCombatOpsEnter",
             "Phantom@Roguelike@CloseEvent",
             "Phantom@Roguelike@StageEncounterOptionUnknown"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@SignalLost",
+            "Phantom@Roguelike@AllRewardClaimed",
+            "Phantom@Roguelike@Stages"
         ]
     },
     "Phantom@Roguelike@StageEncounterSpecialClose": {},
@@ -236,37 +319,64 @@
     "Phantom@Roguelike@StageTrader": {
         "templThreshold": 0.85
     },
-    "Phantom@Roguelike@StageTraderEnter": {},
+    "Phantom@Roguelike@StageTraderEnter": {
+        "Doc": "先购物后投资：用户要求「先按资金买藏品/招募券，剩余的钱再投资」",
+        "next": [
+            "Phantom@Roguelike@StageVerticalConfirmTrader",
+            "Phantom@Roguelike@StageTraderEnter",
+            "Phantom@Roguelike@TraderRandomShopping",
+            "Phantom@Roguelike@StageTraderInvestSystem",
+            "Phantom@Roguelike@StageTraderRefreshWithDice",
+            "Phantom@Roguelike@StageTraderLeave",
+            "Phantom@Roguelike@StageTraderLeaveConfirm"
+        ]
+    },
     "Phantom@Roguelike@StageTraderLeaveConfirm": {
         "template": "Roguelike@StageTraderLeaveConfirm.png",
-        "exceededNext": ["Phantom@Roguelike@ExitThenAbandon"]
+        "exceededNext": [
+            "Phantom@Roguelike@Stages"
+        ]
     },
     "Phantom@Roguelike@Stages": {
         "baseTask": "Phantom@Roguelike@Stages_default",
-        "onErrorNext": ["Phantom@Roguelike@ExitThenAbandon"]
+        "onErrorNext": [
+            "Phantom@Roguelike@SignalLost",
+            "Phantom@Roguelike@AllRewardClaimed",
+            "Phantom@Roguelike@CloseEvent",
+            "Phantom@Roguelike@DropsFlag",
+            "Phantom@Roguelike@ClickToDrops"
+        ]
     },
     "Phantom@Roguelike@Stages_aggressive": {
         "Doc": "优先紧急作战,1-3层",
         "algorithm": "JustReturn",
         "next": [
+            "Phantom@Roguelike@AllRewardClaimed",
             "Phantom@Roguelike@NextLevel",
             "Phantom@Roguelike@CloseInterview",
             "Phantom@Roguelike@DialogSkip",
             "Phantom@Roguelike@DialogTimeout",
-            "Phantom@Roguelike@StageEmergencyOps",
-            "Phantom@Roguelike@StageCombatOps",
             "Phantom@Roguelike@StageEncounter",
             "Phantom@Roguelike@StageBoons",
             "Phantom@Roguelike@StageTrader",
             "Phantom@Roguelike@StageSafeHouse",
-            "Phantom@Roguelike@StageDreadfulFoe"
+            "Phantom@Roguelike@StageCombatOps",
+            "Phantom@Roguelike@StageDreadfulFoe",
+            "Phantom@Roguelike@StageEmergencyOps"
         ],
-        "onErrorNext": ["Phantom@Roguelike@ExitThenAbandon"]
+        "onErrorNext": [
+            "Phantom@Roguelike@SignalLost",
+            "Phantom@Roguelike@AllRewardClaimed",
+            "Phantom@Roguelike@CloseEvent",
+            "Phantom@Roguelike@DropsFlag",
+            "Phantom@Roguelike@ClickToDrops"
+        ]
     },
     "Phantom@Roguelike@Stages_default": {
         "Doc": "avoid battle,其他模式和6层策略",
         "algorithm": "JustReturn",
         "next": [
+            "Phantom@Roguelike@AllRewardClaimed",
             "Phantom@Roguelike@NextLevel",
             "Phantom@Roguelike@CloseInterview",
             "Phantom@Roguelike@DialogSkip",
@@ -276,100 +386,443 @@
             "Phantom@Roguelike@StageEncounter",
             "Phantom@Roguelike@StageBoons",
             "Phantom@Roguelike@StageCombatOps",
-            "Phantom@Roguelike@StageEmergencyOps",
-            "Phantom@Roguelike@StageDreadfulFoe"
+            "Phantom@Roguelike@StageDreadfulFoe",
+            "Phantom@Roguelike@StageEmergencyOps"
         ],
-        "onErrorNext": ["Phantom@Roguelike@ExitThenAbandon"]
+        "onErrorNext": [
+            "Phantom@Roguelike@SignalLost",
+            "Phantom@Roguelike@AllRewardClaimed",
+            "Phantom@Roguelike@CloseEvent",
+            "Phantom@Roguelike@DropsFlag",
+            "Phantom@Roguelike@ClickToDrops"
+        ]
     },
     "Phantom@Roguelike@Stages_pragmatic": {
         "Doc": "避紧急作战,4-5层策略",
         "algorithm": "JustReturn",
         "next": [
+            "Phantom@Roguelike@AllRewardClaimed",
             "Phantom@Roguelike@NextLevel",
             "Phantom@Roguelike@CloseInterview",
             "Phantom@Roguelike@DialogSkip",
             "Phantom@Roguelike@DialogTimeout",
-            "Phantom@Roguelike@StageCombatOps",
             "Phantom@Roguelike@StageTrader",
             "Phantom@Roguelike@StageBoons",
             "Phantom@Roguelike@StageEncounter",
             "Phantom@Roguelike@StageSafeHouse",
-            "Phantom@Roguelike@StageEmergencyOps",
-            "Phantom@Roguelike@StageDreadfulFoe"
+            "Phantom@Roguelike@StageCombatOps",
+            "Phantom@Roguelike@StageDreadfulFoe",
+            "Phantom@Roguelike@StageEmergencyOps"
         ],
-        "onErrorNext": ["Phantom@Roguelike@ExitThenAbandon"]
+        "onErrorNext": [
+            "Phantom@Roguelike@SignalLost",
+            "Phantom@Roguelike@AllRewardClaimed",
+            "Phantom@Roguelike@CloseEvent",
+            "Phantom@Roguelike@DropsFlag",
+            "Phantom@Roguelike@ClickToDrops"
+        ]
     },
     "Phantom@Roguelike@StartExplore": {},
     "Phantom@Roguelike@StartExplore-EnterCheck": {
         "template": "Phantom@Roguelike@StartExplore.png"
     },
     "Phantom@Roguelike@StrategyChange_mode0": {
-        "text": ["_aggressive", "_pragmatic", "_default"],
+        "algorithm": "OcrDetect",
+        "roi": [
+            540,
+            0,
+            280,
+            100
+        ],
+        "text": [
+            "_aggressive",
+            "_pragmatic",
+            "_default"
+        ],
         "ocrReplace": [
-            ["迷雾歧途", "_aggressive"],
-            ["落阳庭院", "_aggressive"],
-            ["故土残躯", "_aggressive"],
-            ["噩梦之始", "_pragmatic"],
-            ["血月长廊", "_pragmatic"],
-            ["渴欲大厅", "_default"]
+            [
+                "迷雾歧途",
+                "_pragmatic"
+            ],
+            [
+                "落阳庭院",
+                "_pragmatic"
+            ],
+            [
+                "故土残躯",
+                "_pragmatic"
+            ],
+            [
+                "噩梦之始",
+                "_pragmatic"
+            ],
+            [
+                "血月长廊",
+                "_pragmatic"
+            ],
+            [
+                "渴欲大厅",
+                "_default"
+            ]
         ]
     },
     "Phantom@Roguelike@StrategyChange_mode1": {
         "Doc": "一层可能不开门，导致打完二层才退；不再复用mode4",
-        "text": ["_default", "_exit"],
+        "text": [
+            "_default",
+            "_exit"
+        ],
         "ocrReplace": [
-            ["迷雾歧途", "_default"],
-            ["落阳庭院", "_exit"],
-            ["故土残躯", "_exit"],
-            ["噩梦之始", "_exit"],
-            ["血月长廊", "_exit"],
-            ["渴欲大厅", "_exit"]
+            [
+                "迷雾歧途",
+                "_default"
+            ],
+            [
+                "落阳庭院",
+                "_exit"
+            ],
+            [
+                "故土残躯",
+                "_exit"
+            ],
+            [
+                "噩梦之始",
+                "_exit"
+            ],
+            [
+                "血月长廊",
+                "_exit"
+            ],
+            [
+                "渴欲大厅",
+                "_exit"
+            ]
         ]
     },
     "Phantom@Roguelike@StrategyChange_mode4": {
-        "text": ["_default", "_exit"],
+        "text": [
+            "_default",
+            "_exit"
+        ],
         "ocrReplace": [
-            ["迷雾歧途", "_default"],
-            ["落阳庭院", "_default"],
-            ["故土残躯", "_exit"],
-            ["噩梦之始", "_exit"],
-            ["血月长廊", "_exit"],
-            ["渴欲大厅", "_exit"]
+            [
+                "迷雾歧途",
+                "_default"
+            ],
+            [
+                "落阳庭院",
+                "_default"
+            ],
+            [
+                "故土残躯",
+                "_exit"
+            ],
+            [
+                "噩梦之始",
+                "_exit"
+            ],
+            [
+                "血月长廊",
+                "_exit"
+            ],
+            [
+                "渴欲大厅",
+                "_exit"
+            ]
         ]
     },
     "Phantom@Roguelike@StrategyChange_mode6": {
-        "text": ["_aggressive", "_pragmatic", "_default"],
+        "text": [
+            "_aggressive",
+            "_pragmatic",
+            "_default"
+        ],
         "ocrReplace": [
-            ["迷雾歧途", "_aggressive"],
-            ["落阳庭院", "_aggressive"],
-            ["故土残躯", "_aggressive"],
-            ["噩梦之始", "_pragmatic"],
-            ["血月长廊", "_pragmatic"],
-            ["渴欲大厅", "_default"]
+            [
+                "迷雾歧途",
+                "_aggressive"
+            ],
+            [
+                "落阳庭院",
+                "_aggressive"
+            ],
+            [
+                "故土残躯",
+                "_aggressive"
+            ],
+            [
+                "噩梦之始",
+                "_pragmatic"
+            ],
+            [
+                "血月长廊",
+                "_pragmatic"
+            ],
+            [
+                "渴欲大厅",
+                "_default"
+            ]
         ]
     },
     "Phantom@Roguelike@StrategyChange_mode7": {
-        "text": ["_aggressive", "_pragmatic", "_default"],
+        "text": [
+            "_aggressive",
+            "_pragmatic",
+            "_default"
+        ],
         "ocrReplace": [
-            ["迷雾歧途", "_aggressive"],
-            ["落阳庭院", "_aggressive"],
-            ["故土残躯", "_aggressive"],
-            ["噩梦之始", "_pragmatic"],
-            ["血月长廊", "_pragmatic"],
-            ["渴欲大厅", "_default"]
+            [
+                "迷雾歧途",
+                "_aggressive"
+            ],
+            [
+                "落阳庭院",
+                "_aggressive"
+            ],
+            [
+                "故土残躯",
+                "_aggressive"
+            ],
+            [
+                "噩梦之始",
+                "_pragmatic"
+            ],
+            [
+                "血月长廊",
+                "_pragmatic"
+            ],
+            [
+                "渴欲大厅",
+                "_default"
+            ]
         ]
     },
     "Phantom@Roguelike@TodoEnter": {},
     "Phantom@Roguelike@WaitForStartButtonClicked": {
-        "template": "Roguelike@QuickFormation.png"
+        "template": "Roguelike@QuickFormation.png",
+        "onErrorNext": [
+            "Roguelike@StartAction"
+        ],
+        "Doc": "点了开始行动后会 loading 一段时间，这个任务等它；此前只写了 template、既无 next 也无 onErrorNext，匹配失败就断链报错。补 onErrorNext 指回 StartAction，等价于「这张图放弃，回到战斗入口重试」。"
     },
     "Phantom@RoguelikeSettlementConfirm": {
         "template": "RoguelikeSettlementConfirm.png"
     },
     "Phantom@RoguelikeSettlementOcr-Exp": {
-        "roi": [760, 525, 160, 40]
+        "roi": [
+            760,
+            525,
+            160,
+            40
+        ]
     },
     "Phantom@RoguelikeSettlementOcr-Score": {
-        "roi": [460, 525, 160, 55]
+        "roi": [
+            460,
+            525,
+            160,
+            55
+        ]
+    },
+    "Phantom@Roguelike@StrategyChange": {
+        "algorithm": "OcrDetect",
+        "roi": [
+            540,
+            0,
+            280,
+            100
+        ]
+    },
+    "Phantom@Roguelike@TraderRandomShopping": {
+        "Doc": "商店随机购物入口。买到招募券会直接跳到招募列表页，所以 next 里必须带 ChooseOperFlag，此前只留了 InvestSystem/StageTraderLeave 两条，买券后必卡。",
+        "template": "Roguelike@TraderRandomShopping.png",
+        "roi": [
+            0,
+            0,
+            1280,
+            720
+        ],
+        "templThreshold": 0.7,
+        "action": "DoNothing",
+        "next": [
+            "Phantom@Roguelike@TraderCannotAfford",
+            "Phantom@Roguelike@TraderRandomShoppingConfirm",
+            "Phantom@Roguelike@TraderRandomShoppingCancel",
+            "Roguelike@ChooseOperFlag",
+            "Phantom@Roguelike@StageTraderLeave",
+            "Phantom@Roguelike@StageTraderInvestSystem"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@AllRewardClaimed",
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@AllRewardClaimed": {
+        "algorithm": "OcrDetect",
+        "text": [
+            "已领取所有奖励"
+        ],
+        "roi": [
+            400,
+            380,
+            480,
+            120
+        ],
+        "action": "ClickRect",
+        "specificRect": [
+            594,
+            505,
+            88,
+            56
+        ],
+        "postDelay": 800,
+        "next": [
+            "Phantom@Roguelike@Stages"
+        ],
+        "onErrorNext": [
+            "#none"
+        ]
+    },
+    "Phantom@Roguelike@Stages_exit": {
+        "Doc": "投资/藏品模式目标达成后的收尾策略：优先推进到下一层或结算，不主动挑作战节点。此前该任务从未定义，导致 StrategyChange_mode1/mode4 在第 2 层起 set_task_base 失败并静默沿用默认策略。",
+        "baseTask": "Phantom@Roguelike@Stages_default",
+        "algorithm": "JustReturn",
+        "next": [
+            "Phantom@Roguelike@NextLevel",
+            "Phantom@Roguelike@StageCombatOps",
+            "Phantom@Roguelike@StageEmergencyOps"
+        ]
+    },
+    "Phantom@Roguelike@TraderRandomShoppingConfirm": {
+        "Doc": "购买确认。确认后若跳招募页由 ChooseOperFlag 接走，否则回到商店或离开。",
+        "template": "Roguelike@TraderRandomShoppingConfirm.png",
+        "roi": [
+            872,
+            425,
+            221,
+            136
+        ],
+        "templThreshold": 0.7,
+        "action": "ClickSelf",
+        "postDelay": 1000,
+        "next": [
+            "Roguelike@ChooseOperFlag",
+            "Phantom@Roguelike@TraderRandomShopping",
+            "Phantom@Roguelike@StageTraderLeave"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@TraderCannotAfford",
+            "Phantom@Roguelike@AllRewardClaimed",
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@TraderRandomShoppingCancel": {
+        "Doc": "购买取消。",
+        "template": "Roguelike@StageTraderInvestCancel.png",
+        "roi": [
+            350,
+            350,
+            500,
+            250
+        ],
+        "templThreshold": 0.7,
+        "action": "ClickSelf",
+        "next": [
+            "Phantom@Roguelike@TraderRandomShopping",
+            "Phantom@Roguelike@StageTraderLeave"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@AllRewardClaimed",
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@StageTraderInvestSystemLeave": {
+        "template": "Roguelike@StageTraderInvestSystemLeave.png",
+        "Doc": "投资系统离开。base 的 next 末尾是 #self，离开界面若两者都匹配不到会无限重试，这里补 onErrorNext 兜底回地图。",
+        "baseTask": "Roguelike@StageTraderInvestSystemLeave",
+        "onErrorNext": [
+            "Phantom@Roguelike@AllRewardClaimed",
+            "Phantom@Roguelike@Stages"
+        ],
+        "roi": [
+            682,
+            420,
+            245,
+            143
+        ],
+        "action": "ClickSelf"
+    },
+    "Phantom@Roguelike@SignalLost": {
+        "algorithm": "OcrDetect",
+        "Doc": "战斗失败/探索中断结算页（SIGNAL LOST 联系中断）。原 onErrorNext 直接走 ExitThenAbandon 会主动放弃整局，这里改用 OCR 门控后点 ✓ 领奖并回地图。",
+        "text": [
+            "联系中断"
+        ],
+        "roi": [
+            380,
+            190,
+            540,
+            140
+        ],
+        "action": "ClickRect",
+        "specificRect": [
+            594,
+            546,
+            92,
+            54
+        ],
+        "postDelay": 800,
+        "next": [
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@TraderCannotAfford": {
+        "algorithm": "OcrDetect",
+        "Doc": "购买确认框里的「源石锭数量不足」。MAA 未启用 price 校验（strategy_shopping_enabled 只对 BlackFlow 为真），会对着买不起的商品反复点确认，弹框永不消失。这里识别到不足就点「算了」退出。",
+        "text": [
+            "源石锭数量不足"
+        ],
+        "roi": [
+            760,
+            470,
+            500,
+            80
+        ],
+        "action": "ClickRect",
+        "specificRect": [
+            562,
+            470,
+            156,
+            48
+        ],
+        "postDelay": 600,
+        "next": [
+            "Phantom@Roguelike@TraderRandomShopping",
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@RecruitConfirm": {
+        "algorithm": "OcrDetect",
+        "Doc": "招募界面兜底：左侧已显示选中干员时点右下角『确认招募』。原流程卡在 RoguelikeRecruitOperListSwipeToTheLeft 后无人点确认。",
+        "text": [
+            "确认招募"
+        ],
+        "roi": [
+            1000,
+            640,
+            280,
+            80
+        ],
+        "action": "ClickRect",
+        "specificRect": [
+            1062,
+            646,
+            138,
+            64
+        ],
+        "postDelay": 800,
+        "next": [
+            "Phantom@Roguelike@Stages"
+        ]
     }
 }

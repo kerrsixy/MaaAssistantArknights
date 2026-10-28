@@ -459,7 +459,7 @@
                     "name": "缇缇",
                     "skill": 3,
                     "alternate_skill": 1,
-                    "recruit_priority": 600,
+                    "recruit_priority": 900,
                     "promote_priority": 701,
                     "recruit_priority_offsets": [
                         {
@@ -610,7 +610,7 @@
                     "name": "焰狐龙梓兰",
                     "skill": 1,
                     "skill_usage": 0,
-                    "recruit_priority": 600,
+                    "recruit_priority": 900,
                     "promote_priority": 600,
                     "recruit_priority_offsets": [
                         {
@@ -813,7 +813,7 @@
                 {
                     "name": "贝洛内",
                     "skill": 2,
-                    "recruit_priority": 600,
+                    "recruit_priority": 900,
                     "promote_priority": 600,
                     "recruit_priority_offsets": [
                         {
@@ -1038,7 +1038,7 @@
                     "name": "提丰",
                     "skill": 2,
                     "is_key": true,
-                    "recruit_priority": 730,
+                    "recruit_priority": 900,
                     "promote_priority": 470,
                     "recruit_priority_offsets": [
                         {
@@ -1595,22 +1595,28 @@
                     ]
                 },
                 {
-                    "name": "讯使"
+                    "name": "讯使",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "清道夫"
+                    "name": "清道夫",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "贾维"
+                    "name": "贾维",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "推进之王"
+                    "name": "推进之王",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "嵯峨"
+                    "name": "嵯峨",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "凛冬"
+                    "name": "凛冬",
+                    "recruit_priority": 900
                 },
                 {
                     "name": "格拉尼"
@@ -1626,10 +1632,12 @@
                     "name": "野鬃"
                 },
                 {
-                    "name": "凛御银灰"
+                    "name": "凛御银灰",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "伊内丝"
+                    "name": "伊内丝",
+                    "recruit_priority": 900
                 }
             ]
         },
@@ -2417,7 +2425,7 @@
                 {
                     "name": "隐德来希",
                     "skill": 2,
-                    "recruit_priority": 600,
+                    "recruit_priority": 900,
                     "promote_priority": 700,
                     "recruit_priority_offsets": [
                         {
@@ -2605,22 +2613,27 @@
                     "name": "银灰"
                 },
                 {
-                    "name": "推进之王"
+                    "name": "推进之王",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "忍冬"
+                    "name": "忍冬",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "嵯峨"
+                    "name": "嵯峨",
+                    "recruit_priority": 900
                 },
                 {
                     "name": "火哨"
                 },
                 {
-                    "name": "焰尾"
+                    "name": "焰尾",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "德克萨斯"
+                    "name": "德克萨斯",
+                    "recruit_priority": 900
                 },
                 {
                     "name": "灰毫"
@@ -2668,13 +2681,16 @@
                     "skill": 1
                 },
                 {
-                    "name": "凛御银灰"
+                    "name": "凛御银灰",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "伊内丝"
+                    "name": "伊内丝",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "郁金香"
+                    "name": "郁金香",
+                    "recruit_priority": 900
                 },
                 {
                     "name": "战车",
@@ -2687,13 +2703,16 @@
                     "name": "刻刀"
                 },
                 {
-                    "name": "晓歌"
+                    "name": "晓歌",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "寻澜"
+                    "name": "寻澜",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "齐尔查克"
+                    "name": "齐尔查克",
+                    "recruit_priority": 900
                 },
                 {
                     "name": "导火索"
@@ -2724,22 +2743,28 @@
                     "name": "Sharp"
                 },
                 {
-                    "name": "青枳"
+                    "name": "青枳",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "讯使"
+                    "name": "讯使",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "清道夫"
+                    "name": "清道夫",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "贾维"
+                    "name": "贾维",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "凛冬"
+                    "name": "凛冬",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "谜图"
+                    "name": "谜图",
+                    "recruit_priority": 900
                 },
                 {
                     "name": "诗怀雅"
@@ -2775,10 +2800,12 @@
                     "name": "月见夜"
                 },
                 {
-                    "name": "芬"
+                    "name": "芬",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "香草"
+                    "name": "香草",
+                    "recruit_priority": 900
                 },
                 {
                     "name": "贝娜",
@@ -2899,22 +2926,27 @@
                     "name": "烈夏"
                 },
                 {
-                    "name": "凛御银灰"
+                    "name": "凛御银灰",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "伊内丝"
+                    "name": "伊内丝",
+                    "recruit_priority": 900
                 },
                 {
                     "name": "帕拉斯"
                 },
                 {
-                    "name": "晓歌"
+                    "name": "晓歌",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "寻澜"
+                    "name": "寻澜",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "齐尔查克"
+                    "name": "齐尔查克",
+                    "recruit_priority": 900
                 },
                 {
                     "name": "火哨"
@@ -2938,7 +2970,8 @@
                     "name": "雷蛇"
                 },
                 {
-                    "name": "谜图"
+                    "name": "谜图",
+                    "recruit_priority": 900
                 },
                 {
                     "name": "诗怀雅"
@@ -3169,76 +3202,100 @@
             "name": "回费",
             "opers": [
                 {
-                    "name": "凛御银灰"
+                    "name": "凛御银灰",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "伊内丝"
+                    "name": "伊内丝",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "晓歌"
+                    "name": "晓歌",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "寻澜"
+                    "name": "寻澜",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "齐尔查克"
+                    "name": "齐尔查克",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "谜图"
+                    "name": "谜图",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "琴柳"
+                    "name": "琴柳",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "极境"
+                    "name": "极境",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "桃金娘"
+                    "name": "桃金娘",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "万顷"
+                    "name": "万顷",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "郁金香"
+                    "name": "郁金香",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "焰尾"
+                    "name": "焰尾",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "嵯峨"
+                    "name": "嵯峨",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "推进之王"
+                    "name": "推进之王",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "忍冬"
+                    "name": "忍冬",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "德克萨斯"
+                    "name": "德克萨斯",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "青枳"
+                    "name": "青枳",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "红隼"
+                    "name": "红隼",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "讯使"
+                    "name": "讯使",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "清道夫"
+                    "name": "清道夫",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "贾维"
+                    "name": "贾维",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "凛冬"
+                    "name": "凛冬",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "芬"
+                    "name": "芬",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "香草"
+                    "name": "香草",
+                    "recruit_priority": 900
                 }
             ]
         },
@@ -3621,13 +3678,16 @@
                     "name": "触手"
                 },
                 {
-                    "name": "桃金娘"
+                    "name": "桃金娘",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "极境"
+                    "name": "极境",
+                    "recruit_priority": 900
                 },
                 {
-                    "name": "琴柳"
+                    "name": "琴柳",
+                    "recruit_priority": 900
                 },
                 {
                     "name": "“弦惊”"
@@ -3896,7 +3956,7 @@
                     "name": "望",
                     "skill": 3,
                     "alternate_skill": 2,
-                    "recruit_priority": 600,
+                    "recruit_priority": 900,
                     "promote_priority": 600
                 },
                 {

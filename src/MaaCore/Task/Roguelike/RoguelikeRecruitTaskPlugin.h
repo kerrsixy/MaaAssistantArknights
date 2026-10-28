@@ -53,6 +53,9 @@ private:
         const std::unordered_map<std::string, RoguelikeOper>& chars_map);
 
     int m_recruit_count = 0;                // 第几次招募
+    // 连续「为了攒希望而放弃招募」的次数。用于在希望长期攒不上去时及时止损，
+    // 避免队伍长期停在 4 人、越来越弱而陷入恶性循环。
+    int m_hope_save_skips = 0;
     mutable bool m_initail_recruit = false; // 是否第一次招募，第一次招募时会进行一些初始化操作
     bool m_starts_complete = false; // 开局干员是否已经招募，阵容中必须有开局干员，没有前仅招募start干员或预备干员
     bool m_team_complete = false;   // 阵容是否完备，阵容完备前，仅招募key干员或预备干员

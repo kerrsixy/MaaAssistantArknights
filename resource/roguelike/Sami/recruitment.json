@@ -4497,7 +4497,7 @@
         },
         {
             "groups": ["回费"],
-            "threshold": 1
+            "threshold": 2
         }
     ]
 }

@@ -133,10 +133,10 @@ std::optional<std::string> asst::RoguelikeStageEncounterTaskPlugin::handle_singl
     cv::Mat image = ctrler()->get_image();
 
     int special_val = 0;
-    // 水月的不好识别，先试试萨米能不能用
-    if (m_config->get_theme() == RoguelikeTheme::Sami) {
+    // 萨米：抗干扰指数；水月：灯火值。两者 ROI 不同，各自主题覆盖 @SpecialValRecognition。
+    if (theme == RoguelikeTheme::Sami || theme == RoguelikeTheme::Mizuki) {
         OCRer analyzer(image);
-        analyzer.set_task_info(m_config->get_theme() + "@Roguelike@SpecialValRecognition");
+        analyzer.set_task_info(theme + "@Roguelike@SpecialValRecognition");
         analyzer.set_replace(Task.get<OcrTaskInfo>("NumberOcrReplace")->replace_map);
         analyzer.set_use_char_model(true);
         if (!analyzer.analyze()) {
@@ -145,6 +145,12 @@ std::optional<std::string> asst::RoguelikeStageEncounterTaskPlugin::handle_singl
         }
         else {
             utils::chars_to_number(analyzer.get_result().front().text, special_val);
+            if (theme == RoguelikeTheme::Sami) {
+                m_config->status().chaos = special_val;
+            }
+            else if (theme == RoguelikeTheme::Mizuki) {
+                m_config->status().light = special_val;
+            }
         }
     }
 

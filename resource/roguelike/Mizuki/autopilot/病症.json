@@ -37,19 +37,9 @@
     ],
     "deploy_plan": [
         {
-            "groups": ["百嘉", "基石", "地面C", "号角", "挡人先锋", "重装", "其他地面", "异德", "刺客"],
+            "groups": ["百嘉", "基石", "地面C", "号角", "挡人先锋", "重装", "其他地面", "异德", "刺客", "投锋", "回费" ],
             "location": [7, 3],
             "direction": "up"
-        },
-        {
-            "groups": ["益达"],
-            "location": [6, 3],
-            "direction": "right"
-        },
-        {
-            "groups": ["召唤"],
-            "location": [6, 3],
-            "direction": "right"
         },
         {
             "groups": ["群奶"],
@@ -59,6 +49,16 @@
         {
             "groups": ["单奶"],
             "location": [4, 3],
+            "direction": "right"
+        },
+        {
+            "groups": ["益达"],
+            "location": [6, 3],
+            "direction": "right"
+        },
+        {
+            "groups": ["召唤"],
+            "location": [6, 3],
             "direction": "right"
         },
         {
@@ -95,6 +95,12 @@
             "groups": ["高台C", "控制", "术师", "狙击", "辅助", "其他高台"],
             "location": [4, 3],
             "direction": "left"
+        },
+        {
+            "groups": ["重装", "挡人先锋", "其他地面", "基石", "地面C"],
+            "location": [5, 1],
+            "direction": "left",
+            "condition": [12, 999]
         }
     ]
 }
