@@ -738,16 +738,49 @@ public static class ResourceUpdater
     }
 
     /// <summary>
+    /// 本地定制、需要在资源增量更新时保留的文件清单（路径后缀匹配）。
+    /// 背景：MAA 的「资源更新」是整包覆盖 resource/ 目录，会冲掉肉鸽优化改动。
+    /// 这里只列实际改过的文件，不放宽到整个目录，避免挡住官方对新关卡/新干员的数据更新。
+    /// </summary>
+    private static readonly string[] ProtectedResourceFiles =
+    {
+        // 任务链：策略切换、兜底任务、模板门控、商店确认流程等改动
+        "/resource/tasks/Roguelike/Mizuki.json",
+        "/resource/tasks/Roguelike/Phantom.json",
+
+        // 招募优先级：补全缺省字段、组加权、六星加权所依赖的数值
+        "/resource/roguelike/Mizuki/recruitment.json",
+        "/resource/roguelike/Phantom/recruitment.json",
+
+        // 商店白名单：藏品与招募券条目
+        "/resource/roguelike/Mizuki/shopping.json",
+        "/resource/roguelike/Phantom/shopping.json",
+    };
+
+    /// <summary>
+    /// 本地定制、需要在资源增量更新时保留的作业目录（路径前缀匹配）。
+    /// 作业按地图逐份覆写，保护整个目录不会挡住官方新增地图的作业。
+    /// </summary>
+    private static readonly string[] ProtectedResourceDirectories =
+    {
+        "/resource/roguelike/Mizuki/autopilot/",
+        "/resource/roguelike/Phantom/autopilot/",
+    };
+
+    /// <summary>
     /// 判断目标路径是否为本地定制、需要跨资源更新保留的文件。
-    /// 用路径后缀匹配，避免依赖 <see cref="PathsHelper.ResourceDir"/> 的初始化时机。
-    /// 目前保护两个水月肉鸽文件：任务链定义与招募优先级表。
+    /// 用路径后缀/前缀匹配，避免依赖 <see cref="PathsHelper.ResourceDir"/> 的初始化时机。
     /// </summary>
     /// <param name="destPath">待写入的目标文件路径。</param>
     /// <returns>命中保护清单返回 true，应跳过覆盖。</returns>
     private static bool IsProtectedResourceFile(string destPath)
     {
         string normalized = Path.GetFullPath(destPath).Replace('\\', '/');
-        return normalized.EndsWith("/resource/tasks/Roguelike/Mizuki.json", StringComparison.OrdinalIgnoreCase)
-            || normalized.EndsWith("/resource/roguelike/Mizuki/recruitment.json", StringComparison.OrdinalIgnoreCase);
+        if (ProtectedResourceFiles.Any(file => normalized.EndsWith(file, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return ProtectedResourceDirectories.Any(dir => normalized.Contains(dir, StringComparison.OrdinalIgnoreCase));
     }
 }

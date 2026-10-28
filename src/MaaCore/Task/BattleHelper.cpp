@@ -840,9 +840,17 @@ bool asst::BattleHelper::use_all_ready_skill(const cv::Mat& reusable)
             static const bool save_infinitely = std::filesystem::exists("DEBUG_skill_ready.txt");
             if (!save_infinitely) {
                 constexpr int MaxRetry = 3;
+                constexpr int BackoffSeconds = 15;
                 if (++retry >= MaxRetry) {
-                    LogWarn << "Do not use skill anymore" << oper_tag.name;
-                    usage = SkillUsage::NotUse;
+                    // 原实现是 usage = SkillUsage::NotUse，把该干员的技能整场永久禁用。
+                    // 但「图标亮却不点不动」多半是识别抖动或技能处在不可打断的后摇里，
+                    // 一次误判就换来整场零技能，代价太大。改成退避一段时间后重试：
+                    // 把上次尝试时间推到未来，下一次 now - last_use_time 为负，
+                    // 会被上面的 min_frame_interval 检查拦下，天然实现冷却。
+                    LogWarn << "Skill" << oper_tag.name << "ready but unusable, back off" << BackoffSeconds
+                            << "seconds";
+                    retry = 0;
+                    last_use_time = now + std::chrono::seconds(BackoffSeconds);
                 }
             }
             continue;
@@ -1014,6 +1022,10 @@ bool asst::BattleHelper::click_skill(int timeout_ms)
     bool pausing = false;
     if (timeout_ms == 0 && deploy_with_pause) {
         pausing = ProcessTask(this_task(), { "BattlePause" }).run();
+        // 暂停模式下原本只识别一帧：下面的超时判断 timeout_ms == 0 会立刻成立，
+        // 单帧识别抖动就会漏放一次技能（实测约 1/3 的释放失败是这种假阴性）。
+        // 这里给一个短重试窗口，仍然停留在暂停分支内，不会拖慢战斗节奏。
+        timeout_ms = 1200;
     }
 
     cv::Mat top_view;

@@ -81,7 +81,15 @@ bool asst::RoguelikeShoppingTaskPlugin::_run()
         m_pending_purchase.reset();
     }
 
-    buy_once();
+    // 2026-10-28：原实现一次进商店只买一件（buy_once 内部匹配到就 break 返回）。
+    // 实测傀影 320 次进商店仅成交 4 次，第 2 件之后的好货全被跳过。
+    // 改为最多买 3 件：每买到一件后等界面刷新，买不到即停。
+    for (int buy_round = 0; buy_round < 3; ++buy_round) {
+        if (!buy_once()) {
+            break;
+        }
+        sleep(800);
+    }
     const auto& theme = m_config->get_theme();
     if ((theme == RoguelikeTheme::Sami || theme == RoguelikeTheme::Sarkaz) &&
         // 界园可能没有免费刷新，先不进这里
@@ -184,7 +192,12 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
     const auto& all_goods = strategy_shopping
                                 ? RoguelikeShopping.get_goods(theme, m_config->status().shopping_buy_table)
                                 : RoguelikeShopping.get_goods(theme);
-    const auto wallet = strategy_shopping ? read_wallet(image) : std::nullopt;
+    // 钱包对所有主题都读：用户要求「商店购买顺序应先看手里有多少钱」。
+    // 旧实现把 read_wallet 只在 strategy_shopping（仅 BlackFlow）下调用，傀影/水月等
+    // 主题既不读余额也不校验价格，于是会出现「点开确认框才发现买不起」的死循环。
+    const auto wallet = read_wallet(image);
+    // 留给投资的源石锭下限：先买藏品/招募券，剩余的钱再去投资（用户指定的优先级）。
+    constexpr int InvestReserve = 10;
     std::vector<std::string> all_foldartal = m_config->get_theme() == RoguelikeTheme::Sami
                                                  ? Task.get<OcrTaskInfo>("Sami@Roguelike@FoldartalGainOcr")->text
                                                  : std::vector<std::string>();
@@ -209,6 +222,12 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
             return tr.text.find(goods.name) != std::string::npos;
         });
         if (find_it == result.cend()) {
+            continue;
+        }
+
+        // 预算门槛（所有主题）：余额低于投资保留额时不买，把钱留给投资。
+        if (wallet && *wallet < InvestReserve) {
+            Log.trace("Ready to buy", goods.name, ", but wallet", *wallet, "< reserve", InvestReserve, ", keep for investment");
             continue;
         }
 

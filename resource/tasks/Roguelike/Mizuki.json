@@ -422,9 +422,9 @@
             "绀碧摇篮"
         ],
         "next": [
+            "Mizuki@Roguelike@StrategyChange",
             "Mizuki@Roguelike@DiceConfirmAfterNextLevel",
             "Mizuki@Roguelike@CloseInterview",
-            "Mizuki@Roguelike@StrategyChange",
             "Mizuki@Roguelike@NextLevel"
         ]
     },
@@ -1059,6 +1059,16 @@
         ],
         "onErrorNext": [
             "#back"
+        ]
+    },
+    "Mizuki@Roguelike@Stages_exit": {
+        "Doc": "投资/藏品模式目标达成后的收尾策略：优先推进到下一层或结算，不主动挑作战节点。此前该任务从未定义，导致 StrategyChange_mode1/mode4 在第 2 层起 set_task_base 失败并静默沿用默认策略。",
+        "baseTask": "Mizuki@Roguelike@Stages_default",
+        "algorithm": "JustReturn",
+        "next": [
+            "Mizuki@Roguelike@NextLevel",
+            "Mizuki@Roguelike@StageCombatOps",
+            "Mizuki@Roguelike@StageEmergencyOps"
         ]
     }
 }

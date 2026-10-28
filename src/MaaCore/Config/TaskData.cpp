@@ -339,6 +339,13 @@ bool asst::TaskData::generate_raw_task_info(
     TaskPipelineConstPtr base_task = base.empty() ? nullptr : get_raw(base);
     std::string prefix = raw_prefix;
     if (base_task == nullptr) {
+        // baseTask 指向不存在的任务时，以前是静默兜底成空任务：继承字段（next/sub/
+        // onErrorNext/roi/algorithm 等）全部丢失，任务链会以难以解释的方式改变行为，
+        // 而且日志里没有任何线索。这里补一条警告，把「谁引用了什么不存在的 base」打出来。
+        if (!base.empty()) {
+            LogWarn << __FUNCTION__ << "baseTask" << base << "of task" << name
+                    << "does not exist, fallback to empty task; inherited fields are lost";
+        }
         base_task = default_task_info_ptr;
         prefix = "";
     }

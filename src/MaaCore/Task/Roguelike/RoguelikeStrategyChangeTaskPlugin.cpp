@@ -11,7 +11,7 @@
 
 bool asst::RoguelikeStrategyChangeTaskPlugin::verify(AsstMsg msg, const json::value& details) const
 {
-    if (msg != AsstMsg::SubTaskStart || details.get("subtask", std::string()) != "ProcessTask") {
+    if ((msg != AsstMsg::SubTaskStart && msg != AsstMsg::SubTaskCompleted) || details.get("subtask", std::string()) != "ProcessTask") {
         return false;
     }
 
@@ -26,15 +26,28 @@ bool asst::RoguelikeStrategyChangeTaskPlugin::verify(AsstMsg msg, const json::va
         task_view.remove_prefix(roguelike_name.length());
     }
     if (task_view == "Roguelike@StrategyChange") {
-        m_result = details.get("details", "result", json::object());
-        return true;
+        // 2026-10-28 修正：ProcessTask::run_task() 在匹配成功后会先构造
+        // info["details"]["result"] = hits.reco_detail，再同时用于 SubTaskStart 与
+        // SubTaskCompleted 两次回调。所以两个阶段都有可能拿到 OCR 文本，
+        // 之前只在 SubTaskCompleted 取值，一旦该阶段 result 为空就永远切换不了策略。
+        // 现在改成「哪个阶段拿到非空 result 就用哪个」，并把收到的内容打进日志便于核对。
+        json::value result = details.get("details", "result", json::object());
+        Log.info(
+            __FUNCTION__, "| StrategyChange", msg == AsstMsg::SubTaskStart ? "start" : "completed",
+            "result:", result.to_string());
+        if (result.is_object() && !result.as_object().empty()) {
+            m_result = result.as_object();
+            m_strategy = m_result.get("text", "");
+            return true;
+        }
+        return false;
     }
     // 地图阶段：每经过一个节点都会跑 Mizuki@Roguelike@Stages，借用它读一次「目标生命值」。
     // 这里刻意把 m_result 置空，让 _run() 只做血量采样、跳过策略切换逻辑。
     // 地图阶段：实测 `Roguelike@Stages` 是聚合父任务、不发 SubTaskStart，
     // 真正发事件的是命中的子模板（StageCombatOps / StageEmergencyOps / StageBoskyPassage 等），
     // 故用前缀匹配；每经过一个地图节点都会读一次「目标生命值」。
-    if (task_view.starts_with("Roguelike@Stage")) {
+    if (task_view.starts_with("Roguelike@Stage") && task_view != "Roguelike@Stages" && !task_view.starts_with("Roguelike@Stages_")) {
         m_result = json::object();
         // 只把「选中战斗节点」的那一帧标记为可采样：Enter/Confirm 之后的画面已经不是地图，
         // 左上角显示的可能是别的 UI，采信会污染血量状态。
@@ -133,7 +146,7 @@ bool asst::RoguelikeStrategyChangeTaskPlugin::_run()
 
     const std::string theme = m_config->get_theme();
     const std::string stages_task_name = theme + "@Roguelike@Stages";
-    const std::string current_strategy = m_result.get("text", "");
+    const std::string current_strategy = m_strategy;
     if (current_strategy.empty() || current_strategy.find("_SKIP_") != std::string::npos) {
         Log.info("Skip strategy change, current strategy is", current_strategy);
         return true;
@@ -146,6 +159,8 @@ bool asst::RoguelikeStrategyChangeTaskPlugin::_run()
     }
 
     Task.set_task_base(stages_task_name, strategy_task_name);
+    // 切换成功必须有日志，否则只能靠「没打 Skip」反推，排查时无法确认策略真的落到了哪个后缀。
+    Log.info(__FUNCTION__, "| current strategy is", current_strategy, "applied to", stages_task_name);
 
     return true;
 }

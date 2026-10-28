@@ -426,6 +426,9 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                     deploy_plan.rank = info.rank;
                     deploy_plan.placed = info.location;
                     deploy_plan.direction = info.direction;
+                    // 带上部署费用，供同 rank 同位次时按低费优先排序使用。
+                    // oper.cost 来自待部署区卡片上的费用数字识别，识别失败时为 0。
+                    deploy_plan.cost = oper.cost;
                     deploy_plan_list.emplace_back(deploy_plan);
                     LogDebug << "    deploy info" << deploy_plan.oper_name << "is No. "
                              << deploy_plan.oper_order_in_group + 1 << "in group" << group_name
@@ -441,7 +444,17 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
             LogTrace << m_stage_name << "operator" << oper.name << "is not in ALL deploy plan.";
         }
     }
-    std::sort(deploy_plan_list.begin(), deploy_plan_list.end());
+    // 用稳定排序而不是 std::sort：当两个条目 rank 与组内排名都相同时（同一落点可被
+    // 多个干员匹配），稳定排序保证仍然尊重 m_cur_deployment_opers 的原始顺序，
+    // 配合 operator< 里的费用比较，行为可预测。
+    std::stable_sort(deploy_plan_list.begin(), deploy_plan_list.end());
+    // 排序结果必须可见：否则「低费优先」是否真的生效只能靠 best deploy 反推，
+    // 而同 rank 多条记录混在一起时根本看不出谁排在前面。
+    for (size_t i = 0; i < deploy_plan_list.size() && i < 3; ++i) {
+        Log.trace(
+            "    deploy order #", i + 1, deploy_plan_list[i].oper_name, "rank", deploy_plan_list[i].rank, "cost",
+            deploy_plan_list[i].cost);
+    }
     // 部署位预留策略：记录「优先级更高但费用不足」的待命项，
     // 非开局阶段遇到优先级更低的项时先跳过，把部署位留给待命项。
     int best_waiting_rank = INT_MAX;
@@ -610,7 +623,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
     }
     pre_battlefield = m_battlefield_opers;
 
-    if (!update_deployment(false, image)) {
+    if (!update_deployment(false, image, true)) {
         return false;
     }
     update_cost(image, image_prev);
@@ -1261,6 +1274,13 @@ asst::RoguelikeBattleTaskPlugin::DirectionAndScore asst::RoguelikeBattleTaskPlug
             max_score = score;
             best_direction = direction;
         }
+    }
+
+    // 所有方向的得分都不大于 0 时（攻击范围完全落在不可通行地块/图外，或地图数据缺失），
+    // best_direction 会保持在 None。None 会让 deploy_oper 跳过朝向拖拽，干员朝向由游戏
+    // 默认值决定，行为不可预期。这里退回「朝敌方家」的 base_direction，保证朝向有确定性。
+    if (best_direction == DeployDirection::None && base_direction != DeployDirection::None) {
+        best_direction = base_direction;
     }
 
     return { best_direction, max_score };
