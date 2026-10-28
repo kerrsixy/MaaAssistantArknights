@@ -91,8 +91,8 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
         foreach (var plan in PlanList)
         {
             var newName = !string.IsNullOrEmpty(plan.DropId)
-                ? ItemListHelper.GetItemName(plan.DropId) ?? LocalizationHelper.GetString("NotSelected")
-                : LocalizationHelper.GetString("NotSelected");
+                ? ItemListHelper.GetItemName(plan.DropId) ?? LocalizationHelper.GetString("Common.NotSelected")
+                : LocalizationHelper.GetString("Common.NotSelected");
             plan.DropName = newName;
         }
 
@@ -175,7 +175,12 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
         foreach (var task in _serializedDepotMaintainTasks.ToList())
         {
             _serializedDepotMaintainTasks.Remove(task);
-            var depotList = Instances.ToolboxViewModel?.DepotResult.Where(item => item.Count >= 0).ToDictionary(item => item.Id, item => item.Count) ?? [];
+
+            // 没有任何库存数据时无从判断翻转，按 0 计会误报计划不足
+            if (Instances.ToolboxViewModel?.GetDepotSnapshot() is not { } depotList)
+            {
+                continue;
+            }
 
             // SortByProgress 开启时按下发口径（达成率升序）挑选提示对象，与实际执行顺序一致
             var plans = task.PlanList.Select((plan, index) => (plan, index));
@@ -205,7 +210,7 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
 
                 var dropName = ItemListHelper.GetItemName(plan.DropId) ?? plan.DropId;
                 Instances.TaskQueueViewModel.AddLog(
-                    LocalizationHelper.GetStringFormat("DepotPlanCacheStaleSkipped", (index + 1).ToString(), dropName, currentCount.ToString("N0"), plan.DropCount.ToString("N0")),
+                    LocalizationHelper.GetStringFormat("TaskQueue.DepotMaintain.PlanCacheStaleSkipped", (index + 1).ToString(), dropName, currentCount.ToString("N0"), plan.DropCount.ToString("N0")),
                     UiLogColor.Warning);
                 if (task.OnlyFirstInsufficientPlan)
                 {
@@ -330,8 +335,8 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
         }
 
         var result = MessageBoxHelper.Show(
-            LocalizationHelper.GetString("ClearPlansConfirm"),
-            LocalizationHelper.GetString("Warning"),
+            LocalizationHelper.GetString("TaskQueue.DepotMaintain.ClearPlansConfirm"),
+            LocalizationHelper.GetString("Common.Warning"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
         if (result != MessageBoxResult.Yes)
@@ -346,11 +351,11 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
     /// 预设列表。
     /// </summary>
     public static LocalizedObservableList<string> PresetList { get; } = new(
-        ("Chip1", "DepotPresetChip1"),
-        ("Chip2", "DepotPresetChip2"),
-        ("CE6", "DepotPresetLmd"),
-        ("AP5", "DepotPresetCertificate"),
-        ("CA5", "DepotPresetSkillSummary"));
+        ("Chip1", "TaskQueue.DepotMaintain.PresetChip1"),
+        ("Chip2", "TaskQueue.DepotMaintain.PresetChip2"),
+        ("CE6", "TaskQueue.DepotMaintain.PresetLmd"),
+        ("AP5", "TaskQueue.DepotMaintain.PresetCertificate"),
+        ("CA5", "TaskQueue.DepotMaintain.PresetSkillSummary"));
 
     /// <summary>
     /// 预设数据：关卡 → [(掉落物 itemId, 掉落物名称), ...]。
@@ -418,7 +423,7 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
         // 快捷导入不干预运行语义， ｢活动期间跳过｣ 开启时仅提示，导入的计划在活动期间不会执行
         if (GetTaskConfig<DepotMaintainTask>().SkipDuringActivity)
         {
-            GrowlHelper.Warning(LocalizationHelper.GetString("DepotPresetActivitySkipConflict"));
+            GrowlHelper.Warning(LocalizationHelper.GetString("TaskQueue.DepotMaintain.PresetActivitySkipConflict"));
         }
     }
 
@@ -443,7 +448,7 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
         var list = PlanList.ToList();
         foreach (var (stage, dropId, count) in plans)
         {
-            var dropName = ItemListHelper.GetItemName(dropId) ?? LocalizationHelper.GetString("NotSelected");
+            var dropName = ItemListHelper.GetItemName(dropId) ?? LocalizationHelper.GetString("Common.NotSelected");
             var plan = new DepotPlanItemViewModel(stage, dropId, dropName, count);
             plan.PropertyChanged += PlanItem_PropertyChanged;
             list.Add(plan);
@@ -671,7 +676,7 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
         foreach (var plan in task.PlanList)
         {
             // 根据 DropId 从掉落列表恢复 DropName，避免初始化显示为"不选择"
-            var dropName = FightTaskUserControlModel.Instance.DropsList.FirstOrDefault(i => i.Value == plan.DropId)?.Display ?? LocalizationHelper.GetString("NotSelected");
+            var dropName = FightTaskUserControlModel.Instance.DropsList.FirstOrDefault(i => i.Value == plan.DropId)?.Display ?? LocalizationHelper.GetString("Common.NotSelected");
 
             var uiPlan = new DepotPlanItemViewModel(plan.Stage, plan.DropId, dropName, plan.DropCount, plan.UseMedicine, plan.MedicineCount, plan.UseStone, plan.StoneCount, plan.TaskId) {
                 Index = index,
@@ -772,14 +777,14 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
             // 活动期间跳过：当有 SideStory 活动进行中时跳过整个库存保持任务
             if (depot.SkipDuringActivity && Instances.StageManager.IsActivityOpen())
             {
-                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("DepotPlanSkippedActivity"), UiLogColor.Info);
+                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("TaskQueue.DepotMaintain.PlanSkippedActivity"), UiLogColor.Info);
                 return (null, []);
             }
 
             // 资源全开放期间跳过：当资源全开放活动进行中时跳过整个库存保持任务
             if (depot.SkipDuringResourceCollection && Instances.StageManager.IsResourceCollectionOpen())
             {
-                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("DepotPlanSkippedResourceCollection"), UiLogColor.Info);
+                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("TaskQueue.DepotMaintain.PlanSkippedResourceCollection"), UiLogColor.Info);
                 return (null, []);
             }
 
@@ -792,7 +797,7 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
                 var (result, depotTaskId) = Instances.AsstProxy.AsstAppendTaskWithEncoding(TaskType.Depot, (AsstTaskType.Depot, null));
                 if (!result)
                 {
-                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("DepotPlanUpdateDepotFailed"), UiLogColor.Error);
+                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("TaskQueue.DepotMaintain.PlanUpdateDepotFailed"), UiLogColor.Error);
                     return (false, []);
                 }
                 Instances.ToolboxViewModel.MarkDepotRecognitionSyncTimeForReset(depotTaskId);
@@ -802,7 +807,7 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
             // 空计划且未追加前置仓库识别时整任务没有 core 任务，须说明跳过原因；计划非空时各 plan 已有逐条日志
             if (depot.PlanList.Count == 0 && !depot.UpdateDepot)
             {
-                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("DepotPlanNoPlan"), UiLogColor.Error);
+                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("TaskQueue.DepotMaintain.PlanNoPlan"), UiLogColor.Error);
                 return (null, []);
             }
 
@@ -811,14 +816,16 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
             // 登记本轮参与评估，任意识别完成后复查未下发计划的缓存翻转（含 UpdateDepot=false 的场景）
             _ = _serializedDepotMaintainTasks.Add(depot);
 
-            var depotList = Instances.ToolboxViewModel?.DepotResult.Where(item => item.Count >= 0).ToDictionary(item => item.Id, item => item.Count) ?? [];
+            // 预检空缓存按 0 计（各计划开始时会用最新库存重算缺口并拦截无数据场景），
+            // UpdateDepot 开启时的首轮识别正是靠这个行为把计划照常下发后由重算纠正
+            var depotList = Instances.ToolboxViewModel?.GetDepotSnapshot() ?? [];
 
             // 按达成率排序时仅调整下发顺序（升序，缺口比例最大优先），配置中的列表顺序不变；写回 TaskId 与日志序号仍用原列表索引，与 UI 列表对应
             var order = Enumerable.Range(0, depot.PlanList.Count).ToList();
             if (depot.SortByProgress && depot.PlanList.Count > 1)
             {
                 order = [.. order.OrderBy(i => PlanProgress(depot.PlanList[i], depotList, depot.CountDualChipAsChipPack))];
-                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("DepotPlanSortedByProgress"), UiLogColor.Info);
+                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("TaskQueue.DepotMaintain.PlanSortedByProgress"), UiLogColor.Info);
             }
 
             foreach (var i in order)
@@ -827,12 +834,12 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
                 depot.PlanList[i] = plan with { TaskId = 0 }; // 主动重置 TaskId
                 if (string.IsNullOrEmpty(plan.DropId))
                 {
-                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("DepotPlanInvalidDropItem", i + 1), UiLogColor.Error);
+                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("TaskQueue.DepotMaintain.PlanInvalidDropItem", i + 1), UiLogColor.Error);
                     continue;
                 }
                 if (plan.DropCount <= 0)
                 {
-                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("DepotPlanZeroDropCount", i + 1), UiLogColor.Error);
+                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("TaskQueue.DepotMaintain.PlanZeroDropCount", i + 1), UiLogColor.Error);
                     continue;
                 }
 
@@ -846,7 +853,7 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
                 var dropName = ItemListHelper.GetItemName(plan.DropId) ?? plan.DropId;
                 if (need <= 0)
                 {
-                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("DepotPlanInventoryEnough", i + 1, dropName, currentCount.ToString("N0"), plan.DropCount.ToString("N0")));
+                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("TaskQueue.DepotMaintain.PlanInventoryEnough", i + 1, dropName, currentCount.ToString("N0"), plan.DropCount.ToString("N0")));
                     continue;
                 }
 
@@ -855,11 +862,11 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
                 {
                     if (string.IsNullOrEmpty(plan.Stage))
                     {
-                        Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("DepotPlanNoStage", i + 1), UiLogColor.Error);
+                        Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("TaskQueue.DepotMaintain.PlanNoStage", i + 1), UiLogColor.Error);
                     }
                     else
                     {
-                        Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("DepotPlanStageNotOpen", i + 1, plan.Stage));
+                        Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("TaskQueue.DepotMaintain.PlanStageNotOpen", i + 1, plan.Stage));
                     }
 
                     continue;
@@ -882,13 +889,13 @@ public class DepotMaintainTaskUserControlModel : TaskSettingsViewModel, DepotMai
                 var (ret, id) = Instances.AsstProxy.AsstAppendTaskWithEncoding(TaskType.Fight, fight);
                 if (!ret)
                 {
-                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("DepotPlanAddTaskFailed", i + 1), UiLogColor.Error);
+                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("TaskQueue.DepotMaintain.PlanAddTaskFailed", i + 1), UiLogColor.Error);
                 }
                 else
                 {
                     taskIds.Add(id);
                     depot.PlanList[i] = plan with { TaskId = id };
-                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("DepotPlanInventoryInsufficient", i + 1, dropName, currentCount.ToString("N0"), plan.DropCount.ToString("N0"), need.ToString("N0")));
+                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("TaskQueue.DepotMaintain.PlanInventoryInsufficient", i + 1, dropName, currentCount.ToString("N0"), plan.DropCount.ToString("N0"), need.ToString("N0")));
                     if (depot.OnlyFirstInsufficientPlan)
                     {
                         break; // 仅下发第一个库存不足的计划，其后计划本轮不评估也不输出日志

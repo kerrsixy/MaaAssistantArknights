@@ -506,7 +506,7 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
         (3, "3"),
         (2, "2"),
         (1, "1"),
-        (-1, "NotSwitch"));
+        (-1, "TaskQueue.NotSwitch"));
 
     /// <summary>
     /// Gets or sets 连战次数。
@@ -604,24 +604,6 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
     }
 
     /// <summary>
-    /// 读取当前识别到的仓库数量，并转换为查询表。
-    /// </summary>
-    private static Dictionary<string, int>? GetCurrentInventoryCounts()
-    {
-        var depotResult = Instances.ToolboxViewModel?.DepotResult;
-        if (depotResult == null || depotResult.Count == 0)
-        {
-            return null;
-        }
-
-        var snapshot = depotResult
-            .Where(item => item.Count >= 0)
-            .ToDictionary(item => item.Id, item => item.Count);
-
-        return snapshot.Count > 0 ? snapshot : null;
-    }
-
-    /// <summary>
     /// 获取当前选中作战任务绑定的第一个 core task id。
     /// </summary>
     private static int? GetCurrentFightTaskId()
@@ -707,7 +689,7 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
             return runtimeState.StartInventory;
         }
 
-        var currentInventoryCounts = GetCurrentInventoryCounts();
+        var currentInventoryCounts = Instances.ToolboxViewModel?.GetDepotSnapshot();
         if (currentInventoryCounts == null)
         {
             return null;
@@ -745,7 +727,7 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
     /// </summary>
     private static InventoryTargetRuntimeState? CreateInventoryTargetRuntimeState(FightTask fight)
     {
-        var currentInventoryCounts = GetCurrentInventoryCounts();
+        var currentInventoryCounts = Instances.ToolboxViewModel?.GetDepotSnapshot();
         if (currentInventoryCounts == null)
         {
             return null;
@@ -812,7 +794,7 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
 
     private void InitDrops()
     {
-        AllDrops.Add(new() { Display = LocalizationHelper.GetString("NotSelected"), Value = string.Empty });
+        AllDrops.Add(new() { Display = LocalizationHelper.GetString("Common.NotSelected"), Value = string.Empty });
         foreach (var (val, value) in ItemListHelper.ArkItems)
         {
             // 不是数字的东西都是正常关卡不会掉的（大概吧）
@@ -953,7 +935,7 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
         else
         {
             DropsItemId = string.Empty;
-            DropsItemName = LocalizationHelper.GetString("NotSelected");
+            DropsItemName = LocalizationHelper.GetString("Common.NotSelected");
             NotifyOfPropertyChange(nameof(DropsItemName));
         }
     }
@@ -989,21 +971,21 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
         var stage = GetFightStage(StagePlan.Select(i => i.Stage)) ?? "--";
         if (stage == string.Empty)
         {
-            stage = LocalizationHelper.GetString("DefaultStage");
+            stage = LocalizationHelper.GetString("TaskQueue.Stage.Label.Default");
         }
 
-        StagePlanTip = LocalizationHelper.GetStringFormat("StagePlanTip", stage);
+        StagePlanTip = LocalizationHelper.GetStringFormat("TaskQueue.Fight.StagePlan.Tip", stage);
         if (CustomStageCode)
         {
-            StagePlanTip += $"\n\n{LocalizationHelper.GetString("CustomStageCodeTip")}";
+            StagePlanTip += $"\n\n{LocalizationHelper.GetString("TaskQueue.CustomStageCode.Tip")}";
         }
     }
 
     public LocalizedObservableList<string> AnnihilationModeList { get; } = new(
-        (AnnihilationName, "Annihilation.Current"),
-        ("Chernobog@Annihilation", "Chernobog"),
-        ("LungmenOutskirts@Annihilation", "LungmenOutskirts"),
-        ("LungmenDowntown@Annihilation", "LungmenDowntown"));
+        (AnnihilationName, "TaskQueue.Annihilation.Current"),
+        ("Chernobog@Annihilation", "TaskQueue.Annihilation.Chernobog"),
+        ("LungmenOutskirts@Annihilation", "TaskQueue.Annihilation.LungmenOutskirts"),
+        ("LungmenDowntown@Annihilation", "TaskQueue.Annihilation.LungmenDowntown"));
 
     public bool UseCustomAnnihilation
     {
@@ -1015,8 +997,8 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
                 StageListSource.FirstOrDefault(i => i.Value == AnnihilationName)?.Display =
                     UseCustomAnnihilation
                         ? (AnnihilationModeList.FirstOrDefault(i => i.Value == AnnihilationStage)?.Display
-                            ?? LocalizationHelper.GetString("Annihilation.Current"))
-                        : LocalizationHelper.GetString("Annihilation.Current");
+                            ?? LocalizationHelper.GetString("TaskQueue.Annihilation.Current"))
+                        : LocalizationHelper.GetString("TaskQueue.Annihilation.Current");
             }
         }
     }
@@ -1029,8 +1011,8 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
             StageListSource.FirstOrDefault(i => i.Value == AnnihilationName)?.Display =
                 UseCustomAnnihilation
                     ? (AnnihilationModeList.FirstOrDefault(i => i.Value == value)?.Display
-                        ?? LocalizationHelper.GetString("Annihilation.Current"))
-                    : LocalizationHelper.GetString("Annihilation.Current");
+                        ?? LocalizationHelper.GetString("TaskQueue.Annihilation.Current"))
+                    : LocalizationHelper.GetString("TaskQueue.Annihilation.Current");
         }
     }
 
@@ -1082,14 +1064,15 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
             if (value)
             {
                 var result = MessageBoxHelper.Show(
-                    LocalizationHelper.GetString("AllowUseStoneSaveWarning"),
-                    LocalizationHelper.GetString("Warning"),
-                    MessageBoxButton.YesNo,
+                    LocalizationHelper.GetString("TaskQueue.Fight.AllowUseStoneSave.Warning"),
+                    LocalizationHelper.GetString("Common.Warning"),
+                    MessageBoxButton.OKCancel,
                     MessageBoxImage.Warning,
-                    no: LocalizationHelper.GetString("Confirm"),
-                    yes: LocalizationHelper.GetString("Cancel"),
-                    iconBrushKey: "DangerBrush");
-                if (result != MessageBoxResult.No)
+                    ok: LocalizationHelper.GetString("Common.Confirm"),
+                    cancel: LocalizationHelper.GetString("Common.Cancel"),
+                    iconBrushKey: "DangerBrush",
+                    defaultResult: MessageBoxResult.Cancel);
+                if (result != MessageBoxResult.OK)
                 {
                     return;
                 }
@@ -1153,8 +1136,8 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
     }
 
     public LocalizedObservableList<FightStageResetMode> StageResetModeList { get; } = new(
-        (FightStageResetMode.Current, "DefaultStage"),
-        (FightStageResetMode.Ignore, "NotSwitch"));
+        (FightStageResetMode.Current, "TaskQueue.Stage.Label.Default"),
+        (FightStageResetMode.Ignore, "TaskQueue.NotSwitch"));
 
     public FightStageResetMode StageResetMode
     {
@@ -1238,7 +1221,11 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
             return;
         }
 
-        var depotList = Instances.ToolboxViewModel?.DepotResult.Where(item => item.Count >= 0).ToDictionary(item => item.Id, item => item.Count) ?? [];
+        if (Instances.ToolboxViewModel?.GetDepotSnapshot() is not { } depotList)
+        {
+            return; // 库存数据为空时无法判定是否达标，不构成耗尽证明
+        }
+
         var currentCount = depotList.TryGetValue(dropId, out var value) ? value : 0;
         if (currentCount >= dropCount)
         {
@@ -1253,6 +1240,7 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
     /// <summary>
     /// 任务开始时用最新库存重算指定掉落材料的缺口：达标则 times=0 跳过整个任务（核心侧不进终端不导航）；
     /// 否则更新 drops，并在理智不足且无药剂/源石预算、临期药窗口已证明耗尽（或未启用）时同样 times=0 跳过。
+    /// 库存数据为空（从未成功识别过库存）时同样 times=0 跳过并记录警告，按 0 计缺口会把目标量全额下发。
     /// 供理智作战和库存保持任务统一调用。
     /// </summary>
     /// <param name="taskId">core 任务 id</param>
@@ -1269,7 +1257,16 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
             return false;
         }
 
-        var depotList = Instances.ToolboxViewModel?.DepotResult.Where(item => item.Count >= 0).ToDictionary(item => item.Id, item => item.Count) ?? [];
+        // 库存数据为空说明从未成功识别过库存，缺口无从谈起，times=0 停刷等待重新识别
+        if (Instances.ToolboxViewModel?.GetDepotSnapshot() is not { } depotList)
+        {
+            task.MaxTimes = 0;
+            Instances.TaskQueueViewModel.AddLog(
+                LocalizationHelper.GetStringFormat("TaskQueue.DepotMaintain.PlanInventoryDataEmpty", logLabel ?? string.Empty),
+                UiLogColor.Warning);
+            return Instances.AsstProxy.AsstSetTaskParamsEncoded(taskId, task);
+        }
+
         var currentCount = depotList.TryGetValue(dropId, out var value) ? value : 0;
         if (countDualChipAsChipPack)
         {
@@ -1285,14 +1282,14 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
             // 库存已充足，times=0 跳过整个任务
             task.MaxTimes = 0;
             Instances.TaskQueueViewModel.AddLog(
-                LocalizationHelper.GetStringFormat("DepotPlanInventoryEnough", logLabel ?? string.Empty, dropName, currentCount.ToString("N0"), dropCount.ToString("N0")),
+                LocalizationHelper.GetStringFormat("TaskQueue.DepotMaintain.PlanInventoryEnough", logLabel ?? string.Empty, dropName, currentCount.ToString("N0"), dropCount.ToString("N0")),
                 UiLogColor.Info);
         }
         else
         {
             task.Drops = new() { { dropId, need } };
             Instances.TaskQueueViewModel.AddLog(
-                LocalizationHelper.GetStringFormat("DepotPlanInventoryInsufficient", logLabel ?? string.Empty, dropName, currentCount.ToString("N0"), dropCount.ToString("N0"), need.ToString("N0")));
+                LocalizationHelper.GetStringFormat("TaskQueue.DepotMaintain.PlanInventoryInsufficient", logLabel ?? string.Empty, dropName, currentCount.ToString("N0"), dropCount.ToString("N0"), need.ToString("N0")));
             _logger.Information("FightTask {taskId} ({label}) re-calculated: {dropName} need {need} (current {current} / target {target})",
                 taskId, logLabel, dropName, need, currentCount, dropCount);
 
@@ -1319,7 +1316,7 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
                     {
                         task.MaxTimes = 0;
                         Instances.TaskQueueViewModel.AddLog(
-                            LocalizationHelper.GetStringFormat("DepotPlanSanityInsufficient", logLabel ?? string.Empty, estimatedSanity, apCost),
+                            LocalizationHelper.GetStringFormat("TaskQueue.DepotMaintain.PlanSanityInsufficient", logLabel ?? string.Empty, estimatedSanity, apCost),
                             UiLogColor.Info);
                     }
                 }
@@ -1451,13 +1448,13 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
             {
                 var activity = activityList.First();
                 var timeLeft = activity.Value.Info.ExpireTimeUtc - time;
-                var day = timeLeft.Days > 0 ? $"{timeLeft.Days}+" : LocalizationHelper.GetString("LessThanOneDay");
+                var day = timeLeft.Days > 0 ? $"{timeLeft.Days}+" : LocalizationHelper.GetString("TaskQueue.Stage.Label.LessThanOneDay");
                 ActivityExpireIn2Days = timeLeft.Days < 2;
-                ActivityInfo = $"｢{activity.Value.Info.StageName}｣ {LocalizationHelper.GetString("DaysLeftOpen")}{day}";
+                ActivityInfo = $"｢{activity.Value.Info.StageName}｣ {LocalizationHelper.GetString("TaskQueue.Stage.Label.DaysLeftOpen")}{day}";
             }
             else
             {
-                ActivityInfo = LocalizationHelper.GetString("NoActivity");
+                ActivityInfo = LocalizationHelper.GetString("TaskQueue.Fight.NoActivity");
                 ActivityExpireIn2Days = false;
             }
             using (var refresh = new UiRefreshingScope())
@@ -1527,8 +1524,8 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
         }
         listSource.FirstOrDefault(i => i.Value == AnnihilationName)?.Display = current.UseCustomAnnihilation
             ? (AnnihilationModeList.FirstOrDefault(i => i.Value == current.AnnihilationStage)?.Display
-                ?? LocalizationHelper.GetString("Annihilation.Current"))
-            : LocalizationHelper.GetString("Annihilation.Current");
+                ?? LocalizationHelper.GetString("TaskQueue.Annihilation.Current"))
+            : LocalizationHelper.GetString("TaskQueue.Annihilation.Current");
         StageListSource = [.. listSource];
         current.StagePlan = listCurrent; // StageListSource更新后, 恢复StagePlan
     }
@@ -1684,7 +1681,7 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
 
             if (fight.UseWeeklySchedule && fight.WeeklySchedule.TryGetValue(Instances.TaskQueueViewModel.CurDayOfWeek, out var isEnabled) && !isEnabled)
             {
-                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("FightSkippedWeeklySchedule"), UiLogColor.Info);
+                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("TaskQueue.Fight.SkippedWeeklySchedule"), UiLogColor.Info);
                 return (null, []);
             }
 
@@ -1693,11 +1690,11 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
             {
                 if (fight.StagePlan.Count == 0)
                 {
-                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("FightSkippedEmptyStagePlan"), UiLogColor.Error);
+                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("TaskQueue.Fight.SkippedEmptyStagePlan"), UiLogColor.Error);
                 }
                 else
                 {
-                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("FightSkippedNoOpenStage"), UiLogColor.Info);
+                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("TaskQueue.Fight.SkippedNoOpenStage"), UiLogColor.Info);
                 }
 
                 return (null, []);
@@ -1712,10 +1709,10 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
                 if (stageIndex >= 0 && stageIndex < fight.StagePlan.Count - 1)
                 {
                     var stageName = stage == string.Empty
-                        ? LocalizationHelper.GetString("DefaultStage")
+                        ? LocalizationHelper.GetString("TaskQueue.Stage.Label.Default")
                         : Instances.StageManager.GetStageInfo(stage).Display;
                     Instances.TaskQueueViewModel.AddLog(
-                        LocalizationHelper.GetStringFormat("PermanentStageBlocksStages", stageName),
+                        LocalizationHelper.GetStringFormat("TaskQueue.Fight.PermanentStageBlocksStages", stageName),
                         UiLogColor.Warning);
                 }
             }
@@ -1741,7 +1738,7 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
 
                 if (inventoryTargetRuntimeState == null)
                 {
-                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("SpecifiedDropsInventoryUnavailable", fight.NameOrTaskType), UiLogColor.Warning);
+                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("TaskQueue.Fight.SpecifiedDropsInventoryUnavailable", fight.NameOrTaskType), UiLogColor.Warning);
                     return (null, []);
                 }
 
@@ -1750,7 +1747,7 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
                 {
                     var dropName = ItemListHelper.GetItemName(fight.DropId) ?? fight.DropId;
                     Instances.TaskQueueViewModel.AddLog(
-                        LocalizationHelper.GetStringFormat("SpecifiedDropsInventoryEnough", dropName, inventoryTargetRuntimeState.StartInventory.ToString("N0"), fight.DropCount.ToString("N0")),
+                        LocalizationHelper.GetStringFormat("TaskQueue.Fight.SpecifiedDropsInventoryEnough", dropName, inventoryTargetRuntimeState.StartInventory.ToString("N0"), fight.DropCount.ToString("N0")),
                         UiLogColor.Info);
                     return (null, []);
                 }
@@ -1773,7 +1770,7 @@ public partial class FightTaskUserControlModel : TaskSettingsViewModel, FightTas
 
             if (effectiveMaxTimes > 0 && effectiveMaxTimes < int.MaxValue && fight.Series > 0 && effectiveMaxTimes % fight.Series != 0)
             {
-                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("FightTimesMayNotExhausted", effectiveMaxTimes, fight.Series), UiLogColor.Warning);
+                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetStringFormat("TaskQueue.FightTimesMayNotExhausted", effectiveMaxTimes, fight.Series), UiLogColor.Warning);
             }
 
             if (taskId is int id and > 0)

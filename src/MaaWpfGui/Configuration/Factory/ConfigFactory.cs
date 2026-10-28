@@ -61,7 +61,7 @@ public static class ConfigFactory
 
     public static event ConfigurationUpdateEventHandler? ConfigurationUpdateEvent;
 
-    private static readonly JsonSerializerOptions _options = new() { WriteIndented = true, Converters = { new DiscordWebhookFixConverter(), new GlobalGuiRenameConverter(), new SettingsPageReorgMigrationConverter(), new ThirdPartyMigrationConverter(), new NotificationSettingsMigrationConverter(), new RecruitTaskHoldTagsConverter(), new FightTaskStageResetModeConverter(), new RoguelikeStartingOpersConverter(), new FaultTolerantRootConverter(), new TolerantEnumConverterFactory(), new FightTaskStageResetModeInvalidToIgnoreConverter() }, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All), DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { JsonPredictSerializationModifier.Modify } } };
+    private static readonly JsonSerializerOptions _options = new() { WriteIndented = true, Converters = { new DiscordWebhookFixConverter(), new GlobalGuiRenameConverter(), new SettingsPageReorgMigrationConverter(), new ToolboxSectionMigrationConverter(), new ThirdPartyMigrationConverter(), new NotificationSettingsMigrationConverter(), new RecruitTaskHoldTagsConverter(), new FightTaskStageResetModeConverter(), new RoguelikeStartingOpersConverter(), new FaultTolerantRootConverter(), new TolerantEnumConverterFactory(), new FightTaskStageResetModeInvalidToIgnoreConverter() }, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All), DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { JsonPredictSerializationModifier.Modify } } };
 
     private static readonly List<string> _brokenConfigs = [];
 
@@ -224,7 +224,7 @@ public static class ConfigFactory
             return null;
         }
 
-        var messages = LocalizationHelper.GetStringFormat("ConfigurationRecoveredNotification", string.Join(", ", _brokenConfigs));
+        var messages = LocalizationHelper.GetStringFormat("Error.ConfigurationRecoveredNotification", string.Join(", ", _brokenConfigs));
         _brokenConfigs.Clear();
         return messages;
     }

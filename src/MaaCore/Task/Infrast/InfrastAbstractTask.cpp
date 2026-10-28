@@ -458,8 +458,9 @@ bool asst::InfrastAbstractTask::swipe_and_select_custom_opers(
             pre_result_no_changes = false;
         }
         pre_partial_result = partial_result;
-        // 阶段一页数上限：技能排序下无基建技能的点名干员、心情排序下心情常满的宿舍挂件
-        // 都沉在列表尾段，逐页扫到底代价高，剩余目标交给阶段二按职业分桶定位
+        // 阶段一页数上限：名单全命中时已提前退出，本上限只决定还要为未命中目标翻几页。
+        // 头部高效率点名干员聚集在前两页；扫过仍未命中的，位于技能段中后部时翻页与切职业页签耗时相近，
+        // 无技能沉底时（体系干员、宿舍挂件）切页签必省，故不再继续翻页
         if (swipe_times + 1 >= CustomPhaseOneMaxPages) {
             break;
         }
@@ -467,11 +468,10 @@ bool asst::InfrastAbstractTask::swipe_and_select_custom_opers(
         ++swipe_times;
     }
 
-    // 阶段二：剩余目标按职业分桶定位。结束时已切回 ALL 第一页，swipe_times 归零让收尾跳过物理回正
+    // 阶段二：剩余目标按职业分桶定位。结束时已切回 ALL 第一页
     if (!select_custom_opers_by_role(is_dorm_order)) {
         return false;
     }
-    swipe_times = 0;
 
     // 先按任意其他的tab排序，游戏会自动把已经选中的人放到最前面
     // 因为后面autofill要按工作状态排序，所以直接按工作状态排序好了
@@ -484,10 +484,6 @@ bool asst::InfrastAbstractTask::swipe_and_select_custom_opers(
         ProcessTask(*this, { "InfrastOperListTabWorkStatusUnClicked" }).run();
     }
 
-    if (swipe_times) {
-        swipe_to_the_left_of_operlist(swipe_times + 1);
-        swipe_times = 0;
-    }
     // 如果只选了一个人没必要排序
     if (room_config.sort && room_config.selected > 1) {
         click_clear_button();
@@ -771,7 +767,7 @@ bool asst::InfrastAbstractTask::select_custom_opers_by_role(bool is_dorm_order)
         return std::ranges::any_of(room_config.candidates, [&](const std::string& name) { return !is_excluded(name); });
     };
     if (is_full() || (room_config.names.empty() && !has_pending_candidates())) {
-        // 调用方会清零翻页计数，无需职业分桶时也须回到 ALL 首页
+        // 无需职业分桶时也须回到 ALL 首页
         swipe_to_the_left_of_operlist();
         return true; // 满员，或剩余名单全是已排除的候补，无事可做
     }
@@ -783,11 +779,12 @@ bool asst::InfrastAbstractTask::select_custom_opers_by_role(bool is_dorm_order)
                 if (skip_excluded && is_excluded(name)) {
                     continue; // 阶段一已确认在班/心情不符的候补，不再为其翻页
                 }
-                const battle::Role role = BattleData.get_first_role(name);
-                if (role == battle::Role::Unknown) {
+                const auto roles = BattleData.get_roles(name, true);
+                if (roles.size() != 1) {
                     fallback.emplace_back(name);
                     continue;
                 }
+                const battle::Role role = *roles.begin();
                 auto iter = std::ranges::find_if(buckets, [&](const auto& pair) { return pair.first == role; });
                 if (iter == buckets.end()) {
                     buckets.emplace_back(role, std::vector<std::string> {});
@@ -923,9 +920,8 @@ bool asst::InfrastAbstractTask::select_custom_opers_by_role(bool is_dorm_order)
         }
     }
 
-    // 恢复 ALL 页签并收起职业栏，回到与阶段一结束一致的界面状态供收尾排序与复核
-    ProcessTask(*this, { "BattleQuickFormationRole-All", "BattleQuickFormationRole-All-OCR" }).run();
-    close_quick_formation_expand_role();
+    // 回正函数切页签重置列表滚动后回到 ALL 并收起职业栏，回到与阶段一结束一致的界面状态供收尾排序与复核
+    swipe_to_the_left_of_operlist();
     return true;
 }
 
@@ -1185,7 +1181,9 @@ void asst::InfrastAbstractTask::swipe_of_operlist()
 void asst::InfrastAbstractTask::swipe_to_the_left_of_operlist(int loop_times)
 {
     // 通过切换职业栏来实现回正
-    bool ret = ProcessTask(*this, { "BattleQuickFormationExpandRole" }).set_retry_times(3).run();
+    bool ret = ProcessTask(*this, { "BattleQuickFormationRoleExpanded", "BattleQuickFormationExpandRole" })
+                   .set_retry_times(3)
+                   .run();
     if (ret) {
         ProcessTask(
             *this,

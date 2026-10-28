@@ -275,7 +275,7 @@ typedef void(ASST_CALL* AsstApiCallback)(AsstMsgId msg, const char* details_json
 
 작업 체인이 처리되지 않은 예외로 중단된 경우, `TaskChainError`는 추가로 `details` 필드를 포함합니다:
 
-- `error` (string, required): 예외 유형, 값은 `OpenCVException` | `OutOfMemory` | `UnhandledException` | `UnknownException` 중 하나.
+- `error` (string, required): 예외 유형, 값은 `OpenCVException` | `OutOfMemory` | `GpuDeviceRemoved` | `UnhandledException` | `UnknownException` 중 하나. 이 중 `OutOfMemory`와 `GpuDeviceRemoved`(GPU 추론 장치 손실, 그래픽 드라이버 업데이트 또는 GPU 리셋 등)가 발생하면 남은 작업이 모두 지워지며, 계속하려면 프로그램을 재시작해야 합니다.
 
 ### TaskChainExtraInfo
 
@@ -359,6 +359,8 @@ typedef void(ASST_CALL* AsstApiCallback)(AsstMsgId msg, const char* details_json
   ::::
 
   또한, 작업 실행 횟수가 상한에 도달하면 먼저 `what`가 `ExceededLimit`인 `SubTaskExtraInfo` 메시지가 전송되며, `details`에는 `task`(작업명), `exec_times`(실행된 횟수), `max_times`(최대 실행 횟수)가 포함됩니다.
+
+  인식할 작업 목록에 정의되지 않은 작업명이 존재하면(작업 리소스와 프로그램 버전 불일치 등), 인식 시작 전에 `SubTaskError`로 전달되며 작업 체인 전체가 중지됩니다. `what`는 `UnknownTask`, `details`에는 `tasks`(문자열 배열, 정의되지 않은 작업명 목록)이 포함됩니다.
 
 - `ReportToPenguinStats` / `ReportToYituliu`  
   전투 드롭을 펭귄 물류 통계 / 일도류 빅데이터에 보고 (보고 실패 시 `SubTaskError`로 전달됨).
@@ -760,11 +762,12 @@ typedef void(ASST_CALL* AsstApiCallback)(AsstMsgId msg, const char* details_json
     - `preparing`: 준비 탐험 시작.
     - `target_run`: 목표 탐험 시작.
     - `reward_missed`: 지원 선택 화면에서 보상은 인식했지만 원하는 것이 없어 해당 탐험을 포기하고 준비 탐험을 다시 진행.
-    - `completed`: 원하는 보상이 나와 테마 화면으로 나가 해당 탐험을 유지하고 작업 종료.
+    - `reward_picked`: `blackflow_start_utopia`가 켜져 있고 지원 선택 화면에 원하는 보상이 나와 `blackflow_start_reward_priority` 순서로 보상을 고른 뒤, 1층에 들어가 实托邦인지 확인.
+    - `completed`: 원하는 보상이 나와 테마 화면으로 나가 해당 탐험을 유지하고 작업 종료. `blackflow_start_utopia`가 켜져 있으면 1층이 实托邦이었음을 뜻함.
     - `reward_unrecognized`: 지원 선택 화면의 보상을 인식하지 못해 해당 화면에 머문 채 작업 중지.
     - `reward_page_missing`: 목표 탐험에서 지원 선택 화면이 나타나지 않아 작업 중지.
-    - `reward_recognition_failed`: 준비 탐험에서 지원 선택 화면의 보상 선택에 실패해 작업 중지.
-  - `rewards` (`array<string>`, optional): 목표 탐험의 지원 선택 화면에서 인식한 보상 이름(중국어 간체), 예: `空间租赁`, `金乌`. `reward_missed`, `completed`, `reward_unrecognized`일 때만 전달되며, `blackflow_start_rewards`가 0(보상을 인식하지 않음)이거나 하나도 인식하지 못하면 생략됩니다.
+    - `reward_recognition_failed`: 준비 탐험 또는 목표 탐험에서 지원 선택 화면의 보상 선택에 실패해 작업 중지.
+  - `rewards` (`array<string>`, optional): 목표 탐험의 지원 선택 화면에서 인식한 보상 이름(중국어 간체), 예: `空间租赁`, `金乌`. `reward_missed`, `reward_picked`, `completed`, `reward_unrecognized`, `reward_recognition_failed`일 때만 전달되며, `blackflow_start_rewards`가 0이고 `blackflow_start_utopia`가 꺼져 있거나(보상을 인식하지 않음) 하나도 인식하지 못하면 생략됩니다.
 
 - `BlackFlowScrapTradeAborted`  
   BlackFlow 행상 거래에서 이상이 발생하여 거래를 중단합니다. `details` 필드 내용은 다음과 같습니다:

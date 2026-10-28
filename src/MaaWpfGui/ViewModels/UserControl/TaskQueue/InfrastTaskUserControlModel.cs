@@ -25,7 +25,6 @@ using MaaWpfGui.Constants.Enums;
 using MaaWpfGui.Helper;
 using MaaWpfGui.Models;
 using MaaWpfGui.Models.AsstTasks;
-using MaaWpfGui.States;
 using MaaWpfGui.Utilities;
 using MaaWpfGui.Utilities.ValueType;
 using Microsoft.Win32;
@@ -49,7 +48,6 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
 
     public InfrastTaskUserControlModel()
     {
-        _runningState = RunningState.Instance;
         foreach (var item in WeeklyScheduleSource)
         {
             item.PropertyChanged += (_, args) => {
@@ -83,21 +81,19 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
 
     private static readonly (string Value, string LocalizationKey)[] _fiammettaTargetEntries =
     [
-        ("清流", "InfrastFiammettaTargetPurestream"),
-        ("可露希尔", "InfrastFiammettaTargetClosure"),
-        ("但书", "InfrastFiammettaTargetProviso"),
-        ("巫恋", "InfrastFiammettaTargetShamare"),
-        ("龙舌兰", "InfrastFiammettaTargetTequila"),
-        ("歌蕾蒂娅", "InfrastFiammettaTargetGladiia"),
-        ("琴柳", "InfrastFiammettaTargetSaileach"),
-        ("承曦格雷伊", "InfrastFiammettaTargetGreyy2"),
-        ("温蒂", "InfrastFiammettaTargetWeedy"),
-        ("槐琥", "InfrastFiammettaTargetWaaiFu"),
-        ("至简", "InfrastFiammettaTargetMinimalist"),
-        ("旅骨", "InfrastFiammettaTargetHbound"),
+        ("清流", "Infrast.Fiammetta.Target.Purestream"),
+        ("可露希尔", "Infrast.Fiammetta.Target.Closure"),
+        ("但书", "Infrast.Fiammetta.Target.Proviso"),
+        ("巫恋", "Infrast.Fiammetta.Target.Shamare"),
+        ("龙舌兰", "Infrast.Fiammetta.Target.Tequila"),
+        ("歌蕾蒂娅", "Infrast.Fiammetta.Target.Gladiia"),
+        ("琴柳", "Infrast.Fiammetta.Target.Saileach"),
+        ("承曦格雷伊", "Infrast.Fiammetta.Target.Greyy2"),
+        ("温蒂", "Infrast.Fiammetta.Target.Weedy"),
+        ("槐琥", "Infrast.Fiammetta.Target.WaaiFu"),
+        ("至简", "Infrast.Fiammetta.Target.Minimalist"),
+        ("旅骨", "Infrast.Fiammetta.Target.Hbound"),
     ];
-
-    private readonly RunningState _runningState;
 
     /// <summary>
     /// Gets the visibility of task setting views.
@@ -159,29 +155,29 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
     /// Gets the list of uses of drones.
     /// </summary>
     public LocalizedObservableList<string> UsesOfDronesList { get; } = new(
-        ("_NotUse", "DronesNotUse"),
-        ("Money", "Money"),
-        ("SyntheticJade", "SyntheticJade"),
-        ("CombatRecord", "CombatRecord"),
-        ("PureGold", "PureGold"),
-        ("OriginStone", "OriginStone"),
-        ("Chip", "Chip"));
+        ("_NotUse", "Infrast.Drones.NotUse"),
+        ("Money", "Infrast.Drones.Money"),
+        ("SyntheticJade", "Infrast.Drones.SyntheticJade"),
+        ("CombatRecord", "Infrast.Drones.CombatRecord"),
+        ("PureGold", "Infrast.Drones.PureGold"),
+        ("OriginStone", "Infrast.Drones.OriginStone"),
+        ("Chip", "Infrast.Drones.Chip"));
 
     /// <summary>
     /// Gets the list of uses of default infrast.
     /// </summary>
     public LocalizedObservableList<string> DefaultInfrastList { get; } = new(
-        (UserDefined, "UserDefined"),
-        ("153_layout_3_times_a_day.json", "153Time3"),
-        ("153_layout_4_times_a_day.json", "153Time4"),
-        ("243_layout_3_times_a_day.json", "243Time3"),
-        ("243_layout_4_times_a_day.json", "243Time4"),
-        ("333_layout_for_Orundum_3_times_a_day.json", "333Time3"));
+        (UserDefined, "Infrast.Preset.UserDefined"),
+        ("153_layout_3_times_a_day.json", "Infrast.Preset.153Time3"),
+        ("153_layout_4_times_a_day.json", "Infrast.Preset.153Time4"),
+        ("243_layout_3_times_a_day.json", "Infrast.Preset.243Time3"),
+        ("243_layout_4_times_a_day.json", "Infrast.Preset.243Time4"),
+        ("333_layout_for_Orundum_3_times_a_day.json", "Infrast.Preset.333Time3"));
 
     public LocalizedObservableList<string> FiammettaTargetList { get; } = new(_fiammettaTargetEntries);
 
     public LocalizedObservableList<string> OptionalFiammettaTargetList { get; } = new([
-        (string.Empty, "InfrastFiammettaTargetNone"),
+        (string.Empty, "Infrast.Fiammetta.Target.None"),
         .. _fiammettaTargetEntries,
     ]);
 
@@ -200,24 +196,37 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
     /// <returns>The infrast order list.</returns>
     public List<string> GetInfrastOrderList() => [.. InfrastRoomModels.Where(i => i.IsEnabled).Select(i => i.Name)];
 
-    // UI 绑定的方法
-    [UsedImplicitly]
-    public void InfrastItemSelectedAll()
-    {
-        foreach (var item in InfrastRoomModels)
-        {
-            item.IsEnabled = true;
-        }
-    }
+    // 批量设置房间启用状态期间抑制逐项回写，收尾统一写一次配置
+    private bool _isBatchUpdatingInfrastItems;
 
     // UI 绑定的方法
     [UsedImplicitly]
-    public void InfrastItemUnselectedAll()
+    public void InfrastItemSelectedAll() => SetAllInfrastItemsEnabled(true);
+
+    // UI 绑定的方法
+    [UsedImplicitly]
+    public void InfrastItemUnselectedAll() => SetAllInfrastItemsEnabled(false);
+
+    /// <summary>
+    /// 批量设置全部房间的启用状态；逐项属性通知照常发出，配置写入合并为收尾一次。
+    /// </summary>
+    /// <param name="isEnabled">目标启用状态。</param>
+    private void SetAllInfrastItemsEnabled(bool isEnabled)
     {
-        foreach (var item in InfrastRoomModels)
+        _isBatchUpdatingInfrastItems = true;
+        try
         {
-            item.IsEnabled = false;
+            foreach (var item in InfrastRoomModels)
+            {
+                item.IsEnabled = isEnabled;
+            }
         }
+        finally
+        {
+            _isBatchUpdatingInfrastItems = false;
+        }
+
+        InfrastOrderSelectionChanged(null, null);
     }
 
     /// <summary>
@@ -227,6 +236,11 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
     /// <param name="e">ignored NotifyCollectionChangedEventArgs</param>
     private void InfrastOrderSelectionChanged(object? sender, NotifyCollectionChangedEventArgs? e)
     {
+        if (_isBatchUpdatingInfrastItems)
+        {
+            return;
+        }
+
         var list = InfrastRoomModels.Select<InfrastRoomItemViewModel, InfrastTask.RoomInfo>(i => new(i.RoomType, i.IsEnabled)).ToList();
         SetTaskConfig<InfrastTask>(t => t.RoomList.SequenceEqual(list), t => t.RoomList = list);
     }
@@ -235,9 +249,9 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
     /// Gets the list of uses of infrast mode.
     /// </summary>
     public LocalizedObservableList<Mode> InfrastModeList { get; } = new(
-        (Mode.Normal, "InfrastModeNormal"),
-        (Mode.Rotation, "InfrastModeRotation"),
-        (Mode.Custom, "InfrastModeCustom"));
+        (Mode.Normal, "Infrast.Mode.Normal"),
+        (Mode.Rotation, "Infrast.Mode.Rotation"),
+        (Mode.Custom, "Infrast.Mode.Custom"));
 
     /// <summary>
     /// Gets or sets the infrast mode.
@@ -442,7 +456,7 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
     public void SelectCustomInfrastFile()
     {
         var dialog = new OpenFileDialog {
-            Filter = LocalizationHelper.GetString("CustomInfrastFile") + "|*.json",
+            Filter = LocalizationHelper.GetString("Infrast.Custom.File") + "|*.json",
         };
 
         if (dialog.ShowDialog() == true)
@@ -496,7 +510,7 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
         }
     }
 
-    private readonly GenericCombinedData<int> _defaultItem = new() { Display = LocalizationHelper.GetStringFormat("CustomInfrastTimeSchedule", string.Empty), Value = -1 };
+    private readonly GenericCombinedData<int> _defaultItem = new() { Display = LocalizationHelper.GetStringFormat("Infrast.Custom.TimeSchedule", string.Empty), Value = -1 };
 
     public List<CustomInfrastConfig.Plan> CustomInfrastPlanList
     {
@@ -532,7 +546,7 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
 
             if (output)
             {
-                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("CustomInfrastTitle"), UiLogColor.Message, splitMode: UI.TaskQueueViewModel.LogCardSplitMode.Before);
+                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("Infrast.Custom.Title"), UiLogColor.Message, splitMode: UI.TaskQueueViewModel.LogCardSplitMode.Before);
                 Instances.TaskQueueViewModel.AddLog($"title: {root.Title}", UiLogColor.Info);
                 Instances.TaskQueueViewModel.AddLog($"description: {root.Description}", UiLogColor.Info);
             }
@@ -564,7 +578,7 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
 
             if (list.Any(i => i.Period.Count > 0) && list.Any(p => p.Period.Count == 0))
             {
-                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("CustomInfrastFileHasPlanNoPeriod"), UiLogColor.Warning);
+                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("Infrast.Custom.FileHasPlanNoPeriod"), UiLogColor.Warning);
             }
 
             Instances.TaskQueueViewModel.AddLog(string.Empty, splitMode: UI.TaskQueueViewModel.LogCardSplitMode.After);
@@ -578,7 +592,7 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
         catch (Exception)
         {
             CustomInfrastPlanList = [];
-            Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("CustomInfrastFileParseFailed"), UiLogColor.Error);
+            Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("Infrast.Custom.FileParseFailed"), UiLogColor.Error);
         }
     }
 
@@ -591,7 +605,7 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
             var plan = CustomInfrastPlanList.FirstOrDefault(i => i.Period.Any(p => p[0] <= now && now <= p[1]));
             plan ??= CustomInfrastPlanList.FirstOrDefault();
             plan ??= new();
-            _defaultItem.Display = LocalizationHelper.GetStringFormat("CustomInfrastTimeSchedule", plan.Name ?? "???");
+            _defaultItem.Display = LocalizationHelper.GetStringFormat("Infrast.Custom.TimeSchedule", plan.Name ?? "???");
             _customInfrastPlanListDisplay.Add(_defaultItem);
         }
 
@@ -627,7 +641,7 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
         var plan = CustomInfrastPlanList.FirstOrDefault(i => i.Period.Any(p => p[0] <= now && now <= p[1]));
         plan ??= CustomInfrastPlanList.FirstOrDefault();
         plan ??= new();
-        _defaultItem.Display = LocalizationHelper.GetStringFormat("CustomInfrastTimeSchedule", plan.Name ?? "???");
+        _defaultItem.Display = LocalizationHelper.GetStringFormat("Infrast.Custom.TimeSchedule", plan.Name ?? "???");
     }
 
     /// <summary>
@@ -641,7 +655,7 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
             return;
         }
 
-        Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("CustomInfrastPlanIndexAutoSwitch"), UiLogColor.Message);
+        Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("Infrast.Custom.PlanIndexAutoSwitch"), UiLogColor.Message);
         Instances.TaskQueueViewModel.AddLog(infrast.InfrastPlan[infrast.PlanSelect].DescriptionPost);
 
         ++infrast.PlanSelect;
@@ -727,7 +741,7 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
 
             if (infrast.UseWeeklySchedule && infrast.WeeklySchedule.TryGetValue(Instances.TaskQueueViewModel.CurDayOfWeek, out var isEnabled) && !isEnabled)
             {
-                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("InfrastSkippedWeeklySchedule"), UiLogColor.Info);
+                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("Infrast.SkippedWeeklySchedule"), UiLogColor.Info);
                 return (null, []);
             }
 
@@ -759,7 +773,7 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
             }
             else if (infrast.PlanSelect != -1 && infrast.InfrastPlan.Count <= infrast.PlanSelect)
             {
-                throw new InvalidOperationException(LocalizationHelper.GetString("CustomInfrastPlanSelectOutOfIndex"));
+                throw new InvalidOperationException(LocalizationHelper.GetString("Infrast.Custom.PlanSelectOutOfIndex"));
             }
             else if (infrast.PlanSelect >= 0)
             {
@@ -776,7 +790,7 @@ public class InfrastTaskUserControlModel : TaskSettingsViewModel, InfrastTaskUse
                 {
                     task.PlanIndex = 0;
                     _logger.Warning("No valid plan found for current time, use PlanIndex 0");
-                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("CustomInfrastFileHasPlanNoPeriod"), UiLogColor.Error);
+                    Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("Infrast.Custom.FileHasPlanNoPeriod"), UiLogColor.Error);
                 }
             }
 

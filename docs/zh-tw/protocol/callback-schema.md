@@ -280,7 +280,7 @@ typedef void(ASST_CALL* AsstApiCallback)(AsstMsgId msg, const char* details_json
 
 其中 `TaskChainError` 在任務鏈因未處理異常中斷時會額外攜帶 `details` 欄位：
 
-- `error` (string, required): 異常類型，取值為 `OpenCVException` | `OutOfMemory` | `UnhandledException` | `UnknownException`。
+- `error` (string, required): 異常類型，取值為 `OpenCVException` | `OutOfMemory` | `GpuDeviceRemoved` | `UnhandledException` | `UnknownException`。其中 `OutOfMemory` 與 `GpuDeviceRemoved`（GPU 推論裝置失效，如顯示卡驅動程式更新或 GPU 重置）出現時剩餘任務會被清空，需重新啟動程式後才能繼續執行。
 
 ### TaskChainExtraInfo
 
@@ -364,6 +364,8 @@ typedef void(ASST_CALL* AsstApiCallback)(AsstMsgId msg, const char* details_json
   ::::
 
   此外，當任務執行次數達到上限時，會先回傳一條 `SubTaskExtraInfo` 訊息，`what` 為 `ExceededLimit`，`details` 包含 `task`（任務名稱）、`exec_times`（已執行次數）、`max_times`（最大執行次數）。
+
+  若待辨識任務列表中存在未定義的任務名（任務資源與程式版本不匹配等），會在辨識開始前以 `SubTaskError` 回傳並停止整條任務鏈，`what` 為 `UnknownTask`，`details` 包含 `tasks`（string 陣列，未定義的任務名列表）。
 
 - `ReportToPenguinStats` / `ReportToYituliu`  
   彙報戰鬥掉落到企鵝數據統計 / 一圖流大數據（上報失敗時以 `SubTaskError` 回傳）。
@@ -766,11 +768,12 @@ typedef void(ASST_CALL* AsstApiCallback)(AsstMsgId msg, const char* details_json
     - `preparing`：準備局開始。
     - `target_run`：目標局開始。
     - `reward_missed`：選擇支援頁辨識出了獎勵但沒有期望的，放棄該局，重新進行準備局。
-    - `completed`：命中期望獎勵，已退出到主題頁並保留該局，任務結束。
+    - `reward_picked`：開啟 `blackflow_start_utopia` 時，選擇支援頁命中期望獎勵，已依 `blackflow_start_reward_priority` 選取獎勵，進入第一層檢查實托邦。
+    - `completed`：命中期望獎勵，已退出到主題頁並保留該局，任務結束；開啟 `blackflow_start_utopia` 時為第一層是實托邦。
     - `reward_unrecognized`：選擇支援頁的獎勵辨識不出，停在該頁並停止任務。
     - `reward_page_missing`：目標局沒有出現選擇支援頁，停止任務。
-    - `reward_recognition_failed`：準備局在選擇支援頁選擇獎勵失敗，停止任務。
-  - `rewards` (`array<string>`, optional)：目標局在選擇支援頁辨識出的獎勵名稱，如 `空间租赁`、`金乌`；只隨 `reward_missed`、`completed`、`reward_unrecognized` 回報；`blackflow_start_rewards` 為 0（不辨識獎勵）或一項都沒辨識出時省略。
+    - `reward_recognition_failed`：準備局或目標局在選擇支援頁選擇獎勵失敗，停止任務。
+  - `rewards` (`array<string>`, optional)：目標局在選擇支援頁辨識出的獎勵名稱，如 `空间租赁`、`金乌`；只隨 `reward_missed`、`reward_picked`、`completed`、`reward_unrecognized`、`reward_recognition_failed` 回報；`blackflow_start_rewards` 為 0 且未開啟 `blackflow_start_utopia`（不辨識獎勵），或一項都沒辨識出時省略。
 
 - `BlackFlowScrapTradeAborted`  
   黑流樹海秘境行商交易異常，中止交易。`details` 欄位內容如下：

@@ -11,6 +11,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:properties="clr-namespace:MaaWpfGui.Styles.Properties"
     xmlns:s="https://github.com/canton7/Stylet"
+    xmlns:toolbox="clr-namespace:MaaWpfGui.Views.UserControl.Toolbox"
+    xmlns:toolbox_vms="clr-namespace:MaaWpfGui.ViewModels.UserControl.Toolbox"
     xmlns:uiBehaviors="clr-namespace:MaaWpfGui.Extensions.UIBehaviors"
     xmlns:ui_vms="clr-namespace:MaaWpfGui.ViewModels.UI"
     d:Background="White"
@@ -146,7 +148,7 @@
                     TransitionPriority="1" />
             </DataTemplate>
         </TabControl.ContentTemplate>
-        <TabItem Header="{DynamicResource RecruitmentRecognition}">
+        <TabItem Header="{DynamicResource Recruit.Recognition.Title}">
             <Grid Margin="20,0,20,20" IsEnabled="{Binding Run.Idle}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" />
@@ -198,7 +200,7 @@
                         VerticalAlignment="Center">
                         <CheckBox
                             Margin="5"
-                            Content="{DynamicResource AutoSettingTime}"
+                            Content="{DynamicResource Recruit.Recognition.AutoSettingTime}"
                             IsChecked="{Binding RecruitAutoSetTime}" />
                         <StackPanel Orientation="Horizontal">
                             <CheckBox
@@ -207,11 +209,11 @@
                                 HorizontalAlignment="Left"
                                 IsChecked="{Binding RecruitmentShowPotential}">
                                 <controls:TextBlock
-                                    Text="{DynamicResource RecruitmentShowPotential}"
+                                    Text="{DynamicResource Recruit.Recognition.ShowPotential}"
                                     TextAlignment="Center"
                                     TextWrapping="Wrap" />
                             </CheckBox>
-                            <controls:TooltipBlock TooltipText="{DynamicResource RecruitmentShowPotentialTips}" />
+                            <controls:TooltipBlock TooltipText="{DynamicResource Recruit.Recognition.ShowPotential.Tip}" />
                         </StackPanel>
                     </StackPanel>
 
@@ -225,7 +227,7 @@
                                 Margin="5"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Bottom"
-                                Content="{DynamicResource AutoSelectLevel3Tags}"
+                                Content="{DynamicResource Recruit.Recognition.AutoSelectLevel3Tags}"
                                 IsChecked="{Binding ChooseLevel3}" />
                             <StackPanel Orientation="Horizontal" Visibility="{c:Binding RecruitAutoSetTime}">
                                 <hc:NumericUpDown
@@ -250,7 +252,7 @@
                                 Margin="5"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Bottom"
-                                Content="{DynamicResource AutoSelectLevel4Tags}"
+                                Content="{DynamicResource Recruit.Recognition.AutoSelectLevel4Tags}"
                                 IsChecked="{Binding ChooseLevel4}" />
                             <StackPanel Orientation="Horizontal" Visibility="{c:Binding RecruitAutoSetTime}">
                                 <hc:NumericUpDown
@@ -275,7 +277,7 @@
                                 Margin="5"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Bottom"
-                                Content="{DynamicResource AutoSelectLevel5Tags}"
+                                Content="{DynamicResource Recruit.Recognition.AutoSelectLevel5Tags}"
                                 IsChecked="{Binding ChooseLevel5}" />
                             <StackPanel
                                 IsEnabled="False"
@@ -298,7 +300,7 @@
                                 Margin="5"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Bottom"
-                                Content="{DynamicResource AutoSelectLevel6Tags}"
+                                Content="{DynamicResource Recruit.Recognition.AutoSelectLevel6Tags}"
                                 IsChecked="{Binding ChooseLevel6}" />
                             <StackPanel
                                 IsEnabled="False"
@@ -325,12 +327,12 @@
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         Command="{s:Action RecruitStartCalc}"
-                        Content="{DynamicResource StartToRecruit}"
+                        Content="{DynamicResource Recruit.Recognition.Start}"
                         IsEnabled="{c:Binding Run.Inited}" />
                 </Grid>
             </Grid>
         </TabItem>
-        <TabItem Header="{DynamicResource OperBoxRecognition}">
+        <TabItem Header="{DynamicResource OperBox.Title}">
             <Grid Margin="20,0,20,20">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -344,7 +346,7 @@
                     HorizontalAlignment="Center"
                     d:Text="上次同步时间: 2026/1/1 上午00:00:00"
                     Visibility="{c:Binding 'LastOperBoxSyncTimeText.Length > 0'}">
-                    <Run Text="{DynamicResource LastSyncTime}" />
+                    <Run Text="{DynamicResource TaskQueue.UserDataUpdate.LastSyncTime}" />
                     <Run Text=": " />
                     <Run Text="{Binding LastOperBoxSyncTimeText, Mode=OneWay, Source={x:Static helper:Instances.ToolboxViewModel}}" />
                 </controls:TextBlock>
@@ -375,7 +377,7 @@
                     </TabControl.ContentTemplate>
                     <TabItem
                         Header="{c:Binding OperBoxNotHaveList.Count}"
-                        HeaderStringFormat="{DynamicResource OperBoxNotHaveList}"
+                        HeaderStringFormat="{DynamicResource OperBox.NotHaveList}"
                         Visibility="{c:Binding 'OperBoxNotHaveList.Count != 0'}">
                         <controls:AutomationSuppressedListBox
                             d:ItemsSource="{d:SampleData ItemCount=3}"
@@ -499,7 +501,7 @@
                             </ListBox.ItemTemplate>
                         </controls:AutomationSuppressedListBox>
                     </TabItem>
-                    <TabItem Header="{c:Binding OperBoxHaveList.Count}" HeaderStringFormat="{DynamicResource OperBoxHaveList}">
+                    <TabItem Header="{c:Binding OperBoxHaveList.Count}" HeaderStringFormat="{DynamicResource OperBox.HaveList}">
                         <controls:AutomationSuppressedListBox
                             d:ItemsSource="{d:SampleData ItemCount=3}"
                             uiBehaviors:SharedCardWidthBehavior.ColumnCount="{Binding OperBoxHaveColumnCount}"
@@ -883,7 +885,7 @@
                     Margin="350,8,0,0"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Top"
-                    Content="{DynamicResource OperBoxAvatarMode}"
+                    Content="{DynamicResource OperBox.AvatarMode}"
                     IsChecked="{Binding OperBoxAvatarMode}" />
                 <StackPanel
                     Grid.Row="3"
@@ -893,7 +895,7 @@
                     <StackPanel>
                         <ComboBox
                             Width="160"
-                            hc:TitleElement.Title="{DynamicResource ExportTo}"
+                            hc:TitleElement.Title="{DynamicResource Recognition.ExportTo}"
                             DisplayMemberPath="Display"
                             ItemsSource="{Binding OperBoxExportOptionList}"
                             SelectedValue="{Binding SelectedOperBoxExportValue}"
@@ -904,7 +906,7 @@
                             Margin="0,5,0,0"
                             HorizontalAlignment="Center"
                             Command="{s:Action ExportOperBox}"
-                            Content="{DynamicResource Export}" />
+                            Content="{DynamicResource Recognition.Export}" />
                     </StackPanel>
                     <Button
                         Width="180"
@@ -912,12 +914,12 @@
                         Margin="20,0,0,0"
                         VerticalAlignment="Bottom"
                         Command="{s:Action StartOperBox}"
-                        Content="{DynamicResource StartToOperBoxRecognition}"
+                        Content="{DynamicResource OperBox.Start}"
                         IsEnabled="{c:Binding 'Run.Idle and Run.Inited'}" />
                 </StackPanel>
             </Grid>
         </TabItem>
-        <TabItem Header="{DynamicResource DepotRecognition}">
+        <TabItem Header="{DynamicResource Depot.Title}">
             <Grid Margin="20,0,20,20">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -929,7 +931,7 @@
                         HorizontalAlignment="Center"
                         d:Text="上次同步时间: 2026/1/1 上午00:00:00"
                         Visibility="{c:Binding 'LastDepotSyncTimeText.Length > 0'}">
-                        <Run Text="{DynamicResource LastSyncTime}" />
+                        <Run Text="{DynamicResource TaskQueue.UserDataUpdate.LastSyncTime}" />
                         <Run Text=": " />
                         <Run Text="{Binding LastDepotSyncTimeText, Mode=OneWay, Source={x:Static helper:Instances.ToolboxViewModel}}" />
                     </controls:TextBlock>
@@ -1011,7 +1013,7 @@
                     <StackPanel VerticalAlignment="Center">
                         <ComboBox
                             Width="160"
-                            hc:TitleElement.Title="{DynamicResource ExportTo}"
+                            hc:TitleElement.Title="{DynamicResource Recognition.ExportTo}"
                             DisplayMemberPath="Display"
                             ItemsSource="{Binding ExportOptionList}"
                             SelectedValue="{Binding SelectedExportValue}"
@@ -1022,7 +1024,7 @@
                             Margin="0,5,0,0"
                             HorizontalAlignment="Center"
                             Command="{s:Action ExecuteSelectedExport}"
-                            Content="{DynamicResource Export}" />
+                            Content="{DynamicResource Recognition.Export}" />
                     </StackPanel>
                     <Button
                         Width="180"
@@ -1030,26 +1032,12 @@
                         Margin="20,0,0,0"
                         VerticalAlignment="Bottom"
                         Command="{s:Action StartDepot}"
-                        Content="{DynamicResource StartToDepotRecognition}"
+                        Content="{DynamicResource Depot.Start}"
                         IsEnabled="{c:Binding 'Run.Idle and Run.Inited'}" />
                 </StackPanel>
             </Grid>
         </TabItem>
-        <!--
-        <TabItem Header="{DynamicResource VideoRecognition}" Visibility="Collapsed">
-            <controls:TextBlock
-                Height="80"
-                Margin="10"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                Focusable="True"
-                FontSize="14"
-                Style="{StaticResource TextBlockDefaultBold}"
-                Text="{DynamicResource VideoRecognitionTips}"
-                TextWrapping="Wrap" />
-        </TabItem>
-        -->
-        <TabItem Header="{DynamicResource Gacha}">
+        <TabItem Header="{DynamicResource TaskQueue.Task.Gacha}">
             <Grid Margin="20,0,20,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="80" />
@@ -1105,14 +1093,14 @@
                             Margin="50,50,0,50"
                             FontSize="24"
                             Style="{StaticResource TextBlockDefaultBold}"
-                            Text="{DynamicResource GachaDisclaimerHead}"
+                            Text="{DynamicResource Gacha.Disclaimer.Heading}"
                             TextWrapping="Wrap" />
                         <controls:TextBlock
                             Margin="10,50,50,50"
                             properties:RainbowAnimationBehavior.IsActive="True"
                             FontSize="40"
                             Style="{StaticResource TextBlockDefaultBold}"
-                            Text="{DynamicResource GachaDisclaimerEmphasize}"
+                            Text="{DynamicResource Gacha.Disclaimer.Emphasize}"
                             TextWrapping="Wrap">
                             <controls:TextBlock.Foreground>
                                 <DynamicResource ResourceKey="RainbowFlowBrush" />
@@ -1132,14 +1120,14 @@
                         Height="60"
                         Margin="0,50,0,0"
                         Command="{s:Action GachaAgreeDisclaimer}"
-                        Content="{DynamicResource GachaAgreeDisclaimer}"
+                        Content="{DynamicResource Gacha.Disclaimer.Agree}"
                         FontSize="16" />
                     <CheckBox
                         Height="30"
                         Margin="6"
                         HorizontalAlignment="Center"
                         VerticalContentAlignment="Center"
-                        Content="{DynamicResource ShowDisclaimerNoMore}"
+                        Content="{DynamicResource Gacha.Disclaimer.NoMore}"
                         IsChecked="{Binding GachaShowDisclaimerNoMore}"
                         IsEnabled="False" />
                 </StackPanel>
@@ -1155,7 +1143,7 @@
                         Height="70"
                         Margin="10"
                         Command="{s:Action GachaOnce}"
-                        Content="{DynamicResource GachaOnce}"
+                        Content="{DynamicResource Gacha.Once}"
                         FontSize="16"
                         IsEnabled="{c:Binding 'Run.Idle and Run.Inited'}" />
                     <Button
@@ -1163,7 +1151,7 @@
                         Height="70"
                         Margin="10"
                         Command="{s:Action GachaTenTimes}"
-                        Content="{DynamicResource GachaTenTimes}"
+                        Content="{DynamicResource Gacha.TenTimes}"
                         FontSize="16"
                         IsEnabled="{c:Binding 'Run.Idle and Run.Inited'}" />
                     <Button
@@ -1177,7 +1165,7 @@
                 </StackPanel>
             </Grid>
         </TabItem>
-        <TabItem Header="{DynamicResource Peep}">
+        <TabItem Header="{DynamicResource Gacha.Peep.Title}">
             <Grid Margin="20,0,20,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" />
@@ -1189,7 +1177,7 @@
                     VerticalAlignment="Center"
                     uiBehaviors:FadeBehavior.IsActive="{c:Binding !Peeping}"
                     FontSize="24"
-                    Text="{DynamicResource PeepTip}"
+                    Text="{DynamicResource Gacha.Peep.Tip}"
                     Visibility="Visible" />
                 <Grid
                     Grid.Row="0"
@@ -1240,7 +1228,7 @@
                         HorizontalContentAlignment="Center"
                         d:Value="60"
                         hc:TitleElement.HorizontalAlignment="Center"
-                        hc:TitleElement.Title="{DynamicResource PeepTargetFps}"
+                        hc:TitleElement.Title="{DynamicResource Gacha.Peep.TargetFps}"
                         hc:TitleElement.TitlePlacement="Top"
                         Maximum="600"
                         Minimum="1"
@@ -1248,7 +1236,7 @@
                 </StackPanel>
             </Grid>
         </TabItem>
-        <TabItem Header="{DynamicResource MiniGame}">
+        <TabItem Header="{DynamicResource Toolbox.MiniGame.Title}">
             <Grid Margin="20,0,20,20" KeyDown="{s:Action PixelPaintKeyDown}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -1325,7 +1313,7 @@
                         Margin="0,10,0,0"
                         HorizontalAlignment="Center"
                         Command="{s:Action StartMiniGame}"
-                        Content="{DynamicResource LinkStart}"
+                        Content="{DynamicResource TaskQueue.LinkStart}"
                         IsEnabled="{c:Binding Run.CanStart}"
                         Visibility="{c:Binding Run.Idle}" />
                     <Button
@@ -1335,7 +1323,7 @@
                         Margin="0,10,0,0"
                         HorizontalAlignment="Center"
                         Command="{s:Action StopMiniGame}"
-                        Content="{DynamicResource Stop}"
+                        Content="{DynamicResource Common.Stop}"
                         IsEnabled="{c:Binding '!Run.Stopping'}"
                         ToolTip="{Binding Run.StopToolTip}"
                         Visibility="{c:Binding '!Run.Idle'}" />
@@ -1357,187 +1345,20 @@
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <!--  像素画  -->
-                            <Grid Visibility="{c:Binding 'SelectedMiniGameItem.IsPixelPaint'}">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" />
-                                </Grid.RowDefinitions>
-                                <StackPanel
-                                    Grid.Row="0"
-                                    HorizontalAlignment="Stretch"
-                                    IsEnabled="{c:Binding '!Run.Idle'}">
-                                    <Grid HorizontalAlignment="Stretch">
-                                        <Border
-                                            Width="218"
-                                            Height="218"
-                                            AllowDrop="True"
-                                            Background="{DynamicResource RegionBrushOpacity25}"
-                                            BorderBrush="{DynamicResource BorderBrush}"
-                                            BorderThickness="1"
-                                            Cursor="SizeAll"
-                                            DragOver="{s:Action PixelPaintDragOver}"
-                                            Drop="{s:Action PixelPaintDrop}"
-                                            MouseLeftButtonDown="{s:Action PixelPaintPreviewMouseLeftButtonDown}"
-                                            MouseLeftButtonUp="{s:Action PixelPaintPreviewMouseLeftButtonUp}"
-                                            MouseMove="{s:Action PixelPaintPreviewMouseMove}"
-                                            PreviewMouseWheel="{s:Action PixelPaintPreviewMouseWheel}">
-                                            <Grid>
-                                                <Image
-                                                    RenderOptions.BitmapScalingMode="NearestNeighbor"
-                                                    Source="{Binding PixelPaintPreview}"
-                                                    Stretch="None" />
-                                                <controls:TextBlock
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center"
-                                                    Opacity="0.65"
-                                                    Text="{DynamicResource MiniGame@PixelPaint@DropHint}"
-                                                    TextAlignment="Center"
-                                                    TextWrapping="Wrap"
-                                                    Visibility="{c:Binding 'PixelPaintPreview == null'}" />
-                                            </Grid>
-                                        </Border>
-                                    </Grid>
-                                    <controls:TextBlock
-                                        Margin="0,8,0,0"
-                                        HorizontalAlignment="Center"
-                                        Text="{Binding PixelPaintStatusText}"
-                                        TextWrapping="Wrap"
-                                        Visibility="{c:Binding 'PixelPaintStatusText.Length > 0'}" />
-                                </StackPanel>
+                            <Grid
+                                Grid.Row="0"
+                                Grid.RowSpan="2"
+                                Visibility="{c:Binding 'SelectedMiniGameItem.IsPixelPaint'}">
+                                <toolbox:PixelPaintUserControl />
                             </Grid>
 
-                            <ScrollViewer
-                                Grid.Row="1"
-                                Margin="0,8,0,0"
-                                HorizontalScrollBarVisibility="Disabled"
-                                VerticalScrollBarVisibility="Auto"
-                                Visibility="{c:Binding 'SelectedMiniGameItem.IsPixelPaint'}">
-                                <StackPanel Margin="8,0" IsEnabled="{c:Binding '!Run.Idle'}">
-                                    <Grid HorizontalAlignment="Center">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <Button
-                                            Grid.Column="0"
-                                            Height="Auto"
-                                            HorizontalAlignment="Stretch"
-                                            VerticalAlignment="Stretch"
-                                            hc:BorderElement.CornerRadius="4,0,0,4"
-                                            BorderThickness="1,1,0,1"
-                                            Command="{s:Action PixelPaintPickImage}">
-                                            <TextBlock
-                                                MaxWidth="50"
-                                                Text="{DynamicResource MiniGame@PixelPaint@PickImage}"
-                                                TextWrapping="Wrap" />
-                                        </Button>
-                                        <Button
-                                            Grid.Column="1"
-                                            Height="Auto"
-                                            HorizontalAlignment="Stretch"
-                                            VerticalAlignment="Stretch"
-                                            hc:BorderElement.CornerRadius="0,0,0,0"
-                                            BorderThickness="1,1,0,1"
-                                            Command="{s:Action PixelPaintResetView}">
-                                            <TextBlock
-                                                MaxWidth="50"
-                                                Text="{DynamicResource MiniGame@PixelPaint@ResetView}"
-                                                TextWrapping="Wrap" />
-                                        </Button>
-                                        <Button
-                                            Grid.Column="2"
-                                            Height="Auto"
-                                            HorizontalAlignment="Stretch"
-                                            VerticalAlignment="Stretch"
-                                            hc:BorderElement.CornerRadius="0,4,4,0"
-                                            Command="{s:Action PixelPaintResetParameters}">
-                                            <TextBlock
-                                                MaxWidth="50"
-                                                Text="{DynamicResource MiniGame@PixelPaint@ResetParams}"
-                                                TextWrapping="Wrap" />
-                                        </Button>
-                                    </Grid>
-
-                                    <ComboBox
-                                        Margin="0,10,0,0"
-                                        hc:TitleElement.Title="{DynamicResource MiniGame@PixelPaint@Fit}"
-                                        DisplayMemberPath="Display"
-                                        ItemsSource="{Binding PixelPaintFitModeList}"
-                                        SelectedValue="{Binding PixelPaintFitMode}"
-                                        SelectedValuePath="Value" />
-                                    <ComboBox
-                                        Margin="0,10,0,0"
-                                        hc:TitleElement.Title="{DynamicResource MiniGame@PixelPaint@Dither}"
-                                        DisplayMemberPath="Display"
-                                        ItemsSource="{Binding PixelPaintDitherModeList}"
-                                        SelectedValue="{Binding PixelPaintDitherMode}"
-                                        SelectedValuePath="Value" />
-                                    <StackPanel Margin="0,10,0,0">
-                                        <controls:TextBlock
-                                            Margin="8,0,0,5"
-                                            HorizontalAlignment="Left"
-                                            Text="{DynamicResource MiniGame@PixelPaint@Contrast}" />
-                                        <Slider
-                                            IsSnapToTickEnabled="True"
-                                            Maximum="200"
-                                            Minimum="50"
-                                            TickFrequency="1"
-                                            Value="{Binding PixelPaintContrast}" />
-                                    </StackPanel>
-                                    <StackPanel Margin="0,6,0,0">
-                                        <controls:TextBlock
-                                            Margin="8,0,0,5"
-                                            HorizontalAlignment="Left"
-                                            Text="{DynamicResource MiniGame@PixelPaint@Brightness}" />
-                                        <Slider
-                                            IsSnapToTickEnabled="True"
-                                            Maximum="200"
-                                            Minimum="50"
-                                            TickFrequency="1"
-                                            Value="{Binding PixelPaintBrightness}" />
-                                    </StackPanel>
-                                    <StackPanel Margin="0,6,0,0">
-                                        <controls:TextBlock
-                                            Margin="8,0,0,5"
-                                            HorizontalAlignment="Left"
-                                            Text="{DynamicResource MiniGame@PixelPaint@Saturation}" />
-                                        <Slider
-                                            IsSnapToTickEnabled="True"
-                                            Maximum="200"
-                                            Minimum="0"
-                                            TickFrequency="1"
-                                            Value="{Binding PixelPaintSaturation}" />
-                                    </StackPanel>
-                                    <CheckBox
-                                        Margin="0,10,0,0"
-                                        Content="{DynamicResource MiniGame@PixelPaint@PaintWhite}"
-                                        IsChecked="{Binding PixelPaintPaintWhite}" />
-                                    <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
-                                        <CheckBox Content="{DynamicResource MiniGame@PixelPaint@Swipe}" IsChecked="{Binding PixelPaintSwipeEnabled}" />
-                                        <controls:TooltipBlock
-                                            Margin="6,0,0,0"
-                                            VerticalAlignment="Center"
-                                            TooltipText="{DynamicResource MiniGame@PixelPaint@SwipeTip}" />
-                                    </StackPanel>
-                                    <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
-                                        <controls:TextBlock VerticalAlignment="Center" Text="{DynamicResource MiniGame@PixelPaint@GridDelay}" />
-                                        <hc:NumericUpDown
-                                            Width="60"
-                                            Margin="6,0,0,0"
-                                            Increment="50"
-                                            Maximum="500"
-                                            Minimum="0"
-                                            Value="{Binding PixelPaintGridDelay}" />
-                                        <controls:TooltipBlock VerticalAlignment="Center" TooltipText="{DynamicResource MiniGame@PixelPaint@GridDelayTip}" />
-                                    </StackPanel>
-                                    <controls:TextBlock
-                                        Margin="0,12,0,0"
-                                        Opacity="0.85"
-                                        Text="{Binding MiniGameTip}"
-                                        TextWrapping="Wrap" />
-                                </StackPanel>
-                            </ScrollViewer>
+                            <!--  生息演算  -->
+                            <Grid
+                                Grid.Row="0"
+                                Grid.RowSpan="2"
+                                Visibility="{c:Binding 'SelectedMiniGameItem.IsReclamation'}">
+                                <toolbox:ReclamationUserControl DataContext="{x:Static toolbox_vms:ReclamationUserControlModel.Instance}" />
+                            </Grid>
 
                             <!--  隐秘战线  -->
                             <Grid Grid.Row="0" Visibility="{c:Binding 'SelectedMiniGameItem.IsSecretFront'}">
@@ -1547,13 +1368,13 @@
                                 </Grid.RowDefinitions>
                                 <ComboBox
                                     Margin="0"
-                                    hc:TitleElement.Title="{DynamicResource MiniGame@SecretFront@Ending}"
+                                    hc:TitleElement.Title="{DynamicResource Toolbox.MiniGame.SecretFront.Ending}"
                                     ItemsSource="{Binding SecretFrontEndingList}"
                                     SelectedValue="{Binding SecretFrontEnding}" />
                                 <ComboBox
                                     Grid.Row="1"
                                     Margin="0,10"
-                                    hc:TitleElement.Title="{DynamicResource MiniGame@SecretFront@Event}"
+                                    hc:TitleElement.Title="{DynamicResource Toolbox.MiniGame.SecretFront.Event}"
                                     DisplayMemberPath="Display"
                                     ItemsSource="{Binding SecretFrontEventList}"
                                     SelectedValue="{Binding SecretFrontEvent}"
@@ -1563,7 +1384,7 @@
                             <!--  自动提升潜能  -->
                             <Grid Grid.Row="0" Visibility="{c:Binding 'SelectedMiniGameItem.IsAutoRaisePotential'}">
                                 <CheckBox Margin="0,10,0,0" IsChecked="{Binding MiniGameUseNormalToken}">
-                                    <TextBlock Text="{DynamicResource MiniGame@AutoRaisePotential@UseNormalToken}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{DynamicResource Toolbox.MiniGame.AutoRaisePotential.UseNormalToken}" TextWrapping="Wrap" />
                                 </CheckBox>
                             </Grid>
 
@@ -1573,7 +1394,7 @@
                                     Margin="0,10,0,0"
                                     HorizontalAlignment="Left"
                                     Orientation="Horizontal">
-                                    <controls:TextBlock Text="{DynamicResource MiniGame@MaterialSynthesis@DemoVideo}" />
+                                    <controls:TextBlock Text="{DynamicResource Toolbox.MiniGame.MaterialSynthesis.DemoVideo}" />
                                     <controls:TooltipBlock>
                                         <controls:TooltipBlock.CustomToolTip>
                                             <MediaElement
@@ -1595,12 +1416,12 @@
                                 <controls:TextBlock
                                     Margin="8,0,0,5"
                                     HorizontalAlignment="Left"
-                                    Text="{DynamicResource MiniGame@EventShop@BlacklistTip}"
+                                    Text="{DynamicResource Toolbox.MiniGame.EventShop.Blacklist.Tip}"
                                     TextWrapping="Wrap" />
                                 <hc:CheckComboBox
                                     MinWidth="180"
                                     HorizontalAlignment="Stretch"
-                                    hc:InfoElement.Placeholder="{DynamicResource MiniGame@EventShop@CommonItemsTip}"
+                                    hc:InfoElement.Placeholder="{DynamicResource Toolbox.MiniGame.EventShop.CommonItems.Tip}"
                                     hc:ListBoxAttach.SelectedItems="{Binding EventShopBlackListSelectedItems}"
                                     ItemsSource="{Binding EventShopBlackListItems}"
                                     SelectionMode="Multiple">
@@ -1622,11 +1443,11 @@
                                 </hc:CheckComboBox>
                                 <CheckBox
                                     Margin="0,8,0,0"
-                                    Content="{DynamicResource MiniGame@EventShop@Other}"
+                                    Content="{DynamicResource Toolbox.MiniGame.EventShop.Other}"
                                     IsChecked="{Binding EventShopBlackListOther}" />
                                 <TextBox
                                     Margin="0,8,0,0"
-                                    hc:InfoElement.Title="{DynamicResource Blacklist}"
+                                    hc:InfoElement.Title="{DynamicResource Mall.Blacklist}"
                                     Style="{StaticResource TextBoxExtend}"
                                     Text="{Binding EventShopBlackList, UpdateSourceTrigger=PropertyChanged}"
                                     Visibility="{c:Binding EventShopBlackListOther}" />
@@ -1637,7 +1458,7 @@
                                 Margin="0,12,0,0"
                                 Stretch="Uniform"
                                 StretchDirection="Both"
-                                Visibility="{c:Binding '!SelectedMiniGameItem.IsPixelPaint'}">
+                                Visibility="{c:Binding '!SelectedMiniGameItem.IsPixelPaint and !SelectedMiniGameItem.IsReclamation'}">
                                 <controls:TextBlock
                                     MaxWidth="150"
                                     Text="{Binding MiniGameTip}"
