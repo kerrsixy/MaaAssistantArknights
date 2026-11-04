@@ -489,6 +489,21 @@
         "reduceOtherTimes": ["BlackFlow@Roguelike@EmployLeaveConfirm*3"],
         "next": ["BlackFlow@Roguelike@NodeCompletionAction"]
     },
+    "BlackFlow@Roguelike@EmployLeavePrompt": {
+        "Doc": "战斗开始后临时干员离队确认弹窗。先识别标题中的机械师，再点击右侧确认，避免 StartActionReCheck 在弹窗上空转。",
+        "algorithm": "OcrDetect",
+        "roi": [250, 250, 780, 170],
+        "text": ["机械师"],
+        "fullMatch": false,
+        "action": "ClickRect",
+        "specificRect": [900, 430, 300, 110],
+        "postDelay": 800,
+        "next": ["BlackFlow@Roguelike@EmployLeavePromptCompleted"]
+    },
+    "BlackFlow@Roguelike@EmployLeavePromptCompleted": {
+        "algorithm": "JustReturn",
+        "next": ["BlackFlow@Roguelike@StartActionReCheck"]
+    },
     "BlackFlow@Roguelike@EnterAfterRecruit": {
         "template": "BlackFlow@Roguelike@EnterAfterRecruit.png",
         "roi": [1040, 240, 240, 179],
@@ -2082,6 +2097,7 @@
         "template": "Roguelike@StartAction.png",
         "sub": ["BlackFlow@Roguelike@TemporaryOperatorCheck"],
         "next": [
+            "BlackFlow@Roguelike@EmployLeavePrompt",
             "BlackFlow@Roguelike@NoneSelected",
             "BlackFlow@Roguelike@InBattleFlag",
             "BlackFlow@Roguelike@MissionCompletedFlag",
