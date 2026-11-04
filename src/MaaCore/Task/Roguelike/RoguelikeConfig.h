@@ -251,7 +251,7 @@ public:
 
     void reset_start_oper_index() { m_start_oper_index = 0; }
 
-    // 顺位无论招募成败都消耗，下一次开局招募使用下一顺位
+    // 仅在对应干员确认招募成功后消耗顺位，失败时保留当前项重试
     void advance_start_oper_index()
     {
         if (m_start_oper_index < get_start_opers().size()) {

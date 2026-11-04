@@ -2,6 +2,7 @@
 #include "AbstractRoguelikeTaskPlugin.h"
 #include "Common/AsstBattleDef.h"
 #include "Config/Roguelike/RoguelikeRecruitConfig.h"
+#include "RoguelikeRecruitPolicy.h"
 
 namespace asst
 {
@@ -44,7 +45,7 @@ private:
     //   char_name: 干员名称
     //   is_rtl: 滑动方向 (true: 从右向左; false: 从左向右，需要先滑动到最左侧)
     // 返回值: 招募结果 (true: 成功; false: 失败)
-    bool recruit_appointed_char(const std::string& char_name, bool is_rtl = false);
+    bool recruit_appointed_char(const std::string& char_name, bool is_rtl = false, bool require_strength = false);
     // 选择干员
     void select_oper(const battle::roguelike::Recruitment& oper);
     // 找出给定的 Offset 组所有满足条件的干员

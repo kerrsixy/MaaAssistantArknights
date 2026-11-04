@@ -138,8 +138,8 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
             const int max_refresh = Task.get("RoguelikeRefreshSupportBtnOcr")->special_params.front();
             const bool recruited = start_oper->use_support ? recruit_support_char(start_oper->name, max_refresh)
                                                            : recruit_own_char(start_oper->name);
-            m_config->advance_start_oper_index();
             if (recruited) {
+                m_config->advance_start_oper_index();
                 m_starts_complete = true;
                 return true;
             }
@@ -367,7 +367,7 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                                                               recruit_info.promote_priority_when_team_full
                                                         : recruit_info.recruit_priority + recruit_info.promote_priority;
                 }
-                else if (oper_info.elite == 1 && (oper_info.level >= 55 || oper_info.level == 0)) {
+                else if (is_recruitment_strength_sufficient(oper_info.elite, oper_info.level)) {
                     // 精一55级以上
                     // 等级是 0 一般是识别错了，多发生于外服，一般都是一错全错，先凑合着招一个吧，比不招人强 orz
                     priority = team_full_without_rookie ? recruit_info.recruit_priority_when_team_full
@@ -663,7 +663,10 @@ bool asst::RoguelikeRecruitTaskPlugin::lazy_recruit()
     return true;
 }
 
-bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(const std::string& char_name, bool is_rtl)
+bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
+    const std::string& char_name,
+    bool is_rtl,
+    bool require_strength)
 {
     LogTraceFunction;
     // 最大滑动次数
@@ -699,6 +702,17 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(const std::string&
             Log.info(__FUNCTION__, "| Oper list:", oper_names);
 
             if (it != chars.cend()) {
+                if (require_strength && !is_recruitment_strength_sufficient(it->elite, it->level)) {
+                    Log.info(
+                        __FUNCTION__,
+                        "| Own oper does not meet recruitment strength gate:",
+                        it->name,
+                        "elite",
+                        it->elite,
+                        "level",
+                        it->level);
+                    return false;
+                }
                 // !get_run_for_collectible() 即当前没有在烧开水/水已经烧好了
                 // 需要凹直升且，要么已经烧好了水，要么只需要凹直升不需要烧水
                 // 凹直升只对第一位招募的干员生效
@@ -846,7 +860,7 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_own_char(const std::string& name)
 {
     LogTraceFunction;
 
-    return recruit_appointed_char(name);
+    return recruit_appointed_char(name, false, true);
 }
 
 void asst::RoguelikeRecruitTaskPlugin::select_oper(const battle::roguelike::Recruitment& oper)
