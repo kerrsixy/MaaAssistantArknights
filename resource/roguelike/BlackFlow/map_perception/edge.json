@@ -1,6 +1,6 @@
 {
     "schema_version": 3,
-    "map_roi": [79, 95, 1022, 504],
+    "map_roi": [79, 95, 1061, 504],
     "spacing_min": 92.0,
     "spacing_max": 108.0,
     "spacing_step": 0.25,
