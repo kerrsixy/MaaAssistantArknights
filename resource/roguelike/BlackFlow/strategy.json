@@ -281,6 +281,12 @@
             "scope": "candidate"
         },
         {
+            "name": "candidate.in_floor_buff_scope",
+            "type": "bool",
+            "scope": "candidate",
+            "description": "候选节点是否落在当前楼层 Buff 的可见作用范围内"
+        },
+        {
             "name": "candidate.combat",
             "type": "bool",
             "scope": "candidate"
@@ -412,6 +418,18 @@
                     }
                 },
                 {
+                    "id": "prefer_floor_buff_scope",
+                    "description": "当前楼层 Buff 作用域内的战斗节点可获得额外加成与随机零件，优先选择",
+                    "kind": "prefer",
+                    "tier": "development",
+                    "rank": 18,
+                    "candidate_if": {
+                        "fact": "candidate.in_floor_buff_scope",
+                        "op": "eq",
+                        "value": true
+                    }
+                },
+                {
                     "id": "preserve_white_model_bird",
                     "kind": "forbid",
                     "tier": "resource_reserve",
@@ -454,8 +472,7 @@
                     "rank": 0,
                     "when": {
                         "all": [
-                            { "fact": "action_points", "op": "gt", "value": 0 },
-                            { "fact": "candidate.boss", "op": "eq", "value": false }
+                            { "fact": "action_points", "op": "gt", "value": 0 }
                         ]
                     },
                     "candidate_if": {

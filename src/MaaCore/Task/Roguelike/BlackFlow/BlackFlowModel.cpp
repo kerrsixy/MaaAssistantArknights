@@ -421,6 +421,9 @@ bool NormalizedMap::merge(const MapObservationBatch& batch, std::string* error)
         if (observed.badged.has_value() && !preserve_door_identity) {
             node.badged = *observed.badged;
         }
+        if (observed.buff_scope.has_value()) {
+            node.buff_scope = *observed.buff_scope;
+        }
         if (observed.transfer_target.has_value() && observed.transfer_target->has_value()) {
             const auto transfer_target = make_stable_node_id(batch.floor, **observed.transfer_target);
             if (!transfer_target.has_value()) {

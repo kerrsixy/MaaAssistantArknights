@@ -11,6 +11,18 @@
 
 namespace asst::blackflow
 {
+// A prediction is not a substitute for a current observation. Missing or
+// conflicting readings must be reacquired before committing routing state.
+[[nodiscard]] constexpr std::optional<int>
+    resolve_observed_action_points(std::optional<int> state, std::optional<int> hud) noexcept
+{
+    if ((state && (*state < 0 || *state > 64)) || (hud && (*hud < 0 || *hud > 64)) ||
+        (state && hud && *state != *hud)) {
+        return std::nullopt;
+    }
+    return state ? state : hud;
+}
+
 struct PerceptionNodeObservation
 {
     int temporary_id = -1;
@@ -26,6 +38,7 @@ struct PerceptionNodeObservation
     std::string marker_display_name;
     double marker_score = 0.0;
     bool badged = false;
+    bool buff_scope = false;
     std::optional<GridPosition> transfer_target;
 };
 
@@ -64,6 +77,10 @@ struct BlackFlowMapObservation
     int retry_count = 0;
     int rows = 0;
     int columns = 0;
+    std::string floor_buff_id;
+    std::string floor_buff_name;
+    std::string floor_buff_effect;
+    bool floor_buff_scope_confirmed = false;
 };
 
 struct PerceptionSummary

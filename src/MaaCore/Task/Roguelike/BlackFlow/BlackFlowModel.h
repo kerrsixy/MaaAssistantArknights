@@ -115,6 +115,7 @@ struct Node
     std::string marker_display_name;
     double marker_score = 0.0;
     bool badged = false;
+    bool buff_scope = false;
     std::optional<NodeId> transfer_target;
 
     bool operator==(const Node&) const noexcept = default;
@@ -188,6 +189,7 @@ struct ObservedNode
     std::optional<std::string> marker_display_name;
     std::optional<double> marker_score;
     std::optional<bool> badged;
+    std::optional<bool> buff_scope;
     std::optional<std::optional<GridPosition>> transfer_target;
 };
 

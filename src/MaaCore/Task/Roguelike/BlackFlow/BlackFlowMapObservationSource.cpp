@@ -164,6 +164,12 @@ bool BlackFlowMapObservationSource::recognize(
         next.graph_connected = result.edge_detection.graph_connected;
         next.current_marker_temporary_id = result.node_detection.current_marker_node_id;
         next.current_marker_score = result.node_detection.current_marker_score;
+        if (floor == 5) {
+            next.floor_buff_id = "hope_soil";
+            next.floor_buff_name = "希望的沃土";
+            next.floor_buff_effect = "affected combat nodes: attack +10%, HP +10%, victory grants random scrap";
+            next.floor_buff_scope_confirmed = true;
+        }
 
         next.nodes.reserve(result.node_detection.nodes.size());
         for (const auto& node : result.node_detection.nodes) {
@@ -182,6 +188,7 @@ bool BlackFlowMapObservationSource::recognize(
                     node.marker_display_name,
                     node.marker_score,
                     false,
+                    floor == 5 && node.column >= 6,
                     std::nullopt,
                 });
         }

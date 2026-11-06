@@ -1505,6 +1505,7 @@ FactStore on_demand_candidate_facts(
     facts.set("candidate.node_type", std::string(target == nullptr ? "unclassified" : to_string(target->type)));
     facts.set("candidate.node_name", target == nullptr ? std::string() : target->name);
     facts.set("candidate.badged", target != nullptr && target->badged);
+    facts.set("candidate.in_floor_buff_scope", target != nullptr && target->buff_scope);
     const bool combat = target != nullptr && is_combat_node_type(target->type);
     facts.set("candidate.combat", combat);
     facts.set("candidate.boss", combat && target->type == NodeType::BattleBoss);

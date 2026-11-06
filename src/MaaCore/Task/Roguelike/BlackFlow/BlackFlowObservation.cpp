@@ -155,6 +155,7 @@ std::optional<NormalizedPerceptionObservation>
         node.marker_display_name = source_node.marker_display_name;
         node.marker_score = source_node.marker_score;
         node.badged = source_node.badged;
+        node.buff_scope = source_node.buff_scope;
         if (source_node.transfer_target.has_value()) {
             node.transfer_target = source_node.transfer_target;
         }
