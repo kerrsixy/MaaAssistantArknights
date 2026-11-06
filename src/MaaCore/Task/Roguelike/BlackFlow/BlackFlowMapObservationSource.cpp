@@ -188,9 +188,7 @@ bool BlackFlowMapObservationSource::recognize(
                     node.marker_display_name,
                     node.marker_score,
                     false,
-                    floor == 5 && ((node.row == 0 && node.column >= 7) ||
-                                   (node.row == 1 && node.column >= 7) ||
-                                   (node.row == 2 && node.column == 7)),
+                    floor == 5 && node.column >= 6,
                     std::nullopt,
                 });
         }
