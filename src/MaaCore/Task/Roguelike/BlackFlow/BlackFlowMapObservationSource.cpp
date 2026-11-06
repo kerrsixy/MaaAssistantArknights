@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string_view>
+#include <opencv2/imgproc.hpp>
 
 #include "Config/Roguelike/BlackFlow/BlackFlowMapPerceptionResource.h"
 #include "MaaUtils/ImageIo.h"
@@ -51,6 +52,82 @@ bool write_image_if_present(const std::filesystem::path& path, const cv::Mat& im
     }
     return true;
 }
+
+std::optional<std::vector<cv::Point>> detect_temporal_buff_scope(
+    const cv::Mat& image,
+    const std::deque<cv::Mat>& frames,
+    const std::vector<perception::Node>& nodes)
+{
+    if (frames.size() < 4 || image.empty() || nodes.empty()) return std::nullopt;
+    cv::Mat mean = cv::Mat::zeros(image.size(), CV_32F);
+    for (const auto& frame : frames) { cv::Mat f; frame.convertTo(f, CV_32F); mean += f; }
+    mean /= static_cast<float>(frames.size());
+    cv::Mat variance = cv::Mat::zeros(image.size(), CV_32F);
+    for (const auto& frame : frames) { cv::Mat f; frame.convertTo(f, CV_32F); cv::Mat d = f - mean; variance += d.mul(d); }
+    variance /= static_cast<float>(frames.size());
+    std::vector<double> x_positions;
+    std::vector<double> y_positions;
+    std::vector<double> horizontal_gaps;
+    for (const auto& node : nodes) {
+        x_positions.push_back(node.visual_center.x);
+        y_positions.push_back(node.visual_center.y);
+    }
+    std::ranges::sort(x_positions);
+    std::ranges::sort(y_positions);
+    for (std::size_t index = 1; index < x_positions.size(); ++index) {
+        const double gap = x_positions[index] - x_positions[index - 1];
+        if (gap > 1.0) horizontal_gaps.push_back(gap);
+    }
+    if (horizontal_gaps.empty()) return std::nullopt;
+    std::ranges::sort(horizontal_gaps);
+    const double pitch = horizontal_gaps[horizontal_gaps.size() / 2];
+    const double x_cut = x_positions[static_cast<std::size_t>((x_positions.size() - 1) * 0.70)];
+    const int left = std::max(0, static_cast<int>(std::lround(x_cut - 0.60 * pitch)));
+    const int right = std::min(image.cols, static_cast<int>(std::lround(x_positions.back() + 0.60 * pitch)));
+    const int top = std::max(0, static_cast<int>(std::lround(y_positions.front() - 0.60 * pitch)));
+    const int bottom = std::min(image.rows, static_cast<int>(std::lround(y_positions.back() + 0.60 * pitch)));
+    if (left >= right || top >= bottom) return std::nullopt;
+
+    cv::Mat flat = variance.reshape(1, 1), sorted;
+    cv::sort(flat, sorted, cv::SORT_ASCENDING);
+    const auto index = std::min(static_cast<std::size_t>(sorted.total() - 1), static_cast<std::size_t>(sorted.total() * 0.90));
+    cv::Mat mask;
+    cv::threshold(variance, mask, sorted.at<float>(0, static_cast<int>(index)), 255.0, cv::THRESH_BINARY);
+    mask.convertTo(mask, CV_8U);
+    cv::Mat roi_mask = cv::Mat::zeros(mask.size(), CV_8U);
+    roi_mask(cv::Rect(left, top, right - left, bottom - top)).setTo(255);
+    mask &= roi_mask;
+    const int kernel_size = std::max(3, static_cast<int>(std::lround(pitch * 0.25)) | 1);
+    cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, cv::getStructuringElement(cv::MORPH_ELLIPSE, { kernel_size, kernel_size }));
+
+    cv::Mat labels, stats, centroids;
+    const int component_count = cv::connectedComponentsWithStats(mask, labels, stats, centroids, 8, CV_32S);
+    int best_label = 0;
+    std::size_t best_nodes = 0;
+    int best_area = 0;
+    for (int label = 1; label < component_count; ++label) {
+        std::size_t covered = 0;
+        for (const auto& node : nodes) {
+            const int x = std::clamp(static_cast<int>(std::lround(node.visual_center.x)), 0, labels.cols - 1);
+            const int y = std::clamp(static_cast<int>(std::lround(node.visual_center.y)), 0, labels.rows - 1);
+            covered += labels.at<int>(y, x) == label ? 1U : 0U;
+        }
+        const int area = stats.at<int>(label, cv::CC_STAT_AREA);
+        if (covered > best_nodes || (covered == best_nodes && area > best_area)) {
+            best_label = label;
+            best_nodes = covered;
+            best_area = area;
+        }
+    }
+    if (best_label == 0 || best_nodes == 0) return std::nullopt;
+    cv::Mat selected = labels == best_label;
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(selected, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    if (contours.empty()) return std::nullopt;
+    return *std::ranges::max_element(contours, [](const auto& lhs, const auto& rhs) {
+        return cv::contourArea(lhs) < cv::contourArea(rhs);
+    });
+}
 } // namespace
 
 bool BlackFlowMapObservationSource::prepare(std::string* error)
@@ -93,6 +170,8 @@ void BlackFlowMapObservationSource::release() noexcept
     m_accumulated_recognition_us = 0;
     m_last_attempt_count = 0;
     m_last_retry_count = 0;
+    m_temporal_gray_frames.clear();
+    m_last_temporal_gray.release();
 }
 
 bool BlackFlowMapObservationSource::recognize(
@@ -138,6 +217,16 @@ bool BlackFlowMapObservationSource::recognize(
     };
 
     try {
+        cv::Mat gray;
+        cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+        if (!m_last_temporal_gray.empty() && m_last_temporal_gray.size() == gray.size()) {
+            cv::Mat delta;
+            cv::absdiff(gray, m_last_temporal_gray, delta);
+            if (cv::mean(delta)[0] > 18.0) m_temporal_gray_frames.clear();
+        }
+        m_last_temporal_gray = gray.clone();
+        m_temporal_gray_frames.push_back(gray);
+        while (m_temporal_gray_frames.size() > 8) m_temporal_gray_frames.pop_front();
         if (m_analyzer == nullptr && !prepare(error)) {
             result.error = m_initialization_error;
             result.captured_bgr = image.clone();
@@ -164,10 +253,9 @@ bool BlackFlowMapObservationSource::recognize(
         next.graph_connected = result.edge_detection.graph_connected;
         next.current_marker_temporary_id = result.node_detection.current_marker_node_id;
         next.current_marker_score = result.node_detection.current_marker_score;
-        if (floor == 5) {
-            next.floor_buff_id = "hope_soil";
-            next.floor_buff_name = "希望的沃土";
-            next.floor_buff_effect = "affected combat nodes: attack +10%, HP +10%, victory grants random scrap";
+        const auto buff_scope = detect_temporal_buff_scope(image, m_temporal_gray_frames, result.node_detection.nodes);
+        if (buff_scope.has_value()) {
+            next.floor_buff_id = "temporal_buff_scope";
             next.floor_buff_scope_confirmed = true;
         }
 
@@ -188,7 +276,7 @@ bool BlackFlowMapObservationSource::recognize(
                     node.marker_display_name,
                     node.marker_score,
                     false,
-                    floor == 5 && node.column >= 6,
+                    buff_scope.has_value() && cv::pointPolygonTest(*buff_scope, node.visual_center, false) >= 0.0,
                     std::nullopt,
                 });
         }
