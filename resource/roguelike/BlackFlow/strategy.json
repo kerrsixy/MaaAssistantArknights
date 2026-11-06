@@ -448,23 +448,18 @@
                 },
                 {
                     "id": "preserve_action_points_before_boss_exit",
-                    "description": "第三、五层有险路恶敌时，行动力尚有剩余就先走可获益的非出口节点，避免进入下一层后丢弃余力",
+                    "description": "任何有险路恶敌出口的层，行动力尚有剩余就先走可获益的非出口节点，避免进入下一层后丢弃余力",
                     "kind": "prefer",
                     "tier": "resource_reserve",
                     "rank": 0,
                     "when": {
                         "all": [
-                            {
-                                "any": [
-                                    { "fact": "current_floor", "op": "eq", "value": 3 },
-                                    { "fact": "current_floor", "op": "eq", "value": 5 }
-                                ]
-                            },
-                            { "fact": "action_points", "op": "gt", "value": 0 }
+                            { "fact": "action_points", "op": "gt", "value": 0 },
+                            { "fact": "candidate.boss", "op": "eq", "value": false }
                         ]
                     },
                     "candidate_if": {
-                        "fact": "candidate.exit",
+                        "fact": "candidate.boss",
                         "op": "eq",
                         "value": false
                     }
