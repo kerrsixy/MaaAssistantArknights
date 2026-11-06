@@ -447,6 +447,29 @@
                     }
                 },
                 {
+                    "id": "preserve_action_points_before_boss_exit",
+                    "description": "第三、五层有险路恶敌时，行动力尚有剩余就先走可获益的非出口节点，避免进入下一层后丢弃余力",
+                    "kind": "prefer",
+                    "tier": "resource_reserve",
+                    "rank": 0,
+                    "when": {
+                        "all": [
+                            {
+                                "any": [
+                                    { "fact": "current_floor", "op": "eq", "value": 3 },
+                                    { "fact": "current_floor", "op": "eq", "value": 5 }
+                                ]
+                            },
+                            { "fact": "action_points", "op": "gt", "value": 0 }
+                        ]
+                    },
+                    "candidate_if": {
+                        "fact": "candidate.exit",
+                        "op": "eq",
+                        "value": false
+                    }
+                },
+                {
                     "id": "trigger_boss_processing_bonus",
                     "kind": "prefer",
                     "tier": "risk",
@@ -708,6 +731,23 @@
                     "weight": 2,
                     "selector": {
                         "node_types": ["wish"]
+                    }
+                },
+                {
+                    "id": "ending1_non_empty_reward_density",
+                    "description": "在不牺牲安全出口和关键目标的前提下，尽量多经过可获得奖励或信息的非空节点",
+                    "kind": "preferred",
+                    "floor_window": [1, 5],
+                    "rank": 0,
+                    "count": 99,
+                    "weight": 1,
+                    "selector": {
+                        "node_types": [
+                            "battle_elite", "battle_normal", "battle_savage", "duel",
+                            "employ", "expedition", "hide_battle", "hide_invisible",
+                            "incident", "light", "portal", "rest", "sacrifice",
+                            "scrap_shop", "shop", "wish"
+                        ]
                     }
                 },
                 {
