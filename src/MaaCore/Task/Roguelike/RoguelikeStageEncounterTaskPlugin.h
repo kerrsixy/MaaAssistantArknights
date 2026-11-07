@@ -36,6 +36,7 @@ protected:
     virtual bool _run() override;
 
     std::optional<std::string> handle_single_event(const std::string& event_name);
+    bool run_blackflow_duel_opponent_selection();
     static bool satisfies_condition(const Config::ChoiceRequire& requirement, int special_val);
     static size_t process_task(const Config::RoguelikeEvent& event, int special_val);
     int hp(const cv::Mat& image) const;
@@ -95,6 +96,8 @@ private:
     static bool save_img(const cv::Mat& image, std::string_view description = "image");
 
     std::shared_ptr<blackflow::BlackFlowSession> m_blackflow_session;
+    mutable bool m_duel_opponent_selection_pending = false;
+    mutable bool m_duel_refresh_attempted = false;
     std::string m_reported_event_name;
     OptionAnalyzer::Result m_option_list;
     size_t m_view_begin = 0;

@@ -67,12 +67,10 @@ bool asst::RoguelikeSkillSelectionTaskPlugin::_run()
     }
 
     if (m_config->status().opers.empty()) {
-        std::unordered_map<std::string, RoguelikeOper> opers;
-        for (const auto& [name, skill_vec] : analyzer.get_result()) {
-            opers[name] = { .elite = 1, .level = 80 };
-            // 不知道是啥等级随便填一个
-        }
-        m_config->status().opers = std::move(opers);
+        // 技能选择页只有干员姓名和技能按钮，没有可靠的精英化/等级信息。
+        // 不再用伪造的 E1/LV80 填充状态；后续编队或狭路相逢详情页会读取
+        // 当前卡片/详情面板中的真实练度，再写入 status.opers。
+        Log.info(__FUNCTION__, "| operator levels unavailable on skill selection page; defer to detail recognition");
     }
 
     if (analyzer.get_team_full() && !has_rookie) {
