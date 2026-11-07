@@ -131,8 +131,8 @@ std::int64_t route_penalty(const RouteMetric& metric) noexcept
     // in every complete route and therefore remains a constant; the extra
     // weight mainly removes optional combat chains when a non-combat branch
     // provides the same milestones.
-    return 2LL * metric.battles + metric.processing_moves + metric.duration +
-           2LL * metric.backtracking + 3LL * metric.rewardless_entries - metric.walk_distance_saved;
+    return 2LL * metric.battles + metric.processing_moves + metric.duration + 2LL * metric.backtracking +
+           3LL * metric.rewardless_entries - metric.walk_distance_saved;
 }
 
 // 行动力残值为零，跨层保留的加工品残值为正，所以打平时先比后者。
