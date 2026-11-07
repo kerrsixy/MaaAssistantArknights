@@ -506,6 +506,28 @@ std::optional<std::string> asst::RoguelikeStageEncounterTaskPlugin::select_black
     SelectionPlan plan = rule != nullptr ? plan_from_rule(*rule) : plan_from_event(event, choose_option);
     plan.continue_single_option = event.continue_single_option;
 
+    // The BlackFlow "Face to Face" node is an opponent-selection page. Its
+    // first enabled entry is the stable, user-requested choice for every
+    // duel stage; do not reuse an incident rule or the event's default index.
+    const auto page_context = m_blackflow_session->page_context();
+    const bool duel_node = page_context.has_value() && page_context->node_type == blackflow::NodeType::Duel;
+    if (duel_node) {
+        const auto first_enabled =
+            std::ranges::find_if(m_option_list, [](const OptionAnalyzer::Option& option) { return option.enabled; });
+        if (first_enabled == m_option_list.end()) {
+            LogError << "BlackFlow duel has no enabled opponent option";
+            set_blackflow_result(BlackFlowAbandonTask);
+            return std::nullopt;
+        }
+        plan.option_text.clear();
+        plan.option_num = m_option_list.size();
+        plan.choose = static_cast<size_t>(std::distance(m_option_list.begin(), first_enabled)) + 1;
+        plan.fallback_choices.clear();
+        plan.allow_fallback = false;
+        plan.continue_single_option = false;
+        LogInfo << "BlackFlow duel selects first enabled opponent option" << plan.choose;
+    }
+
     const auto selected = select_event_option(plan, event.name);
     if (!selected.has_value()) {
         set_blackflow_result(BlackFlowAbandonTask);
