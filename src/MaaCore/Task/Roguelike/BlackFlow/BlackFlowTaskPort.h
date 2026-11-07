@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -70,6 +71,8 @@ struct RunObservation
     std::optional<int> seeds;
     std::optional<int> sellable_scraps;
     std::optional<int> white_model_birds;
+    std::optional<int> movement_capacity;
+    std::optional<int> movement_slots_used;
     std::optional<bool> painted_liberi;
     std::optional<MovementKind> active_movement;
     std::optional<std::unordered_map<MovementKind, int>> movement_charges;
@@ -217,6 +220,7 @@ private:
 
     [[nodiscard]] std::optional<int> recognize_action_points(const cv::Mat& image) const;
     [[nodiscard]] std::optional<int> recognize_ingots(const cv::Mat& image) const;
+    [[nodiscard]] std::optional<std::pair<int, int>> recognize_movement_capacity(const cv::Mat& image) const;
     bool classify_entered_page(const cv::Mat& image, EnteredPageObservation& observation, std::string* error) const;
 
     std::unique_ptr<ProcessTaskContext> m_task_context;

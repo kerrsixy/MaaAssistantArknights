@@ -303,6 +303,9 @@ bool BlackFlowSession::synchronize_resource_facts(std::string* error)
         { "seeds", m_run.resources.seeds },
         { "sellable_scraps", m_run.resources.sellable_scraps },
         { "white_model_bird_count", m_run.resources.white_model_birds },
+        { "movement_capacity", m_run.resources.movement_capacity },
+        { "movement_slots_used", movement_slots_used(m_run.resources) },
+        { "movement_slots_remaining", movement_slots_remaining(m_run.resources) },
         { "painted_liberi_owned", m_run.resources.painted_liberi ? 1 : 0 },
         { "persistent_full_map_count", m_resources.read("persistent_full_map_movement", m_run).value_or(0) },
         { "persistent_reach_scrap_shop_count", m_resources.read("persistent_reach_scrap_shop", m_run).value_or(0) },
@@ -529,6 +532,15 @@ bool BlackFlowSession::apply_run_observation(const RunObservation& observation, 
         !assign_nonnegative(observation.sellable_scraps, m_run.resources.sellable_scraps, "sellable scraps") ||
         !assign_nonnegative(observation.white_model_birds, m_run.resources.white_model_birds, "white model birds")) {
         return false;
+    }
+    if (observation.movement_capacity.has_value()) {
+        if (*observation.movement_capacity <= 0 || *observation.movement_capacity > 64) {
+            if (error != nullptr) {
+                *error = "movement capacity must be between 1 and 64";
+            }
+            return false;
+        }
+        m_run.resources.movement_capacity = *observation.movement_capacity;
     }
     if (observation.painted_liberi.has_value()) {
         m_run.resources.painted_liberi = *observation.painted_liberi;
@@ -1291,6 +1303,7 @@ bool BlackFlowSession::apply_movement_panel_observation(
 
 bool BlackFlowSession::apply_movement_inventory_observation(
     const std::unordered_map<MovementKind, int>& visible_movements,
+    bool complete,
     std::string* error)
 {
     BlackFlowSession staged = *this;
@@ -1312,6 +1325,23 @@ bool BlackFlowSession::apply_movement_inventory_observation(
         }
         charges = std::clamp(charges, pieces, pieces * spec->initial_charges);
         staged.m_run.resources.movement_pieces.insert_or_assign(movement, pieces);
+    }
+
+    // 零件箱观察覆盖完整的横向分页。只在完整观察中看不到的「仅当层可用」加工品
+    // 清掉残留次数；跨层后它们不会因为上一层的缓存继续被规划器当成可用资源。
+    // 跨层保留的加工品仍保留旧次数，避免每次刷新把已消耗次数重置回初始值。
+    for (const MovementSpec& spec : movement_specs()) {
+        if (!complete) {
+            break;
+        }
+        if (!spec.expires_on_floor_end || visible_movements.contains(spec.kind)) {
+            continue;
+        }
+        staged.m_run.resources.movement_charges.erase(spec.kind);
+        staged.m_run.resources.movement_pieces.erase(spec.kind);
+        if (staged.m_run.active_movement == spec.kind) {
+            staged.m_run.active_movement.reset();
+        }
     }
     std::erase_if(staged.m_run.resources.movement_pieces, [&](const auto& entry) {
         const auto charges = staged.m_run.resources.movement_charges.find(entry.first);

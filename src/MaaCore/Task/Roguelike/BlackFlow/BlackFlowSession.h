@@ -145,6 +145,7 @@ public:
         std::string* error = nullptr);
     bool apply_movement_inventory_observation(
         const std::unordered_map<MovementKind, int>& visible_movements,
+        bool complete,
         std::string* error = nullptr);
     bool report_movement_unavailable(MovementKind target, std::string* error = nullptr);
     [[nodiscard]] BlackFlowPlan plan(std::string* error = nullptr);

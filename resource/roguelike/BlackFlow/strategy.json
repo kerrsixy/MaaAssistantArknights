@@ -60,6 +60,22 @@
             "description": "可出售零件"
         },
         {
+            "id": "movement_capacity",
+            "description": "零件箱容量"
+        },
+        {
+            "id": "movement_slots_used",
+            "description": "当前已占用的零件箱格数"
+        },
+        {
+            "id": "movement_slots_observed",
+            "description": "地图底部 OCR 读到的零件箱已占用格数，-1 表示未知"
+        },
+        {
+            "id": "movement_slots_remaining",
+            "description": "当前可用的零件箱格数"
+        },
+        {
             "id": "white_model_bird",
             "description": "白模鸟数量"
         },
@@ -114,6 +130,30 @@
             "name": "white_model_bird_count",
             "type": "int",
             "scope": "run"
+        },
+        {
+            "name": "movement_capacity",
+            "type": "int",
+            "scope": "run",
+            "description": "零件箱容量"
+        },
+        {
+            "name": "movement_slots_used",
+            "type": "int",
+            "scope": "run",
+            "description": "当前已占用的零件箱格数"
+        },
+        {
+            "name": "movement_slots_observed",
+            "type": "int",
+            "scope": "run",
+            "description": "地图底部 OCR 读到的零件箱已占用格数，-1 表示未知"
+        },
+        {
+            "name": "movement_slots_remaining",
+            "type": "int",
+            "scope": "run",
+            "description": "当前可用的零件箱格数"
         },
         {
             "name": "painted_liberi_owned",
@@ -312,6 +352,24 @@
             "scope": "candidate"
         },
         {
+            "name": "candidate.movement_piece_gain",
+            "type": "int",
+            "scope": "candidate",
+            "description": "候选首步预计新增的加工品件数"
+        },
+        {
+            "name": "candidate.movement_slots_after",
+            "type": "int",
+            "scope": "candidate",
+            "description": "候选首步结算后预计占用的零件箱格数"
+        },
+        {
+            "name": "candidate.movement_piece_overflow",
+            "type": "bool",
+            "scope": "candidate",
+            "description": "候选首步结算后是否超过识别到的零件箱容量"
+        },
+        {
             "name": "candidate.movement",
             "type": "string",
             "scope": "candidate",
@@ -427,6 +485,18 @@
                         "fact": "candidate.in_floor_buff_scope",
                         "op": "eq",
                         "value": true
+                    }
+                },
+                {
+                    "id": "preserve_movement_capacity",
+                    "description": "作战或普通出口会补充加工品时，优先选择不会让零件箱溢出的路线；无可行替代时仍允许溢出以保持可通关",
+                    "kind": "prefer",
+                    "tier": "resource_reserve",
+                    "rank": 1,
+                    "candidate_if": {
+                        "fact": "candidate.movement_piece_overflow",
+                        "op": "eq",
+                        "value": false
                     }
                 },
                 {

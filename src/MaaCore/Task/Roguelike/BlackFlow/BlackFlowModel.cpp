@@ -658,6 +658,16 @@ bool is_combat_node_type(NodeType type) noexcept
            type == NodeType::Duel || type == NodeType::HideBattle || type == NodeType::BattleBoss;
 }
 
+int expected_movement_piece_gain(NodeType type) noexcept
+{
+    if (is_combat_node_type(type)) {
+        return 1;
+    }
+    // 普通（非 Boss）出口结算进入下一层时会补一件加工品；Boss 出口的
+    // 奖励由 Boss 结算页单独处理，不能在当前层路线中重复预留。
+    return type == NodeType::Final ? 1 : 0;
+}
+
 // 能离开当前区域进入下一层的三种节点。险路小径通常亏损，一般不走，
 // 但它会阻断通往险路尽头的路径，所以必须算作出口，否则阻断时会被判定成无路可走。
 // 走不走由倾向决定，这里只回答能不能走。
@@ -878,6 +888,37 @@ const std::vector<MovementSpec>& movement_specs()
           NodeType::Shop },
     };
     return Specs;
+}
+
+int movement_slots_used(const RunResources& resources) noexcept
+{
+    if (resources.movement_slots_observed >= 0) {
+        return resources.movement_slots_observed;
+    }
+    int slots = 0;
+    for (const MovementSpec& movement : movement_specs()) {
+        if (movement.kind == MovementKind::Walk) {
+            continue;
+        }
+        const auto charges = resources.movement_charges.find(movement.kind);
+        if (charges != resources.movement_charges.end() && charges->second > 0) {
+            const int per_piece = std::max(1, movement.initial_charges);
+            slots += (charges->second + per_piece - 1) / per_piece;
+            continue;
+        }
+        // 观测加工品面板时可能先得到件数、后得到剩余次数；在这个短暂窗口里
+        // 仍然用已识别的件数保守估计占用格数，避免路线先吃掉未来奖励的空位。
+        const auto pieces = resources.movement_pieces.find(movement.kind);
+        if (pieces != resources.movement_pieces.end()) {
+            slots += std::max(0, pieces->second);
+        }
+    }
+    return std::max(0, slots);
+}
+
+int movement_slots_remaining(const RunResources& resources) noexcept
+{
+    return std::max(0, resources.movement_capacity - movement_slots_used(resources));
 }
 
 int action_points_after(int current, int cost, int gain) noexcept
@@ -1192,7 +1233,12 @@ std::vector<MoveAction> enumerate_move_actions(const MapSnapshot& map, const Run
         }
     }
 
-    struct ConfirmedAdjacentWalk
+    // A direct walk edge is the baseline action for a target.  Processing
+    // items are reserved for jumps/shortcuts that actually improve the move
+    // (lower AP cost or a positive effect), so a usable direct edge must be
+    // recognized even while its confidence is still being promoted from the
+    // current OCR observation.
+    struct AdjacentWalk
     {
         NodeId target = InvalidNodeId;
         NodeId landing = InvalidNodeId;
@@ -1200,24 +1246,19 @@ std::vector<MoveAction> enumerate_move_actions(const MapSnapshot& map, const Run
         int action_point_gain = 0;
     };
 
-    std::vector<ConfirmedAdjacentWalk> confirmed_adjacent_walks;
+    std::vector<AdjacentWalk> adjacent_walks;
     for (const MoveAction& action : result) {
-        if (action.candidate.movement != MovementKind::Walk || action.candidate.path.size() != 1 ||
-            action.candidate.uses_unconfirmed_edge || action.candidate.uses_inferred_edge) {
+        if (action.candidate.movement != MovementKind::Walk || action.candidate.path.size() != 1) {
             continue;
         }
         const Node* source = map.find_node(action.candidate.source);
         const Node* target = map.find_node(action.candidate.target);
         const Edge* edge = map.find_edge(action.candidate.source, action.candidate.target);
-        if (source == nullptr || target == nullptr || edge == nullptr ||
-            !edge_visible_in_layer(*edge, GraphLayer::Confirmed) ||
-            std::abs(source->position.row - target->position.row) +
-                    std::abs(source->position.column - target->position.column) !=
-                1) {
+        if (source == nullptr || target == nullptr || edge == nullptr) {
             continue;
         }
-        confirmed_adjacent_walks.emplace_back(
-            ConfirmedAdjacentWalk {
+        adjacent_walks.emplace_back(
+            AdjacentWalk {
                 action.candidate.target,
                 action.candidate.landing,
                 action.candidate.predicted_action_point_cost,
@@ -1235,7 +1276,7 @@ std::vector<MoveAction> enumerate_move_actions(const MapSnapshot& map, const Run
             movement->effect.ingot_gain != 0) {
             return false;
         }
-        return std::ranges::any_of(confirmed_adjacent_walks, [&](const ConfirmedAdjacentWalk& walk_action) {
+        return std::ranges::any_of(adjacent_walks, [&](const AdjacentWalk& walk_action) {
             return walk_action.target == action.candidate.target && walk_action.landing == action.candidate.landing &&
                    walk_action.action_point_cost <= action.candidate.predicted_action_point_cost &&
                    walk_action.action_point_gain >= action.candidate.predicted_action_point_gain;

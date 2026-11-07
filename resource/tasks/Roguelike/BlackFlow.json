@@ -2231,5 +2231,41 @@
     },
     "BlackFlow@RoguelikeSettlementConfirm": {
         "template": "BlackFlow@Roguelike@GamePassTheEndConfirm.png"
+    },
+    "BlackFlow@Roguelike@CurrentMovementCapacity": {
+        "Doc": "地图底部零件箱的已占用/容量读数，例如 12/12；用于路线规划预留下一节点的加工品奖励",
+        "algorithm": "OcrDetect",
+        "roi": [
+            700,
+            630,
+            170,
+            70
+        ],
+        "isAscii": true,
+        "withoutDet": true,
+        "fullMatch": false
+    },
+    "BlackFlow@Roguelike@MovementInventorySwipe": {
+        "algorithm": "JustReturn",
+        "action": "Swipe",
+        "specificRect": [
+            1180,
+            380,
+            1,
+            1
+        ],
+        "rectMove": [
+            400,
+            380,
+            1,
+            1
+        ],
+        "specialParams": [
+            250,
+            4,
+            20,
+            0
+        ],
+        "postDelay": 500
     }
 }

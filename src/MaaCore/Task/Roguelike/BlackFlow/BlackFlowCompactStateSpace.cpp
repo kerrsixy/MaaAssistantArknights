@@ -624,7 +624,10 @@ std::optional<std::vector<CompactMoveAction>>
         }
     }
 
-    struct ConfirmedAdjacentWalk
+    // Keep the compact state space in lockstep with enumerate_move_actions:
+    // an observed direct walk edge is preferred over an equivalent processing
+    // item even before the edge confidence is promoted to Confirmed.
+    struct AdjacentWalk
     {
         NodeId target = InvalidNodeId;
         NodeId landing = InvalidNodeId;
@@ -632,25 +635,21 @@ std::optional<std::vector<CompactMoveAction>>
         int action_point_gain = 0;
     };
 
-    std::vector<ConfirmedAdjacentWalk> confirmed_adjacent_walks;
+    std::vector<AdjacentWalk> adjacent_walks;
     for (const MoveAction& action : generated) {
-        if (action.candidate.movement != MovementKind::Walk || action.candidate.path.size() != 1 ||
-            action.candidate.uses_unconfirmed_edge || action.candidate.uses_inferred_edge) {
+        if (action.candidate.movement != MovementKind::Walk || action.candidate.path.size() != 1) {
             continue;
         }
         const auto target_index = node_index(action.candidate.target);
         if (!target_index.has_value()) {
             continue;
         }
-        const int manhattan = std::abs(m_nodes[source_index].position.row - m_nodes[*target_index].position.row) +
-                              std::abs(m_nodes[source_index].position.column - m_nodes[*target_index].position.column);
-        const auto& confirmed_neighbors = adjacency(GraphLayer::Confirmed, source_index);
-        if (manhattan != 1 || std::ranges::find(confirmed_neighbors, *target_index, &CompactNeighbor::index) ==
-                                  confirmed_neighbors.end()) {
+        const auto& neighbors = adjacency(m_options.graph_layer, source_index);
+        if (std::ranges::find(neighbors, *target_index, &CompactNeighbor::index) == neighbors.end()) {
             continue;
         }
-        confirmed_adjacent_walks.emplace_back(
-            ConfirmedAdjacentWalk {
+        adjacent_walks.emplace_back(
+            AdjacentWalk {
                 action.candidate.target,
                 action.candidate.landing,
                 action.candidate.predicted_action_point_cost,
@@ -668,7 +667,7 @@ std::optional<std::vector<CompactMoveAction>>
             movement->effect.ingot_gain != 0) {
             return false;
         }
-        return std::ranges::any_of(confirmed_adjacent_walks, [&](const ConfirmedAdjacentWalk& walk_action) {
+        return std::ranges::any_of(adjacent_walks, [&](const AdjacentWalk& walk_action) {
             return walk_action.target == action.candidate.target && walk_action.landing == action.candidate.landing &&
                    walk_action.action_point_cost <= action.candidate.predicted_action_point_cost &&
                    walk_action.action_point_gain >= action.candidate.predicted_action_point_gain;

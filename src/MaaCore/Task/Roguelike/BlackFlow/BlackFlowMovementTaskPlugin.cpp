@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <cstdlib>
 #include <limits>
+#include <sstream>
 #include <string_view>
+#include <tuple>
 #include <utility>
 
 #include "Config/TaskData.h"
@@ -23,6 +25,7 @@ constexpr std::string_view SelectionAction = "BlackFlow@Roguelike@SelectMovement
 constexpr std::string_view InventoryObservationTrigger = "BlackFlow@Roguelike@MovementInventoryObserve";
 constexpr std::string_view InventoryObservationAction = "BlackFlow@Roguelike@MovementInventoryObservationAction";
 constexpr std::string_view InventoryItemsTask = "BlackFlow@Roguelike@MovementInventoryItems";
+constexpr std::string_view InventorySwipeTask = "BlackFlow@Roguelike@MovementInventorySwipe";
 // 经 -Enter 转发，避免占位任务从 MovementInventoryClose 继承 maxTimes。
 constexpr std::string_view InventoryCloseTask = "BlackFlow@Roguelike@MovementInventoryClose-Enter";
 constexpr std::string_view OpenPanelTask = "BlackFlow@Roguelike@MovementPanelOpenClick";
@@ -45,6 +48,9 @@ constexpr int RemainingMarkerMaximumGap = 120;
 constexpr int SelectionSettleDelay = 500;
 constexpr int RecognitionRetryDelay = 200;
 constexpr int InventoryLoadedMarkerMaximumVerticalGap = 32;
+// 零件箱是横向分页的卡片网格。每次打开从上次停留页开始，最多向右推进三页，
+// 足以覆盖当前容量上限；重复帧会提前停止，避免在末页反复滑动。
+constexpr int MaxInventoryForwardSwipes = 3;
 
 void set_error(std::string* error, std::string message)
 {
@@ -138,7 +144,7 @@ bool BlackFlowMovementTaskPlugin::observe_inventory()
     InventoryFrame frame;
     std::string error;
     if (!scan_inventory_frame(frame, &error) ||
-        !m_session->apply_movement_inventory_observation(frame.movements, &error)) {
+        !m_session->apply_movement_inventory_observation(frame.movements, frame.complete, &error)) {
         m_session->fail(
             "movement_inventory_observation_failed",
             error.empty() ? "movement inventory OCR failed" : error,
@@ -162,31 +168,113 @@ bool BlackFlowMovementTaskPlugin::observe_inventory()
     return true;
 }
 
-bool BlackFlowMovementTaskPlugin::scan_inventory_frame(InventoryFrame& frame, std::string* error) const
+bool BlackFlowMovementTaskPlugin::scan_inventory_frame(InventoryFrame& frame, std::string* error)
 {
-    int no_candidate_frames = 0;
+    frame = InventoryFrame {};
+    std::unordered_set<std::string> page_signatures;
     std::string latest_error;
-    for (int attempt = 0; attempt < MaxFrameRecognitionAttempts; ++attempt) {
-        InventoryFrame candidate;
-        const InventoryAnalysisOutcome outcome =
-            analyze_inventory_frame(ctrler()->get_image(), candidate, &latest_error);
-        if (outcome == InventoryAnalysisOutcome::Recognized) {
-            frame = std::move(candidate);
-            return true;
+    std::vector<InventoryItem> all_items;
+    InventoryFrame previous_page;
+    int page_offset = 0;
+    bool recognized_page = false;
+
+    const auto signature = [](const InventoryFrame& page) {
+        std::vector<std::tuple<int, int, int>> cards;
+        cards.reserve(page.items.size());
+        for (const InventoryItem& item : page.items) {
+            // OCR 框有少量抖动，按 20px 桶归一化；不同横向分页仍会得到不同签名。
+            cards.emplace_back(
+                static_cast<int>(item.movement), item.name_rect.x / 20, item.name_rect.y / 20);
         }
-        if (outcome == InventoryAnalysisOutcome::NoCandidate) {
-            ++no_candidate_frames;
+        std::ranges::sort(cards);
+        std::ostringstream stream;
+        for (const auto& [kind, x, y] : cards) {
+            stream << kind << ':' << x << ':' << y << ';';
         }
-        if (attempt + 1 < MaxFrameRecognitionAttempts) {
-            sleep(RecognitionRetryDelay);
+        return stream.str();
+    };
+
+    for (int page_index = 0; page_index <= MaxInventoryForwardSwipes; ++page_index) {
+        int no_candidate_frames = 0;
+        InventoryFrame page;
+        for (int attempt = 0; attempt < MaxFrameRecognitionAttempts; ++attempt) {
+            page = InventoryFrame {};
+            const InventoryAnalysisOutcome outcome =
+                analyze_inventory_frame(ctrler()->get_image(), page, &latest_error);
+            if (outcome == InventoryAnalysisOutcome::Recognized) {
+                recognized_page = true;
+                break;
+            }
+            if (outcome == InventoryAnalysisOutcome::NoCandidate) {
+                ++no_candidate_frames;
+            }
+            if (attempt + 1 < MaxFrameRecognitionAttempts) {
+                sleep(RecognitionRetryDelay);
+            }
+        }
+
+        if (page.movements.empty()) {
+            if (no_candidate_frames == MaxFrameRecognitionAttempts) {
+                // 末页可能没有卡片；保留已经汇总的前几页。
+                break;
+            }
+            set_error(error, latest_error.empty() ? "movement inventory OCR failed" : latest_error);
+            return false;
+        }
+
+        // 末页的重复画面不再累加，避免滑动到边界时把同一批卡片重复计数。
+        if (!page_signatures.emplace(signature(page)).second) {
+            break;
+        }
+        if (!previous_page.items.empty()) {
+            // 横向分页之间通常有一列重叠。用同类型、同一行的卡片估计实际内容
+            // 位移，再把当前页映射到同一坐标系，避免重叠卡片被重复计数。
+            std::vector<int> shifts;
+            for (const InventoryItem& current : page.items) {
+                const auto matches = [&current](const InventoryItem& previous) {
+                    return previous.movement == current.movement &&
+                           std::abs(vertical_center(previous.name_rect) - vertical_center(current.name_rect)) <= 28;
+                };
+                const auto found = std::ranges::find_if(previous_page.items, matches);
+                if (found != previous_page.items.end()) {
+                    shifts.emplace_back(current.name_rect.x - found->name_rect.x);
+                }
+            }
+            if (!shifts.empty()) {
+                std::ranges::sort(shifts);
+                page_offset += shifts[shifts.size() / 2];
+            }
+        }
+        for (const InventoryItem& item : page.items) {
+            const int virtual_x = item.name_rect.x - page_offset;
+            const bool already_seen = std::ranges::any_of(all_items, [&](const InventoryItem& seen) {
+                return seen.movement == item.movement &&
+                       std::abs(vertical_center(seen.name_rect) - vertical_center(item.name_rect)) <= 28 &&
+                       std::abs(seen.name_rect.x - virtual_x) <= 40;
+            });
+            if (!already_seen) {
+                InventoryItem normalized = item;
+                normalized.name_rect.x = virtual_x;
+                all_items.emplace_back(std::move(normalized));
+            }
+        }
+        if (page.loaded_movement.has_value()) {
+            frame.loaded_movement = page.loaded_movement;
+        }
+        previous_page = std::move(page);
+
+        if (page_index == MaxInventoryForwardSwipes || !run_fixed_task(InventorySwipeTask)) {
+            break;
         }
     }
-    if (no_candidate_frames == MaxFrameRecognitionAttempts) {
-        frame = InventoryFrame {};
-        return true;
+
+    frame.items = std::move(all_items);
+    for (const InventoryItem& item : frame.items) {
+        ++frame.movements[item.movement];
     }
-    set_error(error, latest_error.empty() ? "movement inventory OCR failed" : latest_error);
-    return false;
+    frame.complete = recognized_page;
+
+    return true;
 }
 
 BlackFlowMovementTaskPlugin::InventoryAnalysisOutcome BlackFlowMovementTaskPlugin::analyze_inventory_frame(
@@ -225,6 +313,8 @@ BlackFlowMovementTaskPlugin::InventoryAnalysisOutcome BlackFlowMovementTaskPlugi
             loaded_markers.emplace_back(result.rect);
         }
     }
+
+    frame.items = items;
 
     int best_horizontal_gap = std::numeric_limits<int>::max();
     for (const Rect& marker : loaded_markers) {

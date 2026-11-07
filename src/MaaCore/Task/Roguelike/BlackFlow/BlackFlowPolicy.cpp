@@ -422,6 +422,13 @@ ResourceRegistry::ResourceRegistry()
     register_resource("seeds", [](const RunState& state) { return state.resources.seeds; });
     register_resource("sellable_scraps", [](const RunState& state) { return state.resources.sellable_scraps; });
     register_resource("white_model_bird", [](const RunState& state) { return state.resources.white_model_birds; });
+    register_resource("movement_capacity", [](const RunState& state) { return state.resources.movement_capacity; });
+    register_resource("movement_slots_used", [](const RunState& state) {
+        return movement_slots_used(state.resources);
+    });
+    register_resource("movement_slots_remaining", [](const RunState& state) {
+        return movement_slots_remaining(state.resources);
+    });
     register_resource("painted_liberi", [](const RunState& state) { return state.resources.painted_liberi ? 1 : 0; });
     // 留给后续楼层的全图移动；紧急逃生座椅仅用于出口，不计入这项通用预留。
     // 会改变落点类型的加工品（坎诺特特快）不参与规划，也就不算作能留给后面楼层的移动。
@@ -501,6 +508,18 @@ std::optional<std::int64_t>
             static_cast<int>(*before),
             candidate.predicted_action_point_cost,
             candidate.predicted_action_point_gain);
+    }
+    if (id == "movement_slots_used" || id == "movement_slots_remaining") {
+        int used = movement_slots_used(state.resources);
+        if (candidate.movement != MovementKind::Walk) {
+            const MovementSpec* movement = find_movement_spec(candidate.movement);
+            const auto charges = state.resources.movement_charges.find(candidate.movement);
+            if (movement != nullptr && charges != state.resources.movement_charges.end() && charges->second <= 1) {
+                used = std::max(0, used - 1);
+            }
+        }
+        used += std::max(0, candidate.predicted_movement_piece_gain);
+        after = id == "movement_slots_used" ? used : std::max(0, state.resources.movement_capacity - used);
     }
     if (candidate.movement != MovementKind::Walk) {
         const MovementSpec* movement = find_movement_spec(candidate.movement);

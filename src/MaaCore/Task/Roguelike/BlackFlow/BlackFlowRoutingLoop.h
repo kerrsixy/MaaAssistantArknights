@@ -220,6 +220,41 @@ RoutingCycleOutcome execute_replanning_cycle(Session& session, IBlackFlowTaskPor
         return { RoutingCycleStatus::Failed, "planning_failed", std::move(error) };
     }
     const MoveCandidate candidate = *plan.decision.selected;
+
+    // A combat node as the first step is especially sensitive to a ghost map:
+    // the visible topology may have changed after an incident (for example
+    // Wandering Villager) while the cached route still looks valid.  Take one
+    // extra full perception pass before committing the first combat step.  If
+    // the map revision changes, discard the candidate and let the normal loop
+    // plan again from the refreshed topology.  A stable pass is cheap insurance
+    // and, crucially, does not spend a movement item just to probe the map.
+    if constexpr (requires { session.map(); }) {
+        const Node* target = session.map().snapshot().find_node(candidate.target);
+        if (target != nullptr && is_combat_node_type(target->type)) {
+            const std::uint64_t map_revision_before = session.map().snapshot().revision;
+            const NodeId current_node_before = session.run().current_node;
+            if (!refresh_with_retries(session, port, &error)) {
+                return { RoutingCycleStatus::NeedsPageRecovery, "ghost_map_preflight_failed", std::move(error) };
+            }
+            const std::uint64_t map_revision_after = session.map().snapshot().revision;
+            const NodeId current_node_after = session.run().current_node;
+            if (map_revision_after != map_revision_before || current_node_after != current_node_before) {
+                Log.info(
+                    "BlackFlow ghost-map preflight changed topology; replanning",
+                    "before",
+                    map_revision_before,
+                    "after",
+                    map_revision_after,
+                    "current node before",
+                    current_node_before,
+                    "current node after",
+                    current_node_after,
+                    "target",
+                    candidate.target);
+                return { RoutingCycleStatus::ReplanRequired, "ghost_map_changed", {} };
+            }
+        }
+    }
     if constexpr (requires {
                       session.run().active_movement;
                       session.save_pending_candidate(candidate, &error);

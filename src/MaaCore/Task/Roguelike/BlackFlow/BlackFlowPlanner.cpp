@@ -84,6 +84,20 @@ struct RouteMetric
 {
     int battles = 0;
     int processing_moves = 0;
+    // Walks may have to cross a node that was already completed to reach a
+    // fresh branch.  This is a valid fallback, but it is a backtrack and
+    // should lose to an equally rewarding route that keeps moving through
+    // unvisited nodes.  Repeatable nodes (currently shops) are excluded.
+    int backtracking = 0;
+    // Empty nodes consume a route step without yielding a node reward.  Door
+    // nodes are intentionally excluded: a door can save a full-map movement
+    // item and expose a higher-reward branch, so its value must be decided by
+    // the downstream route rather than by a fixed penalty.
+    int rewardless_entries = 0;
+    // Effective walk distance saved by a processing move.  A full-map item
+    // that only skips one optional walk is weak; the same item can be
+    // necessary when that saved step is what keeps the terminal reachable.
+    int walk_distance_saved = 0;
     // 跨层保留的加工品才有残值。过期的（M04、M07）下楼即作废，本层不用就是白扔，
     // 所以比较取舍时只看这一项，过期的不计。
     int persistent_processing_moves = 0;
@@ -98,6 +112,9 @@ RouteMetric add_metric(RouteMetric lhs, const RouteMetric& rhs) noexcept
     };
     lhs.battles = add(lhs.battles, rhs.battles);
     lhs.processing_moves = add(lhs.processing_moves, rhs.processing_moves);
+    lhs.backtracking = add(lhs.backtracking, rhs.backtracking);
+    lhs.rewardless_entries = add(lhs.rewardless_entries, rhs.rewardless_entries);
+    lhs.walk_distance_saved = add(lhs.walk_distance_saved, rhs.walk_distance_saved);
     lhs.persistent_processing_moves = add(lhs.persistent_processing_moves, rhs.persistent_processing_moves);
     lhs.duration = add(lhs.duration, rhs.duration);
     return lhs;
@@ -105,15 +122,31 @@ RouteMetric add_metric(RouteMetric lhs, const RouteMetric& rhs) noexcept
 
 std::int64_t route_penalty(const RouteMetric& metric) noexcept
 {
-    return static_cast<std::int64_t>(metric.battles) + metric.processing_moves + metric.duration;
+    // A backtrack spends the same action-point budget as any other walk and
+    // also revisits an empty node.  Give it a small extra penalty so a route
+    // with the same rewards prefers a fresh branch, while still allowing the
+    // move when the map topology makes it necessary.
+    return static_cast<std::int64_t>(metric.battles) + metric.processing_moves + metric.duration +
+           2LL * metric.backtracking + 3LL * metric.rewardless_entries - metric.walk_distance_saved;
 }
 
 // 行动力残值为零，跨层保留的加工品残值为正，所以打平时先比后者。
 bool route_metric_weakly_better(const RouteMetric& lhs, const RouteMetric& rhs) noexcept
 {
-    return route_penalty(lhs) <= route_penalty(rhs) &&
-           std::tie(lhs.battles, lhs.persistent_processing_moves, lhs.duration) <=
-               std::tie(rhs.battles, rhs.persistent_processing_moves, rhs.duration);
+    return route_penalty(lhs) <= route_penalty(rhs) && std::tie(
+                                                           lhs.battles,
+                                                           lhs.backtracking,
+                                                           lhs.rewardless_entries,
+                                                           lhs.walk_distance_saved,
+                                                           lhs.persistent_processing_moves,
+                                                           lhs.duration) <=
+                                                           std::tie(
+                                                               rhs.battles,
+                                                               rhs.backtracking,
+                                                               rhs.rewardless_entries,
+                                                               rhs.walk_distance_saved,
+                                                               rhs.persistent_processing_moves,
+                                                               rhs.duration);
 }
 
 struct RouteMilestone
@@ -311,11 +344,17 @@ bool route_label_better(
     if (minimize_intermediate_interactions) {
         const auto lhs_metric = std::tie(
             lhs.metric.battles,
+            lhs.metric.backtracking,
+            lhs.metric.rewardless_entries,
+            lhs.metric.walk_distance_saved,
             lhs.intermediate_interactions,
             lhs.metric.persistent_processing_moves,
             lhs.metric.duration);
         const auto rhs_metric = std::tie(
             rhs.metric.battles,
+            rhs.metric.backtracking,
+            rhs.metric.rewardless_entries,
+            rhs.metric.walk_distance_saved,
             rhs.intermediate_interactions,
             rhs.metric.persistent_processing_moves,
             rhs.metric.duration);
@@ -324,10 +363,34 @@ bool route_label_better(
         }
     }
     else if (
-        std::tie(lhs.metric.battles, lhs.metric.persistent_processing_moves, lhs.metric.duration) !=
-        std::tie(rhs.metric.battles, rhs.metric.persistent_processing_moves, rhs.metric.duration)) {
-        return std::tie(lhs.metric.battles, lhs.metric.persistent_processing_moves, lhs.metric.duration) <
-               std::tie(rhs.metric.battles, rhs.metric.persistent_processing_moves, rhs.metric.duration);
+        std::tie(
+            lhs.metric.battles,
+            lhs.metric.backtracking,
+            lhs.metric.rewardless_entries,
+            lhs.metric.walk_distance_saved,
+            lhs.metric.persistent_processing_moves,
+            lhs.metric.duration) !=
+        std::tie(
+            rhs.metric.battles,
+            rhs.metric.backtracking,
+            rhs.metric.rewardless_entries,
+            rhs.metric.walk_distance_saved,
+            rhs.metric.persistent_processing_moves,
+            rhs.metric.duration)) {
+        return std::tie(
+                   lhs.metric.battles,
+                   lhs.metric.backtracking,
+                   lhs.metric.rewardless_entries,
+                   lhs.metric.walk_distance_saved,
+                   lhs.metric.persistent_processing_moves,
+                   lhs.metric.duration) <
+               std::tie(
+                   rhs.metric.battles,
+                   rhs.metric.backtracking,
+                   rhs.metric.rewardless_entries,
+                   rhs.metric.walk_distance_saved,
+                   rhs.metric.persistent_processing_moves,
+                   rhs.metric.duration);
     }
     return lhs.action_points > rhs.action_points;
 }
@@ -595,6 +658,44 @@ NodeType route_node_type(const MapSnapshot& map, const OnDemandStateGraph& graph
     return target->type;
 }
 
+int shortest_walk_distance(const MapSnapshot& map, NodeId source, NodeId target, GraphLayer layer) noexcept
+{
+    if (source == target) {
+        return 0;
+    }
+    if (map.find_node(source) == nullptr || map.find_node(target) == nullptr) {
+        return -1;
+    }
+    std::deque<NodeId> pending { source };
+    std::unordered_map<NodeId, int> distances { { source, 0 } };
+    while (!pending.empty()) {
+        const NodeId current = pending.front();
+        pending.pop_front();
+        const int distance = distances.at(current);
+        for (const NodeId neighbor : map.neighbors(current, layer)) {
+            if (!distances.emplace(neighbor, distance + 1).second) {
+                continue;
+            }
+            if (neighbor == target) {
+                return distance + 1;
+            }
+            pending.emplace_back(neighbor);
+        }
+        const Node* current_node = map.find_node(current);
+        if (current_node != nullptr && current_node->type == NodeType::Door && map.has_valid_transfer_pair(current) &&
+            current_node->transfer_target.has_value()) {
+            const NodeId landing = *current_node->transfer_target;
+            if (distances.emplace(landing, distance).second) {
+                if (landing == target) {
+                    return distance;
+                }
+                pending.emplace_front(landing);
+            }
+        }
+    }
+    return -1;
+}
+
 RouteMetric move_metric(
     const MapSnapshot& map,
     const OnDemandStateGraph& graph,
@@ -605,9 +706,41 @@ RouteMetric move_metric(
     const MovementSpec* spec = find_movement_spec(move.movement);
     const bool processing = move.movement != MovementKind::Walk;
     const bool persistent = processing && spec != nullptr && !spec->expires_on_floor_end;
+    int backtracking = 0;
+    const Node* target = map.find_node(move.target);
+    const NodeType target_type =
+        target == nullptr ? NodeType::Unknown : route_node_type(map, graph, source, move.target);
+    const int rewardless_entries = target_type == NodeType::Empty ? 1 : 0;
+    int walk_distance_saved = 0;
+    if (processing && target != nullptr) {
+        const int walk_distance = shortest_walk_distance(map, move.source, move.target, move.graph_layer);
+        const int item_cost = graph.source_run().costs.action_cost(
+            move.action_id,
+            spec == nullptr ? 0 : graph.source_run().costs.movement_cost(*spec));
+        if (walk_distance > item_cost) {
+            walk_distance_saved = walk_distance - item_cost;
+        }
+    }
+    if (move.movement == MovementKind::Walk) {
+        // MoveCandidate::path contains every node crossed by the walk,
+        // including transparent nodes.  A completed, non-repeatable node is
+        // already empty for routing purposes; count it as a backtrack when it
+        // is used as a transit node.  Shops stay traversable and repeatable.
+        for (const NodeId path_node : move.path) {
+            const Node* node = map.find_node(path_node);
+            const bool completed =
+                graph.is_completed(source, path_node) || (node != nullptr && node->progress == NodeProgress::Completed);
+            if (node != nullptr && !node->traversal.repeatable && completed) {
+                ++backtracking;
+            }
+        }
+    }
     return {
         battle ? 1 : 0,
         processing ? 1 : 0,
+        backtracking,
+        rewardless_entries,
+        walk_distance_saved,
         persistent ? 1 : 0,
         processing ? 1 : std::max(1, static_cast<int>(move.path.size())),
     };
@@ -842,11 +975,17 @@ bool route_may_beat(
     if (minimize_intermediate_interactions) {
         const auto minimum_tie = std::tie(
             minimum_metric.battles,
+            minimum_metric.backtracking,
+            minimum_metric.rewardless_entries,
+            minimum_metric.walk_distance_saved,
             current.intermediate_interactions,
             minimum_metric.persistent_processing_moves,
             minimum_metric.duration);
         const auto incumbent_tie = std::tie(
             incumbent.metric.battles,
+            incumbent.metric.backtracking,
+            incumbent.metric.rewardless_entries,
+            incumbent.metric.walk_distance_saved,
             incumbent.intermediate_interactions,
             incumbent.metric.persistent_processing_moves,
             incumbent.metric.duration);
@@ -855,10 +994,20 @@ bool route_may_beat(
         }
     }
     else {
-        const auto minimum_tie =
-            std::tie(minimum_metric.battles, minimum_metric.persistent_processing_moves, minimum_metric.duration);
-        const auto incumbent_tie =
-            std::tie(incumbent.metric.battles, incumbent.metric.persistent_processing_moves, incumbent.metric.duration);
+        const auto minimum_tie = std::tie(
+            minimum_metric.battles,
+            minimum_metric.backtracking,
+            minimum_metric.rewardless_entries,
+            minimum_metric.walk_distance_saved,
+            minimum_metric.persistent_processing_moves,
+            minimum_metric.duration);
+        const auto incumbent_tie = std::tie(
+            incumbent.metric.battles,
+            incumbent.metric.backtracking,
+            incumbent.metric.rewardless_entries,
+            incumbent.metric.walk_distance_saved,
+            incumbent.metric.persistent_processing_moves,
+            incumbent.metric.duration);
         if (minimum_tie != incumbent_tie) {
             return minimum_tie < incumbent_tie;
         }
@@ -1508,12 +1657,16 @@ FactStore on_demand_candidate_facts(
     facts.set("candidate.in_floor_buff_scope", target != nullptr && target->buff_scope);
     const bool combat = target != nullptr && is_combat_node_type(target->type);
     facts.set("candidate.combat", combat);
+    facts.set("candidate.ghost_map_preflight_required", combat);
     facts.set("candidate.boss", combat && target->type == NodeType::BattleBoss);
     facts.set(
         "candidate.exit",
         target != nullptr && (target->type == NodeType::Final || target->type == NodeType::BattleBoss));
     facts.set("candidate.strategy_end", strategy_end);
     facts.set("candidate.uses_processing_item", move.movement != MovementKind::Walk);
+    facts.set("candidate.movement_piece_gain", static_cast<std::int64_t>(move.predicted_movement_piece_gain));
+    facts.set("candidate.movement_slots_after", static_cast<std::int64_t>(move.predicted_movement_slots_after));
+    facts.set("candidate.movement_piece_overflow", move.movement_piece_overflow);
     set_first_move_facts(facts, run, move);
     facts.set(
         "candidate.light_reveal_count",
@@ -1909,6 +2062,21 @@ BlackFlowPlan BlackFlowPlanner::plan_impl(const BlackFlowPlanRequest& request) c
                 confirmed_safe = true;
             }
         }
+        const Node* target = request.map->find_node(candidate.move.target);
+        candidate.move.predicted_movement_piece_gain =
+            target == nullptr ? 0 : expected_movement_piece_gain(target->type);
+        int projected_slots = movement_slots_used(request.run->resources);
+        if (candidate.move.movement != MovementKind::Walk) {
+            const auto charges = request.run->resources.movement_charges.find(candidate.move.movement);
+            if (charges != request.run->resources.movement_charges.end() && charges->second <= 1) {
+                projected_slots = std::max(0, projected_slots - 1);
+            }
+        }
+        projected_slots += candidate.move.predicted_movement_piece_gain;
+        candidate.move.predicted_movement_slots_after = projected_slots;
+        candidate.move.movement_piece_overflow = request.run->resources.movement_capacity > 0 &&
+                                                 request.run->resources.movement_slots_observed >= 0 &&
+                                                 projected_slots > request.run->resources.movement_capacity;
         candidate.safe = confirmed_safe || (relaxed_safe && candidate.move.controllable);
         const bool probing_target = request.probe_target.has_value() && candidate.move.target == *request.probe_target;
         candidate.move.requires_preview_verification = candidate.safe && (!confirmed_safe || probing_target);
@@ -1924,7 +2092,6 @@ BlackFlowPlan BlackFlowPlanner::plan_impl(const BlackFlowPlanRequest& request) c
             return result;
         }
         candidate.facts.set("candidate.preview_required", candidate.move.requires_preview_verification);
-        const Node* target = request.map->find_node(candidate.move.target);
         candidate.battle_count = target != nullptr && is_combat_node_type(target->type) ? 1 : 0;
         candidate.estimated_duration = candidate.move.movement == MovementKind::Walk
                                            ? std::max(1, static_cast<int>(candidate.move.path.size()))
@@ -1996,6 +2163,11 @@ BlackFlowPlan BlackFlowPlanner::plan_impl(const BlackFlowPlanRequest& request) c
                 });
                 worst_metric.battles = std::max(worst_metric.battles, route.metric.battles);
                 worst_metric.processing_moves = std::max(worst_metric.processing_moves, route.metric.processing_moves);
+                worst_metric.backtracking = std::max(worst_metric.backtracking, route.metric.backtracking);
+                worst_metric.rewardless_entries =
+                    std::max(worst_metric.rewardless_entries, route.metric.rewardless_entries);
+                worst_metric.walk_distance_saved =
+                    std::max(worst_metric.walk_distance_saved, route.metric.walk_distance_saved);
                 worst_metric.persistent_processing_moves =
                     std::max(worst_metric.persistent_processing_moves, route.metric.persistent_processing_moves);
                 worst_metric.duration = std::max(worst_metric.duration, route.metric.duration);

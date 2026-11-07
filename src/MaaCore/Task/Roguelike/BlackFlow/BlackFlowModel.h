@@ -370,6 +370,10 @@ struct DynamicCostModel
     const MovementSpec& movement,
     GraphLayer layer = GraphLayer::Confirmed);
 
+// 进入作战节点或非 Boss 出口后，下一步结算会新增一件加工品；空节点/商店等不产生
+// 这类奖励。规划器用它提前预留零件箱空位，实际结算仍以地图/背包观测为准。
+[[nodiscard]] int expected_movement_piece_gain(NodeType type) noexcept;
+
 struct RunResources
 {
     int action_points = 0;
@@ -378,12 +382,21 @@ struct RunResources
     int seeds = 0;
     int sellable_scraps = 0;
     int white_model_birds = 0;
+    // 零件箱容量会被特殊节点、干员和藏品改变；0 表示当前还没有可靠 OCR 观测。
+    int movement_capacity = 0;
+    // -1 表示尚未读到地图底部“已占用/总容量”；已观测值包含自然物、概念体等全部零件。
+    int movement_slots_observed = -1;
     bool painted_liberi = false;
     std::unordered_map<MovementKind, int> movement_charges;
     std::unordered_map<MovementKind, int> movement_pieces;
 
     bool operator==(const RunResources&) const noexcept = default;
 };
+
+// 加工品按一件占一格、按 MovementSpec::initial_charges 提供多次使用次数。
+// 规划器和观测层共用这两个读数，避免只用剩余次数近似格数导致容量误判。
+[[nodiscard]] int movement_slots_used(const RunResources& resources) noexcept;
+[[nodiscard]] int movement_slots_remaining(const RunResources& resources) noexcept;
 
 struct RunState
 {
@@ -413,6 +426,10 @@ struct MoveCandidate
     std::unordered_map<NodeId, int> landing_action_point_gains;
     int predicted_action_point_cost = 0;
     int predicted_action_point_gain = 0;
+    // 当前动作完成后预计新增的加工品件数（作战/非 Boss 进入下一层等）。
+    int predicted_movement_piece_gain = 0;
+    int predicted_movement_slots_after = 0;
+    bool movement_piece_overflow = false;
     int action_point_requirement = std::numeric_limits<int>::max() / 4;
     bool controllable = true;
     bool terminal_on_completion = false;

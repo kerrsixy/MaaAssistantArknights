@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -29,6 +30,7 @@ namespace
 {
 constexpr std::string_view CurrentActionPointsTask = "BlackFlow@Roguelike@CurrentActionPoints";
 constexpr std::string_view CurrentIngotsTask = "BlackFlow@Roguelike@CurrentIngots";
+constexpr std::string_view CurrentMovementCapacityTask = "BlackFlow@Roguelike@CurrentMovementCapacity";
 constexpr std::string_view MovePreviewWaitTask = "BlackFlow@Roguelike@MovePreviewWait";
 constexpr std::string_view MovePreviewEnterWalkTask = "BlackFlow@Roguelike@MovePreviewEnterWalk";
 constexpr std::string_view MovePreviewEnterCraftedTask = "BlackFlow@Roguelike@MovePreviewEnterCrafted";
@@ -67,6 +69,23 @@ std::optional<int> recognize_integer(const cv::Mat& image, std::string_view task
         return std::nullopt;
     }
     return value;
+}
+
+std::optional<std::pair<int, int>> recognize_movement_capacity_from_text(std::string text)
+{
+    std::erase_if(text, [](unsigned char value) { return std::isspace(value) != 0; });
+    const std::size_t slash = text.find('/');
+    if (slash == std::string::npos) {
+        return std::nullopt;
+    }
+    int occupied = 0;
+    int capacity = 0;
+    if (!utils::chars_to_number(text.substr(0, slash), occupied) ||
+        !utils::chars_to_number(text.substr(slash + 1), capacity) || occupied < 0 || capacity <= 0 ||
+        occupied > capacity || capacity > 64) {
+        return std::nullopt;
+    }
+    return capacity;
 }
 
 std::optional<std::string>
@@ -256,6 +275,9 @@ bool BlackFlowTaskPort::refresh(
         if (const auto ingots = recognize_ingots(image); ingots.has_value()) {
             next.run.ingots = *ingots;
         }
+        if (const auto capacity = recognize_movement_capacity(image); capacity.has_value()) {
+            next.run.movement_capacity = *capacity;
+        }
         if (const auto movement = recognize_loaded_movement(image); movement.has_value()) {
             next.run.active_movement = *movement;
         }
@@ -426,6 +448,26 @@ std::optional<int> BlackFlowTaskPort::recognize_ingots(const cv::Mat& image) con
         return std::nullopt;
     }
     return value;
+}
+
+std::optional<std::pair<int, int>> BlackFlowTaskPort::recognize_movement_capacity(const cv::Mat& image) const
+{
+    const auto task = Task.get<OcrTaskInfo>(CurrentMovementCapacityTask);
+    if (task == nullptr) {
+        return std::nullopt;
+    }
+    OCRer analyzer(image);
+    analyzer.set_task_info(task);
+    const auto results = analyzer.analyze();
+    if (!results.has_value()) {
+        return std::nullopt;
+    }
+    for (const auto& result : *results) {
+        if (const auto capacity = recognize_movement_capacity_from_text(result.text); capacity.has_value()) {
+            return capacity;
+        }
+    }
+    return std::nullopt;
 }
 
 bool BlackFlowTaskPort::classify_entered_page(

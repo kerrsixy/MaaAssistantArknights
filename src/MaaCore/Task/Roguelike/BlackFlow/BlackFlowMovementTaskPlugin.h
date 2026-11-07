@@ -71,11 +71,16 @@ private:
     struct InventoryFrame
     {
         std::unordered_map<MovementKind, int> movements;
+        // 保留本帧卡片位置，用于跨水平分页去重。零件箱可以出现同名加工品，
+        // 不能只用名称集合去重，否则会把合法的第二件丢掉。
+        std::vector<InventoryItem> items;
         std::optional<MovementKind> loaded_movement;
+        // 只有至少成功识别到一页完整卡片后，才允许用“缺失”清理本层过期零件。
+        bool complete = false;
     };
 
     bool observe_inventory();
-    bool scan_inventory_frame(InventoryFrame& frame, std::string* error) const;
+    bool scan_inventory_frame(InventoryFrame& frame, std::string* error);
     InventoryAnalysisOutcome
         analyze_inventory_frame(const cv::Mat& image, InventoryFrame& frame, std::string* error) const;
 
