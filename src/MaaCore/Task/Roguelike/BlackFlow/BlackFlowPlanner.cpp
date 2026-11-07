@@ -126,7 +126,12 @@ std::int64_t route_penalty(const RouteMetric& metric) noexcept
     // also revisits an empty node.  Give it a small extra penalty so a route
     // with the same rewards prefers a fresh branch, while still allowing the
     // move when the map topology makes it necessary.
-    return static_cast<std::int64_t>(metric.battles) + metric.processing_moves + metric.duration +
+    // A regular combat node can grant a processing piece, but it also
+    // consumes the safest fallback margin.  Boss/terminal combat is present
+    // in every complete route and therefore remains a constant; the extra
+    // weight mainly removes optional combat chains when a non-combat branch
+    // provides the same milestones.
+    return 2LL * metric.battles + metric.processing_moves + metric.duration +
            2LL * metric.backtracking + 3LL * metric.rewardless_entries - metric.walk_distance_saved;
 }
 
