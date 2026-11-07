@@ -233,14 +233,19 @@ RoutingCycleOutcome execute_replanning_cycle(Session& session, IBlackFlowTaskPor
         if (target != nullptr && is_combat_node_type(target->type)) {
             const std::uint64_t map_revision_before = session.map().snapshot().revision;
             const NodeId current_node_before = session.run().current_node;
+            const std::uint64_t resources_revision_before = session.run().resources_revision;
+            const std::uint64_t cost_revision_before = session.run().costs.revision;
             if (!refresh_with_retries(session, port, &error)) {
                 return { RoutingCycleStatus::NeedsPageRecovery, "ghost_map_preflight_failed", std::move(error) };
             }
             const std::uint64_t map_revision_after = session.map().snapshot().revision;
             const NodeId current_node_after = session.run().current_node;
-            if (map_revision_after != map_revision_before || current_node_after != current_node_before) {
+            const std::uint64_t resources_revision_after = session.run().resources_revision;
+            const std::uint64_t cost_revision_after = session.run().costs.revision;
+            if (map_revision_after != map_revision_before || current_node_after != current_node_before ||
+                resources_revision_after != resources_revision_before || cost_revision_after != cost_revision_before) {
                 Log.info(
-                    "BlackFlow ghost-map preflight changed topology; replanning",
+                    "BlackFlow combat preflight changed routing state; replanning",
                     "before",
                     map_revision_before,
                     "after",
@@ -249,6 +254,14 @@ RoutingCycleOutcome execute_replanning_cycle(Session& session, IBlackFlowTaskPor
                     current_node_before,
                     "current node after",
                     current_node_after,
+                    "resources revision before",
+                    resources_revision_before,
+                    "resources revision after",
+                    resources_revision_after,
+                    "cost revision before",
+                    cost_revision_before,
+                    "cost revision after",
+                    cost_revision_after,
                     "target",
                     candidate.target);
                 return { RoutingCycleStatus::ReplanRequired, "ghost_map_changed", {} };
