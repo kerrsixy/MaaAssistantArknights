@@ -1,0 +1,108 @@
+{
+    "stage_name": "强买强卖",
+    "doc": "11x7，红门 (0,1)(0,5)，蓝门 (8,2)(8,5)，额外刷怪 (0,2)，另有飞行起点。上走廊 y=1 -> y=2 直达 (8,2)；下走廊 y=5 直达 (8,5)。两条都在 x=7 收口。高台主要在 (5,1)-(8,1) 与 (8,3)(9,3)；中间 y=3/y=4 被栅栏 F 隔开。",
+    "deploy_plan": [
+        {
+            "groups": [
+                "重装",
+                "奶盾",
+                "地面阻挡",
+                "近卫",
+                "领主",
+                "处决者",
+                "炮灰"
+            ],
+            "location": [
+                7,
+                2
+            ],
+            "direction": "left",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "近卫",
+                "领主",
+                "挡人先锋",
+                "重装",
+                "地面阻挡",
+                "其他地面"
+            ],
+            "location": [
+                7,
+                5
+            ],
+            "direction": "left",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "益达",
+                "高台输出",
+                "狙击",
+                "速狙",
+                "提丰"
+            ],
+            "location": [
+                6,
+                1
+            ],
+            "direction": "down",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "术师",
+                "盾法",
+                "元素",
+                "其他高台",
+                "辅助",
+                "召唤"
+            ],
+            "location": [
+                5,
+                1
+            ],
+            "direction": "down",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "奶",
+                "单奶",
+                "群奶",
+                "元素奶",
+                "凯尔希"
+            ],
+            "location": [
+                9,
+                5
+            ],
+            "direction": "left",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "其他地面",
+                "挡人先锋",
+                "投锋",
+                "回费",
+                "情报官",
+                "地面远程",
+                "炮灰"
+            ],
+            "location": [
+                4,
+                2
+            ],
+            "direction": "right",
+            "operator_names": [],
+            "minimum_elite": 0
+        }
+    ]
+}

@@ -1,0 +1,106 @@
+{
+    "stage_name": "黑色逆流",
+    "doc": "11x8，蓝门 (3,3)，红门 (0,1)(10,5)(10,6)，额外刷怪 (0,7)。(2,3) 是禁区，(3,3) 蓝门的四邻里只有 (4,3) 能走——整张图的唯一入口。左侧来怪从 (1,1)->(1,2)->(1,0) 传送口传到 (7,4)，再从 (6,4)->(5,4)->(4,3) 进蓝门；右侧 (10,5)/(10,6) 沿 y=6 往西，同样汇到 (5,4)/(4,3)。",
+    "deploy_plan": [
+        {
+            "groups": [
+                "重装",
+                "机械师",
+                "奶盾",
+                "地面阻挡",
+                "近卫",
+                "领主",
+                "处决者"
+            ],
+            "location": [
+                4,
+                3
+            ],
+            "direction": "right",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "近卫",
+                "领主",
+                "挡人先锋",
+                "重装",
+                "地面阻挡",
+                "处决者"
+            ],
+            "location": [
+                5,
+                4
+            ],
+            "direction": "left",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "奶",
+                "单奶",
+                "群奶",
+                "元素奶"
+            ],
+            "location": [
+                3,
+                4
+            ],
+            "direction": "right",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "益达",
+                "高台输出",
+                "狙击",
+                "速狙",
+                "提丰"
+            ],
+            "location": [
+                5,
+                5
+            ],
+            "direction": "up",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "术师",
+                "盾法",
+                "元素",
+                "高台输出",
+                "其他高台"
+            ],
+            "location": [
+                4,
+                5
+            ],
+            "direction": "up",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "其他地面",
+                "挡人先锋",
+                "投锋",
+                "回费",
+                "情报官",
+                "炮灰",
+                "地面远程"
+            ],
+            "location": [
+                6,
+                3
+            ],
+            "direction": "left",
+            "operator_names": [],
+            "minimum_elite": 0
+        }
+    ]
+}

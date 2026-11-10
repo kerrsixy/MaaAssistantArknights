@@ -1,0 +1,40 @@
+{
+  "stage_name": "枝头陷阱",
+  "doc": [
+    "v1（2026-11-04，无望的版本；若要回退，把本文件覆盖回 枝头陷阱.json 即可）。",
+    "路线：红门 (0,5) → 沿 y=5 → (7,5) → (7,6) 传送 ⇢ (0,2) → 沿 y=2 → (7,2) → 蓝门 (7,3)。",
+    "坑：(7,4)、(8,5)。"
+  ],
+  "deploy_plan": [
+    {
+      "groups": ["重装", "挡人先锋", "奶盾"],
+      "location": [6, 2],
+      "direction": "left"
+    },
+    {
+      "groups": ["单奶", "群奶", "奶", "医疗"],
+      "location": [8, 2],
+      "direction": "left"
+    },
+    {
+      "groups": ["益达", "维什戴尔", "提丰", "高台输出", "狙击"],
+      "location": [6, 3],
+      "direction": "up"
+    },
+    {
+      "groups": ["术师", "辅助", "其他高台"],
+      "location": [7, 1],
+      "direction": "down"
+    },
+    {
+      "groups": ["近卫", "领主", "重装"],
+      "location": [7, 2],
+      "direction": "left"
+    },
+    {
+      "groups": ["其他地面"],
+      "location": [5, 2],
+      "direction": "left"
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+    "stage_name": "本性难移",
+    "doc": "10x8，红门 5 个 (0,1)-(0,5)，蓝门 (9,3)(9,4)，额外刷怪 (3,3)-(3,6)。BFS 统计：8 条门->门路径里，(8,4) 被 7 条经过、(8,5)(7,5)(6,5) 各 7 条——右侧 y=5 走廊是总汇合。高台只有 5 格：(7,2)(7,3)(7,4)(6,6)(7,6)，全在右侧，正好压住 (8,x)。",
+    "deploy_plan": [
+        {
+            "groups": [
+                "重装",
+                "奶盾",
+                "地面阻挡",
+                "近卫",
+                "领主",
+                "处决者",
+                "炮灰"
+            ],
+            "location": [
+                8,
+                4
+            ],
+            "direction": "left",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "近卫",
+                "领主",
+                "挡人先锋",
+                "重装",
+                "地面阻挡",
+                "其他地面"
+            ],
+            "location": [
+                8,
+                5
+            ],
+            "direction": "up",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "其他地面",
+                "挡人先锋",
+                "投锋",
+                "回费",
+                "情报官",
+                "地面远程",
+                "炮灰"
+            ],
+            "location": [
+                6,
+                5
+            ],
+            "direction": "right",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "益达",
+                "高台输出",
+                "狙击",
+                "速狙",
+                "提丰"
+            ],
+            "location": [
+                7,
+                4
+            ],
+            "direction": "right",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "术师",
+                "盾法",
+                "元素",
+                "其他高台",
+                "辅助",
+                "召唤"
+            ],
+            "location": [
+                7,
+                3
+            ],
+            "direction": "right",
+            "operator_names": [],
+            "minimum_elite": 0
+        },
+        {
+            "groups": [
+                "奶",
+                "单奶",
+                "群奶",
+                "元素奶",
+                "凯尔希"
+            ],
+            "location": [
+                7,
+                6
+            ],
+            "direction": "up",
+            "operator_names": [],
+            "minimum_elite": 0
+        }
+    ]
+}
