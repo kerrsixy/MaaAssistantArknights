@@ -76,6 +76,37 @@ const std::vector<asst::RecruitPriorityOffset>
     return m_team_complete_condition.at(theme);
 }
 
+std::string asst::RoguelikeRecruitConfig::get_opening_roles(
+    const std::string& theme,
+    const std::string& squad) const noexcept
+{
+    if (auto theme_it = m_squad_opening_roles.find(theme); theme_it != m_squad_opening_roles.end()) {
+        if (auto squad_it = theme_it->second.find(squad); squad_it != theme_it->second.end()) {
+            return squad_it->second;
+        }
+    }
+    if (auto it = m_default_opening_roles.find(theme); it != m_default_opening_roles.end()) {
+        return it->second;
+    }
+    return {};
+}
+
+int asst::RoguelikeRecruitConfig::get_opening_role_bonus(const std::string& theme) const noexcept
+{
+    if (auto it = m_opening_role_bonus.find(theme); it != m_opening_role_bonus.end()) {
+        return it->second;
+    }
+    return 500;
+}
+
+std::string asst::RoguelikeRecruitConfig::get_default_squad(const std::string& theme) const noexcept
+{
+    if (auto it = m_default_squad.find(theme); it != m_default_squad.end()) {
+        return it->second;
+    }
+    return {};
+}
+
 std::vector<int> asst::RoguelikeRecruitConfig::get_group_ids_of_oper(
     const std::string& theme,
     const std::string& oper_name) const noexcept
@@ -164,6 +195,21 @@ bool asst::RoguelikeRecruitConfig::parse(const json::value& json)
     const std::string theme = json.at("theme").as_string();
     clear(theme);
 
+    if (auto opening = json.find<json::object>("opening")) {
+        m_default_opening_roles[theme] = opening->get("default_roles", std::string {});
+            // 开局阶段未覆盖职业的加分，0 关闭（退化为纯 start_priority）。
+            m_opening_role_bonus[theme] = opening->get("role_diversity_bonus", 500);
+        // 未显式选择分队时使用哪个分队（玩法策略，全在资源里）
+        m_default_squad[theme] = opening->get("default_squad", std::string {});
+        if (auto squad_roles = opening->find<json::object>("squad_roles")) {
+            for (const auto& [squad, roles] : *squad_roles) {
+                if (roles.is_string()) {
+                    m_squad_opening_roles[theme][squad] = roles.as_string();
+                }
+            }
+        }
+    }
+
     int group_id = 0;
     //{"name":干员组名, "opers":组内干员组成的array}
     for (const auto& group_json : json.at("priority").as_array()) {
@@ -206,6 +252,10 @@ bool asst::RoguelikeRecruitConfig::parse(const json::value& json)
             oper_info.group_id.push_back(group_id);
             oper_info.order_in_group[group_id] = order_in_group;
             oper_info.recruit_priority = oper_json.get("recruit_priority", oper_info.recruit_priority);
+            // 开局优先级是同名干员的全局属性。干员可出现在多个策略组，
+            // 不应由 JSON 的后出现顺序覆盖更高的开局分；取各组声明的最大值。
+            const int declared_start_priority = oper_json.get("start_priority", oper_info.recruit_priority);
+            oper_info.start_priority = std::max(oper_info.start_priority, declared_start_priority);
             oper_info.promote_priority = oper_json.get("promote_priority", oper_info.promote_priority);
             oper_info.is_alternate = oper_json.get("is_alternate", oper_info.is_alternate);
             oper_info.skill = oper_json.get("skill", oper_info.skill);
@@ -295,4 +345,8 @@ void asst::RoguelikeRecruitConfig::clear(const std::string& theme)
     m_oper_groups.erase(theme);
     m_team_complete_condition.erase(theme);
     m_team_complete_require.erase(theme);
+    m_default_opening_roles.erase(theme);
+    m_squad_opening_roles.erase(theme);
+    m_opening_role_bonus.erase(theme);
+    m_default_squad.erase(theme);
 }

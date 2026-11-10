@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <fstream>
+#include <limits>
 #include <numeric>
 #include <stdexcept>
 
@@ -507,6 +508,60 @@ EdgeDetectionResult
             edge.connected = true;
             edge.forced_by_connectivity_constraint = true;
             edge.decision_source = "connectivity_constraint_cross_component_highest_cnn_score";
+            --component_count;
+            output.connectivity_constraint_applied = true;
+        }
+
+        // OCR/CNN 偶尔会漏掉整段走廊，导致相邻列被分成两个组件。用现存
+        // 节点几何位置补一条最近的跨列边，保证路线层仍可在不重开的情况下
+        // 继续规划；该边明确标记为几何兜底，供上层降低置信度。
+        while (component_count > 1) {
+            double best_distance = std::numeric_limits<double>::max();
+            int best_a = -1;
+            int best_b = -1;
+            for (const Node& a : nodes) {
+                if (!node_exists(a)) {
+                    continue;
+                }
+                for (const Node& b : nodes) {
+                    if (!node_exists(b) || b.column != a.column + 1 || components.find(a.id) == components.find(b.id)) {
+                        continue;
+                    }
+                    const double distance = cv::norm(a.center - b.center);
+                    if (distance < best_distance) {
+                        best_distance = distance;
+                        best_a = a.id;
+                        best_b = b.id;
+                    }
+                }
+            }
+            if (best_a < 0 || best_b < 0) {
+                break;
+            }
+            auto edge_it = std::ranges::find_if(output.edges, [&](const Edge& edge) {
+                return (edge.node_a == best_a && edge.node_b == best_b) ||
+                       (edge.node_a == best_b && edge.node_b == best_a);
+            });
+            if (edge_it == output.edges.end()) {
+                Edge edge;
+                edge.id = output.edges.empty() ? 0 : output.edges.back().id + 1;
+                edge.node_a = best_a;
+                edge.node_b = best_b;
+                edge.connected = true;
+                edge.forced_by_connectivity_constraint = true;
+                edge.calibrated_probability = 0.05;
+                edge.confidence = 0.05;
+                edge.decision_source = "geometry_fallback_cross_component_adjacent_column";
+                edge.path = { nodes[static_cast<std::size_t>(best_a)].center,
+                              nodes[static_cast<std::size_t>(best_b)].center };
+                output.edges.emplace_back(std::move(edge));
+            }
+            else {
+                edge_it->connected = true;
+                edge_it->forced_by_connectivity_constraint = true;
+                edge_it->decision_source = "geometry_fallback_cross_component_adjacent_column";
+            }
+            components.unite(best_a, best_b);
             --component_count;
             output.connectivity_constraint_applied = true;
         }

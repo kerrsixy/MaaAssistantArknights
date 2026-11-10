@@ -1,13 +1,18 @@
 #include "RoguelikeCustomStartTaskPlugin.h"
 
+#include <array>
+
 #include "Config/GeneralConfig.h"
 #include "Config/Miscellaneous/BattleDataConfig.h"
+#include "Config/Roguelike/RoguelikeRecruitConfig.h"
 #include "Config/TaskData.h"
 #include "Controller/Controller.h"
 #include "Task/ProcessTask.h"
 #include "Utils/Logger.hpp"
+#include "Vision/Matcher.h"
 #include "Vision/Miscellaneous/PipelineAnalyzer.h"
 #include "Vision/OCRer.h"
+#include "Vision/Roguelike/RoguelikeRecruitImageAnalyzer.h"
 
 bool asst::RoguelikeCustomStartTaskPlugin::verify(AsstMsg msg, const json::value& details) const
 {
@@ -26,18 +31,36 @@ bool asst::RoguelikeCustomStartTaskPlugin::verify(AsstMsg msg, const json::value
     if (task_view.starts_with(roguelike_name)) {
         task_view.remove_prefix(roguelike_name.length());
     }
-    static const std::array<std::tuple<AsstMsg, std::string_view, RoguelikeCustomType>, 5> TaskMap = {
+    // A passive RecruitMain delegates the voucher click to this plugin. Themes
+    // retaining ClickSelf have already clicked and must not be clicked again.
+    if (msg == AsstMsg::SubTaskCompleted && (task_view == "Roguelike@RecruitMain" || task_view == "RecruitMain") &&
+        details.get("details", "action", "") == "DoNothing") {
+        m_waiting_to_run = RoguelikeCustomType::Voucher;
+        return true;
+    }
+    if (msg == AsstMsg::SubTaskCompleted && task_view.ends_with("InitialRecruitOperatorList") &&
+        details.get("details", "action", "") == "DoNothing") {
+        m_waiting_to_run = RoguelikeCustomType::Voucher;
+        return true;
+    }
+    static const std::array<std::tuple<AsstMsg, std::string_view, RoguelikeCustomType>, 3> TaskMap = {
         std::make_tuple(AsstMsg::SubTaskCompleted, "Roguelike@Squad-EnterPoint", RoguelikeCustomType::Squad),
         std::make_tuple(AsstMsg::SubTaskStart, "Roguelike@LastReward-EnterPoint", RoguelikeCustomType::Reward),
         std::make_tuple(AsstMsg::SubTaskCompleted, "Roguelike@RolesDefault", RoguelikeCustomType::Roles),
-        std::make_tuple(AsstMsg::SubTaskStart, "Roguelike@RecruitMain", RoguelikeCustomType::CoreChar),
-        // 仅开局专用的 RecruitOther 入口；不带 StartExplore 前缀的 Roguelike@RecruitOther 是局内招募，不 hijack
-        std::make_tuple(AsstMsg::SubTaskStart, "StartExplore@Roguelike@RecruitOther", RoguelikeCustomType::CoreChar),
     };
 
     m_waiting_to_run = RoguelikeCustomType::None;
     for (const auto& [t_msg, t_task, t] : TaskMap) {
-        if (t_msg == msg && task_view.ends_with(t_task)) {
+        if (t_msg != msg) {
+            continue;
+        }
+        // ProcessTask reports some task names without the "Roguelike@" prefix, while the
+        // TaskMap entries carry it. Accept both spellings so the squad hijack still runs.
+        constexpr std::string_view roguelike_prefix = "Roguelike@";
+        const bool full_match = task_view.ends_with(t_task);
+        const bool short_match =
+            t_task.starts_with(roguelike_prefix) && task_view == t_task.substr(roguelike_prefix.length());
+        if (full_match || short_match) {
             m_waiting_to_run = t;
             break;
         }
@@ -63,17 +86,6 @@ bool asst::RoguelikeCustomStartTaskPlugin::verify(AsstMsg msg, const json::value
         // 凹第一层实托邦时目标局要开局进第一层，照常选。
         return false;
     }
-    if (m_waiting_to_run == RoguelikeCustomType::CoreChar) {
-        // 点刺投资直接放弃招募，无需按指定干员选择招募券。
-        if (m_config->get_theme() == RoguelikeTheme::Sarkaz && m_config->get_mode() == RoguelikeMode::Investment &&
-            m_config->get_squad() == "点刺成锭分队") {
-            return false;
-        }
-
-        // hijack 在招募入口 SubTaskStart 触发，先于招募插件消耗顺位，当前顺位即本次招募的顺位
-        return m_config->get_current_start_oper() != nullptr;
-    }
-
     // Roles
     return !m_config->get_start_roles().empty();
 }
@@ -119,7 +131,7 @@ bool asst::RoguelikeCustomStartTaskPlugin::_run()
         { RoguelikeCustomType::Squad, std::bind(&RoguelikeCustomStartTaskPlugin::hijack_squad, this) },
         { RoguelikeCustomType::Reward, std::bind(&RoguelikeCustomStartTaskPlugin::hijack_reward, this) },
         { RoguelikeCustomType::Roles, std::bind(&RoguelikeCustomStartTaskPlugin::hijack_roles, this) },
-        { RoguelikeCustomType::CoreChar, std::bind(&RoguelikeCustomStartTaskPlugin::hijack_core_char, this) },
+        { RoguelikeCustomType::Voucher, std::bind(&RoguelikeCustomStartTaskPlugin::select_initial_voucher, this) },
     };
 
     auto it = TypeActuator.find(m_waiting_to_run);
@@ -130,40 +142,151 @@ bool asst::RoguelikeCustomStartTaskPlugin::_run()
     return it->second();
 }
 
+bool asst::RoguelikeCustomStartTaskPlugin::select_initial_voucher()
+{
+    skip_incompatible_start_opers(m_config->get_start_roles());
+    const auto image = ctrler()->get_image();
+
+    // RecruitMain is also used as a passive marker on the operator-list page
+    // immediately after the opening voucher is chosen.  Do not send that page
+    // back through the voucher OCR loop: the regular ChooseOper plugin must
+    // select the requested operator (for example, EW) from the visible list.
+    {
+        RoguelikeRecruitImageAnalyzer operator_analyzer(image);
+        if (operator_analyzer.analyze() && operator_analyzer.get_result().size() >= 2) {
+            LogInfo << __FUNCTION__ << "operator list detected; leave page to outer ChooseOper task";
+            return true;
+        }
+    }
+
+    if (const auto* requested = m_config->get_current_start_oper()) {
+        static const std::unordered_map<battle::Role, std::string> RoleNames = {
+            { battle::Role::Pioneer, "先锋" }, { battle::Role::Warrior, "近卫" }, { battle::Role::Tank, "重装" },
+            { battle::Role::Sniper, "狙击" },  { battle::Role::Caster, "术师" },  { battle::Role::Medic, "医疗" },
+            { battle::Role::Support, "辅助" }, { battle::Role::Special, "特种" },
+        };
+        const auto role = BattleData.get_first_role(requested->name);
+        if (auto name = RoleNames.find(role); name != RoleNames.end()) {
+            OCRer analyzer(image);
+            analyzer.set_task_info("RoguelikeCustom-HijackRoles");
+            analyzer.set_roi({ 0, 100, 1280, 550 });
+            analyzer.set_required({ name->second });
+            if (!analyzer.analyze()) {
+                LogWarn << __FUNCTION__ << "Requested opening voucher not recognized" << requested->name;
+                return false;
+            }
+            LogInfo << __FUNCTION__ << "Choose requested opening voucher" << requested->name << name->second;
+            ctrler()->click(analyzer.get_result().front().rect);
+            return true;
+        }
+    }
+    Matcher analyzer(image);
+    analyzer.set_task_info(m_config->get_theme() + "@Roguelike@RecruitMain");
+    if (const auto result = analyzer.analyze()) {
+        ctrler()->click(result->rect);
+        return true;
+    }
+    return false;
+}
+
 bool asst::RoguelikeCustomStartTaskPlugin::hijack_squad()
 {
     std::string squad = !m_config->get_run_for_collectible() ? m_squad : m_collectible_mode_squad;
-    if (squad.empty()) { // 简单处理，认为指挥分队无需滑屏，没有就随机
-        return ProcessTask(
-                   *this,
-                   { m_config->get_theme() + "@Roguelike@SquadDefault",
-                     m_config->get_theme() + "@Roguelike@Squad-Random" })
-            .run();
+    if (squad.empty()) {
+        // 未显式选择分队时，优先使用资源 opening.default_squad 声明的分队，
+        // 而不是直接走 SquadDefault / Squad-Random 随机。哪个分队作为默认由资源决定。
+        std::string default_squad = RoguelikeRecruit.get_default_squad(m_config->get_theme());
+        if (default_squad.empty()) {
+            // 资源没有声明默认分队，保持原有行为
+            return ProcessTask(
+                       *this,
+                       { m_config->get_theme() + "@Roguelike@SquadDefault",
+                         m_config->get_theme() + "@Roguelike@Squad-Random" })
+                .run();
+        }
+        Log.info(__FUNCTION__, "| no squad configured, use resource default_squad:", default_squad);
+        squad = std::move(default_squad);
     }
 
     constexpr size_t SwipeTimes = 7;
-    for (size_t i = 0; i != SwipeTimes; ++i) {
-        if (need_exit()) {
-            return false;
+    const auto reset_squad_scroll = [&]() {
+        // One reverse swipe only moves one card-width.  After scanning a
+        // locked squad the list may be several pages to the right, so reset
+        // all the way before trying the default squad.
+        for (size_t i = 0; i != SwipeTimes; ++i) {
+            if (need_exit()) {
+                return;
+            }
+            ProcessTask(*this, { "SwipeToTheLeft" }).run();
         }
-        auto image = ctrler()->get_image();
-        OCRer analyzer(image);
-        analyzer.set_task_info("RoguelikeCustom-HijackSquad");
-        analyzer.set_required({ squad });
+    };
+    // 按名字在分队列表里找一次；找不到就滑回最左，留给调用方决定要不要换名字再来。
+    const auto select_squad = [&](const std::string& name) -> bool {
+        for (size_t i = 0; i != SwipeTimes; ++i) {
+            if (need_exit()) {
+                return false;
+            }
+            auto image = ctrler()->get_image();
+            OCRer analyzer(image);
+            analyzer.set_task_info("RoguelikeCustom-HijackSquad");
+            // The first card is often clipped after the horizontal list is
+            // reset.  OCR then returns only the visible tail (for example
+            // "勤分队") instead of the full squad name.  Accept those
+            // stable aliases only for the built-in default squad.
+            if (name == "特勤分队") {
+                analyzer.set_required({ name, "勤分队", "特勤" });
+            }
+            else {
+                analyzer.set_required({ name });
+            }
 
-        if (!analyzer.analyze()) {
-            ProcessTask(*this, { "Roguelike@SquadSlowlySwipeToTheRight" }).run();
-            sleep(Task.get("RoguelikeCustom-HijackSquad")->post_delay);
-            continue;
+            if (!analyzer.analyze()) {
+                ProcessTask(*this, { "Roguelike@SquadSlowlySwipeToTheRight" }).run();
+                sleep(Task.get("RoguelikeCustom-HijackSquad")->post_delay);
+                continue;
+            }
+            const auto& rect = analyzer.get_result().front().rect;
+            // A locked squad still exposes its name in the card.  Check the same
+            // row for the unlock label before clicking, otherwise the game keeps
+            // the previous/default squad while MAA records the locked name.
+            OCRer locked_analyzer(image);
+            locked_analyzer.set_task_info("RoguelikeCustom-HijackSquadLocked");
+            OCRer locked_ocr_analyzer(image);
+            locked_ocr_analyzer.set_task_info("RoguelikeCustom-HijackSquadLockedOCR");
+            const auto is_same_card = [&](const auto& locked) {
+                return std::abs(locked.rect.y - rect.y) < 90 && std::abs(locked.rect.x - rect.x) < 360;
+            };
+            const bool locked_by_normal_ocr =
+                locked_analyzer.analyze() && std::ranges::any_of(locked_analyzer.get_result(), is_same_card);
+            const bool locked_by_raw_ocr =
+                locked_ocr_analyzer.analyze() && std::ranges::any_of(locked_ocr_analyzer.get_result(), is_same_card);
+            if (locked_by_normal_ocr || locked_by_raw_ocr) {
+                LogWarn << __FUNCTION__ << "configured squad is locked" << name;
+                reset_squad_scroll();
+                return false;
+            }
+            ctrler()->click(rect);
+
+            m_config->set_squad(name);
+            return true;
         }
-        const auto& rect = analyzer.get_result().front().rect;
-        ctrler()->click(rect);
+        reset_squad_scroll();
+        return false;
+    };
 
-        m_config->set_squad(std::move(squad));
+    if (select_squad(squad)) {
+        Log.info(__FUNCTION__, "| squad selected:", squad);
         return true;
     }
-    ProcessTask(*this, { "SwipeToTheLeft" }).run();
-    return false;
+
+    // 配置的分队在本主题里找不到（例如沿用了其它主题的分队名）。此时若直接放弃，
+    // 分队会由游戏默认值决定，开局职业组合与策略预期不符；回退到资源声明的默认分队。
+    const std::string fallback = RoguelikeRecruit.get_default_squad(m_config->get_theme());
+    if (fallback.empty() || fallback == squad) {
+        return false;
+    }
+    Log.info(__FUNCTION__, "| configured squad not found, fallback to default_squad:", fallback);
+    return select_squad(fallback);
 }
 
 bool asst::RoguelikeCustomStartTaskPlugin::hijack_reward()
@@ -199,7 +322,9 @@ bool asst::RoguelikeCustomStartTaskPlugin::hijack_reward()
 bool asst::RoguelikeCustomStartTaskPlugin::hijack_roles()
 {
     constexpr size_t SwipeTimes = 7;
-    const std::string& required_role = m_config->get_start_roles();
+    const std::string required_role = resolve_start_roles();
+    m_config->set_start_roles(required_role);
+    skip_incompatible_start_opers(required_role);
 
     for (size_t i = 0; i != SwipeTimes; ++i) {
         if (need_exit()) {
@@ -222,52 +347,87 @@ bool asst::RoguelikeCustomStartTaskPlugin::hijack_roles()
     }
 
     ProcessTask(*this, { "SwipeToTheLeft" }).run();
+
+    // 兜底：指定干员对应的券没刷到时，不跳过初始招募，而是按「可靠职业优先」从当前券里挑一张。
+    // 顺序依据：先保证站得住（近卫/重装），再保证打得动（狙击/术师），医疗次之，其余职业最后。
+    static const std::array<std::string, 8> fallback_order = { "近卫", "重装", "狙击", "术师",
+                                                               "医疗", "先锋", "辅助", "特种" };
+    LogWarn << __FUNCTION__ << "requested opening role" << required_role
+            << "not found on voucher page; fallback to a reliable role voucher instead of skipping";
+
+    auto image = ctrler()->get_image();
+    OCRer analyzer(image);
+    analyzer.set_task_info("RoguelikeCustom-HijackRoles");
+    if (analyzer.analyze()) {
+        const auto& results = analyzer.get_result();
+        for (const auto& role_name : fallback_order) {
+            for (const auto& res : results) {
+                if (res.text.find(role_name) == std::string::npos) {
+                    continue;
+                }
+                LogInfo << __FUNCTION__ << "fallback pick" << role_name << "voucher at" << res.rect.x << res.rect.y;
+                ctrler()->click(res.rect);
+                return true;
+            }
+        }
+    }
+
+    LogError << __FUNCTION__ << "no usable role voucher found on the opening page";
     return false;
 }
 
-bool asst::RoguelikeCustomStartTaskPlugin::hijack_core_char()
+std::string asst::RoguelikeCustomStartTaskPlugin::resolve_start_roles() const
 {
-    static const std::unordered_map<battle::Role, std::string> RoleOcrNameMap = {
-        { battle::Role::Caster, "术师" }, { battle::Role::Medic, "医疗" },   { battle::Role::Pioneer, "先锋" },
-        { battle::Role::Sniper, "狙击" }, { battle::Role::Special, "特种" }, { battle::Role::Support, "辅助" },
-        { battle::Role::Tank, "重装" },   { battle::Role::Warrior, "近卫" }
-    };
-    // 开局免费招募的干员职业必定互异，每次招募前按当前顺位干员的职业重新选 tab；
-    // 顺位已耗尽或局内招募时不会进入本函数（verify 的启用条件已排除）
-    const RoguelikeStartOper* start_oper = m_config->get_current_start_oper();
-    const std::string& char_name = start_oper->name;
-    const auto& role = BattleData.get_first_role(char_name);
-    auto role_iter = RoleOcrNameMap.find(role);
-    if (role_iter == RoleOcrNameMap.cend()) {
-        Log.error("Unknown role", char_name, static_cast<int>(role));
-        return false;
-    }
-    // select role
-    const std::string& role_ocr_name = role_iter->second;
-    Log.info("role", role_ocr_name);
-    auto image = ctrler()->get_image();
-    OCRer analyzer(image);
-    analyzer.set_task_info("RoguelikeCustom-HijackCoChar");
-    analyzer.set_required({ role_ocr_name });
-    if (!analyzer.analyze()) {
-        return false;
-    }
-    for (int retry = 0; retry < 3; ++retry) {
-        const auto& role_rect = analyzer.get_result().front().rect;
-        ctrler()->click(role_rect);
-        sleep(Task.get("RoguelikeCustom-HijackCoChar")->pre_delay);
-
-        ProcessTask check(
-            *this,
-            { m_config->get_theme() + "@Roguelike@ChooseOperFlag",
-              m_config->get_theme() + "@Roguelike@RecruitCloseGuide" });
-        check.set_times_limit("Roguelike@ChooseOperFlag", 0);
-        check.set_retry_times(0);
-        if (check.run()) {
-            return true; // 进入选择干员界面
+    const std::string configured = m_config->get_start_roles();
+    if (!configured.empty()) {
+        if (const RoguelikeStartOper* start_oper = m_config->get_current_start_oper(); start_oper != nullptr) {
+            const battle::Role role = BattleData.get_first_role(start_oper->name);
+            if (!role_group_contains(configured, role)) {
+                LogInfo << __FUNCTION__ << "opening roles" << configured << "do not contain" << start_oper->name
+                        << "; treat the requested start oper as unselected";
+            }
         }
+        return configured;
     }
-    return false; // 进入选择干员界面失败
+
+    if (const RoguelikeStartOper* start_oper = m_config->get_current_start_oper(); start_oper != nullptr) {
+        const battle::Role role = BattleData.get_first_role(start_oper->name);
+        LogInfo << __FUNCTION__ << "no opening roles configured for" << start_oper->name << "role"
+                << static_cast<int>(role);
+    }
+
+    const std::string recommended = RoguelikeRecruit.get_opening_roles(m_config->get_theme(), m_config->get_squad());
+    if (!recommended.empty()) {
+        LogInfo << __FUNCTION__ << "use resource opening roles" << recommended << "for squad" << m_config->get_squad();
+        return recommended;
+    }
+    return configured;
+}
+
+bool asst::RoguelikeCustomStartTaskPlugin::role_group_contains(std::string_view roles, battle::Role role)
+{
+    if (roles == "先手必胜") {
+        return role == battle::Role::Pioneer || role == battle::Role::Sniper || role == battle::Role::Special;
+    }
+    if (roles == "稳扎稳打") {
+        return role == battle::Role::Tank || role == battle::Role::Caster || role == battle::Role::Sniper;
+    }
+    if (roles == "取长补短") {
+        return role == battle::Role::Warrior || role == battle::Role::Support || role == battle::Role::Medic;
+    }
+    return false;
+}
+
+void asst::RoguelikeCustomStartTaskPlugin::skip_incompatible_start_opers(const std::string& roles)
+{
+    while (const RoguelikeStartOper* start_oper = m_config->get_current_start_oper()) {
+        const battle::Role role = BattleData.get_first_role(start_oper->name);
+        if (role_group_contains(roles, role)) {
+            return;
+        }
+        LogInfo << __FUNCTION__ << "skip incompatible requested start oper" << start_oper->name << "for roles" << roles;
+        m_config->advance_start_oper_index();
+    }
 }
 
 std::vector<std::string> asst::RoguelikeCustomStartTaskPlugin::get_select_list() const

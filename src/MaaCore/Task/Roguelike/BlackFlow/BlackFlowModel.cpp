@@ -588,6 +588,10 @@ bool NormalizedMap::accept_preview(NodeId target, const MovePreview& preview, bo
     node.identity_state = NodeIdentityState::Classified;
     node.identity_revealed = true;
     node.identity_from_template = false;
+    if (preview.ideal_source_known && preview.displayed_type == NodeType::BattleNormal && current->buff_scope) {
+        node.ideal_source_known = true;
+        node.ideal_source = preview.ideal_source;
+    }
     changed = node != *current;
     return m_snapshot.upsert_node(std::move(node));
 }

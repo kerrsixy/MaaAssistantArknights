@@ -108,7 +108,7 @@ enum class SubRole
     Special_DollKeeper,       // 傀儡师; 致命伤时切换替身作战, 归溟幽灵鲨, 风丸
     Special_Alchemist,        // 炼金师; 投掷炼金单元协助作战, 引星棘刺, 锡人
     Special_SkyWalker,        // 巡空者; 起飞后阻挡2个飞行敌人, 予愿安洁莉娜, 云迹
-    Special_Dispatcher,       // 调度者; 技能开启后造成超远距离的全体物理伤害, 行铃
+    Special_Dispatcher,       // 调遣师; 行铃
 };
 
 // 统一变量名：
@@ -616,6 +616,8 @@ struct ReplacementHome
 
 struct DeployInfoWithRank
 {
+    int minimum_elite = 0;
+    std::vector<std::string> operator_names;
     Point location;
     DeployDirection direction = DeployDirection::None;
     int rank = 0;
@@ -650,6 +652,8 @@ struct Recruitment
     Rect rect;
     int elite = 0;
     int level = 0;
+    std::optional<int> hope_cost; // 未识别不等于免费。
+    bool temporary = false;       // 必须由候选自身的临时招募标记确认。
 };
 
 enum class SupportAnalyzeMode

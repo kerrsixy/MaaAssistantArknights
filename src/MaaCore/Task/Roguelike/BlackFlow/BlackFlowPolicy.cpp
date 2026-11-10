@@ -426,6 +426,9 @@ ResourceRegistry::ResourceRegistry()
     register_resource("movement_slots_used", [](const RunState& state) {
         return movement_slots_used(state.resources);
     });
+    register_resource("movement_slots_observed", [](const RunState& state) {
+        return state.resources.movement_slots_observed;
+    });
     register_resource("movement_slots_remaining", [](const RunState& state) {
         return movement_slots_remaining(state.resources);
     });
@@ -730,8 +733,23 @@ PolicyDecision PolicyExecutor::choose(
 
     decision.eligible_candidates = eligible.size();
     if (eligible.empty()) {
-        decision.reason = "no eligible safe candidate";
-        return decision;
+        // 全部候选都不安全，说明这一拍已经没有任何能走到安全终点的路线。此时直接判失败
+        // 会放弃一个仍可能靠途中拾取行动力或换到代步而脱困的局面，所以降级到「合法且可控」
+        // 的候选继续推进，把真正的失败留给后续确实走不下去的那一拍。
+        std::vector<const PolicyCandidate*> controllable;
+        for (const auto& candidate : candidates) {
+            if (candidate.legal && candidate.move.controllable) {
+                controllable.emplace_back(&candidate);
+            }
+        }
+        if (controllable.empty()) {
+            decision.reason = "no eligible safe candidate";
+            return decision;
+        }
+        eligible = std::move(controllable);
+        decision.reason = "no safe terminal route; continuing with a controllable candidate";
+        decision.rejected.emplace_back(
+            "safety-fallback: " + std::to_string(eligible.size()) + " controllable candidates");
     }
 
     const auto is_binding = [&](const Milestone& milestone) {
@@ -1079,4 +1097,7 @@ std::optional<std::reference_wrapper<const ShoppingRule>>
 }
 
 } // namespace asst::blackflow
+
+
+
 

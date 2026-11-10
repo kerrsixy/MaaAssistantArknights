@@ -34,19 +34,29 @@ protected:
 
     virtual AbstractTask& this_task() override { return *this; }
 
+    bool verify_deployment_enabled() const override { return true; }
+
+    bool deployment_target_allowed(const battle::DeploymentOper& oper, const Point& loc) const override;
+    void set_dynamic_tile_observation(std::unordered_map<Point, battle::TileAvailability> observation);
+
+    battle::DeploymentKind deployment_kind(const battle::DeploymentOper& oper) const override
+    {
+        return DiceSet.contains(oper.name) ? battle::DeploymentKind::Consumable : BattleHelper::deployment_kind(oper);
+    }
+
     virtual void clear() override;
     bool do_once(const cv::Mat& image, const cv::Mat& image_prev);
 
     struct DeployPlanInfo
     {
         // int oper_priority;                         // 干员招募优先级
-        battle::Role role = battle::Role::Unknown;    // 干员职业
-        std::string oper_name;                        // 干员名称
-        int oper_order_in_group {};                   // 干员在干员组中排名
-        int rank {};                                  // 干员组在部署指令扁平化后的排名
-        Point placed;                                 // 指令坐标
-        battle::DeployDirection direction {};         // 部署朝向
-        int cost = 0;                                 // 干员部署费用，0 表示未识别
+        battle::Role role = battle::Role::Unknown; // 干员职业
+        std::string oper_name;                     // 干员名称
+        int oper_order_in_group {};                // 干员在干员组中排名
+        int rank {};                               // 干员组在部署指令扁平化后的排名
+        Point placed;                              // 指令坐标
+        battle::DeployDirection direction {};      // 部署朝向
+        int cost = 0;                              // 干员部署费用，0 表示未识别
 
         bool operator<(const DeployPlanInfo& x) const
         {
@@ -109,7 +119,7 @@ protected:
         battle::DeployDirection direction);
 
     void check_drone_tiles();
-    void wait_until_start_button_clicked();
+    bool wait_until_start_button_clicked();
 
     std::vector<Point> available_locations(const battle::DeploymentOper& oper) const;
     std::vector<Point> available_locations(battle::LocationType type) const;
@@ -125,6 +135,8 @@ protected:
     std::vector<battle::roguelike::ReplacementHome> m_homes;
     bool m_allow_to_use_dice = true;
     std::unordered_set<Point> m_blacklist_location;
+    std::unordered_map<Point, battle::TileAvailability> m_dynamic_tile_observation;
+    bool m_dynamic_tile_observation_enabled = false;
     std::array<battle::Role, 9> m_role_order {};
     std::unordered_map<Point, battle::roguelike::ForceDeployDirection> m_force_deploy_direction;
 
@@ -180,6 +192,11 @@ protected:
     std::vector<battle::roguelike::DeployInfoWithRank> m_retreat_plan;
     std::unordered_map<battle::OperNameTag, std::chrono::steady_clock::time_point> m_deployed_time;
 
+    // 阵亡热点：同一格短时间内反复阵亡，说明这个位置守不住，
+    // 再往这里补人只是继续送，黑名单掉让后续改选别的位置。
+    std::unordered_map<Point, std::chrono::steady_clock::time_point> m_last_death_time;
+    std::unordered_map<Point, int> m_death_count;
+
     // 缓存干员精英
     std::unordered_map<std::string, int64_t> m_oper_elite;
     // 缓存干员精英情况
@@ -198,8 +215,8 @@ protected:
 
     std::chrono::steady_clock::time_point m_diag_battle_start {};   // 本场战斗首次观测时刻
     std::chrono::steady_clock::time_point m_diag_last_kill_time {}; // 最近一次击杀数变化的时刻
-    int m_diag_last_kills = 0;                                       // 上一帧击杀数，用于检测停滞
-    int m_diag_last_heartbeat = -1;                                  // 上次打印心跳的 30 秒刻度，避免刷屏
-    bool m_diag_stall_warned = false;                                // 本轮停滞是否已告警，避免重复刷
+    int m_diag_last_kills = 0;                                      // 上一帧击杀数，用于检测停滞
+    int m_diag_last_heartbeat = -1;                                 // 上次打印心跳的 30 秒刻度，避免刷屏
+    bool m_diag_stall_warned = false;                               // 本轮停滞是否已告警，避免重复刷
 };
 } // namespace asst

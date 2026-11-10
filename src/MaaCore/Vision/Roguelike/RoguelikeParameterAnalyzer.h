@@ -1,4 +1,6 @@
 #pragma once
+#include <optional>
+
 #include "Vision/VisionHelper.h"
 
 #include "Config/TaskData.h"
@@ -16,6 +18,10 @@ public:
     // bool analyze();
 
     int get_number(const cv::Mat& image, const std::string& task_name);
+
+    // New consumers must preserve unknown readings instead of treating them as zero.
+    [[nodiscard]] static std::optional<int>
+        read_number(const cv::Mat& image, const std::string& task_name, double minimum_score = 0.9);
 
     // int update_hope(const cv::Mat& image);
     int update_hp(const cv::Mat& image);

@@ -1,4 +1,19 @@
 {
+    "OperBoxHomeDirect": {
+        "Doc": "首页直接点击干员入口；比快捷菜单模板更适配官服当前主题皮肤。",
+        "algorithm": "OcrDetect",
+        "text": ["干员"],
+        "roi": [900, 280, 300, 150],
+        "action": "ClickSelf",
+        "postDelay": 1800
+    },
+    "OperBoxTutorialClose": {
+        "algorithm": "OcrDetect",
+        "text": ["关闭"],
+        "roi": [80, 60, 180, 110],
+        "action": "ClickSelf",
+        "postDelay": 500
+    },
     "OperBox-Entry": {
         "algorithm": "JustReturn",
         "action": "DoNothing",

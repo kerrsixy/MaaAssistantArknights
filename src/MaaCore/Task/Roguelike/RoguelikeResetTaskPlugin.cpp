@@ -1,5 +1,8 @@
 #include "RoguelikeResetTaskPlugin.h"
 
+#include <atomic>
+#include <string>
+
 #include "Utils/Logger.hpp"
 
 bool asst::RoguelikeResetTaskPlugin::verify(AsstMsg msg, const json::value& details) const
@@ -34,5 +37,11 @@ bool asst::RoguelikeResetTaskPlugin::_run()
         }
     }
     m_config->clear();
+    // 2026-10-29 阶段C：每次 Roguelike@StartExplore 生成新的 run_id。
+    // 这里是全局唯一序号（atomic），故意跨实例共享——它只做「区分」，不参与任何决策；
+    // 与 pending_hp 那种会污染逻辑的跨实例状态不同。
+    static std::atomic<unsigned long long> s_run_seq { 0 };
+    m_config->status().run_id = m_config->get_theme() + "-run" + std::to_string(++s_run_seq);
+    LogInfo << __FUNCTION__ << "| new run_id:" << m_config->status().run_id;
     return true;
 }

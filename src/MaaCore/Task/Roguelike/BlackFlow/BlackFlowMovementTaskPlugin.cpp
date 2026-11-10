@@ -112,7 +112,12 @@ bool BlackFlowMovementTaskPlugin::_run()
     std::string error;
     const SelectionOutcome outcome = select_movement(target, &error);
     if (outcome == SelectionOutcome::Selected) {
-        Task.set_task_base(std::string(SelectionAction), "BlackFlow@Roguelike@RoutingResume-Enter");
+        // 选中代步后不能直接复用选中前保存的候选坐标。打开/关闭零件面板
+        // 以及切换移动方式的过渡帧可能让地图视口、节点可见性或当前标记发生
+        // 变化；直接 Resume 会拿旧 viewport_revision 点击，实机上会出现点到
+        // 两个节点之间、移动预览不弹出的情况。回到 MapPrepare 先重新取一帧
+        // 完整地图，再由规划器在当前视口上生成新的候选。
+        Task.set_task_base(std::string(SelectionAction), "BlackFlow@Roguelike@MapPrepare");
         Log.info("BlackFlow movement selected", target_spec == nullptr ? std::string_view("unknown") : target_spec->id);
     }
     else if (outcome == SelectionOutcome::Unavailable) {

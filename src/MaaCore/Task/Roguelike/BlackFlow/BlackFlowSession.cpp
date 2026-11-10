@@ -741,8 +741,12 @@ void BlackFlowSession::request_diagnostics(DiagnosticTrigger trigger, json::obje
     if (routine && m_diagnostics.level == DiagnosticLevel::Normal) {
         return;
     }
-    bool include_images = allow_images && (!routine || m_diagnostics.level == DiagnosticLevel::Full);
-    if (include_images && m_persisted_image_packages >= m_diagnostics.image_package_limit) {
+    // 常规推图也保留逐层图像证据，供人工核对地图识别、Buff 范围和路线。
+    bool include_images = allow_images;
+    // Full diagnostics is explicitly used for manual per-floor verification;
+    // do not silently drop later route snapshots after the package cap.
+    if (include_images && m_diagnostics.level != DiagnosticLevel::Full &&
+        m_persisted_image_packages >= m_diagnostics.image_package_limit) {
         include_images = false;
     }
     if (!include_images && m_diagnostics.level == DiagnosticLevel::Normal) {
@@ -838,6 +842,9 @@ void BlackFlowSession::queue_decision()
         { "landing", move.landing },
         { "node_name", target == nullptr ? std::string() : target->name },
         { "node_type", std::string(target == nullptr ? "unclassified" : to_string(target->type)) },
+        { "node_in_buff_scope", target != nullptr && target->buff_scope },
+        { "ideal_source_known", target != nullptr && target->ideal_source_known },
+        { "ideal_source", target == nullptr ? std::string() : target->ideal_source },
         { "movement", std::string(to_string(move.movement)) },
         { "path_edge_count", move.path.size() },
         { "predicted_cost", move.predicted_action_point_cost },
@@ -876,6 +883,9 @@ void BlackFlowSession::queue_decision()
                 { "column", node->position.column },
                 { "node_type", std::string(to_string(node->type)) },
                 { "node_name", node->name },
+                { "in_buff_scope", node->buff_scope },
+                { "ideal_source_known", node->ideal_source_known },
+                { "ideal_source", node->ideal_source },
             };
         };
         std::vector<json::value> planned_route_steps;
@@ -938,6 +948,8 @@ void BlackFlowSession::queue_decision()
         m_last_plan->route_search_time_exhausted,
         "expansions exhausted",
         m_last_plan->route_search_expansions_exhausted);
+    // 将带 planned_route_steps 的完整规划快照送入逐层图片证据链。
+    request_diagnostics(DiagnosticTrigger::RoutineObservation, details, true);
     m_telemetry_events.emplace_back(BlackFlowTelemetryEvent { "BlackFlowRoutingDecision", std::move(details) });
     if (move.uses_inferred_edge) {
         queue_warning(

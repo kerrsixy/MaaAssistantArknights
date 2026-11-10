@@ -23,6 +23,7 @@
 #include "Utils/Logger.hpp"
 #include "Utils/StringMisc.hpp"
 #include "Vision/OCRer.h"
+#include "Vision/Roguelike/RoguelikeParameterAnalyzer.h"
 
 namespace asst::blackflow
 {
@@ -38,6 +39,7 @@ constexpr std::string_view MovePreviewCannotEnterTask = "BlackFlow@Roguelike@Mov
 constexpr std::string_view MovePreviewCostTask = "BlackFlow@Roguelike@MovePreviewCost";
 constexpr std::string_view MovePreviewCostCraftedTask = "BlackFlow@Roguelike@MovePreviewCostCrafted";
 constexpr std::string_view MovePreviewDisplayedNameTask = "BlackFlow@Roguelike@MovePreviewDisplayedName";
+constexpr std::string_view MovePreviewIdealSourceTask = "BlackFlow@Roguelike@MovePreviewIdealSource";
 constexpr std::string_view MovePreviewConfirmTask = "BlackFlow@Roguelike@MovePreviewConfirm";
 constexpr std::string_view MovePreviewConfirmCompletedTask = "BlackFlow@Roguelike@MovePreviewConfirmCompleted";
 constexpr std::string_view EnteredPageClassificationTask = "BlackFlow@Roguelike@EnteredPageClassification";
@@ -85,7 +87,7 @@ std::optional<std::pair<int, int>> recognize_movement_capacity_from_text(std::st
         occupied > capacity || capacity > 64) {
         return std::nullopt;
     }
-    return capacity;
+    return std::pair { occupied, capacity };
 }
 
 std::optional<std::string>
@@ -276,7 +278,12 @@ bool BlackFlowTaskPort::refresh(
             next.run.ingots = *ingots;
         }
         if (const auto capacity = recognize_movement_capacity(image); capacity.has_value()) {
-            next.run.movement_capacity = *capacity;
+            next.run.movement_slots_used = capacity->first;
+            next.run.movement_capacity = capacity->second;
+        }
+        if (const auto hope = RoguelikeParameterAnalyzer::read_number(image, "BlackFlow@Roguelike@CurrentHope");
+            hope.has_value() && *hope >= 0) {
+            next.run.hope = *hope;
         }
         if (const auto movement = recognize_loaded_movement(image); movement.has_value()) {
             next.run.active_movement = *movement;
@@ -367,6 +374,30 @@ bool BlackFlowTaskPort::preview(
     preview.displayed_type = *displayed_type;
     preview.displayed_name = *displayed_name;
     preview.identity_revealed = *displayed_type != NodeType::HideInvisible && *displayed_type != NodeType::HideBattle;
+    // 理想源只在 Buff 范围内的普通作战节点有规划意义；险路恶敌明确跳过，
+    // 避免把其详情页的相似文案误记成可收集目标。
+    if (*displayed_type == NodeType::BattleNormal) {
+        const auto ideal_source = recognize_text(
+            image,
+            MovePreviewIdealSourceTask,
+            { "理想源", "希望的沃土" });
+        if (ideal_source.has_value()) {
+            preview.ideal_source_known = true;
+            preview.ideal_source = *ideal_source == "理想源" ? *ideal_source : std::string();
+            Log.info(
+                "BlackFlow battle preview ideal source",
+                preview.ideal_source.empty() ? std::string_view("none") : std::string_view(preview.ideal_source));
+        }
+        else {
+            // 逐个普通战斗节点探查；没有命中时保持 unknown，不能把 OCR 未命中
+            // 当成“没有理想源”，否则会在下一次重规划时丢掉尚未探查完的节点。
+            Log.info("BlackFlow battle preview ideal source", "unknown");
+        }
+    }
+    else if (*displayed_type == NodeType::BattleSavage) {
+        // 理想源不会出现在险路恶敌。即使详情页出现相似文字，也不能写入节点事实。
+        Log.info("BlackFlow savage preview ideal source", "skipped");
+    }
     return true;
 }
 
@@ -410,6 +441,13 @@ MoveConfirmationStatus BlackFlowTaskPort::confirm(
 
     entered_page = {};
     if (transaction.preview()->identity_revealed || transaction.preview()->displayed_type == NodeType::HideBattle) {
+        // 已揭示节点不需要 OCR 页面标题，但仍必须把预览得到的节点类型
+        // 传给会话，否则 page_context 为空，路由会误以为已回到地图并
+        // 在商店/战斗页面上触发地图识别。
+        entered_page.classified_type = transaction.preview()->displayed_type;
+        if (!transaction.preview()->displayed_name.empty()) {
+            entered_page.matched_texts.push_back(transaction.preview()->displayed_name);
+        }
         return MoveConfirmationStatus::Succeeded;
     }
     return classify_entered_page(m_task_context->capture(), entered_page, error) ? MoveConfirmationStatus::Succeeded

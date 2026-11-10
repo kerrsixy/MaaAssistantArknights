@@ -66,6 +66,13 @@ public:
     RoguelikeStatus& operator=(const RoguelikeStatus&) = default;
 
 public:
+    // 2026-10-29 阶段C：一次探索的唯一标识。由 RoguelikeResetTaskPlugin 在
+    // Roguelike@StartExplore 时生成，供日志链路串联同一局的全部观察与决策。
+    std::string run_id;
+    // 2026-10-29 阶段C：本次探索内的决策序号。与 run_id 组合成 decision_id，
+    // 让「终局反查」可以从结果一路回到每一次决策及其输入。
+    int decision_seq = 0;
+
     int hope = 0;                                         // 当前希望
     int hp = 0;                                           // 当前生命值
     int floor = 0;                                        // 当前到达层数
@@ -73,6 +80,10 @@ public:
 
     std::unordered_map<std::string, RoguelikeOper> opers; // 干员精英&等级
     std::vector<std::string> collections;                 // 已获得的藏品
+    // 仅保存地图剧目栏的 OCR 观察，不等同于已确认的普通/猩红剧目效果。
+    std::vector<std::string> phantom_playbill_observation;
+    std::string phantom_observed_floor_name;
+    std::vector<std::string> phantom_floor_effect_observation;
 
     // ------------------ 招募 ------------------
     bool team_full_without_rookie = false; // 编队内没有预备干员（晋升优先级<200

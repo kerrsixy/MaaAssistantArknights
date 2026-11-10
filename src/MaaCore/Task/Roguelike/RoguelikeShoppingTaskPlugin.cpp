@@ -13,6 +13,7 @@
 #include "Vision/Matcher.h"
 #include "Vision/OCRer.h"
 #include "Vision/RegionOCRer.h"
+#include "Vision/Roguelike/RoguelikeParameterAnalyzer.h"
 
 bool asst::RoguelikeShoppingTaskPlugin::verify(AsstMsg msg, const json::value& details) const
 {
@@ -81,14 +82,9 @@ bool asst::RoguelikeShoppingTaskPlugin::_run()
         m_pending_purchase.reset();
     }
 
-    // 2026-10-28：原实现一次进商店只买一件（buy_once 内部匹配到就 break 返回）。
-    // 实测傀影 320 次进商店仅成交 4 次，第 2 件之后的好货全被跳过。
-    // 改为最多买 3 件：每买到一件后等界面刷新，买不到即停。
-    for (int buy_round = 0; buy_round < 3; ++buy_round) {
-        if (!buy_once()) {
-            break;
-        }
-        sleep(800);
+    // 选择商品后交回任务链确认成交；确认后再次进入购物入口，重新识别货架和余额。
+    if (buy_once()) {
+        return true;
     }
     const auto& theme = m_config->get_theme();
     if ((theme == RoguelikeTheme::Sami || theme == RoguelikeTheme::Sarkaz) &&
@@ -196,8 +192,27 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
     // 旧实现把 read_wallet 只在 strategy_shopping（仅 BlackFlow）下调用，傀影/水月等
     // 主题既不读余额也不校验价格，于是会出现「点开确认框才发现买不起」的死循环。
     const auto wallet = read_wallet(image);
-    // 留给投资的源石锭下限：先买藏品/招募券，剩余的钱再去投资（用户指定的优先级）。
-    constexpr int InvestReserve = 10;
+    std::optional<int> shopping_hope;
+    if (theme == RoguelikeTheme::Phantom) {
+        // 商店页当前希望与上限分列显示，只读当前值，禁止使用上次招募的缓存。
+        RegionOCRer hope_ocr(image);
+        hope_ocr.set_task_info("NumberOcrReplace");
+        hope_ocr.set_roi({ 912, 15, 42, 36 });
+        int value = 0;
+        if (hope_ocr.analyze() && utils::chars_to_number(hope_ocr.get_result().text, value) && value >= 0) {
+            shopping_hope = value;
+            LogInfo << __FUNCTION__ << "Current shop hope" << value;
+        }
+    }
+    else if (theme == RoguelikeTheme::BlackFlow) {
+        shopping_hope = RoguelikeParameterAnalyzer::read_number(image, "BlackFlow@Roguelike@CurrentHope");
+        if (shopping_hope && *shopping_hope < 0) {
+            shopping_hope.reset();
+        }
+    }
+    else {
+        shopping_hope = m_config->status().hope;
+    }
     std::vector<std::string> all_foldartal = m_config->get_theme() == RoguelikeTheme::Sami
                                                  ? Task.get<OcrTaskInfo>("Sami@Roguelike@FoldartalGainOcr")->text
                                                  : std::vector<std::string>();
@@ -225,13 +240,7 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
             continue;
         }
 
-        // 预算门槛（所有主题）：余额低于投资保留额时不买，把钱留给投资。
-        if (wallet && *wallet < InvestReserve) {
-            Log.trace("Ready to buy", goods.name, ", but wallet", *wallet, "< reserve", InvestReserve, ", keep for investment");
-            continue;
-        }
-
-        if (strategy_shopping && goods.price && wallet && *goods.price > *wallet) {
+        if (goods.price && wallet && *goods.price > *wallet) {
             LogTrace << __FUNCTION__ << "Ready to buy" << goods.name << "but the wallet is not enough, skip"
                      << *goods.price << *wallet;
             continue;
@@ -242,7 +251,11 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
         //       而旧逻辑对招募券没有任何门槛 —— 券在 shopping.json 里只填了 name，
         //       于是货架上一出现券就会买，常在希望为 0 时白花源石锭，挤占更值钱的收藏品预算。
         //       希望值由 RoguelikeRecruitTaskPlugin 在招募界面 OCR 后回写 status().hope。
-        if (goods.is_recruit_ticket && m_config->status().hope < goods.min_hope) {
+        if (goods.is_recruit_ticket && goods.min_hope <= 0) {
+            LogInfo << __FUNCTION__ << "Skip voucher without a configured recruitment hope budget" << goods.name;
+            continue;
+        }
+        if (goods.is_recruit_ticket && (!shopping_hope || *shopping_hope < goods.min_hope)) {
             Log.trace(
                 "Ready to buy",
                 goods.name,
@@ -331,7 +344,7 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
         if (goods.no_longer_buy) {
             m_config->status().trader_no_longer_buy = true;
         }
-        break;
+        return true;
     }
     /*
     if (!bought) {
@@ -339,7 +352,7 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
     继续跑 return ProcessTask(*this, { "RoguelikeTraderShoppingOver" }).run();
     }
     */
-    return true;
+    return false;
 }
 
 std::optional<int> asst::RoguelikeShoppingTaskPlugin::read_wallet(const cv::Mat& image) const

@@ -48,7 +48,9 @@ bool asst::RoguelikeShoppingConfig::parse_goods(const json::array& json, std::ve
         item.ignore_no_longer_buy = goods_json.get("ignore_no_longer_buy", false);
         item.decrease_collapse = goods_json.get("decrease_collapse", false);
         // 招募券门槛：is_recruit_ticket + min_hope，缺省时行为与旧版完全一致
-        item.is_recruit_ticket = goods_json.get("is_recruit_ticket", false);
+        item.is_recruit_ticket = goods_json.get(
+            "is_recruit_ticket", item.name.find("招募券") != std::string::npos ||
+                                     item.name.find("人事调度函") != std::string::npos);
         item.min_hope = goods_json.get("min_hope", 0);
         if (const auto price = goods_json.find<int>("price")) {
             if (*price <= 0) {
@@ -116,42 +118,14 @@ bool asst::RoguelikeShoppingConfig::parse(const json::value& json)
 bool asst::RoguelikeShoppingConfig::parse_legacy(const json::value& json, const std::string& theme)
 {
     m_goods.erase(theme);
-
-    const auto& theme_json = json.at("priority");
-    for (const auto& goods_json : theme_json.as_array()) {
-        std::string name = goods_json.at("name").as_string();
-
-        std::vector<battle::Role> roles;
-        if (auto roles_opt = goods_json.find<json::array>("roles")) {
-            for (const auto& role_json : roles_opt.value()) {
-                static const std::unordered_map<std::string, battle::Role> RoleMap = {
-                    { "CASTER", battle::Role::Caster },   { "MEDIC", battle::Role::Medic },
-                    { "PIONEER", battle::Role::Pioneer }, { "SNIPER", battle::Role::Sniper },
-                    { "SPECIAL", battle::Role::Special }, { "SUPPORT", battle::Role::Support },
-                    { "TANK", battle::Role::Tank },       { "WARRIOR", battle::Role::Warrior },
-                };
-                roles.emplace_back(RoleMap.at(role_json.as_string()));
-            }
-        }
-        std::vector<std::string> chars;
-        if (auto chars_opt = goods_json.find<json::array>("chars")) {
-            for (const auto& char_json : chars_opt.value()) {
-                chars.emplace_back(char_json.as_string());
-            }
-        }
-
-        RoguelikeGoods goods;
-        goods.name = std::move(name);
-        goods.roles = std::move(roles);
-        goods.chars = std::move(chars);
-        goods.promotion = goods_json.get("promotion", 0);
-        goods.promotion_rarity = goods_json.get("promotion_rarity", 6);
-        goods.no_longer_buy = goods_json.get("no_longer_buy", false);
-        goods.ignore_no_longer_buy = goods_json.get("ignore_no_longer_buy", false);
-        goods.decrease_collapse = goods_json.get("decrease_collapse", false);
-
-        m_goods[theme].emplace_back(std::move(goods));
+    auto& goods = m_goods[theme];
+    if (!parse_goods(json.at("priority").as_array(), goods)) {
+        return false;
     }
+    // 保留各类别中的资源优先顺序，先挑选适用藏品，再考虑招募券。
+    std::stable_partition(goods.begin(), goods.end(), [](const RoguelikeGoods& item) {
+        return !item.is_recruit_ticket;
+    });
     return true;
 }
 

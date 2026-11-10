@@ -278,7 +278,8 @@
             "Sarkaz@Roguelike@CloseEvent",
             "Sarkaz@Roguelike@StageEncounterOptions#next",
             "Sarkaz@Roguelike@DropsFlag"
-        ]
+        ],
+        "maxTimes": 6
     },
     "Sarkaz@Roguelike@CloseInterview": {
         "template": "Sarkaz@Roguelike@CloseCollectionClose.png"
@@ -410,7 +411,8 @@
             "Sarkaz@Roguelike@DecreaseBurdenSwapUiToDefault1@(Sarkaz@Roguelike@CloseCollectionContinue)",
             "Sarkaz@Roguelike@DecreaseBurdenSwapUiToDefault1@(Sarkaz@Roguelike@CloseCollectionClose)",
             "Sarkaz@Roguelike@DecreaseBurdenSwapUiToDefault1"
-        ]
+        ],
+        "maxTimes": 6
     },
     "Sarkaz@Roguelike@DecreaseBurdenSwapUiToDefault2": {
         "roi": [
@@ -432,7 +434,8 @@
             "Sarkaz@Roguelike@DecreaseBurdenSwapUiToDefault2@(Sarkaz@Roguelike@CloseCollectionClose)",
             "Sarkaz@Roguelike@DecreaseBurdenSwapUiToDefault2",
             "Sarkaz@Roguelike@DecreaseBurdenUseTheFirst"
-        ]
+        ],
+        "maxTimes": 6
     },
     "Sarkaz@Roguelike@DecreaseBurdenUse": {
         "roi": [

@@ -86,8 +86,8 @@
         "next": [
             "#next"
         ],
-        "max_times": 2,
-        "retry_times": 2
+        "maxTimes": 2,
+        "exceededNext": ["Mizuki@Roguelike@Stages"]
     },
     "Mizuki@Roguelike@CloseCollectionContinue": {
         "action": "ClickSelf",
@@ -125,7 +125,8 @@
             "Mizuki@Roguelike@CloseEvent",
             "Mizuki@Roguelike@StageEncounterOptions#next",
             "Mizuki@Roguelike@DropsFlag"
-        ]
+        ],
+        "maxTimes": 6
     },
     "Mizuki@Roguelike@CloseInterview": {
         "template": "Mizuki@Roguelike@CloseCollectionClose.png"
@@ -658,13 +659,13 @@
         "postDelay": 1000,
         "next": [
             "Mizuki@Roguelike@TraderRandomShopping",
-            "Mizuki@Roguelike@RecruitWithoutButton",
+            "Mizuki@Roguelike@ChooseOperFlag",
             "Mizuki@Roguelike@StageTraderLeave",
             "#self",
             "Mizuki@Roguelike@TraderRandomShoppingCancel"
         ],
         "onErrorNext": [
-            "Mizuki@Roguelike@RecruitWithoutButton",
+            "Mizuki@Roguelike@ChooseOperFlag",
             "Mizuki@Roguelike@StageTraderLeave",
             "Mizuki@Roguelike@Stages"
         ]
@@ -1032,7 +1033,7 @@
         "template": "empty.png"
     },
     "Mizuki@Roguelike@CloseCollectionBack": {
-        "action": "Back",
+        "baseTask": "ReturnButton",
         "postDelay": 900,
         "next": [
             "Mizuki@Roguelike@Stages"
@@ -1040,7 +1041,7 @@
         "onErrorNext": [
             "Mizuki@Roguelike@Stages"
         ],
-        "template": "empty.png"
+        "template": ["Return.png", "Return-White.png"]
     },
     "Mizuki@Roguelike@RestartExplore": {
         "template": "Roguelike@ExitThenAbandon.png",

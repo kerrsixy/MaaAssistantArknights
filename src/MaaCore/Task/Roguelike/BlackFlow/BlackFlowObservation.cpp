@@ -80,7 +80,9 @@ std::vector<GridPosition> BlackFlowObservationAdapter::expected_grid_positions(i
 std::optional<NormalizedPerceptionObservation>
     BlackFlowObservationAdapter::normalize(const BlackFlowMapObservation& source, std::string* error) const
 {
-    if (!source.recognition_ok || !source.graph_connected) {
+    // 允许在连线图仍不完整时进入规划层；未确认的边会由模型降低置信度，
+    // 但不应因单次漏线直接放弃整局。
+    if (!source.recognition_ok) {
         if (error != nullptr) {
             *error = "perception result failed the recognition or connectivity gate";
         }
@@ -175,6 +177,24 @@ std::optional<NormalizedPerceptionObservation>
 
     const auto current = stable_ids.find(source.current_marker_temporary_id);
     if (current == stable_ids.end()) {
+        // 过渡帧没有 marker 或临时 ID 已重建时，优先使用当前帧置信度最高的
+        // 已存在空节点作为当前位置；路线层会在下一张稳定帧重新校正。
+        const PerceptionNodeObservation* fallback = nullptr;
+        for (const auto& node : source.nodes) {
+            if (!node.exists || node.type != "empty") {
+                continue;
+            }
+            if (fallback == nullptr || node.confidence > fallback->confidence) {
+                fallback = &node;
+            }
+        }
+        if (fallback != nullptr) {
+            result.current_node = make_stable_node_id(source.floor, fallback->position).value_or(InvalidNodeId);
+            result.summary.current_node = result.current_node;
+            if (result.current_node != InvalidNodeId) {
+                goto current_marker_resolved;
+            }
+        }
         if (error != nullptr) {
             *error = "current marker does not reference an existing imported node";
         }
@@ -182,6 +202,8 @@ std::optional<NormalizedPerceptionObservation>
     }
     result.current_node = current->second;
     result.summary.current_node = current->second;
+
+current_marker_resolved:
 
     for (const auto& source_edge : source.edges) {
         if (!source_edge.connected) {

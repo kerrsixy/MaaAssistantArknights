@@ -1,4 +1,231 @@
 {
+    "Phantom@Roguelike@ClickToDrops": {
+        "Doc": "战斗结束后可能停在编队确认页；先分发 QuickFormation，再回到通用掉落/地图链。",
+        "baseTask": "Roguelike@ClickToDrops",
+        "next": [
+            "Phantom@Roguelike@QuickFormation",
+            "Phantom@Roguelike@FormationConfirm",
+            "Phantom@Roguelike@DropsFlag",
+            "Phantom@Roguelike@ChooseOperFlag",
+            "Phantom@Roguelike@StageEncounterSpecialClose",
+            "Phantom@Roguelike@TraderRandomShopping",
+            "Phantom@Roguelike@StageTraderLeave",
+            "Phantom@Roguelike@StartAction",
+            "Phantom@Roguelike@Stages#next",
+            "Phantom@Roguelike@StartUpThemes#next",
+            "Phantom@Roguelike@StageTraderLeave"
+        ]
+    },
+    "Phantom@Roguelike@FormationConfirm": {
+        "baseTask": "Roguelike@FormationConfirm",
+        "template": "Roguelike@FormationConfirm.png",
+        "action": "ClickSelf",
+        "postDelay": 800,
+        "next": [
+            "Phantom@Roguelike@StartAction",
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@RunSummary": {
+        "Doc": "傀影结算统计页。只读识别并结束当前肉鸽任务链，不能把结算页当作地图继续选路。",
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "text": ["得分!", "通过层数", "驻足在"],
+        "fullMatch": false,
+        "roi": [130, 120, 1020, 500]
+    },
+    "Phantom@Roguelike@Begin": {
+        "Doc": "事件结束确认必须先于共享剧情确认；其余入口保持通用 Begin 顺序并保留主题命名空间。",
+        "next": [
+            "Phantom@Roguelike@RunSummary",
+            "Phantom@Roguelike@ContinueEventDialog",
+            "Phantom@Roguelike@ChooseDifficulty",
+            "Phantom@Roguelike@StoryConfirm",
+            "Phantom@Roguelike@StartExplore",
+            "Phantom@Roguelike@Stages#next",
+            "Phantom@Roguelike@GetDrops#next",
+            "Phantom@Roguelike@NextLevel",
+            "Phantom@Roguelike@NextLevel#next",
+            "Phantom@Roguelike@ExitThenAbandon",
+            "Phantom@Roguelike@Abandon",
+            "Phantom@Roguelike@TodoEnter",
+            "Phantom@Roguelike@Continue",
+            "Phantom@Roguelike@StartExploreCD",
+            "(Phantom@Roguelike@IntegratedStrategies)@QuickSwitch@ToTerminal#next",
+            "Phantom@Roguelike@ReturnButtons#next",
+            "Phantom@Roguelike@ReturnConfirm",
+            "Phantom@Roguelike@StartUpThemes#next"
+        ]
+    },
+    "Phantom@Roguelike@PageEventDialog": {
+        "template": "Phantom@Roguelike@PageEventDialog.png",
+        "action": "DoNothing",
+        "roi": [580, 600, 140, 120],
+        "templThreshold": 0.9
+    },
+    "Phantom@Roguelike@ContinueEventDialog": {
+        "baseTask": "Phantom@Roguelike@PageEventDialog",
+        "template": "Phantom@Roguelike@PageEventDialog.png",
+        "requiredPage": "Phantom@Roguelike@PageEventDialog",
+        "action": "ClickSelf",
+        "postDelay": 500,
+        "maxTimes": 3,
+        "next": ["Phantom@Roguelike@EventDialogGone", "Phantom@Roguelike@ContinueEventDialog"]
+    },
+    "Phantom@Roguelike@EventDialogGone": {
+        "algorithm": "JustReturn",
+        "excludedPages": ["Phantom@Roguelike@PageEventDialog"],
+        "reduceOtherTimes": ["Phantom@Roguelike@ContinueEventDialog*3"],
+        "next": ["Phantom@Roguelike@Begin"]
+    },
+    "Phantom@Roguelike@PageMap": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "text": ["迷雾歧途", "落阳庭院", "故土残躯", "噩梦之始", "血月长廊", "渴欲大厅"],
+        "roi": [490, 0, 350, 125]
+    },
+    "Phantom@Roguelike@PageFloorDetails": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "text": ["幻觉"],
+        "roi": [480, 60, 340, 140]
+    },
+    "Phantom@Roguelike@PageCollections": {
+        "baseTask": "Phantom@Roguelike@CollectionsOverviewOpenFlag",
+        "action": "DoNothing"
+    },
+    "Phantom@Roguelike@PageLayerPopup": {
+        "template": "Phantom@Roguelike@PageLayerPopup.png",
+        "roi": [590, 440, 100, 85],
+        "templThreshold": 0.85,
+        "action": "DoNothing",
+        "next": []
+    },
+    "Phantom@Roguelike@PageEnemies": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "text": ["全部", "精英", "领袖"],
+        "fullMatch": true,
+        "roi": [720, 0, 440, 100]
+    },
+    "Phantom@Roguelike@PageMapPreview": {
+        "template": "Phantom@Roguelike@PageMapPreview.png",
+        "action": "DoNothing",
+        "roi": [100, 20, 140, 100],
+        "templThreshold": 0.9
+    },
+    "Phantom@Roguelike@PageShop": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "text": ["确认购买", "投资入口"],
+        "roi": [710, 450, 550, 160]
+    },
+    "Phantom@Roguelike@PageRecruit": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "text": ["招募"],
+        "fullMatch": true,
+        "roi": [500, 90, 710, 500]
+    },
+    "Phantom@Roguelike@PageVoucher": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "text": ["干员特别招募"],
+        "roi": [0, 380, 550, 180]
+    },
+    "Phantom@Roguelike@PageFormation": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "text": ["快捷编队"],
+        "roi": [820, 0, 400, 100]
+    },
+    "Phantom@Roguelike@PageSettlement": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "text": ["成功通过", "行动失败"],
+        "roi": [0, 400, 600, 260]
+    },
+    "Phantom@Roguelike@PageBattle": {
+        "baseTask": "Roguelike@InBattleFlag",
+        "template": "BattleOfficiallyBegin.png",
+        "action": "DoNothing",
+        "next": []
+    },
+    "Phantom@Roguelike@PageEncounter": {
+        "template": "Phantom@Roguelike@PageEncounter.png",
+        "action": "DoNothing",
+        "templThreshold": 0.8,
+        "roi": [0, 390, 120, 230]
+    },
+    "Phantom@Roguelike@CloseFloorDetails": {
+        "baseTask": "Phantom@Roguelike@PageFloorDetails",
+        "requiredPage": "Phantom@Roguelike@PageFloorDetails",
+        "action": "ClickRect",
+        "specificRect": [610, 25, 60, 35],
+        "postDelay": 500,
+        "next": ["Phantom@Roguelike@MapReturned"]
+    },
+    "Phantom@Roguelike@CloseCollectionsOverview": {
+        "baseTask": "Phantom@Roguelike@PageCollections",
+        "requiredPage": "Phantom@Roguelike@PageCollections",
+        "action": "ClickSelf",
+        "postDelay": 500,
+        "next": ["Phantom@Roguelike@MapReturned"]
+    },
+    "Phantom@Roguelike@CloseEnemyDetails": {
+        "baseTask": "Phantom@Roguelike@PageEnemies",
+        "requiredPage": "Phantom@Roguelike@PageEnemies",
+        "action": "ClickRect",
+        "specificRect": [20, 10, 100, 45],
+        "postDelay": 500,
+        "next": ["Phantom@Roguelike@MapReturned"]
+    },
+    "Phantom@Roguelike@CloseMapPreview": {
+        "baseTask": "Phantom@Roguelike@PageMapPreview",
+        "template": "Phantom@Roguelike@PageMapPreview.png",
+        "requiredPage": "Phantom@Roguelike@PageMapPreview",
+        "action": "ClickRect",
+        "specificRect": [610, 650, 60, 30],
+        "postDelay": 500,
+        "next": ["Phantom@Roguelike@MapReturned"]
+    },
+    "Phantom@Roguelike@MapReturned": {
+        "Doc": "点击关闭不等于关闭成功；必须重新确认地图，且不能仍处于遮罩页。",
+        "baseTask": "Phantom@Roguelike@PageMap",
+        "requiredPage": "Phantom@Roguelike@PageMap",
+        "excludedPages": ["Phantom@Roguelike@PageFloorDetails", "Phantom@Roguelike@PageCollections", "Phantom@Roguelike@PageLayerPopup", "Phantom@Roguelike@PageEnemies", "Phantom@Roguelike@PageMapPreview", "Phantom@Roguelike@PageEncounter", "Phantom@Roguelike@PageShop"],
+        "next": ["Phantom@Roguelike@Stages"]
+    },
+    "Phantom@Roguelike@LayerCollectionPopup": {
+        "Doc": "跨层藏品说明按固定关闭控件识别，不能只覆盖某一个藏品名；关闭后核验地图。",
+        "baseTask": "Phantom@Roguelike@PageLayerPopup",
+        "template": "Phantom@Roguelike@PageLayerPopup.png",
+        "requiredPage": "Phantom@Roguelike@PageLayerPopup",
+        "action": "ClickRect",
+        "specificRect": [620, 470, 35, 35],
+        "postDelay": 700,
+        "next": ["Phantom@Roguelike@MapReturned"]
+    },
+    "Phantom@Roguelike@CollectionsOverviewOpenFlag": {
+        "algorithm": "OcrDetect",
+        "text": ["收起"],
+        "roi": [40, 620, 180, 100]
+    },
+    "Phantom@Roguelike@CollectionsOverviewOcr": {
+        "algorithm": "OcrDetect",
+        "text": [],
+        "roi": [0, 40, 1280, 260]
+    },
+    "Phantom@Roguelike@FloorEffectsOcr": {
+        "algorithm": "OcrDetect",
+        "text": [],
+        "roi": [500, 10, 310, 95]
+    },
+    "Phantom@Roguelike@CurrentPlaybillOcr": {
+        "algorithm": "OcrDetect",
+        "text": [],
+        "roi": [480, 630, 310, 90]
+    },
     "Phantom@StartExplore@Roguelike@ChooseOper": {
         "next": [
             "Phantom@StartExplore@Roguelike@ChooseOperConfirm",
@@ -58,8 +285,8 @@
         ],
         "postDelay": 800,
         "next": [
-            "Phantom@Roguelike@Stages",
-            "Phantom@Roguelike@StageCombatOps"
+            "Phantom@Roguelike@StageCombatOps",
+            "Phantom@Roguelike@Stages"
         ]
     },
     "Phantom@Roguelike@CloseInterview": {
@@ -213,6 +440,7 @@
             "渴欲大厅"
         ],
         "next": [
+            "Phantom@Roguelike@LayerCollectionPopup",
             "Phantom@Roguelike@StrategyChange",
             "Phantom@Roguelike@CloseInterview",
             "Phantom@Roguelike@DialogSkip",
@@ -224,6 +452,7 @@
         ]
     },
     "Phantom@Roguelike@RecruitMain": {
+        "action": "DoNothing",
         "template": "Phantom@Roguelike@Recruit.png"
     },
     "Phantom@Roguelike@RecruitOther": {
@@ -273,30 +502,198 @@
     },
     "Phantom@Roguelike@SquadDefault": {},
     "Phantom@Roguelike@StageBoons": {
-        "templThreshold": 0.85
+        "requiredPage": "Phantom@Roguelike@PageMap",
+        "excludedPages": ["Phantom@Roguelike@PageFloorDetails", "Phantom@Roguelike@PageCollections", "Phantom@Roguelike@PageLayerPopup", "Phantom@Roguelike@PageEnemies", "Phantom@Roguelike@PageMapPreview", "Phantom@Roguelike@PageEncounter", "Phantom@Roguelike@PageShop", "Phantom@Roguelike@PageRecruit", "Phantom@Roguelike@PageVoucher", "Phantom@Roguelike@PageFormation", "Phantom@Roguelike@PageBattle"],
+        "templThreshold": 0.85,
+        "onErrorNext": [
+            "Phantom@Roguelike@Stages"
+        ]
     },
     "Phantom@Roguelike@StageCombatOps": {
-        "templThreshold": 0.9
-    },
-    "Phantom@Roguelike@StageCombatOpsEnter": {},
-    "Phantom@Roguelike@StageDreadfulFoe": {},
-    "Phantom@Roguelike@StageDreadfulFoeEnter": {},
-    "Phantom@Roguelike@StageEmergencyOps": {
-        "templThreshold": 0.9
-    },
-    "Phantom@Roguelike@StageEmergencyOpsEnter": {},
-    "Phantom@Roguelike@StageEncounter": {
+        "requiredPage": "Phantom@Roguelike@PageMap",
+        "excludedPages": ["Phantom@Roguelike@PageFloorDetails", "Phantom@Roguelike@PageCollections", "Phantom@Roguelike@PageLayerPopup", "Phantom@Roguelike@PageEnemies", "Phantom@Roguelike@PageMapPreview", "Phantom@Roguelike@PageEncounter", "Phantom@Roguelike@PageShop", "Phantom@Roguelike@PageRecruit", "Phantom@Roguelike@PageVoucher", "Phantom@Roguelike@PageFormation", "Phantom@Roguelike@PageBattle"],
         "templThreshold": 0.85
     },
-    "Phantom@Roguelike@StageEncounterEnter": {},
+    "Phantom@Roguelike@StageCombatOpsEnter": {
+        "requiredPage": "Phantom@Roguelike@PageMap",
+        "excludedPages": ["Phantom@Roguelike@PageFloorDetails", "Phantom@Roguelike@PageCollections", "Phantom@Roguelike@PageLayerPopup", "Phantom@Roguelike@PageEnemies", "Phantom@Roguelike@PageMapPreview", "Phantom@Roguelike@PageEncounter", "Phantom@Roguelike@PageShop", "Phantom@Roguelike@PageRecruit", "Phantom@Roguelike@PageVoucher", "Phantom@Roguelike@PageFormation", "Phantom@Roguelike@PageBattle"],
+        "algorithm": "OcrDetect",
+        "text": [
+            "ENTER",
+            "进入"
+        ],
+        "roi": [
+            1000,
+            390,
+            280,
+            200
+        ],
+        "action": "ClickRect",
+        "specificRect": [
+            1060,
+            430,
+            150,
+            120
+        ],
+        "postDelay": 900,
+        "next": [
+            "Phantom@Roguelike@QuickFormation",
+            "Phantom@Roguelike@NextLevel",
+            "Phantom@Roguelike@Stages"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@StageDreadfulFoe": {
+        "requiredPage": "Phantom@Roguelike@PageMap",
+        "excludedPages": ["Phantom@Roguelike@PageFloorDetails", "Phantom@Roguelike@PageCollections", "Phantom@Roguelike@PageLayerPopup", "Phantom@Roguelike@PageEnemies", "Phantom@Roguelike@PageMapPreview", "Phantom@Roguelike@PageEncounter", "Phantom@Roguelike@PageShop", "Phantom@Roguelike@PageRecruit", "Phantom@Roguelike@PageVoucher", "Phantom@Roguelike@PageFormation", "Phantom@Roguelike@PageBattle"],
+        "templThreshold": 0.85
+    },
+    "Phantom@Roguelike@StageDreadfulFoeEnter": {
+        "requiredPage": "Phantom@Roguelike@PageMap",
+        "excludedPages": ["Phantom@Roguelike@PageFloorDetails", "Phantom@Roguelike@PageCollections", "Phantom@Roguelike@PageLayerPopup", "Phantom@Roguelike@PageEnemies", "Phantom@Roguelike@PageMapPreview", "Phantom@Roguelike@PageEncounter", "Phantom@Roguelike@PageShop", "Phantom@Roguelike@PageRecruit", "Phantom@Roguelike@PageVoucher", "Phantom@Roguelike@PageFormation", "Phantom@Roguelike@PageBattle"],
+        "algorithm": "OcrDetect",
+        "text": [
+            "ENTER",
+            "进入"
+        ],
+        "roi": [
+            1000,
+            390,
+            280,
+            200
+        ],
+        "action": "ClickRect",
+        "specificRect": [
+            1060,
+            430,
+            150,
+            120
+        ],
+        "postDelay": 900,
+        "next": [
+            "Phantom@Roguelike@NextLevel",
+            "Phantom@Roguelike@Stages"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@StageEmergencyOps": {
+        "requiredPage": "Phantom@Roguelike@PageMap",
+        "excludedPages": ["Phantom@Roguelike@PageFloorDetails", "Phantom@Roguelike@PageCollections", "Phantom@Roguelike@PageLayerPopup", "Phantom@Roguelike@PageEnemies", "Phantom@Roguelike@PageMapPreview", "Phantom@Roguelike@PageEncounter", "Phantom@Roguelike@PageShop", "Phantom@Roguelike@PageRecruit", "Phantom@Roguelike@PageVoucher", "Phantom@Roguelike@PageFormation", "Phantom@Roguelike@PageBattle"],
+        "templThreshold": 0.85
+    },
+    "Phantom@Roguelike@StageEmergencyOpsEnter": {
+        "requiredPage": "Phantom@Roguelike@PageMap",
+        "excludedPages": ["Phantom@Roguelike@PageFloorDetails", "Phantom@Roguelike@PageCollections", "Phantom@Roguelike@PageLayerPopup", "Phantom@Roguelike@PageEnemies", "Phantom@Roguelike@PageMapPreview", "Phantom@Roguelike@PageEncounter", "Phantom@Roguelike@PageShop", "Phantom@Roguelike@PageRecruit", "Phantom@Roguelike@PageVoucher", "Phantom@Roguelike@PageFormation", "Phantom@Roguelike@PageBattle"],
+        "algorithm": "OcrDetect",
+        "text": [
+            "ENTER",
+            "进入"
+        ],
+        "roi": [
+            1000,
+            390,
+            280,
+            200
+        ],
+        "action": "ClickRect",
+        "specificRect": [
+            1060,
+            430,
+            150,
+            120
+        ],
+        "postDelay": 900,
+        "next": [
+            "Phantom@Roguelike@NextLevel",
+            "Phantom@Roguelike@Stages"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@StageEncounter": {
+        "requiredPage": "Phantom@Roguelike@PageMap",
+        "excludedPages": ["Phantom@Roguelike@PageFloorDetails", "Phantom@Roguelike@PageCollections", "Phantom@Roguelike@PageLayerPopup", "Phantom@Roguelike@PageEnemies", "Phantom@Roguelike@PageMapPreview", "Phantom@Roguelike@PageEncounter", "Phantom@Roguelike@PageShop", "Phantom@Roguelike@PageRecruit", "Phantom@Roguelike@PageVoucher", "Phantom@Roguelike@PageFormation", "Phantom@Roguelike@PageBattle"],
+        "templThreshold": 0.85,
+        "onErrorNext": [
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@StageEncounterEnter": {
+        "requiredPage": "Phantom@Roguelike@PageMap",
+        "excludedPages": ["Phantom@Roguelike@PageFloorDetails", "Phantom@Roguelike@PageCollections", "Phantom@Roguelike@PageLayerPopup", "Phantom@Roguelike@PageEnemies", "Phantom@Roguelike@PageMapPreview", "Phantom@Roguelike@PageEncounter", "Phantom@Roguelike@PageShop", "Phantom@Roguelike@PageRecruit", "Phantom@Roguelike@PageVoucher", "Phantom@Roguelike@PageFormation", "Phantom@Roguelike@PageBattle"],
+        "algorithm": "OcrDetect",
+        "text": [
+            "ENTER",
+            "进入"
+        ],
+        "roi": [
+            1000,
+            390,
+            280,
+            200
+        ],
+        "action": "ClickRect",
+        "specificRect": [
+            1060,
+            430,
+            150,
+            120
+        ],
+        "postDelay": 900,
+        "next": [
+            "Phantom@Roguelike@NextLevel",
+            "Phantom@Roguelike@StageEncounterOptions"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@Stages"
+        ]
+    },
     "Phantom@Roguelike@StageEncounterLeaveConfirm": {},
+    "Phantom@Roguelike@StageEncounterGainHope": {
+        "Doc": "先确认解脱事件页面，再识别获得希望的无消耗选项，避免图标误匹配灰色消耗项。",
+        "algorithm": "OcrDetect",
+        "text": ["解脱"],
+        "roi": [0, 380, 350, 220],
+        "action": "DoNothing",
+        "next": ["Phantom@Roguelike@StageEncounterGainHopeOption"]
+    },
+    "Phantom@Roguelike@StageEncounterGainHopeOption": {
+        "algorithm": "OcrDetect",
+        "text": ["获得1希望"],
+        "roi": [800, 300, 480, 230],
+        "action": "ClickSelf",
+        "postDelay": 800,
+        "next": [
+            "Phantom@Roguelike@StageEncounterLeaveConfirm",
+            "Phantom@Roguelike@Stages#next",
+            "Phantom@Roguelike@StageEncounterOptions#next"
+        ]
+    },
     "Phantom@Roguelike@StageEncounterOptionFree": {},
-    "Phantom@Roguelike@StageEncounterOptionLeave": {},
+    "Phantom@Roguelike@StageEncounterOptionLeave": {
+        "rectMove": [
+            -200,
+            0,
+            100,
+            0
+        ],
+        "maxTimes": 3,
+        "exceededNext": [
+            "Roguelike@ExitThenAbandon"
+        ]
+    },
     "Phantom@Roguelike@StageEncounterOptionUnknown": {
         "templThreshold": 0.85
     },
     "Phantom@Roguelike@StageEncounterOptions": {
         "next": [
+            "Phantom@Roguelike@StageEncounterGainHope",
+            "Phantom@Roguelike@StageEncounterJudgeOption",
             "Phantom@Roguelike@StageEncounterOptionFree",
             "Phantom@Roguelike@StageEncounterOptionLeave",
             "Phantom@Roguelike@ChooseOperFlag",
@@ -311,15 +708,83 @@
             "Phantom@Roguelike@Stages"
         ]
     },
+    "Phantom@Roguelike@StageEncounterPage": {
+        "Doc": "通过公共事件页装饰恢复事件处理，避免只支持某个选项标题。",
+        "baseTask": "Phantom@Roguelike@PageEncounter",
+        "template": "Phantom@Roguelike@PageEncounter.png",
+        "requiredPage": "Phantom@Roguelike@PageEncounter",
+        "action": "DoNothing",
+        "next": [
+            "Phantom@Roguelike@StageEncounterOptions"
+        ]
+    },
+    "Phantom@Roguelike@StageEncounterJudgeOption": {
+        "Doc": "复用统一事件配置与决策插件，不以奖励图标代替事件选择。",
+        "baseTask": "Phantom@Roguelike@PageEncounter",
+        "template": "Phantom@Roguelike@PageEncounter.png",
+        "requiredPage": "Phantom@Roguelike@PageEncounter",
+        "action": "DoNothing",
+        "next": [
+            "Phantom@Roguelike@StageEncounterLeaveConfirm",
+            "Phantom@Roguelike@ChooseOperFlag",
+            "Phantom@Roguelike@QuickFormation",
+            "Phantom@Roguelike@Stages#next",
+            "Phantom@Roguelike@StageEncounterOptions#next"
+        ],
+        "onErrorNext": []
+    },
     "Phantom@Roguelike@StageEncounterSpecialClose": {},
     "Phantom@Roguelike@StageSafeHouse": {
-        "templThreshold": 0.85
+        "requiredPage": "Phantom@Roguelike@PageMap",
+        "excludedPages": ["Phantom@Roguelike@PageFloorDetails", "Phantom@Roguelike@PageCollections", "Phantom@Roguelike@PageLayerPopup", "Phantom@Roguelike@PageEnemies", "Phantom@Roguelike@PageMapPreview", "Phantom@Roguelike@PageEncounter", "Phantom@Roguelike@PageShop", "Phantom@Roguelike@PageRecruit", "Phantom@Roguelike@PageVoucher", "Phantom@Roguelike@PageFormation", "Phantom@Roguelike@PageBattle"],
+        "template": "Phantom@Roguelike@StageSafeHouse.png",
+        "templThreshold": 0.85,
+        "next": [
+            "Phantom@Roguelike@StageSafeHouseEnter",
+            "Phantom@Roguelike@Stages"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@Stages"
+        ]
     },
-    "Phantom@Roguelike@StageSafeHouseEnter": {},
+    "Phantom@Roguelike@StageSafeHouseEnter": {
+        "requiredPage": "Phantom@Roguelike@PageMap",
+        "excludedPages": ["Phantom@Roguelike@PageFloorDetails", "Phantom@Roguelike@PageCollections", "Phantom@Roguelike@PageLayerPopup", "Phantom@Roguelike@PageEnemies", "Phantom@Roguelike@PageMapPreview", "Phantom@Roguelike@PageEncounter", "Phantom@Roguelike@PageShop", "Phantom@Roguelike@PageRecruit", "Phantom@Roguelike@PageVoucher", "Phantom@Roguelike@PageFormation", "Phantom@Roguelike@PageBattle"],
+        "action": "ClickRect",
+        "postDelay": 900,
+        "next": [
+            "Phantom@Roguelike@NextLevel",
+            "Phantom@Roguelike@Stages"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@Stages"
+        ],
+        "algorithm": "OcrDetect",
+        "text": [
+            "ENTER",
+            "进入"
+        ],
+        "roi": [
+            1000,
+            390,
+            280,
+            200
+        ],
+        "specificRect": [
+            1060,
+            430,
+            150,
+            120
+        ]
+    },
     "Phantom@Roguelike@StageTrader": {
+        "requiredPage": "Phantom@Roguelike@PageMap",
+        "excludedPages": ["Phantom@Roguelike@PageFloorDetails", "Phantom@Roguelike@PageCollections", "Phantom@Roguelike@PageLayerPopup", "Phantom@Roguelike@PageEnemies", "Phantom@Roguelike@PageMapPreview", "Phantom@Roguelike@PageEncounter", "Phantom@Roguelike@PageShop", "Phantom@Roguelike@PageRecruit", "Phantom@Roguelike@PageVoucher", "Phantom@Roguelike@PageFormation", "Phantom@Roguelike@PageBattle"],
         "templThreshold": 0.85
     },
     "Phantom@Roguelike@StageTraderEnter": {
+        "requiredPage": "Phantom@Roguelike@PageMap",
+        "excludedPages": ["Phantom@Roguelike@PageFloorDetails", "Phantom@Roguelike@PageCollections", "Phantom@Roguelike@PageLayerPopup", "Phantom@Roguelike@PageEnemies", "Phantom@Roguelike@PageMapPreview", "Phantom@Roguelike@PageEncounter", "Phantom@Roguelike@PageShop", "Phantom@Roguelike@PageRecruit", "Phantom@Roguelike@PageVoucher", "Phantom@Roguelike@PageFormation", "Phantom@Roguelike@PageBattle"],
         "Doc": "先购物后投资：用户要求「先按资金买藏品/招募券，剩余的钱再投资」",
         "next": [
             "Phantom@Roguelike@StageVerticalConfirmTrader",
@@ -351,11 +816,18 @@
         "Doc": "优先紧急作战,1-3层",
         "algorithm": "JustReturn",
         "next": [
+            "Phantom@Roguelike@ContinueEventDialog",
+            "Phantom@Roguelike@CloseFloorDetails",
+            "Phantom@Roguelike@CloseCollectionsOverview",
+            "Phantom@Roguelike@CloseEnemyDetails",
+            "Phantom@Roguelike@CloseMapPreview",
+            "Phantom@Roguelike@LayerCollectionPopup",
             "Phantom@Roguelike@AllRewardClaimed",
             "Phantom@Roguelike@NextLevel",
             "Phantom@Roguelike@CloseInterview",
             "Phantom@Roguelike@DialogSkip",
             "Phantom@Roguelike@DialogTimeout",
+            "Phantom@Roguelike@StageEncounterPage",
             "Phantom@Roguelike@StageEncounter",
             "Phantom@Roguelike@StageBoons",
             "Phantom@Roguelike@StageTrader",
@@ -376,11 +848,18 @@
         "Doc": "avoid battle,其他模式和6层策略",
         "algorithm": "JustReturn",
         "next": [
+            "Phantom@Roguelike@ContinueEventDialog",
+            "Phantom@Roguelike@CloseFloorDetails",
+            "Phantom@Roguelike@CloseCollectionsOverview",
+            "Phantom@Roguelike@CloseEnemyDetails",
+            "Phantom@Roguelike@CloseMapPreview",
+            "Phantom@Roguelike@LayerCollectionPopup",
             "Phantom@Roguelike@AllRewardClaimed",
             "Phantom@Roguelike@NextLevel",
             "Phantom@Roguelike@CloseInterview",
             "Phantom@Roguelike@DialogSkip",
             "Phantom@Roguelike@DialogTimeout",
+            "Phantom@Roguelike@StageEncounterPage",
             "Phantom@Roguelike@StageTrader",
             "Phantom@Roguelike@StageSafeHouse",
             "Phantom@Roguelike@StageEncounter",
@@ -401,11 +880,18 @@
         "Doc": "避紧急作战,4-5层策略",
         "algorithm": "JustReturn",
         "next": [
+            "Phantom@Roguelike@ContinueEventDialog",
+            "Phantom@Roguelike@CloseFloorDetails",
+            "Phantom@Roguelike@CloseCollectionsOverview",
+            "Phantom@Roguelike@CloseEnemyDetails",
+            "Phantom@Roguelike@CloseMapPreview",
+            "Phantom@Roguelike@LayerCollectionPopup",
             "Phantom@Roguelike@AllRewardClaimed",
             "Phantom@Roguelike@NextLevel",
             "Phantom@Roguelike@CloseInterview",
             "Phantom@Roguelike@DialogSkip",
             "Phantom@Roguelike@DialogTimeout",
+            "Phantom@Roguelike@StageEncounterPage",
             "Phantom@Roguelike@StageTrader",
             "Phantom@Roguelike@StageBoons",
             "Phantom@Roguelike@StageEncounter",
@@ -600,10 +1086,7 @@
     "Phantom@Roguelike@TodoEnter": {},
     "Phantom@Roguelike@WaitForStartButtonClicked": {
         "template": "Roguelike@QuickFormation.png",
-        "onErrorNext": [
-            "Roguelike@StartAction"
-        ],
-        "Doc": "点了开始行动后会 loading 一段时间，这个任务等它；此前只写了 template、既无 next 也无 onErrorNext，匹配失败就断链报错。补 onErrorNext 指回 StartAction，等价于「这张图放弃，回到战斗入口重试」。"
+        "Doc": "仅供有时限的编队离开检测使用；按钮消失是预期转换，不触发重新开始行动。"
     },
     "Phantom@RoguelikeSettlementConfirm": {
         "template": "RoguelikeSettlementConfirm.png"
@@ -637,20 +1120,21 @@
         "Doc": "商店随机购物入口。买到招募券会直接跳到招募列表页，所以 next 里必须带 ChooseOperFlag，此前只留了 InvestSystem/StageTraderLeave 两条，买券后必卡。",
         "template": "Roguelike@TraderRandomShopping.png",
         "roi": [
-            0,
-            0,
-            1280,
-            720
+            400,
+            150,
+            700,
+            500
         ],
-        "templThreshold": 0.7,
+        "templThreshold": 0.82,
         "action": "DoNothing",
         "next": [
             "Phantom@Roguelike@TraderCannotAfford",
             "Phantom@Roguelike@TraderRandomShoppingConfirm",
             "Phantom@Roguelike@TraderRandomShoppingCancel",
-            "Roguelike@ChooseOperFlag",
+            "Phantom@Roguelike@ChooseOperFlag",
             "Phantom@Roguelike@StageTraderLeave",
-            "Phantom@Roguelike@StageTraderInvestSystem"
+            "Phantom@Roguelike@StageTraderInvestSystem",
+            "Phantom@Roguelike@Stages"
         ],
         "onErrorNext": [
             "Phantom@Roguelike@AllRewardClaimed",
@@ -706,9 +1190,10 @@
         "action": "ClickSelf",
         "postDelay": 1000,
         "next": [
-            "Roguelike@ChooseOperFlag",
+            "Phantom@Roguelike@ChooseOperFlag",
             "Phantom@Roguelike@TraderRandomShopping",
-            "Phantom@Roguelike@StageTraderLeave"
+            "Phantom@Roguelike@StageTraderLeave",
+            "Phantom@Roguelike@Stages"
         ],
         "onErrorNext": [
             "Phantom@Roguelike@TraderCannotAfford",
@@ -729,7 +1214,8 @@
         "action": "ClickSelf",
         "next": [
             "Phantom@Roguelike@TraderRandomShopping",
-            "Phantom@Roguelike@StageTraderLeave"
+            "Phantom@Roguelike@StageTraderLeave",
+            "Phantom@Roguelike@Stages"
         ],
         "onErrorNext": [
             "Phantom@Roguelike@AllRewardClaimed",
@@ -803,7 +1289,6 @@
     },
     "Phantom@Roguelike@RecruitConfirm": {
         "algorithm": "OcrDetect",
-        "Doc": "招募界面兜底：左侧已显示选中干员时点右下角『确认招募』。原流程卡在 RoguelikeRecruitOperListSwipeToTheLeft 后无人点确认。",
         "text": [
             "确认招募"
         ],
@@ -820,8 +1305,194 @@
             138,
             64
         ],
-        "postDelay": 800,
+        "postDelay": 900,
         "next": [
+            "Phantom@Roguelike@Stages"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@RecruitNoHopeGiveUp": {
+        "algorithm": "OcrDetect",
+        "text": [
+            "职业"
+        ],
+        "roi": [
+            1130,
+            0,
+            150,
+            60
+        ],
+        "action": "ClickRect",
+        "specificRect": [
+            930,
+            650,
+            56,
+            52
+        ],
+        "postDelay": 900,
+        "maxTimes": 2,
+        "next": [
+            "Phantom@Roguelike@Stages"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@MapGuard": {
+        "algorithm": "OcrDetect",
+        "text": [
+            "目标生命值",
+            "指挥等级"
+        ],
+        "roi": [
+            100,
+            0,
+            400,
+            60
+        ],
+        "action": "DoNothing",
+        "postDelay": 300,
+        "next": [
+            "Phantom@Roguelike@RecruitConfirm",
+            "Phantom@Roguelike@StageCombatOps",
+            "Phantom@Roguelike@StageEmergencyOps",
+            "Phantom@Roguelike@StageDreadfulFoe",
+            "Phantom@Roguelike@StageTrader",
+            "Phantom@Roguelike@StageSafeHouse",
+            "Phantom@Roguelike@StageEncounter",
+            "Phantom@Roguelike@AllRewardClaimed",
+            "Phantom@Roguelike@NextLevel",
+            "Phantom@Roguelike@DialogSkip",
+            "Phantom@Roguelike@DialogTimeout"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@StartActionOCR",
+            "Phantom@Roguelike@OptionConfirm",
+            "Phantom@Roguelike@SafeHousePick",
+            "Phantom@Roguelike@EnterNode",
+            "Phantom@Roguelike@RecruitConfirm",
+            "Phantom@Roguelike@GetDrop1",
+            "Phantom@Roguelike@GetDrop2",
+            "Phantom@Roguelike@GetDrop3",
+            "Phantom@Roguelike@GetDropRecruit",
+            "Phantom@Roguelike@GetDropSelect",
+            "Phantom@Roguelike@AllRewardClaimed",
+            "Phantom@Roguelike@StageSafeHouseEnter",
+            "Phantom@Roguelike@TraderRandomShopping",
+            "Phantom@Roguelike@NextLevel"
+        ]
+    },
+    "Phantom@Roguelike@EnterNode": {
+        "algorithm": "OcrDetect",
+        "text": [
+            "ENTER",
+            "进入"
+        ],
+        "roi": [
+            1000,
+            390,
+            280,
+            200
+        ],
+        "action": "ClickRect",
+        "specificRect": [
+            1060,
+            430,
+            150,
+            120
+        ],
+        "postDelay": 900,
+        "maxTimes": 3,
+        "next": [
+            "Phantom@Roguelike@NextLevel",
+            "Phantom@Roguelike@Stages"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@SafeHousePick": {
+        "algorithm": "OcrDetect",
+        "text": [
+            "稍事休息",
+            "重整编制",
+            "强化训练"
+        ],
+        "roi": [
+            860,
+            120,
+            420,
+            440
+        ],
+        "action": "ClickSelf",
+        "postDelay": 900,
+        "maxTimes": 6,
+        "next": [
+            "Phantom@Roguelike@OptionConfirm",
+            "Phantom@Roguelike@NextLevel",
+            "Phantom@Roguelike@Stages"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@OptionConfirm": {
+        "algorithm": "OcrDetect",
+        "text": [
+            "确定这么做"
+        ],
+        "roi": [
+            1000,
+            450,
+            280,
+            140
+        ],
+        "action": "ClickRect",
+        "specificRect": [
+            1160,
+            525,
+            80,
+            60
+        ],
+        "postDelay": 900,
+        "maxTimes": 4,
+        "next": [
+            "Phantom@Roguelike@NextLevel",
+            "Phantom@Roguelike@Stages"
+        ],
+        "onErrorNext": [
+            "Phantom@Roguelike@Stages"
+        ]
+    },
+    "Phantom@Roguelike@StartActionOCR": {
+        "algorithm": "OcrDetect",
+        "text": [
+            "开始行",
+            "开始行动",
+            "行动"
+        ],
+        "roi": [
+            900,
+            600,
+            380,
+            120
+        ],
+        "action": "ClickRect",
+        "specificRect": [
+            1000,
+            620,
+            220,
+            90
+        ],
+        "postDelay": 1500,
+        "maxTimes": 4,
+        "next": [
+            "Phantom@Roguelike@NextLevel",
+            "Phantom@Roguelike@Stages"
+        ],
+        "onErrorNext": [
             "Phantom@Roguelike@Stages"
         ]
     }

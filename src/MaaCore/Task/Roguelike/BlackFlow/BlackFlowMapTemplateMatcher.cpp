@@ -42,6 +42,9 @@ const MapTemplate* match_map_template(const MapObservationBatch& observation, st
 
 void supplement_map_exits(MapObservationBatch& observation, std::span<const GridPosition> exits, NodeType exit_type)
 {
+    // Template terminals are only positive hints for this observed topology. A floor may
+    // refresh its exit to another position (including hide_invisible), so an unmatched
+    // terminal must remain unknown and must not be synthesized as a fixed exit node.
     for (const auto& position : exits) {
         auto node = std::ranges::find(observation.nodes, position, &ObservedNode::position);
         if (node == observation.nodes.end()) {

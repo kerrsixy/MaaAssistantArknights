@@ -135,6 +135,38 @@ bool asst::OperBoxImageAnalyzer::opers_analyze()
         }
     }
 
+    const std::size_t flag_hits = results.size();
+
+    // 兜底：职业角标模板在新版 UI 的不同星级卡片上不稳定（金卡 0.998、蓝紫卡只有 0.44），
+    // 只用角标会漏掉一整排杂星干员。这里再按固定网格 + 名字 OCR 扫一遍，
+    // 词表就是全量干员名，识别错了会被词表否掉，比模板相似度可靠得多。
+    static constexpr std::array<int, 8> grid_xs { 31, 191, 350, 510, 669, 829, 989, 1148 };
+    static constexpr std::array<int, 2> grid_ys { 88, 406 };
+    for (const int grid_y : grid_ys) {
+        for (const int grid_x : grid_xs) {
+            const Rect name_rect(grid_x, grid_y + 265, 128, 22);
+            if (name_rect.x + name_rect.width > m_image.cols || name_rect.y + name_rect.height > m_image.rows) {
+                continue;
+            }
+            OperNameAnalyzer name_analyzer(m_image);
+            name_analyzer.set_task_info(name_task);
+            name_analyzer.set_required(std::vector(all_opers.begin(), all_opers.end()));
+            name_analyzer.set_roi(name_rect);
+            name_analyzer.set_bin_threshold(params[0]);
+            name_analyzer.set_bin_expansion(params[1]);
+            name_analyzer.set_bin_trim_threshold(params[2], params[3]);
+            name_analyzer.set_bottom_line_height(params[4]);
+            name_analyzer.set_width_threshold(params[5]);
+            if (auto ocr_opt = name_analyzer.analyze()) {
+                results.emplace_back(OperResult { ocr_opt->rect, ocr_opt->score, std::move(ocr_opt->text),
+                                                  Rect(grid_x, grid_y, 30, 30), 0.0, battle::Role::Unknown });
+            }
+        }
+    }
+
+    const std::size_t grid_hits = results.size() - flag_hits;
+    LogInfo << __FUNCTION__ << "flag_hits" << flag_hits << "grid_hits" << grid_hits;
+
     if (results.empty()) {
         return false;
     }

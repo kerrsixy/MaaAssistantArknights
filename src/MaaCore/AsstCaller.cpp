@@ -9,8 +9,12 @@
 #include "Assistant.h"
 #include "Common/AsstTypes.h"
 #include "Config/ResourceLoader.h"
+#include "Config/Roguelike/BlackFlow/BlackFlowMapPerceptionResource.h"
 #include "Utils/Logger.hpp"
 #include "Utils/WorkingDir.hpp"
+
+#include <opencv2/imgcodecs.hpp>
+#include <sstream>
 
 static constexpr AsstSize NullSize = static_cast<AsstSize>(-1);
 static constexpr AsstId InvalidId = 0;
@@ -342,4 +346,60 @@ void AsstLog(const char* level, const char* message)
         return;
     }
     Log.log(asst::Logger::level(level), message);
+}
+
+AsstSize AsstBlackFlowDebugAnalyze(const char* image_path, int floor, void* buff, AsstSize buff_size)
+{
+    if (!inited() || image_path == nullptr) {
+        return NullSize;
+    }
+    cv::Mat image = cv::imread(image_path, cv::IMREAD_COLOR);
+    if (image.empty()) {
+        return NullSize;
+    }
+    std::string error;
+    auto analyzer = asst::BlackFlowMapPerception.acquire(error);
+    if (analyzer == nullptr) {
+        return NullSize;
+    }
+    auto result = analyzer->recognize(image, floor, false);
+    std::ostringstream out;
+    out << "{\"ok\":" << (result.ok ? "true" : "false") << ",\"error\":\"" << result.error << "\""
+        << ",\"rows\":" << result.rows << ",\"columns\":" << result.columns
+        << ",\"origin_x\":" << result.node_detection.grid.origin_x
+        << ",\"origin_y\":" << result.node_detection.grid.origin_y
+        << ",\"spacing_x\":" << result.node_detection.grid.spacing_x
+        << ",\"spacing_y\":" << result.node_detection.grid.spacing_y << ",\"nodes\":[";
+    bool first = true;
+    for (const auto& node : result.node_detection.nodes) {
+        if (!node.exists) {
+            continue;
+        }
+        if (!first) {
+            out << ",";
+        }
+        first = false;
+        out << "{\"row\":" << node.row << ",\"col\":" << node.column << ",\"type\":\"" << node.type
+            << "\",\"name\":\"" << node.display_name << "\",\"cx\":" << node.center.x << ",\"cy\":" << node.center.y
+            << ",\"conf\":" << node.confidence << ",\"src\":\"" << node.existence_source << "\"}";
+    }
+    out << "],\"edges\":[";
+    first = true;
+    for (const auto& edge : result.edge_detection.edges) {
+        if (!edge.connected) {
+            continue;
+        }
+        if (!first) {
+            out << ",";
+        }
+        first = false;
+        out << "[" << edge.node_a << "," << edge.node_b << "]";
+    }
+    out << "]}";
+    const std::string text = out.str();
+    if (buff == nullptr || static_cast<std::size_t>(buff_size) < text.size()) {
+        return static_cast<AsstSize>(text.size());
+    }
+    std::memcpy(buff, text.data(), text.size());
+    return static_cast<AsstSize>(text.size());
 }

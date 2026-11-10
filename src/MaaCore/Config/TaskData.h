@@ -100,6 +100,13 @@ private:
 #ifdef ASST_DEBUG
     bool syntax_check(const std::string& task_name, const json::value& task_json);
 #endif
+
+public:
+    // 阶段 D：导出真实解析后的任务定义与边，供离线校验与差分对比。
+    // 注意：不能放在 ASST_DEBUG 里，Release 构建也需要（阶段 D 验收要求 Debug 与 Release 行为一致）。
+    bool dump_json_tasks(const std::filesystem::path& path);
+
+private:
     TaskDerivedConstPtr get_raw(const std::string& name);
 
 public:

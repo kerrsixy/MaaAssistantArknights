@@ -1,4 +1,28 @@
 {
+    "OperStrength@Interrupts": {
+        "algorithm": "JustReturn"
+    },
+    "Roguelike@Interrupts": {
+        "Doc": "肉鸽 ProcessTask 的通用遮罩中断处理。处理器必须是无 next/sub 的识别叶子；关闭后重新识别原候选，不重启探索。",
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "next": [
+            "Roguelike@TutorialClose"
+        ]
+    },
+    "Roguelike@TutorialClose": {
+        "Doc": "首次教学或手动打开的机制说明。仅匹配左上角的关闭按钮，不依赖具体教学标题。",
+        "template": "Roguelike@TutorialClose.png",
+        "templThreshold": 0.95,
+        "roi": [
+            65,
+            50,
+            250,
+            150
+        ],
+        "action": "ClickSelf",
+        "postDelay": 500
+    },
     "Roguelike": {
         "action": "DoNothing",
         "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
@@ -117,13 +141,34 @@
             1280,
             142
         ],
-        "postDelay": 1000,
+        "postDelay": 2500,
         "ocrReplace": [
             [
                 "蓝图测绘分.*",
                 "蓝图测绘分队"
             ]
         ]
+    },
+    "RoguelikeCustom-HijackSquadLocked": {
+        "algorithm": "OcrDetect",
+        "text": [
+            "解锁条件"
+        ],
+        "ocrReplace": [
+            ["解锁条住", "解锁条件"],
+            ["解锁条什", "解锁条件"]
+        ],
+        "roi": [
+            0,
+            383,
+            1280,
+            142
+        ]
+    },
+    "RoguelikeCustom-HijackSquadLockedOCR": {
+        "algorithm": "OcrDetect",
+        "text": ["解锁条住", "解锁条什"],
+        "roi": [0, 383, 1280, 142]
     },
     "RoguelikeFoldartalSlowlySwipeToTheUp": {
         "baseTask": "SlowlySwipeToTheUp",
@@ -764,6 +809,7 @@
         "algorithm": "JustReturn",
         "next": [
             "Roguelike@ChooseDifficulty",
+            "Roguelike@StoryConfirm",
             "Roguelike@StartExplore",
             "Roguelike@Stages#next",
             "Roguelike@GetDrops#next",
@@ -902,7 +948,11 @@
     },
     "Roguelike@ChooseOper": {
         "Doc": "本任务注册了插件 RoguelikeRecruitTaskPlugin",
-        "algorithm": "JustReturn"
+        "algorithm": "JustReturn",
+        "next": [
+            "Roguelike@ChooseOperConfirm",
+            "Roguelike@RecruitWithoutButton"
+        ]
     },
     "Roguelike@ChooseOperConfirm": {
         "action": "ClickSelf",
@@ -961,10 +1011,10 @@
             "Roguelike@StageEncounterSpecialClose",
             "Roguelike@TraderRandomShopping",
             "Roguelike@StageTraderLeave",
+            "Roguelike@StartAction",
             "Roguelike@Stages#next",
             "Roguelike@StartUpThemes#next",
-            "Roguelike@StageTraderLeave",
-            "Roguelike@ClickToDrops"
+            "Roguelike@StageTraderLeave"
         ]
     },
     "Roguelike@ClickToStartPoint": {
@@ -1153,6 +1203,20 @@
             409,
             249,
             169
+        ]
+    },
+    "Roguelike@StoryConfirm": {
+        "template": "Roguelike@StoryConfirm.png",
+        "action": "ClickSelf",
+        "roi": [
+            560,
+            620,
+            160,
+            100
+        ],
+        "postDelay": 800,
+        "next": [
+            "Roguelike@Begin"
         ]
     },
     "Roguelike@DropsFlag": {
@@ -1664,6 +1728,21 @@
         "baseTask": "Roguelike@ExitThenAbandon",
         "template": "Roguelike@ExitThenAbandon.png",
         "action": "DoNothing",
+        "next": [
+            "Roguelike@MissionCompletedContinue"
+        ]
+    },
+    "Roguelike@MissionCompletedContinue": {
+        "algorithm": "JustReturn",
+        "action": "ClickRect",
+        "specificRect": [
+            200,
+            340,
+            360,
+            100
+        ],
+        "preDelay": 800,
+        "postDelay": 500,
         "next": [
             "Roguelike@ClickToDrops"
         ]
@@ -2363,6 +2442,7 @@
         ],
         "postDelay": 1000,
         "next": [
+            "Roguelike@QuickFormation",
             "Roguelike@StageEncounterOptions#next",
             "Roguelike@StageEncounterSpecialClose",
             "Roguelike@StageCombatOpsEnter",
@@ -3267,12 +3347,12 @@
     },
     "Roguelike@TempRecruitFlag": {
         "roi": [
-            587,
-            76,
-            100,
-            20
+            480,
+            50,
+            300,
+            70
         ],
-        "templThreshold": 0.5
+        "templThreshold": 0.65
     },
     "Roguelike@TodoEnter": {
         "Doc": "base_task",

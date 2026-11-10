@@ -12,11 +12,16 @@
 #include "Config/ResourceLoader.h"
 #include "Config/TaskData.h"
 #include "Controller/Controller.h"
+#include <atomic>
+
 #include "Status.h"
 #include "Utils/Logger.hpp"
 #include "Vision/Miscellaneous/PipelineAnalyzer.h"
 
 using namespace asst;
+
+// 阶段 C：页面实例序号（进程内单调递增，仅用于生成 page_id）。
+static std::atomic<unsigned long long> s_page_seq { 0 };
 
 namespace
 {
@@ -188,12 +193,31 @@ bool ProcessTask::run()
         case NodeStatus::RetryFailed:
             // retry 次数达到上限，下一个匹配列表是 on_error_next，若没有则回调 SubTaskError
             if (cur_task_ptr == nullptr || cur_task_ptr->on_error_next.empty()) {
-                callback(AsstMsg::SubTaskError, basic_info());
+                auto info = basic_info_with_what("RecognitionFailed");
+                info["details"] = json::object {
+                    { "last_task", m_last_task_name },
+                    { "candidates", json::array(to_be_recognized) },
+                    { "reason", "No candidate satisfied recognition and page preconditions" },
+                };
+                LogError << __FUNCTION__ << info.to_string();
+                callback(AsstMsg::SubTaskError, info);
                 return false;
             }
             to_be_recognized = cur_task_ptr->on_error_next;
             break;
         case NodeStatus::Runout:
+            if (!next_task_ptr->required_page.empty() && next_task_ptr->exceeded_next.empty()) {
+                auto info = basic_info_with_what("PageTransitionFailed");
+                info["details"] = json::object {
+                    { "last_task", next_task_ptr->name },
+                    { "required_page", next_task_ptr->required_page },
+                    { "reason", "Page action exhausted without a verified transition" },
+                };
+                LogError << __FUNCTION__ << info.to_string();
+                save_img(utils::path("debug/roguelike"), true);
+                callback(AsstMsg::SubTaskError, info);
+                return false;
+            }
             // 成功匹配但执行次数达到上限，下一个匹配列表是 exceeded_next
             to_be_recognized = next_task_ptr->exceeded_next;
             break;
@@ -251,7 +275,8 @@ ProcessTask::HitDetail ProcessTask::find_first(const TaskList& list) /* const, e
 
     // 如果第一个任务是JustReturn的，那就没必要再截图并计算了
     TaskConstPtr task_ptr = Task.get(list.front());
-    if (task_ptr != nullptr && task_ptr->algorithm == AlgorithmType::JustReturn) {
+    if (task_ptr != nullptr && task_ptr->algorithm == AlgorithmType::JustReturn && task_ptr->required_page.empty() &&
+        task_ptr->excluded_pages.empty()) {
         return { .task_ptr = std::move(task_ptr) };
     }
 
@@ -271,7 +296,20 @@ ProcessTask::HitDetail ProcessTask::find_first(const TaskList& list) /* const, e
         underlying->set_main_screen_recognition(false);
     }
     PipelineAnalyzer analyzer(image, Rect(), m_inst);
-    analyzer.set_tasks(list);
+    TaskList candidates;
+    // Optional chain-wide modal handlers are checked on the same frame before
+    // the pending candidates. They never replace the pending continuation.
+    if (const auto interrupts = Task.get(std::string(m_task_chain) + "@Interrupts"); interrupts != nullptr) {
+        for (const auto& name : interrupts->next) {
+            const auto handler = Task.get(name);
+            if (handler != nullptr && handler->algorithm != AlgorithmType::JustReturn && handler->next.empty() &&
+                handler->sub.empty()) {
+                candidates.emplace_back(name);
+            }
+        }
+    }
+    candidates.insert(candidates.end(), list.begin(), list.end());
+    analyzer.set_tasks(candidates);
 
     auto res_opt = analyzer.analyze();
     if (!res_opt) {
@@ -379,7 +417,11 @@ ProcessTask::NodeStatus ProcessTask::run_task(const HitDetail& hits)
         { "max_times", max_times },
         { "action", enum_to_string(task->action) },
         { "algorithm", enum_to_string(task->algorithm) },
+        { "required_page", task->required_page },
         { "result", hits.reco_detail != nullptr ? *hits.reco_detail : json::object {} },
+        // 阶段 C：页面实例 id。用「任务名 + 单调序号」保证同一页面被多次进入时 id 不同，
+        // 从而能把「决策 + 输入」反查到具体的一次页面停留（终局溯源用）。
+        { "page_id", task_name + "#" + std::to_string(++s_page_seq) },
     };
 
     callback(AsstMsg::SubTaskStart, info);
@@ -464,6 +506,7 @@ std::pair<ProcessTask::NodeStatus, TaskConstPtr> ProcessTask::find_and_run_task(
     }
 
     HitDetail hits;
+    int interrupt_count = 0;
     for (int cur_retry = 0; cur_retry <= m_retry_times; ++cur_retry) {
         json::value info = basic_info();
         info["details"] = json::object {
@@ -478,6 +521,35 @@ std::pair<ProcessTask::NodeStatus, TaskConstPtr> ProcessTask::find_and_run_task(
             return { NodeStatus::Interrupted, nullptr };
         }
         if (hits = find_first(list); hits.task_ptr != nullptr) {
+            const auto interrupts = Task.get(std::string(m_task_chain) + "@Interrupts");
+            const bool is_interrupt =
+                interrupts != nullptr &&
+                std::ranges::find(interrupts->next, hits.task_ptr->name) != interrupts->next.end() &&
+                std::ranges::find(list, hits.task_ptr->name) == list.end();
+            if (is_interrupt) {
+                if (++interrupt_count > 3) {
+                    LogError << __FUNCTION__ << "Modal recovery did not dismiss the overlay" << hits.task_ptr->name;
+                    return { NodeStatus::InternalError, nullptr };
+                }
+                const auto previous_task = m_last_task_name;
+                const auto previous_pre_task = m_pre_task_name;
+                const auto previous_hit = m_last_hit_detail;
+                m_pre_task_name = previous_task;
+                m_last_task_name = hits.task_ptr->name;
+                m_last_hit_detail = std::make_shared<HitDetail>(hits);
+                const auto result = run_task(*m_last_hit_detail);
+                m_last_task_name = previous_task;
+                m_pre_task_name = previous_pre_task;
+                m_last_hit_detail = previous_hit;
+                if (result != NodeStatus::Success) {
+                    return { result == NodeStatus::Interrupted ? NodeStatus::Interrupted : NodeStatus::InternalError,
+                             nullptr };
+                }
+                LogInfo << __FUNCTION__ << "Modal dismissed; resume pending recognition" << hits.task_ptr->name;
+                hits = {};
+                --cur_retry;
+                continue;
+            }
             break;
         }
     }

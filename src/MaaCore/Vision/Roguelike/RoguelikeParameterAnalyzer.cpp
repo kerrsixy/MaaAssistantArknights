@@ -5,6 +5,8 @@
 #include "Status.h"
 #include "Task/ProcessTask.h"
 #include "Utils/Logger.hpp"
+#include "Utils/StringMisc.hpp"
+#include "Vision/Miscellaneous/PipelineAnalyzer.h"
 
 /* bool asst::RoguelikeParameterAnalyzer::analyze()
 {
@@ -20,6 +22,29 @@ int asst::RoguelikeParameterAnalyzer::update_chaos(const cv::Mat& image)
 int asst::RoguelikeParameterAnalyzer::update_idea_count(const cv::Mat& image)
 {
     return get_number(image, "Sarkaz@Roguelike@SpecialValRecognition");
+}
+
+std::optional<int> asst::RoguelikeParameterAnalyzer::read_number(
+    const cv::Mat& image,
+    const std::string& task_name,
+    double minimum_score)
+{
+    const auto task = Task.get<OcrTaskInfo>(task_name);
+    if (image.empty() || task == nullptr || minimum_score < 0 || minimum_score > 1) {
+        return std::nullopt;
+    }
+    PipelineAnalyzer analyzer(image);
+    analyzer.set_tasks({ task_name });
+    const auto result = analyzer.analyze();
+    if (!result.has_value()) {
+        return std::nullopt;
+    }
+    const auto* ocr = std::get_if<OCRer::Result>(&result->result);
+    int value = 0;
+    if (ocr == nullptr || ocr->score < minimum_score || !utils::chars_to_number(ocr->text, value)) {
+        return std::nullopt;
+    }
+    return value;
 }
 
 int asst::RoguelikeParameterAnalyzer::get_number(const cv::Mat& image, const std::string& task_name)

@@ -14,6 +14,7 @@ using namespace asst;
 
 PipelineAnalyzer::ResultOpt PipelineAnalyzer::analyze() const
 {
+    m_page_results.clear();
     for (const std::string& task_name : m_tasks_name) {
         const auto& task_ptr = Task.get(task_name);
         // 可能有配置错误，导致不存在对应的任务
@@ -25,7 +26,9 @@ PipelineAnalyzer::ResultOpt PipelineAnalyzer::analyze() const
             continue;
         }
 
-        // Log.trace(__FUNCTION__, task_ptr->name);
+        if (!check_page(task_ptr)) {
+            continue;
+        }
         switch (task_ptr->algorithm) {
         case AlgorithmType::JustReturn: {
             return Result { .task_ptr = task_ptr };
@@ -54,6 +57,45 @@ PipelineAnalyzer::ResultOpt PipelineAnalyzer::analyze() const
         }
     }
     return std::nullopt;
+}
+
+std::optional<bool> PipelineAnalyzer::recognize_page(const std::string& name) const
+{
+    if (const auto it = m_page_results.find(name); it != m_page_results.end()) {
+        return it->second;
+    }
+    const auto task = Task.get(name);
+    // Guards must be leaf recognizers. Missing, unconditional and recursive guards fail closed.
+    if (!task || task->algorithm == AlgorithmType::JustReturn || !task->required_page.empty() ||
+        !task->excluded_pages.empty() || task->action != ProcessTaskAction::DoNothing) {
+        LogError << __FUNCTION__ << "Invalid page recognizer" << name;
+        return std::nullopt;
+    }
+    if (const auto match_task = std::dynamic_pointer_cast<MatchTaskInfo>(task);
+        match_task && std::ranges::find(match_task->templ_names, "empty.png") != match_task->templ_names.end()) {
+        LogError << __FUNCTION__ << "Unconditional page template" << name;
+        return std::nullopt;
+    }
+    PipelineAnalyzer analyzer(m_image, m_roi, nullptr);
+    analyzer.set_tasks({ name });
+    const bool hit = analyzer.analyze().has_value();
+    m_page_results.emplace(name, hit);
+    return hit;
+}
+
+bool PipelineAnalyzer::check_page(const std::shared_ptr<TaskInfo>& task) const
+{
+    if (!task->required_page.empty()) {
+        if (recognize_page(task->required_page) != std::optional<bool>(true)) {
+            return false;
+        }
+    }
+    for (const auto& page : task->excluded_pages) {
+        if (recognize_page(page) != std::optional<bool>(false)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 Matcher::ResultOpt PipelineAnalyzer::match(const std::shared_ptr<TaskInfo>& task_ptr) const

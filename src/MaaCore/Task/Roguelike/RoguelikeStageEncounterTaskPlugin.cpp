@@ -100,7 +100,10 @@ std::vector<DuelCardCandidate> detect_duel_cards(const cv::Mat& image)
     cv::Mat mask;
     // 青绿色卡牌在不同主题背景下亮度会变化，色相范围保持宽一些，
     // 再用饱和度/亮度过滤金色背景和黑色边框。
-    cv::inRange(hsv, cv::Scalar(75, 70, 60), cv::Scalar(125, 255, 255), mask);
+    // BlackFlow 的狭路相逢卡面在当前官号主题下是青绿色（OpenCV HSV
+    // hue 约 45--90），而不是旧版只覆盖的青色 75--125。动态收窄到
+    // 45--100 可以覆盖绿/青两种卡面，同时避开大部分低饱和背景植被。
+    cv::inRange(hsv, cv::Scalar(45, 70, 60), cv::Scalar(100, 255, 255), mask);
     // 卡牌之间的缝隙通常约 6~8px，5x5 闭运算可以填补卡面内部断裂，
     // 又不会把同组两张卡粘成一个大块。
     cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, cv::getStructuringElement(cv::MORPH_RECT, { 5, 5 }));
@@ -269,6 +272,116 @@ std::vector<asst::Rect> detect_duel_operator_cards(const cv::Mat& image)
         cards.emplace_back(left, top, right - left, height - top);
     }
     return cards;
+}
+
+// 选敌后，敌人卡面中的青色菱形才是可部署格；卡框本身不可部署。
+// 从当前帧提取小型高饱和青色连通域，按地图区域和菱形尺寸过滤，
+// 不使用固定列号或固定坐标。
+std::vector<asst::Point> detect_duel_deploy_tiles(const cv::Mat& image)
+{
+    if (image.empty()) {
+        return {};
+    }
+    const int h = image.rows;
+    const int w = image.cols;
+    const int y0 = static_cast<int>(h * 0.20);
+    const int y1 = static_cast<int>(h * 0.62);
+    cv::Mat hsv, mask;
+    cv::cvtColor(image(cv::Rect(0, y0, w, y1 - y0)), hsv, cv::COLOR_BGR2HSV);
+    cv::inRange(hsv, cv::Scalar(45, 60, 70), cv::Scalar(115, 255, 255), mask);
+    cv::morphologyEx(mask, mask, cv::MORPH_OPEN, cv::Mat::ones(3, 3, CV_8U));
+    // 以青色投影峰值确定当前部署菱形所在行，再按横向连续段取格中心。
+    cv::Mat row_projection;
+    cv::reduce(mask, row_projection, 1, cv::REDUCE_SUM, CV_32S);
+    int peak_y = 0;
+    for (int y = 1; y < row_projection.rows; ++y) {
+        if (row_projection.at<int>(y, 0) > row_projection.at<int>(peak_y, 0)) peak_y = y;
+    }
+    cv::Mat row_band = mask.rowRange(std::max(0, peak_y - 28), std::min(mask.rows, peak_y + 29));
+    cv::Mat column_projection;
+    cv::reduce(row_band, column_projection, 0, cv::REDUCE_SUM, CV_32S);
+    std::vector<asst::Point> projected_tiles;
+    int segment_begin = -1;
+    for (int x = 0; x <= w; ++x) {
+        const bool active = x < w && column_projection.at<int>(0, x) > row_band.rows * 255 * 0.10;
+        if (active && segment_begin < 0) segment_begin = x;
+        if ((!active || x == w) && segment_begin >= 0) {
+            if (x - segment_begin >= 45) {
+                projected_tiles.push_back({ segment_begin + (x - segment_begin) / 2,
+                                            y0 + peak_y });
+            }
+            segment_begin = -1;
+        }
+    }
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    struct Candidate { asst::Point p; double score; };
+    std::vector<Candidate> candidates;
+    for (const auto& contour : contours) {
+        const auto rect = cv::boundingRect(contour);
+        const int area = rect.width * rect.height;
+        if (area < 180 || area > 9000 || rect.width < 12 || rect.height < 12 ||
+            rect.width > 130 || rect.height > 130) {
+            continue;
+        }
+        const double cx = rect.x + rect.width / 2.0;
+        const double cy = y0 + rect.y + rect.height / 2.0;
+        if (cx < w * 0.12 || cx > w * 0.90 || cy < h * 0.22 || cy > h * 0.58) {
+            continue;
+        }
+        const double ratio = static_cast<double>(rect.width) / rect.height;
+        if (ratio < 0.45 || ratio > 2.2) {
+            continue;
+        }
+        candidates.push_back({ { static_cast<int>(std::lround(cx)), static_cast<int>(std::lround(cy)) },
+                               std::abs(ratio - 1.0) + std::abs(cy - h * 0.40) / h });
+    }
+    std::ranges::sort(candidates, [](const auto& lhs, const auto& rhs) { return lhs.score < rhs.score; });
+    std::vector<asst::Point> result;
+    for (const auto& candidate : candidates) {
+        if (std::ranges::none_of(result, [&](const auto& p) { return asst::Point::distance(p, candidate.p) < 35; })) {
+            result.push_back(candidate.p);
+        }
+        if (result.size() >= 8) {
+            break;
+        }
+    }
+    std::ranges::sort(result, [](const auto& lhs, const auto& rhs) { return lhs.x < rhs.x; });
+    // 连通域容易把菱形边缘拆碎；按青色投影重建整行格子。
+    {
+        const auto fragmented = result;
+        result.clear();
+        cv::Mat row_sum, col_sum;
+        cv::reduce(mask, row_sum, 1, cv::REDUCE_SUM, CV_32S);
+        int top = -1, bottom = -1;
+        for (int y = 0; y < row_sum.rows; ++y) {
+            if (row_sum.at<int>(y, 0) > w * 255 * 0.015) {
+                if (top < 0) top = y;
+                bottom = y;
+            }
+        }
+        if (top >= 0 && bottom > top) {
+            const int band_top = std::max(0, top - 8);
+            const int band_bottom = std::min(mask.rows - 1, bottom + 8);
+            cv::reduce(mask.rowRange(band_top, band_bottom + 1), col_sum, 0, cv::REDUCE_SUM, CV_32S);
+            int begin = -1;
+            for (int x = 0; x <= w; ++x) {
+                const bool active = x < w && col_sum.at<int>(0, x) > (band_bottom - band_top) * 255 * 0.08;
+                if (active && begin < 0) begin = x;
+                if ((!active || x == w) && begin >= 0) {
+                    if (x - begin >= 35) {
+                        result.push_back({ begin + (x - begin) / 2,
+                                           y0 + band_top + (band_bottom - band_top) * 3 / 4 });
+                    }
+                    begin = -1;
+                }
+            }
+        }
+        if (result.size() < 2) result = fragmented;
+    }
+    std::ranges::sort(result, [](const auto& lhs, const auto& rhs) { return lhs.x < rhs.x; });
+    if (projected_tiles.size() >= 2) result = std::move(projected_tiles);
+    return result;
 }
 
 std::optional<int> parse_duel_operator_number(std::string text, std::string_view label)
@@ -798,18 +911,29 @@ bool asst::RoguelikeStageEncounterTaskPlugin::run_blackflow_duel_opponent_select
     // 这一步只停留在准备页，不会确认敌人或刷新敌人。
     std::vector<DuelOperatorDetail> operator_details;
     const auto operator_cards = detect_duel_operator_cards(image);
-    for (const auto& card : operator_cards) {
+    // 详情页 OCR 是整页最昂贵的一步。卡条按当前界面战力顺序排列，
+    // 先扫描前 8 张动态卡框即可覆盖高战力候选；其余卡仍保留卡框，
+    // 只在前 8 张不足两张时作为低分兜底，避免在更新前把准备页卡住。
+    const size_t detail_scan_count = std::min<size_t>(operator_cards.size(), 8);
+    for (size_t card_index = 0; card_index < detail_scan_count; ++card_index) {
+        const auto& card = operator_cards[card_index];
         if (need_exit()) {
             break;
         }
         const Point click_point { card.x + card.width / 2,
                                   std::clamp(card.y + card.height * 3 / 5, 0, image.rows - 1) };
-        if (!ctrler()->click(click_point) || !sleep(300)) {
+        if (!ctrler()->click(click_point) || !sleep(180)) {
             continue;
         }
         const cv::Mat detail_image = ctrler()->get_image();
         OCRer detail_ocr(detail_image);
-        detail_ocr.set_roi({ 0, 0, detail_image.cols, detail_image.rows });
+        // 干员详情的姓名、等级、属性和技能都位于左侧面板；右侧的敌人
+        // 卡片、刷新按钮和开始按钮不参与干员评分。限制 OCR ROI 可以避开
+        // 每张卡都重复识别整张 1280x720 画面的开销。
+        detail_ocr.set_roi({ 0,
+                             static_cast<int>(detail_image.rows * 0.20),
+                             static_cast<int>(detail_image.cols * 0.45),
+                             static_cast<int>(detail_image.rows * 0.62) });
         detail_ocr.set_use_raw(true);
         const auto detail_result = detail_ocr.analyze();
         if (detail_result) {
@@ -852,21 +976,22 @@ bool asst::RoguelikeStageEncounterTaskPlugin::run_blackflow_duel_opponent_select
                     }
                 }
             }
-            // 详情图的等级行很窄，单独 OCR 一次能把完整屏幕中被立绘/按钮
-            // 干扰的 “Lv90” 恢复出来；ROI 由当前图像尺寸推导。
-            OCRer level_ocr(detail_image);
-            level_ocr.set_roi({ 0,
-                                static_cast<int>(detail_image.rows * 0.25),
-                                static_cast<int>(detail_image.cols * 0.22),
-                                static_cast<int>(detail_image.rows * 0.16) });
-            level_ocr.set_use_raw(true);
-            level_ocr.set_use_char_model(true);
-            std::optional<asst::OCRer::ResultsVec> level_result = level_ocr.analyze();
             detail.level = parse_duel_operator_level(*detail_result, detail_image.rows).value_or(-1);
-            if (level_result && !level_result->empty()) {
-                const auto level_from_roi = parse_duel_operator_level(*level_result, detail_image.rows);
-                if (level_from_roi) {
-                    detail.level = *level_from_roi;
+            if (detail.level <= 0) {
+                // 只有主 ROI 没读到等级时才回退到窄字符 OCR，避免每张卡固定
+                // 进行第二次识别。
+                OCRer level_ocr(detail_image);
+                level_ocr.set_roi({ 0,
+                                    static_cast<int>(detail_image.rows * 0.25),
+                                    static_cast<int>(detail_image.cols * 0.22),
+                                    static_cast<int>(detail_image.rows * 0.16) });
+                level_ocr.set_use_raw(true);
+                level_ocr.set_use_char_model(true);
+                if (const auto level_result = level_ocr.analyze(); level_result && !level_result->empty()) {
+                    const auto level_from_roi = parse_duel_operator_level(*level_result, detail_image.rows);
+                    if (level_from_roi) {
+                        detail.level = *level_from_roi;
+                    }
                 }
             }
             detail.hp = parse_duel_operator_health(detail.ocr_text)
@@ -886,7 +1011,7 @@ bool asst::RoguelikeStageEncounterTaskPlugin::run_blackflow_duel_opponent_select
         // 当前 UI 点同一卡即可关闭详情；即使 OCR 没有读到数字，也必须关闭后
         // 才能保证下一张卡不是在上一张详情覆盖层上点击。
         ctrler()->click(click_point);
-        sleep(260);
+        sleep(180);
     }
 
     auto& opers = m_config->status().opers;
@@ -992,8 +1117,6 @@ bool asst::RoguelikeStageEncounterTaskPlugin::run_blackflow_duel_opponent_select
         cv::Mat detail_image;
         std::optional<asst::OCRer::ResultsVec> detail_result;
         bool detail_opened = false;
-        Point opened_point;
-        Rect opened_card;
         std::vector<Point> detail_click_points;
         auto ordered_cards = group.cards;
         std::ranges::sort(ordered_cards, [](const auto& lhs, const auto& rhs) {
@@ -1014,18 +1137,25 @@ bool asst::RoguelikeStageEncounterTaskPlugin::run_blackflow_duel_opponent_select
             // 使用有理数比例保留卡面内的亚格点位置。不同列的敌人
             // 立绘并不总在卡框中心，整数十分位会错过窄热区；这些
             // 比例仍完全由当前卡框和画面尺寸计算，不依赖屏幕坐标。
-            const std::vector<std::pair<int, int>> x_ratios = far_right_card
-                                                                   ? std::vector<std::pair<int, int>> { { 3, 7 }, { 2, 5 }, { 31, 40 }, { 3, 4 }, { 1, 4 }, { 1, 3 }, { 3, 8 }, { 1, 2 }, { 5, 8 }, { 7, 8 } }
-                                                                   : std::vector<std::pair<int, int>> { { 9, 16 }, { 1, 2 }, { 5, 8 }, { 4, 7 } };
-            const std::vector<std::pair<int, int>> y_ratios = far_right_card
-                                                                   ? std::vector<std::pair<int, int>> { { -13, 20 }, { -17, 25 }, { -7, 10 }, { -1, 1 }, { -9, 10 }, { -4, 5 }, { -3, 4 } }
-                                                                   : std::vector<std::pair<int, int>> { { -17, 25 }, { -13, 20 }, { -7, 10 }, { -73, 100 }, { -77, 100 }, { -3, 4 }, { -4, 5 } };
-            for (const auto [x_numerator, x_denominator] : x_ratios) {
-                for (const auto [y_numerator, y_denominator] : y_ratios) {
-                    detail_click_points.emplace_back(
-                        card.x + card.width * x_numerator / x_denominator,
-                        std::clamp(card.y + card.height * y_numerator / y_denominator, 0, image.rows - 1));
-                }
+            // 一张卡只保留三个由卡框推导出的探测点：当前版本最稳定的
+            // 立绘中心、同一高度的中点，以及同一横向位置的下移点。旧实现
+            // 为每张卡生成最多 70 个点，导致一组详情打开前要做几十次全屏
+            // OCR；当前帧已经证明首点通常命中，后两点只作为轻量回退。
+            const std::array<std::tuple<int, int, int, int>, 3> probe_ratios = far_right_card
+                                                                                  ? std::array<std::tuple<int, int, int, int>, 3> {
+                                                                                        std::tuple { 3, 7, -13, 20 },
+                                                                                        std::tuple { 1, 2, -13, 20 },
+                                                                                        std::tuple { 3, 7, -1, 1 },
+                                                                                    }
+                                                                                  : std::array<std::tuple<int, int, int, int>, 3> {
+                                                                                        std::tuple { 9, 16, -17, 25 },
+                                                                                        std::tuple { 1, 2, -17, 25 },
+                                                                                        std::tuple { 9, 16, -1, 1 },
+                                                                                    };
+            for (const auto [x_numerator, x_denominator, y_numerator, y_denominator] : probe_ratios) {
+                detail_click_points.emplace_back(
+                    card.x + card.width * x_numerator / x_denominator,
+                    std::clamp(card.y + card.height * y_numerator / y_denominator, 0, image.rows - 1));
             }
         }
         for (const auto& click_point : detail_click_points) {
@@ -1076,14 +1206,6 @@ bool asst::RoguelikeStageEncounterTaskPlugin::run_blackflow_duel_opponent_select
             if (detail_tag_count >= 1 || stat_label_count >= 3 || tooltip_text_count >= 2) {
                 detail_result = std::move(probe_result);
                 detail_opened = true;
-                opened_point = click_point;
-                // 记录当前点击点所属卡面，关闭时可在同一卡面的立绘相对区域重试。
-                const auto opened_card_it = std::ranges::find_if(group.cards, [&](const auto& candidate) {
-                    return click_point.x >= candidate.rect.x && click_point.x <= candidate.rect.x + candidate.rect.width;
-                });
-                if (opened_card_it != group.cards.end()) {
-                    opened_card = opened_card_it->rect;
-                }
                 break;
             }
         }
@@ -1198,7 +1320,9 @@ bool asst::RoguelikeStageEncounterTaskPlugin::run_blackflow_duel_opponent_select
             checker.set_use_raw(true);
             const auto checked = checker.analyze();
             if (!checked) {
-                return false;
+                // OCR 失败时按“仍可能打开”处理，避免把未知状态当成已
+                // 关闭而继续点击下一组敌卡。
+                return true;
             }
             const int label_count = static_cast<int>(std::ranges::count_if(*checked, [&](const auto& result) {
                 const bool label = result.text.find("生命") != std::string::npos ||
@@ -1244,47 +1368,17 @@ bool asst::RoguelikeStageEncounterTaskPlugin::run_blackflow_duel_opponent_select
             }
             return true;
         };
-        for (const auto [x_numerator, x_denominator] :
-             std::vector<std::pair<int, int>> { { 3, 8 }, { 1, 10 }, { 1, 2 }, { 7, 10 }, { 9, 10 } }) {
-            for (const auto [y_numerator, y_denominator] :
-                 std::vector<std::pair<int, int>> { { 1, 4 }, { 1, 5 }, { 3, 10 }, { 2, 5 }, { 1, 2 } }) {
-                const Point background_point { image.cols * x_numerator / x_denominator,
-                                               image.rows * y_numerator / y_denominator };
-                if (is_safe_background(background_point)) {
-                    close_points.emplace_back(background_point);
-                }
-            }
-        }
-        close_points.emplace_back(opened_point);
-        if (opened_card.width > 0 && opened_card.height > 0) {
-            const bool far_right_card = opened_card.x > image.cols * 0.65;
-            const std::vector<std::pair<int, int>> x_ratios = far_right_card
-                                                                   ? std::vector<std::pair<int, int>> { { 3, 4 }, { 7, 8 }, { 5, 8 }, { 1, 2 } }
-                                                                   : std::vector<std::pair<int, int>> { { 9, 16 }, { 1, 2 }, { 5, 8 }, { 4, 7 } };
-            const std::vector<std::pair<int, int>> y_ratios = far_right_card
-                                                                   ? std::vector<std::pair<int, int>> { { -14, 10 }, { -13, 10 }, { -12, 10 }, { -11, 10 }, { -1, 1 } }
-                                                                   : std::vector<std::pair<int, int>> { { -14, 10 }, { -13, 10 }, { -12, 10 }, { -11, 10 }, { -1, 1 } };
-            for (const auto [x_numerator, x_denominator] : x_ratios) {
-                for (const auto [y_numerator, y_denominator] : y_ratios) {
-                    close_points.emplace_back(
-                        opened_card.x + opened_card.width * x_numerator / x_denominator,
-                        std::clamp(opened_card.y + opened_card.height * y_numerator / y_denominator, 0, image.rows - 1));
-                }
-            }
+        // 详情面板的稳定关闭点是卡框上方、画面左中部的动态空白处。
+        // 只选择一个安全点并做一次状态确认；旧实现会尝试 45 个点，
+        // 每个点都触发一次全屏 OCR，既慢又可能误触下一张敌卡。
+        close_points.emplace_back(image.cols * 3 / 8, image.rows / 4);
+        if (!is_safe_background(close_points.front())) {
+            close_points.clear();
+            close_points.emplace_back(image.cols / 10, image.rows / 4);
         }
         closed = false;
-        for (const auto& close_point : close_points) {
-            if (!ctrler()->click(close_point)) {
-                continue;
-            }
-            closed = true;
-            if (!sleep(300) || !detail_overlay_visible()) {
-                break;
-            }
-            closed = false;
-        }
-        if (closed && detail_overlay_visible()) {
-            closed = false;
+        if (!close_points.empty() && ctrler()->click(close_points.front()) && sleep(300)) {
+            closed = !detail_overlay_visible();
         }
         // 不使用返回键兜底：Android 返回键会暂停当前战斗预备页，
         // 反而把后续敌组识别带到暂停层。
@@ -1430,6 +1524,162 @@ bool asst::RoguelikeStageEncounterTaskPlugin::run_blackflow_duel_opponent_select
         return false;
     }
     if (!sleep(500)) {
+        return false;
+    }
+    // 点击敌人卡会同时打开详情面板；点地图中央空白处收起面板，
+    // 保留当前敌组选择后再执行拖拽，避免详情层拦截部署手势。
+    const cv::Mat post_select_image = ctrler()->get_image();
+    if (!post_select_image.empty()) {
+        ctrler()->click(Point { post_select_image.cols / 2,
+                                 static_cast<int>(post_select_image.rows * 0.55) });
+        sleep(120);
+    }
+
+    // 狭路相逢不是普通的“快捷编队”页：底部干员卡需要拖拽到敌方
+    // 卡面上的部署格，单击只会打开详情。这里复用本次动态识别到的
+    // 干员卡和已选敌组，不依赖固定列号或固定干员名称。
+    auto read_duel_deploy_count = [&]() -> int {
+        const cv::Mat current = ctrler()->get_image();
+        if (current.empty()) {
+            return -1;
+        }
+        OCRer counter(current);
+        counter.set_roi({ static_cast<int>(current.cols * 0.30),
+                          0,
+                          static_cast<int>(current.cols * 0.40),
+                          static_cast<int>(current.rows * 0.20) });
+        counter.set_use_raw(true);
+        const auto result = counter.analyze();
+        if (!result) {
+            return -1;
+        }
+        std::string text;
+        for (const auto& item : *result) {
+            if (!text.empty()) {
+                text += ' ';
+            }
+            text += item.text;
+        }
+        // OCR 常把顶部计数中的数字 0 识别成字母 O（例如“(O/2)”）。
+        // 先做字符归一化，再判断部署状态，避免把未知状态当成已部署。
+        for (char& ch : text) {
+            if (ch == 'O' || ch == 'o') {
+                ch = '0';
+            } else if (ch == 'I' || ch == 'l') {
+                ch = '1';
+            }
+        }
+        std::smatch match;
+        static const std::regex count_pattern(R"(([0-2Oo])\s*[/／]\s*2)");
+        if (std::regex_search(text, match, count_pattern) && match.size() >= 2) {
+            const char digit = match[1].str().front();
+            return (digit == 'O' || digit == 'o') ? 0 : std::stoi(std::string(1, digit));
+        }
+        return -1;
+    };
+    auto cancel_duel_deploy_preview = [&]() {
+        const cv::Mat current = ctrler()->get_image();
+        if (current.empty()) {
+            return;
+        }
+        OCRer cancel_ocr(current);
+        cancel_ocr.set_roi({ 0, 0, current.cols, current.rows });
+        cancel_ocr.set_use_raw(true);
+        if (const auto result = cancel_ocr.analyze()) {
+            const auto cancel = std::ranges::find_if(*result, [](const auto& item) {
+                return item.text.find("点击取消") != std::string::npos || item.text == "取消";
+            });
+            if (cancel != result->end()) {
+                ctrler()->click(cancel->rect);
+            }
+        }
+    };
+
+    struct DuelOperatorChoice
+    {
+        Rect card;
+        double score = 0.0;
+    };
+    std::vector<DuelOperatorChoice> choices;
+    choices.reserve(operator_details.size() + operator_cards.size());
+    for (const auto& detail : operator_details) {
+        double score = detail.level > 0 ? detail.level : 0.0;
+        score += detail.elite >= 0 ? detail.elite * 100.0 : 0.0;
+        score += detail.attack > 0 ? detail.attack * 0.08 : 0.0;
+        score += detail.hp > 0 ? detail.hp * 0.01 : 0.0;
+        score += detail.defense > 0 ? detail.defense * 0.04 : 0.0;
+        choices.push_back({ detail.card_rect, score });
+    }
+    // OCR 暂时没读到某张卡的详情时仍保留它的动态卡框，但分数低于
+    // 已读到属性的卡；这只作为识别不完整时的可逆兜底。
+    for (const auto& card : operator_cards) {
+        const bool already_added = std::ranges::any_of(choices, [&](const auto& choice) {
+            return std::abs(choice.card.x - card.x) <= 2 && std::abs(choice.card.y - card.y) <= 2;
+        });
+        if (!already_added) {
+            choices.push_back({ card, 0.0 });
+        }
+    }
+    std::ranges::stable_sort(choices, [](const auto& lhs, const auto& rhs) {
+        return lhs.score > rhs.score;
+    });
+    const size_t operator_count = std::min<size_t>(2, choices.size());
+    const int initial_deploy_count = read_duel_deploy_count();
+    bool duel_deploy_succeeded = initial_deploy_count == 0;
+    if (initial_deploy_count < 0) {
+        LogError << "BlackFlow duel deployment counter was not recognized";
+        return false;
+    }
+    for (size_t index = 0; index < operator_count; ++index) {
+        const auto& choice = choices[index];
+        const Point from { choice.card.x + choice.card.width / 2,
+                           choice.card.y + choice.card.height * 3 / 5 };
+        // 每次拖拽前重新截图定位，避免详情面板/动画造成坐标偏移。
+        const auto live_tiles = detect_duel_deploy_tiles(ctrler()->get_image());
+        if (live_tiles.size() < 2) {
+            LogError << "BlackFlow duel deployment tiles were not recognized; keep page unchanged";
+            return false;
+        }
+        const auto detected_tile = live_tiles[std::min(index, live_tiles.size() - 1)];
+        const asst::Point to { detected_tile.x,
+                               std::max(0, detected_tile.y - detected_tile.y / 6) };
+        if (!ctrler()->swipe(from, to, 600) || !sleep(350)) {
+            cancel_duel_deploy_preview();
+            duel_deploy_succeeded = false;
+            break;
+        }
+        // 预览状态下沿右侧拖一次完成朝向确认；没有检测到格子时保留
+        // 旧的同点点击兜底，但仍必须由 0/2 -> 1/2 -> 2/2 验证。
+        const std::array<asst::Point, 4> direction_ends = {
+            asst::Point { std::min(image.cols - 1, to.x + 150), to.y },
+            asst::Point { to.x, std::max(0, to.y - 150) },
+            asst::Point { std::max(0, to.x - 150), to.y },
+            asst::Point { to.x, std::min(image.rows - 1, to.y + 150) },
+        };
+        int deploy_count = -1;
+        for (const auto& direction_end : direction_ends) {
+            if (!ctrler()->swipe(to, direction_end, 250) || !sleep(300)) {
+                continue;
+            }
+            deploy_count = read_duel_deploy_count();
+            if (deploy_count >= static_cast<int>(index + 1)) {
+                break;
+            }
+        }
+        if (deploy_count >= 0 && deploy_count < static_cast<int>(index + 1)) {
+            cancel_duel_deploy_preview();
+            duel_deploy_succeeded = false;
+            break;
+        }
+        if (deploy_count != static_cast<int>(index + 1)) {
+            cancel_duel_deploy_preview();
+            duel_deploy_succeeded = false;
+            break;
+        }
+        duel_deploy_succeeded = true;
+    }
+    if (operator_count < 2 || !duel_deploy_succeeded) {
+        LogError << "BlackFlow duel operator deployment did not reach 2/2";
         return false;
     }
     // 正常路径由 DuelOpponentSelection 的 next 转发；这里同时设置收尾占位，
@@ -2170,3 +2420,7 @@ bool asst::RoguelikeStageEncounterTaskPlugin::save_img(const cv::Mat& image, con
 {
     return utils::save_debug_image(image, utils::path("debug") / "roguelike" / "encounter", true, description);
 }
+
+
+
+

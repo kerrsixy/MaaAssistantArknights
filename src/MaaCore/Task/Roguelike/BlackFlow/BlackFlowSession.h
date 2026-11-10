@@ -192,6 +192,8 @@ public:
     // 必须在 initialize() 之前设置：事实是在 initialize() 末尾写入的，reset_run() 也会再写一次。
     void set_start_loadout(std::string core_char, std::string squad, std::string roles);
 
+    void set_difficulty_level(int level) noexcept { m_difficulty_level = level; }
+
     void set_cultivation_target(CultivatedAnimalType target) noexcept { m_cultivation_target = target; }
 
     void set_cultivated_animal_types(std::vector<CultivatedAnimalType> types);
@@ -297,6 +299,7 @@ private:
     std::string m_start_core_char;
     std::string m_start_squad;
     std::string m_start_roles;
+    int m_difficulty_level = 0;
     CultivatedAnimalType m_cultivation_target = CultivatedAnimalType::Cat;
     std::vector<CultivatedAnimalType> m_cultivated_animal_types;
     std::vector<CultivatedAnimalType> m_cultivation_targets;

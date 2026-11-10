@@ -44,7 +44,9 @@ bool refresh_with_retries(Session& session, IBlackFlowTaskPort& port, std::strin
     }
 
     std::string latest_error;
-    for (int attempt = 0; attempt < 2; ++attempt) {
+    // 战斗/事件返回地图时，当前标记可能连续数帧不可见；给视觉层更多
+    // 重试机会，避免把短暂过渡帧误判成整层地图失效并重开本局。
+    for (int attempt = 0; attempt < 5; ++attempt) {
         BlackFlowObservationRequest request;
         request.floor = *current_floor;
         request.attempt_count = attempt + 1;
@@ -62,7 +64,7 @@ bool refresh_with_retries(Session& session, IBlackFlowTaskPort& port, std::strin
                 "attempt",
                 attempt + 1,
                 "of",
-                2,
+                5,
                 "error",
                 failure);
         }
@@ -74,7 +76,7 @@ bool refresh_with_retries(Session& session, IBlackFlowTaskPort& port, std::strin
                 "attempt",
                 attempt + 1,
                 "of",
-                2,
+                5,
                 "error",
                 failure);
         }
@@ -217,6 +219,8 @@ RoutingCycleOutcome execute_replanning_cycle(Session& session, IBlackFlowTaskPor
     }
     BlackFlowPlan plan = session.plan(&error);
     if (!plan) {
+        Log.error("BlackFlow planning failed", "error", error, "current node", session.run().current_node,
+            "floor", session.run().floor);
         return { RoutingCycleStatus::Failed, "planning_failed", std::move(error) };
     }
     const MoveCandidate candidate = *plan.decision.selected;
@@ -242,7 +246,7 @@ RoutingCycleOutcome execute_replanning_cycle(Session& session, IBlackFlowTaskPor
             const NodeId current_node_after = session.run().current_node;
             const std::uint64_t resources_revision_after = session.run().resources_revision;
             const std::uint64_t cost_revision_after = session.run().costs.revision;
-            if (map_revision_after != map_revision_before || current_node_after != current_node_before ||
+            if (current_node_after != current_node_before ||
                 resources_revision_after != resources_revision_before || cost_revision_after != cost_revision_before) {
                 Log.info(
                     "BlackFlow combat preflight changed routing state; replanning",
@@ -306,3 +310,6 @@ RoutingCycleOutcome execute_routing_cycle(Session& session, IBlackFlowTaskPort& 
     return execute_replanning_cycle(session, port);
 }
 } // namespace asst::blackflow
+
+
+

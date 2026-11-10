@@ -18,8 +18,13 @@ namespace asst::blackflow
 {
 namespace
 {
-// NextLevel 的 text 前 FloorCount 项按楼层顺序排列
-constexpr int FloorCount = 6;
+int floor_from_title(const std::string& title)
+{
+    static constexpr std::array<std::string_view, 6> titles {
+        "玻利瓦尔肤层", "甜美的伤口", "血色空脉", "受害者腐殖", "卡德霍之颅", "未萌生的摇篮" };
+    const auto it = std::ranges::find(titles, title);
+    return it == titles.end() ? 0 : static_cast<int>(std::distance(titles.begin(), it)) + 1;
+}
 
 // 与 LastRewardNames 一一对应的支援卡片模板任务
 constexpr std::array<std::string_view, LastRewardNames.size()> LastRewardTasks {
@@ -165,6 +170,30 @@ bool BlackFlowLifecycleTaskPlugin::verify(AsstMsg msg, const json::value& detail
         }
     }
     if (msg == AsstMsg::SubTaskCompleted && task == "BlackFlow@Roguelike@NextLevel") {
+        // 行商页面顶部同样显示当前楼层标题。只要当前页面仍是行商执行阶段，
+        // 这次 NextLevel OCR 就是误命中，不能让生命周期插件重复记录楼层并把
+        // 任务链拉回 NextLevel 自循环；真正的楼层切换来自地图节点结算后，
+        // 页面上下文已经被解析或清空。
+        if (m_session != nullptr && m_session->page_context().has_value()) {
+            const auto& page = *m_session->page_context();
+            if (page.node_type == NodeType::ScrapShop && page.stage == PageExecutionStage::Running) {
+                LogDebug << "Ignore NextLevel OCR while BlackFlow scrap shop page is running.";
+                Task.set_task_base(
+                    "BlackFlow@Roguelike@NextLevel", "BlackFlow@Roguelike@ScrapTradeDecision");
+                return false;
+            }
+        }
+        const std::string title = details.get("details", "result", "text", "");
+        const int recognized_floor = floor_from_title(title);
+        if (m_session != nullptr && recognized_floor > 0 && m_session->current_floor() == recognized_floor) {
+            LogDebug << "Ignore duplicate BlackFlow NextLevel OCR for current floor" << recognized_floor;
+            Task.set_task_base(
+                "BlackFlow@Roguelike@NextLevel", "BlackFlow@Roguelike@MapPrepare-Ready");
+            return false;
+        }
+        // 清除行商期间的临时重定向，恢复到通用 NextLevel 任务定义；不能把
+        // baseTask 指回自身，否则 TaskData 会判定为循环生成。
+        Task.set_task_base("BlackFlow@Roguelike@NextLevel", "Roguelike@NextLevel");
         m_pending = PendingWork::RecordCurrentFloor;
         m_pending_details = details;
         m_terminal_trigger.clear();
@@ -179,6 +208,15 @@ bool BlackFlowLifecycleTaskPlugin::verify(AsstMsg msg, const json::value& detail
         return true;
     }
     if (msg != AsstMsg::SubTaskStart || task != "BlackFlow@Roguelike@StrategyTerminated") {
+        return false;
+    }
+    if (msg == AsstMsg::SubTaskCompleted && task == "BlackFlow@Roguelike@ScrapTradePageFallback") {
+        // 行商页复用了楼层标题 OCR；离开行商前清掉旧楼层，回到地图后
+        // 下一次 NextLevel 才会被视为一次新的地图确认。
+        if (m_session != nullptr) {
+            m_session->clear_current_floor();
+            LogDebug << "Clear BlackFlow current floor after scrap trade page fallback.";
+        }
         return false;
     }
 
@@ -269,17 +307,6 @@ bool BlackFlowLifecycleTaskPlugin::_run()
             return true;
         }
         const int floor = static_cast<int>(std::distance(floor_names.begin(), matched)) + 1;
-        if (floor > FloorCount) {
-            // 树洞暂时按重开处理
-            m_session->clear_current_floor();
-            m_session->fail(
-                "floor_recognition_failed",
-                "NextLevel recognized the area title behind a portal: " + area_name,
-                FailureDisposition::RestartRun);
-            LogError << __FUNCTION__ << "BlackFlow NextLevel recognized the area title behind a portal" << area_name;
-            report_outputs();
-            return true;
-        }
         if (m_start_run && !m_config->get_run_for_collectible() && m_config->get_blackflow_start_utopia()) {
             check_start_run_utopia(floor);
             return true;
@@ -373,6 +400,7 @@ void BlackFlowLifecycleTaskPlugin::apply_start_loadout()
         preparing ? m_preparation_core_char : m_start_core_char,
         preparing ? m_preparation_squad : m_target_squad,
         preparing ? m_preparation_roles : m_start_roles);
+    m_session->set_difficulty_level(m_config->get_difficulty());
 }
 
 void BlackFlowLifecycleTaskPlugin::report_start_run(std::string_view status, const std::vector<std::string>& rewards)

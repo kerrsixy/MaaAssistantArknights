@@ -753,6 +753,9 @@ struct TaskInfo : public TaskPipelineInfo
     bool cache = false;                     // 是否使用缓存区域
     std::vector<int> special_params;        // 某些任务会用到的特殊参数
     std::string input_text;                 // 输入任务的文字，目前希望仅针对 Input 任务有效， algorithm 为 JustReturn
+    // Absolute recognition-only task names, evaluated on the same image as this task.
+    std::string required_page;
+    TaskList excluded_pages;
 };
 
 using TaskPtr = std::shared_ptr<TaskInfo>;

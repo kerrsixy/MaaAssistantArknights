@@ -1,5 +1,8 @@
 #pragma once
+#include "Common/AsstBattleDef.h"
 #include "AbstractRoguelikeTaskPlugin.h"
+
+#include <string_view>
 
 namespace asst
 {
@@ -9,8 +12,7 @@ enum class RoguelikeCustomType
     Squad,    // 分队类型， like 指挥分队, 矛头分队, etc
     Reward,   // 奖励类型， like 热水壶, 演讲稿, etc
     Roles,    // 职业类型， like 先手必胜, 稳扎稳打, etc
-    CoreChar, // 首选干员， 干员名
-    // CoCoreChar,  // 次选干员， 干员名
+    Voucher,
 };
 
 struct RoguelikeStartSelect // 刷开局模式下凹开局奖励选择
@@ -43,7 +45,10 @@ private:
     bool hijack_squad();
     bool hijack_reward();
     bool hijack_roles();
-    bool hijack_core_char();
+    bool select_initial_voucher();
+    std::string resolve_start_roles() const;
+    static bool role_group_contains(std::string_view roles, battle::Role role);
+    void skip_incompatible_start_opers(const std::string& roles);
     std::vector<std::string> get_select_list() const;
 
 private:

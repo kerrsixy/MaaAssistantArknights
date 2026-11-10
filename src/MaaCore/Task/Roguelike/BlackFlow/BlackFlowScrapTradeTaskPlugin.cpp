@@ -327,6 +327,16 @@ bool BlackFlowScrapTradeTaskPlugin::buy(const cv::Mat& image, const Funds& funds
         if (m_kept.contains(item.name)) {
             return "bought this visit";
         }
+        // 买表里的概念体与自然物也要能买：概念体只做一次性激活，自然物用来滚估价，各自给一个
+        // 小上限，避免把零件箱塞满。
+        if (item.category == ScrapCategory::Concept) {
+            return m_ledger.held_in(ScrapCategory::Concept, BlackFlowScrapMarket) >= 3 ? "concept limit reached"
+                                                                                       : std::string_view {};
+        }
+        if (item.category == ScrapCategory::Natural) {
+            return m_ledger.held_in(ScrapCategory::Natural, BlackFlowScrapMarket) >= 4 ? "natural limit reached"
+                                                                                       : std::string_view {};
+        }
         if (scrap_keep_wanted(item, m_ledger, BlackFlowScrapMarket)) {
             return {};
         }
@@ -364,6 +374,12 @@ bool BlackFlowScrapTradeTaskPlugin::buy(const cv::Mat& image, const Funds& funds
     for (const auto& offer : shelf) {
         const auto item = BlackFlowScrapMarket.find(offer.text);
         if (!item || !item->get().price || *item->get().price > funds.budget) {
+            continue;
+        }
+        // 加工品必须先通过形状覆盖/容量策略；否则这里的净收益兜底会绕过
+        // scrap_keep_wanted，把已经覆盖的移动能力再次买进来并挤满零件箱。
+        if (item->get().category == ScrapCategory::Processing &&
+            !scrap_keep_wanted(item->get(), m_ledger, BlackFlowScrapMarket)) {
             continue;
         }
         const auto net = scrap_trade_net(item->get(), growth, BlackFlowScrapMarket);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AbstractTask.h"
+#include "BattleDeploymentEvidence.h"
 
 #include "Common/AsstBattleDef.h"
 #include "Config/Miscellaneous/TilePack.h"
@@ -61,6 +62,48 @@ protected:
 
     bool deploy_oper(const std::string& name, const Point& loc, battle::DeployDirection direction);
     bool deploy_oper(battle::Role role, const std::string& name, const Point& loc, battle::DeployDirection direction);
+
+    virtual bool verify_deployment_enabled() const { return false; }
+
+    virtual bool deployment_target_allowed(const battle::DeploymentOper&, const Point&) const { return true; }
+
+    virtual battle::DeploymentKind deployment_kind(const battle::DeploymentOper& oper) const
+    {
+        return oper.role == battle::Role::Drone ? battle::DeploymentKind::ReusableSummon
+                                                : battle::DeploymentKind::Operator;
+    }
+
+protected:
+    // 肉鸽地图自带的放置物（如黑流树海的「工人」）在部署栏里只有图标、没有名字可以 OCR。
+    // 这类卡片统一挂一个合成名前缀，交给 RoguelikeBattleTaskPlugin 用固定组名去匹配；
+    // 普通战斗里不会出现这个前缀，因此不影响既有流程。
+    static constexpr std::string_view NamelessDeployablePrefix = "__nameless_deployable_";
+
+    static bool is_nameless_deployable(const std::string& name)
+    {
+        return name.starts_with(NamelessDeployablePrefix);
+    }
+
+    // 部署栏上「没有真实名字」的卡片：OCR 结果为空，或只读到数字/符号（例如角落里的 ×2）。
+    static bool is_card_name_unusable(const std::string& name)
+    {
+        if (name.empty()) {
+            return true;
+        }
+        for (const unsigned char ch : name) {
+            // ASCII 字母、数字，以及 UTF-8 多字节（中文）都视为「可能的名字」
+            if (std::isalnum(ch) != 0 || ch >= 0x80) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+protected:
+
+    battle::DeploymentOutcome
+        verify_deployment(const battle::DeploymentOper& oper, const Point& loc, bool input_accepted);
+    bool deployment_retry_allowed(const battle::DeploymentOper& oper, const Point& loc) const;
     bool retreat_oper(const std::string& name);
     bool retreat_oper(battle::Role role, const std::string& name);
     bool retreat_oper(const Point& loc, bool manually = true);
@@ -154,6 +197,10 @@ protected:
 
     std::map<battle::OperNameTag, Point> m_battlefield_opers; // 已部署的干员, <实际职业,名称> -> <坐标>
     std::map<Point, battle::OperNameTag> m_used_tiles;        // 已占用的格子, <坐标> -> <实际职业,名称>
+    // Unverified attempts are quarantined per operator and tile, not declared blocked.
+    std::map<std::pair<battle::OperNameTag, Point>, int> m_unverified_deployment_attempts;
+    // 一次部署证据未知后，暂时隔离该地块，避免换一个干员继续重复点击同一不可确认位置。
+    std::map<Point, int> m_unverified_deployment_tiles;
 
 private:
     InstHelper m_inst_helper;

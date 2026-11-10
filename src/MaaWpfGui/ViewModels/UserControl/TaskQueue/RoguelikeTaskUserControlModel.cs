@@ -60,6 +60,16 @@ public class RoguelikeTaskUserControlModel : TaskSettingsViewModel, RoguelikeTas
 
     private void UpdateRoguelikeParams()
     {
+        if (RoguelikeTheme == Theme.Phantom)
+        {
+            SetTaskConfig<RoguelikeTask>(t => t.PhantomOpeningDefaultsInitialized, t => {
+                t.Squad = "远程战术分队";
+                t.Roles = "稳扎稳打";
+                t.StartingOpers = [new RoguelikeTask.RoguelikeStartingOper { Name = "维什戴尔" }];
+                t.PhantomOpeningDefaultsInitialized = true;
+            });
+        }
+
         // 确保在更新列表之前先更新相关属性
         UpdateRoguelikeDifficultyList();
         UpdateRoguelikeModeList();

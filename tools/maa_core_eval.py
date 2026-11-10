@@ -175,6 +175,12 @@ class CoreEval:
             {"mode": "report", "images": self._abs_images(images), "tasks": list(tasks)}
         )
 
+    def numeric(self, images, tasks):
+        """生产数值观察入口：返回整数或 None，不将缺失观察转换为零。"""
+        return self._run_task(
+            {"mode": "numeric", "images": self._abs_images(images), "tasks": list(tasks)}
+        )
+
     def pipeline(self, images, tasks):
         """每张图按任务列表跑一次线上同款首命中匹配：[{image, hit, result, next}]。
 
@@ -382,7 +388,7 @@ def main():
     parser.add_argument("images", nargs="+", help="图片路径（可多张）")
     parser.add_argument(
         "--mode",
-        choices=["report", "pipeline", "ocr", "templ", "depot", "replay"],
+        choices=["report", "pipeline", "numeric", "ocr", "templ", "depot", "replay"],
         default="report",
     )
     parser.add_argument("--tasks", help="逗号分隔的任务名列表")
@@ -415,7 +421,7 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="打印 core 其余回调消息")
     args = parser.parse_args()
 
-    if args.mode in ("report", "pipeline", "replay") and not args.tasks:
+    if args.mode in ("report", "pipeline", "numeric", "replay") and not args.tasks:
         parser.error(f"--mode {args.mode} 需要 --tasks")
     if args.mode == "templ" and not args.templates:
         parser.error("--mode templ 需要 --templates")
@@ -436,7 +442,9 @@ def main():
 
 
 def _run_cli(ev, args):
-    if args.mode == "report":
+    if args.mode == "numeric":
+        print(json.dumps(ev.numeric(args.images, args.tasks.split(",")), ensure_ascii=False, indent=2))
+    elif args.mode == "report":
         tasks = [t.strip() for t in args.tasks.split(",") if t.strip()]
         _print_report(ev.report(args.images, tasks))
     elif args.mode == "pipeline":

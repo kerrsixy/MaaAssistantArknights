@@ -250,7 +250,8 @@
             "JieGarden@Roguelike@CloseEvent",
             "JieGarden@Roguelike@StageEncounterOptions#next",
             "JieGarden@Roguelike@DropsFlag"
-        ]
+        ],
+        "maxTimes": 6
     },
     "JieGarden@Roguelike@CloseInterview": {
         "template": "JieGarden@Roguelike@CloseCollectionClose.png"

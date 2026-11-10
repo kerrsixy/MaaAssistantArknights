@@ -1,4 +1,4 @@
-#include "Assistant.h"
+﻿#include "Assistant.h"
 
 #include "MaaUtils/NoWarningCV.hpp"
 #include <meojson/json.hpp>
@@ -22,6 +22,7 @@
 #include "Task/Interface/InfrastTask.h"
 #include "Task/Interface/MallTask.h"
 #include "Task/Interface/OperBoxTask.h"
+#include "Task/Interface/OperStrengthTask.h"
 #include "Task/Interface/OperProgressTask.h"
 #include "Task/Interface/ParadoxCopilotTask.h"
 #include "Task/Interface/ReclamationTask.h"
@@ -346,6 +347,7 @@ asst::Assistant::TaskId asst::Assistant::append_task(const std::string& type, co
     ASST_ASSISTANT_APPEND_TASK_FROM_STRING_IF_BRANCH(VideoRecognitionTask)
     ASST_ASSISTANT_APPEND_TASK_FROM_STRING_IF_BRANCH(DepotTask)
     ASST_ASSISTANT_APPEND_TASK_FROM_STRING_IF_BRANCH(OperBoxTask)
+    ASST_ASSISTANT_APPEND_TASK_FROM_STRING_IF_BRANCH(OperStrengthTask)
     ASST_ASSISTANT_APPEND_TASK_FROM_STRING_IF_BRANCH(ReclamationTask)
     ASST_ASSISTANT_APPEND_TASK_FROM_STRING_IF_BRANCH(SwitchThemeTask)
     ASST_ASSISTANT_APPEND_TASK_FROM_STRING_IF_BRANCH(CustomTask)

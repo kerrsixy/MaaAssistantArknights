@@ -134,6 +134,8 @@ extern "C"
     AsstSize ASSTAPI AsstGetNullSize();
 
     ASSTAPI_PORT const char* ASST_CALL AsstGetVersion();
+    // 调试用：对指定 PNG 跑一次黑流树海地图识别，返回 JSON 字节数（先传 buff=null 取长度）
+    AsstSize ASSTAPI AsstBlackFlowDebugAnalyze(const char* image_path, int floor, void* buff, AsstSize buff_size);
     void ASSTAPI AsstLog(const char* level, const char* message);
 
 #ifdef __cplusplus

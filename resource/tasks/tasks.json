@@ -845,6 +845,7 @@
     "StartUpBegin": {
         "algorithm": "JustReturn",
         "next": [
+            "Roguelike@StoryConfirm",
             "StartUp@StartUpThemes#next",
             "StartUpBegin@LoadingIcon",
             "StartUp@ReturnButtons#next",
@@ -1906,11 +1907,19 @@
         "algorithm": "JustReturn",
         "next": [
             "RecruitingActivitiesReturnHome",
+            "RecruitingActivities@HomeFinished",
             "RecruitingActivitiesReturnHome@QuickSwitch@ToHome#next",
             "RecruitingActivitiesReturnHome@ReturnButtons#next",
             "RecruitingActivities",
             "RecruitingActivities@OfflineConfirm"
         ]
+    },
+    "RecruitingActivities@HomeFinished": {
+        "Doc": "公招处理后已回到主界面时停止，避免首页返回链重复重试。",
+        "algorithm": "OcrDetect",
+        "text": ["采购"],
+        "roi": [700, 390, 400, 190],
+        "action": "Stop"
     },
     "RecruitingActivitiesReturnHome": {
         "baseTask": "Home",
@@ -2155,11 +2164,19 @@
             "DailyTask",
             "WeeklyTask",
             "Award",
+            "Award@HomeFinished",
             "AwardBegin@QuickSwitch@ToHome#next",
             "Award@ReturnButtons#next",
             "Award@CloseAnnos#next",
             "Award@OfflineConfirm"
         ]
+    },
+    "Award@HomeFinished": {
+        "Doc": "奖励/邮件处理后已回到主界面时停止，避免 QuickSwitch 返回链在首页反复重试。",
+        "algorithm": "OcrDetect",
+        "text": ["采购"],
+        "roi": [700, 390, 400, 190],
+        "action": "Stop"
     },
     "Award": {
         "action": "DoNothing",
@@ -2210,11 +2227,19 @@
         "algorithm": "JustReturn",
         "next": [
             "MailReturnToHome",
+            "Mail@HomeFinished",
             "MailReturnToHome@QuickSwitch@ToHome#next",
             "MailReturnToHome@ReturnButtons#next",
             "ReceiveMail",
             "Mail@OfflineConfirm"
         ]
+    },
+    "Mail@HomeFinished": {
+        "Doc": "邮件处理后已回到主界面时停止，避免返回链在首页重复重试。",
+        "algorithm": "OcrDetect",
+        "text": ["采购"],
+        "roi": [700, 390, 400, 190],
+        "action": "Stop"
     },
     "MailReturnToHome": {
         "baseTask": "Home",
@@ -5196,10 +5221,40 @@
         "action": "Stop"
     },
     "OperBoxSlowlySwipeToTheRight": {
-        "doc": "6个横向干员防止识别不全990px",
+        "doc": "干员列表横向翻页（向右，读后面的干员）；慢拖 1200ms、末端不含惯性，避免松手后甩过头漏读",
         "baseTask": "SlowlySwipeToTheRight",
+        "postDelay": 700,
+        "specialParams": [
+            1500,
+            0,
+            10,
+            10
+        ],
         "specificRect": [1090, 350, 20, 20],
-        "rectMove": [100, 350, 20, 20]
+        "rectMove": [190, 350, 20, 20]
+    },
+    "OperBoxSlowlySwipeToTheLeft": {
+        "doc": "干员列表横向翻页（回到列表顶端）；当前版本列表为横向滚动，需慢速拖拽才能翻页",
+        "baseTask": "SlowlySwipeToTheRight",
+        "postDelay": 700,
+        "specialParams": [
+            2000,
+            0,
+            10,
+            10
+        ],
+        "specificRect": [
+            190,
+            350,
+            20,
+            20
+        ],
+        "rectMove": [
+            1090,
+            350,
+            20,
+            20
+        ]
     },
     "OperBoxFlagRoleTopROI": {
         "template": "empty.png",

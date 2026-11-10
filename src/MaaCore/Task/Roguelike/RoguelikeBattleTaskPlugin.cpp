@@ -14,8 +14,11 @@
 #include "Config/Roguelike/RoguelikeRecruitConfig.h"
 #include "Config/TaskData.h"
 #include "Controller/Controller.h"
+#include "RoguelikeDeploymentBudget.h"
+#include "RoguelikeSummonPolicy.h"
 #include "Task/ProcessTask.h"
 #include "Utils/Logger.hpp"
+#include "Vision/Matcher.h"
 #include "Vision/RegionOCRer.h"
 
 using namespace asst::battle;
@@ -58,7 +61,6 @@ bool asst::RoguelikeBattleTaskPlugin::verify(AsstMsg msg, const json::value& det
 
 bool asst::RoguelikeBattleTaskPlugin::_run()
 {
-
     // 进入战斗前位于地图界面，读取「目标生命值」并记录掉血，供判断关卡风险
     {
         RegionOCRer hp_ocr(ctrler()->get_image());
@@ -135,19 +137,40 @@ bool asst::RoguelikeBattleTaskPlugin::_run()
     return true;
 }
 
-void asst::RoguelikeBattleTaskPlugin::wait_until_start_button_clicked()
+bool asst::RoguelikeBattleTaskPlugin::wait_until_start_button_clicked()
 {
-    ProcessTask(*this, { m_config->get_theme() + "@Roguelike@WaitForStartButtonClicked" })
-        .set_task_delay(0)
-        .set_retry_times(0)
-        .run();
+    const auto task = Task.get<MatchTaskInfo>(m_config->get_theme() + "@Roguelike@WaitForStartButtonClicked");
+    if (!task) {
+        LogError << __FUNCTION__ << "Missing formation transition recognizer";
+        return false;
+    }
+    const auto start = std::chrono::steady_clock::now();
+    const auto timeout = std::chrono::seconds(Config.get_options().battle_start_timeout_seconds);
+    while (!need_exit()) {
+        Matcher formation(ctrler()->get_image());
+        formation.set_task_info(task);
+        if (!formation.analyze()) {
+            // Leaving formation is expected. calc_stage_info subsequently verifies the battle scene.
+            return true;
+        }
+        if (std::chrono::steady_clock::now() - start >= timeout) {
+            LogError << __FUNCTION__ << "Formation transition timed out";
+            return false;
+        }
+        if (!sleep(250)) {
+            return false;
+        }
+    }
+    return false;
 }
 
 bool asst::RoguelikeBattleTaskPlugin::calc_stage_info()
 {
     LogTraceFunction;
 
-    wait_until_start_button_clicked();
+    if (!wait_until_start_button_clicked()) {
+        return false;
+    }
     clear();
 
     bool calced = false;
@@ -242,6 +265,13 @@ bool asst::RoguelikeBattleTaskPlugin::calc_stage_info()
             battle::Role::Tank,    battle::Role::Sniper,  battle::Role::Caster,
             battle::Role::Support, battle::Role::Special, battle::Role::Drone,
         };
+        // 没有作业的关卡原先 stop_blocking_deploy_num 保持 INT_MAX，导致
+        // has_deployed_blocking_num >= stop_blocking_deploy_num 永不成立，
+        // 高台干员一个都不会下场；第一次阻挡落地后 wait_blocking 又被清掉，
+        // 于是整场只部署一个干员，余下敌人直接穿过防线。
+        // 这里给出保守默认：第一个阻挡落地后放开高台输出，最多 3 人。
+        m_force_air_defense.stop_blocking_deploy_num = 1;
+        m_force_air_defense.deploy_air_defense_num = 3;
     }
     else {
         auto homes_pos = m_homes | std::views::transform(&ReplacementHome::location);
@@ -389,6 +419,46 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
         if (DiceSet.contains(oper.name)) {
             continue;
         }
+        // 地图自带的无名放置物（黑流树海的「工人」）：没有招募信息，只按固定组名匹配。
+        // 依据（用户实测）：不先放工人挖开 (4,1)，第 3 手的远程干员会被卡住放不下去。
+        if (is_nameless_deployable(oper.name)) {
+            if (oper.cooling) {
+                LogDebug << "nameless deployable is cooling now.";
+                continue;
+            }
+            // 只认部署栏最右侧那张：地图自带放置物固定排在最后。
+            // 不能靠「从左往右数第几张」——部署栏会随选中/费用变化重排，位置索引不可靠；
+            // 这里同时要求「没有名字」且「rect.x 最大」，两道条件一起才认为是工人。
+            const auto rightmost = std::ranges::max_element(m_cur_deployment_opers, [](const auto& lhs, const auto& rhs) {
+                return lhs.rect.x < rhs.rect.x;
+            });
+            if (rightmost != m_cur_deployment_opers.end() && rightmost->rect.x != oper.rect.x) {
+                LogDebug << "nameless card is not the rightmost one, skip" << oper.rect.x << rightmost->rect.x;
+                continue;
+            }
+            static constexpr std::string_view nameless_group = "工人";
+            const auto plan_iter = m_deploy_plan.find(std::string(nameless_group));
+            if (plan_iter == m_deploy_plan.end()) {
+                LogDebug << "nameless deployable but no" << nameless_group << "plan for" << m_stage_name;
+                continue;
+            }
+            for (const auto& info : plan_iter->second) {
+                if (m_kills < info.kill_lower_bound || m_kills > info.kill_upper_bound) {
+                    continue;
+                }
+                DeployPlanInfo deploy_plan;
+                deploy_plan.role = oper.role;
+                deploy_plan.oper_name = oper.name;
+                deploy_plan.oper_order_in_group = 0;
+                deploy_plan.rank = info.rank;
+                deploy_plan.placed = info.location;
+                deploy_plan.direction = info.direction;
+                deploy_plan.cost = oper.cost;
+                deploy_plan_list.emplace_back(deploy_plan);
+                Log.info("    deploy plan for nameless deployable", deploy_plan.placed);
+            }
+            continue;
+        }
         // 干员冷却中
         if (oper.cooling) {
             LogDebug << "operator" << oper.name << "is cooling now.";
@@ -409,9 +479,20 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
             if (m_deploy_plan.contains(group_name)) {
                 is_in_group = true;
                 for (const auto& info : m_deploy_plan[group_name]) {
-                    if (m_kills < info.kill_lower_bound || m_kills > info.kill_upper_bound) {
+                    const auto elite = m_oper_elite.find(oper.name);
+                    if ((info.minimum_elite > 0 &&
+                         (elite == m_oper_elite.end() || elite->second < info.minimum_elite)) ||
+                        (!info.operator_names.empty() &&
+                         std::ranges::find(info.operator_names, oper.name) == info.operator_names.end())) {
+                        continue;
+                    }
+                    if (m_kills < info.kill_lower_bound) {
                         LogDebug << "    deploy info" << oper.name << "in group" << group_name << "is waiting.";
                         is_success = true; // 如果发现了待命干员，此函数最终返回true
+                        continue;
+                    }
+                    if (m_kills > info.kill_upper_bound) {
+                        // 已经过期的部署指令不能阻止后续指令或通用部署。
                         continue;
                     }
 
@@ -451,8 +532,13 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
     // 排序结果必须可见：否则「低费优先」是否真的生效只能靠 best deploy 反推，
     // 而同 rank 多条记录混在一起时根本看不出谁排在前面。
     for (size_t i = 0; i < deploy_plan_list.size() && i < 3; ++i) {
-        Log.trace(
-            "    deploy order #", i + 1, deploy_plan_list[i].oper_name, "rank", deploy_plan_list[i].rank, "cost",
+        Log.info(
+            "    deploy order #",
+            i + 1,
+            deploy_plan_list[i].oper_name,
+            "rank",
+            deploy_plan_list[i].rank,
+            "cost",
             deploy_plan_list[i].cost);
     }
     // 部署位预留策略：记录「优先级更高但费用不足」的待命项，
@@ -473,32 +559,63 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
     for (const auto& deploy_plan : deploy_plan_list) {
         if (!m_used_tiles.contains(deploy_plan.placed) &&
             !m_blacklist_location.contains(deploy_plan.placed) /* 判断该位置是否已被占据 */) {
-            if (auto oper_it = std::ranges::find_if(
-                    m_cur_deployment_opers,
-                    [&](const auto& oper) {
-                        return oper.role == deploy_plan.role && oper.name == deploy_plan.oper_name;
-                    });
-                oper_it == m_cur_deployment_opers.end() || !oper_it->available) { // 等费
+            const auto oper_it = std::ranges::find_if(m_cur_deployment_opers, [&](const auto& oper) {
+                return oper.role == deploy_plan.role && oper.name == deploy_plan.oper_name;
+            });
+            if (oper_it == m_cur_deployment_opers.end() || !oper_it->available) { // 等费
                 // 费用不够时继续尝试排名更低的干员，而不是直接放弃本次部署。
                 // 否则高费干员排在 rank 1 时会把整条部署链卡死：既不放低费先锋回费，
                 // 也永远等不到高费干员所需的费用，最终一路漏怪。
-                Log.trace("    best deploy is", deploy_plan.oper_name, "with rank", deploy_plan.rank,
-                          "but now waiting for cost, try next.");
+                Log.info(
+                    "    best deploy is",
+                    deploy_plan.oper_name,
+                    "with rank",
+                    deploy_plan.rank,
+                    "but now waiting for cost, try next.");
                 if (deploy_plan.rank < best_waiting_rank) {
                     best_waiting_rank = deploy_plan.rank;
                     best_waiting_name = deploy_plan.oper_name;
                 }
                 continue;
             }
-            // 但也不能一味等：场上人数不足 3 时先把人放下，否则前期就漏怪。
-            if (!early_phase && m_used_tiles.size() >= 3 && deploy_plan.rank > best_waiting_rank &&
-                !(need_medic && deploy_plan.role == battle::Role::Medic)) {
-                Log.info("reserve slot: skip", deploy_plan.oper_name, "rank", deploy_plan.rank,
-                         "waiting for", best_waiting_name, "rank", best_waiting_rank);
+            if (!deployment_target_allowed(*oper_it, deploy_plan.placed) &&
+                !is_nameless_deployable(deploy_plan.oper_name)) {
                 continue;
             }
-            deploy_oper(deploy_plan.role, deploy_plan.oper_name, deploy_plan.placed, deploy_plan.direction);
+            // 但也不能一味等：场上人数不足 3 时先把人放下，否则前期就漏怪。
+            if (!is_nameless_deployable(deploy_plan.oper_name) && !early_phase && m_used_tiles.size() >= 3 &&
+                deploy_plan.rank > best_waiting_rank &&
+                !(need_medic && deploy_plan.role == battle::Role::Medic)) {
+                Log.info(
+                    "reserve slot: skip",
+                    deploy_plan.oper_name,
+                    "rank",
+                    deploy_plan.rank,
+                    "waiting for",
+                    best_waiting_name,
+                    "rank",
+                    best_waiting_rank);
+                continue;
+            }
+            if (!deploy_oper(deploy_plan.role, deploy_plan.oper_name, deploy_plan.placed, deploy_plan.direction)) {
+                LogWarn << __FUNCTION__ << "Deployment action failed" << deploy_plan.oper_name << deploy_plan.placed;
+                return true;
+            }
             battle::OperNameTag oper_tag { deploy_plan.role, deploy_plan.oper_name };
+            // 预设部署也必须登记到防线追踪，退场后才能触发紧急补位。
+            if (!m_homes.empty()) {
+                const auto previous_home = m_cur_home_index;
+                const auto nearest = std::ranges::min_element(m_homes, [&](const auto& lhs, const auto& rhs) {
+                    const auto distance = [&](const auto& home) {
+                        return std::abs(home.location.x - deploy_plan.placed.x) +
+                               std::abs(home.location.y - deploy_plan.placed.y);
+                    };
+                    return distance(lhs) < distance(rhs);
+                });
+                m_cur_home_index = static_cast<size_t>(std::distance(m_homes.begin(), nearest));
+                postproc_of_deployment_conditions(*oper_it, deploy_plan.placed, deploy_plan.direction);
+                m_cur_home_index = previous_home;
+            }
             // 防止滑动丢失(有些物体比如鸟笼没有方向),点一下右下角费用那里
             asst::BattleHelper::cancel_oper_selection();
             // 开始计时
@@ -508,7 +625,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
             const auto& oper_info = RoguelikeRecruit.get_oper_info(m_config->get_theme(), oper_tag);
             m_skill_usage[oper_tag] = oper_info.skill_usage;
             m_skill_times[oper_tag] = oper_info.skill_times;
-            Log.trace("    best deploy is", deploy_plan.oper_name, "with rank", deploy_plan.rank);
+            Log.info("    best deploy is", deploy_plan.oper_name, "with rank", deploy_plan.rank);
             return true;
         }
     }
@@ -553,15 +670,32 @@ void asst::RoguelikeBattleTaskPlugin::diagnose_battle_progress()
     if (elapsed >= 30 && static_cast<int>(elapsed / 30) != m_diag_last_heartbeat) {
         m_diag_last_heartbeat = static_cast<int>(elapsed / 30);
         Log.info("battle_progress", m_stage_name, "elapsed", elapsed, "kills", m_kills);
-        Log.info("battle_progress", m_stage_name, "total", m_total_kills, "remain", m_total_kills - m_kills,
-                 "cost", m_cost);
+        Log.info(
+            "battle_progress",
+            m_stage_name,
+            "total",
+            m_total_kills,
+            "remain",
+            m_total_kills - m_kills,
+            "cost",
+            m_cost);
     }
 
     // 停滞告警：45 秒没有任何击杀，基本等价于「打不动 / 已经漏怪 / 输出不足」
     if (!m_diag_stall_warned && elapsed >= 45 && stalled >= 45) {
         m_diag_stall_warned = true;
-        Log.warn("battle_stalled", m_stage_name, "no_kill_for", stalled, "s", "kills", m_kills,
-                 "total", m_total_kills, "cost", m_cost);
+        Log.warn(
+            "battle_stalled",
+            m_stage_name,
+            "no_kill_for",
+            stalled,
+            "s",
+            "kills",
+            m_kills,
+            "total",
+            m_total_kills,
+            "cost",
+            m_cost);
     }
 }
 
@@ -573,11 +707,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
         const auto now_ts = std::chrono::steady_clock::now();
         if (now_ts - last_snap >= std::chrono::seconds(5)) {
             last_snap = now_ts;
-            Log.info(
-                "battle snap: avail",
-                m_cur_deployment_opers.size(),
-                "kills",
-                m_kills);
+            Log.info("battle snap: avail", m_cur_deployment_opers.size(), "kills", m_kills);
         }
     }
     check_drone_tiles();
@@ -649,14 +779,14 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
         }
     }
 
-    if (do_best_deploy()) { // 这是新的部署逻辑，更加精确
+    // 退场事件必须先处理；预设部署成功后提前返回会漏掉这一帧的防线失守。
+    auto urgent_home_opt = check_urgent(pre_cooling, cur_cooling, pre_battlefield);
+    if (!urgent_home_opt && do_best_deploy()) {
         m_first_deploy = false;
         return true;
     }
 
     else { // 这是旧的、通用部署逻辑
-        auto urgent_home_opt = check_urgent(pre_cooling, cur_cooling, pre_battlefield);
-
         battle::DeploymentOper best_oper;
         bool best_oper_is_dice = false;
         size_t normal_home_index = m_cur_home_index;
@@ -706,13 +836,19 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
         // 计算最优部署位置及方向
         auto best_loc_opt = calc_best_loc(best_oper);
         if (!best_loc_opt) {
-            Log.info("Tiles full while calc best plan.");
-            set_position_full(best_oper, true);
+            // 无有效覆盖不等于整类地形已满，下一帧仍需根据干员和防线重新评估。
+            LogTrace << __FUNCTION__ << "No suitable deployment location for" << best_oper.name;
             return true;
         }
         const auto& [placed_loc, direction] = *best_loc_opt;
 
-        deploy_oper(best_oper.role, best_oper.name, placed_loc, direction);
+        if (!deploy_oper(best_oper.role, best_oper.name, placed_loc, direction)) {
+            LogWarn << __FUNCTION__ << "Deployment action failed" << best_oper.name << placed_loc;
+            return true;
+        }
+        if (best_oper_is_dice) {
+            return true;
+        }
         postproc_of_deployment_conditions(best_oper, placed_loc, direction);
 
         battle::OperNameTag oper_tag { best_oper.role, best_oper.name };
@@ -824,6 +960,29 @@ std::optional<size_t> asst::RoguelikeBattleTaskPlugin::check_urgent(
         }
         Point pre_loc = pre_loc_iter->second;
 
+        {
+            constexpr auto DeathHotspotWindow = std::chrono::seconds(180);
+            constexpr int DeathHotspotLimit = 2;
+            auto now = std::chrono::steady_clock::now();
+            auto last_iter = m_last_death_time.find(pre_loc);
+            if (last_iter != m_last_death_time.end() && now - last_iter->second <= DeathHotspotWindow) {
+                ++m_death_count[pre_loc];
+            }
+            else {
+                m_death_count[pre_loc] = 1;
+            }
+            m_last_death_time[pre_loc] = now;
+            if (m_death_count[pre_loc] >= DeathHotspotLimit && m_blacklist_location.emplace(pre_loc).second) {
+                Log.info(
+                    __FUNCTION__,
+                    "| repeated death at",
+                    pre_loc,
+                    "count",
+                    m_death_count[pre_loc],
+                    ", blacklist this location");
+            }
+        }
+
         if (auto del_loc_blocking = m_blocking_for_home_index.find(pre_loc);
             del_loc_blocking != m_blocking_for_home_index.end()) {
             Log.info("Urgent situation detected");
@@ -864,6 +1023,9 @@ std::optional<asst::battle::DeploymentOper> asst::RoguelikeBattleTaskPlugin::cal
     bool has_blocking = false;
     bool has_air_defense = false;
     for (const auto& oper : m_cur_deployment_opers) {
+        if (!oper.available || oper.cooling || DiceSet.contains(oper.name)) {
+            continue;
+        }
         const auto& role = oper.role;
         switch (role) {
         case Role::Medic:
@@ -894,7 +1056,13 @@ std::optional<asst::battle::DeploymentOper> asst::RoguelikeBattleTaskPlugin::cal
     bool use_air_defense =
         has_air_defense && !m_force_air_defense.has_finished_deploy_air_defense &&
         m_force_air_defense.has_deployed_blocking_num >= m_force_air_defense.stop_blocking_deploy_num && !m_ranged_full;
-    bool use_blocking = has_blocking && m_homes_status[m_cur_home_index].wait_blocking && !m_melee_full;
+    // 只守一个阻挡位时，该阻挡一旦阵亡就会出现空档，而替补干员还在冷却。
+    // 但无作业关卡的 m_role_order 以 Warrior/Pioneer/Tank 打头，长期放开阻挡会让
+    // 近战优先于高台输出，DP 全被前排吃掉。这里只在「当前家门正在等阻挡」或
+    // 「场上一个阻挡都没有」时才补阻挡。
+    const bool blocking_shortage = m_blocking_for_home_index.empty();
+    bool use_blocking =
+        has_blocking && !m_melee_full && (m_homes_status[m_cur_home_index].wait_blocking || blocking_shortage);
     bool use_medic = has_medic && m_homes_status[m_cur_home_index].wait_medic && !m_ranged_full;
     Log.trace("use_air_defense", use_air_defense, ", use_blocking", use_blocking, ", use_medic", use_medic);
 
@@ -904,47 +1072,166 @@ std::optional<asst::battle::DeploymentOper> asst::RoguelikeBattleTaskPlugin::cal
             cur_available.emplace_back(oper);
         }
     }
-    // 费用高的优先用，放前面
-    std::ranges::sort(cur_available, [](const auto& lhs, const auto& rhs) { return lhs.cost > rhs.cost; });
+    // 「无主地」的临时雇员清蕈作业需要先保留费用给核心输出；未验证的召唤物
+    // （尤其深海色）会在费用不足时反复点击被占用地块。只在该关隔离这些候选，
+    // 不影响其他关卡对召唤体系的正常使用；维什戴尔、机械师等明确核心不在名单内。
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_stage_name == "无主地") {
+        std::erase_if(cur_available, [&](const DeploymentOper& oper) {
+            return quarantine_blackflow_summon(m_stage_name, oper.name);
+        });
+        if (cur_available.empty()) {
+            LogInfo << __FUNCTION__ << "BlackFlow 无主地 summon quarantine removed all candidates";
+        }
+    }
+    // 已知费用时先把当前买得起的干员放到前面，并在其中优先低费干员。
+    // 黑流树海的未知关卡没有专用作业，若继续等待高费目标，前几波会在没有任何部署的情况下漏怪。
+    // 费用未知时保留旧的高费优先顺序，避免把 OCR 不确定当成可支付。
+    const bool cost_known = m_cost >= 0;
+    const auto affordable = [this, cost_known](const DeploymentOper& oper) {
+        return !cost_known || oper.cost <= m_cost;
+    };
+    std::ranges::stable_sort(cur_available, [&](const auto& lhs, const auto& rhs) {
+        if (!cost_known) {
+            return lhs.cost > rhs.cost;
+        }
+        const bool lhs_affordable = affordable(lhs);
+        const bool rhs_affordable = affordable(rhs);
+        if (lhs_affordable != rhs_affordable) {
+            return lhs_affordable;
+        }
+        if (lhs_affordable && lhs.cost != rhs.cost) {
+            return lhs.cost < rhs.cost;
+        }
+        return lhs.cost > rhs.cost;
+    });
 
-    DeploymentOper best_oper;
+    const auto strategic_score = [&](const DeploymentOper& oper) {
+        const battle::OperNameTag tag { oper.role, oper.name };
+        const auto& info = RoguelikeRecruit.get_oper_info(m_config->get_theme(), tag);
+        return (info.is_key ? 1'000'000 : 0) + info.recruit_priority;
+    };
+    // 预备干员 / 罗德岛临时雇员：面板低、费用低，只要还有别的选择就不该占部署位。
+    // 依据（用户实测）：阵容里塞满预备干员时，最先落地的全是它们，真正的主力反而上不去。
+    const auto is_reserve_oper = [](const std::string& name) {
+        return name.starts_with("预备干员") || name.starts_with("罗德岛临时雇员");
+    };
+    // 同一职业内的取舍：非预备干员优先 → 战术分高优先 → 费用低优先。
+    const auto prefer_oper = [&](const DeploymentOper& candidate, const DeploymentOper& current) {
+        const bool cand_reserve = is_reserve_oper(candidate.name);
+        const bool cur_reserve = is_reserve_oper(current.name);
+        if (cand_reserve != cur_reserve) {
+            return cur_reserve;
+        }
+        const int cand_score = strategic_score(candidate);
+        const int cur_score = strategic_score(current);
+        if (cand_score != cur_score) {
+            return cand_score > cur_score;
+        }
+        return candidate.cost < current.cost;
+    };
 
-    for (auto role : m_role_order) {
-        battle::OperPosition position = get_role_position(role);
-        if (use_air_defense) {
-            if (position != battle::OperPosition::AirDefense) {
+    const auto pick_oper = [&](bool focused, bool affordable_only) -> std::optional<DeploymentOper> {
+        if (!focused) {
+            std::optional<DeploymentOper> best;
+            for (const auto& oper : cur_available) {
+                if ((affordable_only && !affordable(oper)) || DiceSet.contains(oper.name) || get_position_full(oper)) {
+                    continue;
+                }
+                if (!best || prefer_oper(oper, *best)) {
+                    best = oper;
+                }
+            }
+            return best;
+        }
+
+        for (auto role : m_role_order) {
+            const battle::OperPosition position = get_role_position(role);
+            if (focused && use_air_defense && position != battle::OperPosition::AirDefense) {
                 continue;
             }
-        }
-        else if (use_blocking) {
-            if (position != battle::OperPosition::Blocking) {
+            if (focused && !use_air_defense && use_blocking && position != battle::OperPosition::Blocking) {
                 continue;
             }
-        }
-        else if (use_medic) {
-            if (role != battle::Role::Medic) {
+            if (focused && !use_air_defense && !use_blocking && use_medic && role != battle::Role::Medic) {
                 continue;
             }
-        }
 
-        for (const battle::DeploymentOper& oper : cur_available) {
-            if (oper.role == role && !DiceSet.contains(oper.name) && !get_position_full(oper)) {
-                best_oper = oper;
-                break;
+            std::optional<DeploymentOper> best_of_role;
+            for (const battle::DeploymentOper& oper : cur_available) {
+                if (affordable_only && !affordable(oper)) {
+                    continue;
+                }
+                if (oper.role != role || DiceSet.contains(oper.name) || get_position_full(oper)) {
+                    continue;
+                }
+                // 原来这里是「同职业里取第一个」：cur_available 按费用升序，于是预备干员
+                // 这类低费单位总能抢先落地。改为同职业内按 prefer_oper 取最优。
+                if (!best_of_role || prefer_oper(oper, *best_of_role)) {
+                    best_of_role = oper;
+                }
+            }
+            if (best_of_role) {
+                return best_of_role;
             }
         }
-        if (!best_oper.name.empty()) {
-            break;
+        return std::nullopt;
+    };
+
+    // 先满足当前防线的职业需求；若该职业全部等费，则退化到任何买得起的干员，
+    // 让未知关卡至少先形成输出/阻挡，而不是等待高费卡直到漏怪。
+    const bool focused = use_air_defense || use_blocking || use_medic;
+    std::optional<DeploymentOper> best_oper = pick_oper(focused, true);
+    if (!best_oper && focused) {
+        best_oper = pick_oper(false, true);
+        if (best_oper) {
+            LogInfo << __FUNCTION__ << "focus role unavailable at current cost; deploy affordable fallback"
+                    << best_oper->name << best_oper->cost << m_cost;
         }
+    }
+    if (!best_oper) {
+        best_oper = pick_oper(focused, false);
+    }
+    if (!best_oper && focused) {
+        best_oper = pick_oper(false, false);
     }
     // 2026-10-26 移除「随机兑底」：职业组全不匹配时强行放人，是无效站位的主要来源
     // （会把近卫放到高台、把医疗放到没怪的路径上）。没有匹配就不放。
-    if (best_oper.name.empty()) {
-        Log.info("No best oper");
+    if (!best_oper) {
+        LogInfo << __FUNCTION__ << "No best oper" << "stage" << m_stage_name << "cost" << m_cost
+                << "available_cards" << cur_available.size();
+        for (const auto& candidate : cur_available) {
+            LogInfo << __FUNCTION__ << "candidate" << candidate.name << "role"
+                    << static_cast<int>(candidate.role)
+                    << "cost" << candidate.cost << "cooling" << candidate.cooling
+                    << "position_full" << get_position_full(candidate)
+                    << "legal_locations" << available_locations(candidate).size();
+        }
         return std::nullopt;
     }
-    Log.info("best oper is", best_oper.name, "with cost being", best_oper.cost);
-    return best_oper;
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+        const auto deployed_operators = std::ranges::count_if(m_battlefield_opers, [](const auto& entry) {
+            return entry.first.role != Role::Drone;
+        });
+        const bool urgent = focused || m_homes_status[m_cur_home_index].wait_blocking;
+        for (const auto& pending : m_cur_deployment_opers) {
+            const auto& info = RoguelikeRecruit.get_oper_info(
+                m_config->get_theme(),
+                battle::OperNameTag { pending.role, pending.name });
+            if (pending.cooling || pending.role == Role::Drone || !info.is_key ||
+                strategic_score(pending) <= strategic_score(*best_oper) || available_locations(pending).empty()) {
+                continue;
+            }
+            // 场上只有两名干员时谈不上整条防线已经建立：这时候留下的费用往往换来的是
+            // 一整段空窗漏怪。要求至少三人再为核心留钱。
+            if (reserve_core_budget(deployed_operators >= 3, urgent, m_cost, pending.cost)) {
+                LogInfo << __FUNCTION__ << "Reserve deployment cost for core" << pending.name << "cost" << pending.cost
+                        << "current" << m_cost << "defer" << best_oper->name;
+                return std::nullopt;
+            }
+        }
+    }
+    Log.info("best oper is", best_oper->name, "with cost being", best_oper->cost);
+    return *best_oper;
 }
 
 void asst::RoguelikeBattleTaskPlugin::all_melee_retreat()
@@ -970,6 +1257,10 @@ void asst::RoguelikeBattleTaskPlugin::clear()
     m_homes.clear();
     m_allow_to_use_dice = true;
     m_blacklist_location.clear();
+    m_last_death_time.clear();
+    m_death_count.clear();
+    m_dynamic_tile_observation.clear();
+    m_dynamic_tile_observation_enabled = false;
     m_force_deploy_direction.clear();
     m_force_air_defense = decltype(m_force_air_defense)();
 
@@ -992,10 +1283,30 @@ void asst::RoguelikeBattleTaskPlugin::clear()
 std::vector<asst::Point> asst::RoguelikeBattleTaskPlugin::available_locations(const DeploymentOper& oper) const
 {
     auto type = BattleData.get_location_type(oper.role, oper.name);
-    if (type == LocationType::Invalid || type == LocationType::None) {
-        return available_locations(get_role_usual_location(oper.role));
+    auto locations = available_locations(
+        type == LocationType::Invalid || type == LocationType::None ? get_role_usual_location(oper.role) : type);
+    std::erase_if(locations, [&](const Point& loc) { return !deployment_retry_allowed(oper, loc); });
+    return locations;
+}
+
+bool asst::RoguelikeBattleTaskPlugin::deployment_target_allowed(const DeploymentOper& oper, const Point& loc) const
+{
+    if (m_dynamic_tile_observation_enabled) {
+        const auto it = m_dynamic_tile_observation.find(loc);
+        if (it == m_dynamic_tile_observation.end() || !battle::tile_may_be_selected(it->second, true)) {
+            return false;
+        }
     }
-    return available_locations(type);
+    const auto locations = available_locations(oper);
+    return std::ranges::find(locations, loc) != locations.end();
+}
+
+void asst::RoguelikeBattleTaskPlugin::set_dynamic_tile_observation(
+    std::unordered_map<Point, battle::TileAvailability> observation)
+{
+    m_dynamic_tile_observation = std::move(observation);
+    m_dynamic_tile_observation_enabled = !m_dynamic_tile_observation.empty();
+    LogInfo << __FUNCTION__ << "Dynamic tile observation updated" << m_dynamic_tile_observation.size();
 }
 
 std::vector<asst::Point> asst::RoguelikeBattleTaskPlugin::available_locations(battle::LocationType type) const
@@ -1115,9 +1426,8 @@ std::optional<asst::RoguelikeBattleTaskPlugin::DeployInfo>
     const auto& near_loc = available_loc.front();
     int min_dist = std::abs(near_loc.x - home.location.x) + std::abs(near_loc.y - home.location.y);
 
-    // 取距离最近的N个点，计算分数。然后使用得分最高的点
-    constexpr int CalcPointCount = 4;
-    for (const auto& loc : available_loc | std::views::take(CalcPointCount)) {
+    // 全图评估合法落点，距离仅作为评分项，不能提前排除能覆盖防线的高台。
+    for (const auto& loc : available_loc) {
         const auto& [cur_direction, cur_score] = calc_best_direction_and_score(loc, oper, home.direction);
         // 离得远的要扣分
         constexpr int DistWeights = -1050;
@@ -1126,9 +1436,30 @@ std::optional<asst::RoguelikeBattleTaskPlugin::DeployInfo>
         if (oper.role == battle::Role::Medic) { // 医疗干员离得远无所谓
             extra_dist_score = 0;
         }
+        // 黑流树海草地机制：干员站在草丛里不会成为敌方远程攻击的目标。
+        // 落点自身是草地时给安全加成，让覆盖条件相同时优先站草丛；
+        // 该加成不计入 best_raw_score，避免「打不到敌人」的草丛通过盲放抑制检查。
+        constexpr int GrassLocationBonus = 2200;
+        int location_bonus = 0;
+        if (auto tile_iter = m_side_tile_info.find(loc);
+            tile_iter != m_side_tile_info.end() && tile_iter->second.key == TilePack::TileKey::Grass) {
+            location_bonus = GrassLocationBonus;
+        }
 
-        if (cur_score + extra_dist_score > max_score) {
-            max_score = cur_score + extra_dist_score;
+        // 近战干员优先站在敌人行军路线上：只有踩在道路上才能真正挡住敌人，
+        // 站在道路旁边只能等敌人绕过去，漏怪往往就是从这里开始的。
+        constexpr int PathBlockBonus = 1500;
+        const bool melee_like = oper.role == battle::Role::Tank || oper.role == battle::Role::Warrior
+                             || oper.role == battle::Role::Pioneer;
+        if (melee_like) {
+            if (auto tile_iter = m_side_tile_info.find(loc);
+                tile_iter != m_side_tile_info.end() && tile_iter->second.key == TilePack::TileKey::Road) {
+                location_bonus += PathBlockBonus;
+            }
+        }
+
+        if (cur_score + extra_dist_score + location_bonus > max_score) {
+            max_score = cur_score + extra_dist_score + location_bonus;
             best_raw_score = cur_score;
             best_location = loc;
             best_direction = cur_direction;
@@ -1252,6 +1583,18 @@ asst::RoguelikeBattleTaskPlugin::DirectionAndScore asst::RoguelikeBattleTaskPlug
                 }
                 break;
             default:
+                // 高台输出应支援当前防线；单纯统计道路会偏好远离接敌点的空路。
+                if (oper.role == battle::Role::Sniper || oper.role == battle::Role::Caster ||
+                    oper.role == battle::Role::Support) {
+                    if (auto occupied = m_used_tiles.find(absolute_pos);
+                        occupied != m_used_tiles.end() &&
+                        get_role_position(occupied->second.role) == battle::OperPosition::Blocking) {
+                        score += 10'000;
+                    }
+                    if (absolute_pos == home_loc) {
+                        score += 2000;
+                    }
+                }
                 if (auto iter = m_side_tile_info.find(absolute_pos); iter == m_side_tile_info.end()) {
                 }
                 else if (auto it = TileKeyFightWeights.find(iter->second.key); it != TileKeyFightWeights.end()) {

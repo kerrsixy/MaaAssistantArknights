@@ -23,6 +23,7 @@
 #include "Vision/MultiMatcher.h"
 #include "Vision/OCRer.h"
 #include "Vision/RegionOCRer.h"
+#include "Vision/Roguelike/RoguelikeParameterAnalyzer.h"
 
 asst::DebugTask::DebugTask(const AsstCallback& callback, Assistant* inst) :
     InterfaceTask(callback, inst, TaskType)
@@ -36,6 +37,9 @@ bool asst::DebugTask::run()
 
     if (m_image_test_mode == "report") {
         return image_test_report();
+    }
+    if (m_image_test_mode == "numeric") {
+        return image_test_numeric();
     }
     if (m_image_test_mode == "pipeline") {
         return image_test_pipeline();
@@ -161,7 +165,7 @@ bool asst::DebugTask::set_params_impl(const json::value& params)
     }
     images = std::move(*images_opt);
 
-    if (mode == "report" || mode == "pipeline") {
+    if (mode == "report" || mode == "pipeline" || mode == "numeric") {
         auto tasks_opt = params.find<std::vector<std::string>>("tasks");
         if (!tasks_opt || tasks_opt->empty()) {
             LogError << __FUNCTION__ << "failed, tasks not found";
@@ -282,6 +286,36 @@ bool asst::DebugTask::image_test_report()
             all_ok = false;
             emit_eval_error("report", image_path, e.what());
         }
+    }
+    return all_ok;
+}
+
+bool asst::DebugTask::image_test_numeric()
+{
+    bool all_ok = true;
+    for (const auto& image_path : m_eval_images) {
+        const auto image = load_eval_image(image_path);
+        if (!image.has_value()) {
+            all_ok = false;
+            emit_eval_error("numeric", image_path, "failed to load image");
+            continue;
+        }
+        json::array results;
+        for (const auto& task : m_eval_tasks) {
+            const auto number = RoguelikeParameterAnalyzer::read_number(*image, task);
+            json::object entry { { "task", task }, { "value", nullptr } };
+            if (number.has_value()) {
+                entry["value"] = *number;
+            }
+            results.emplace_back(std::move(entry));
+        }
+        callback(
+            AsstMsg::SubTaskExtraInfo,
+            json::object { { "what", "DebugImageTest" },
+                           { "details",
+                             json::object { { "mode", "numeric" },
+                                            { "image", image_path },
+                                            { "results", std::move(results) } } } });
     }
     return all_ok;
 }

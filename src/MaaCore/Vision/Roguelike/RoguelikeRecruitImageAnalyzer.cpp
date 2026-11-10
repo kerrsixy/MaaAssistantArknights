@@ -1,4 +1,5 @@
 #include "RoguelikeRecruitImageAnalyzer.h"
+#include "RoguelikeRecruitEvidence.h"
 
 #include "Config/TaskData.h"
 #include "MaaUtils/NoWarningCV.hpp"
@@ -10,6 +11,12 @@
 bool asst::RoguelikeRecruitImageAnalyzer::analyze()
 {
     LogTraceFunction;
+    m_result.clear();
+
+    Matcher temporary_matcher(m_image);
+    temporary_matcher.set_task_info("Roguelike@TempRecruitFlag");
+    const bool temporary_badge = temporary_matcher.analyze().has_value();
+    const auto list_roi = Task.get("RoguelikeRecruitOcrFlag")->roi;
 
     TemplDetOCRer analyzer(m_image);
     analyzer.set_task_info("RoguelikeRecruitOcrFlag", "RoguelikeRecruitOcr");
@@ -47,6 +54,12 @@ bool asst::RoguelikeRecruitImageAnalyzer::analyze()
         info.name = res.text;
         info.elite = elite;
         info.level = level;
+        info.temporary = has_first_slot_temporary_badge(
+            temporary_badge, res.rect.x, res.rect.y, list_roi.x, list_roi.y, list_roi.width, list_roi.height);
+        if (info.temporary) {
+            info.hope_cost = 0;
+            LogInfo << __FUNCTION__ << "First-slot temporary recruit" << info.name << "elite" << elite;
+        }
 
         Log.info(__FUNCTION__, info.name, elite, level, info.rect);
         m_result.emplace_back(std::move(info));

@@ -37,7 +37,7 @@ bool asst::RoguelikeRecruitTaskPlugin::verify(AsstMsg msg, const json::value& de
     if (task_view.ends_with("Roguelike@EnterAfterRecruit")) {
         m_initail_recruit = false;
     }
-    if (task_view.ends_with("Roguelike@ChooseOper")) {
+    if (task_view.ends_with("Roguelike@ChooseOper") || task_view == "ChooseOper") {
         return true;
     }
     else {
@@ -132,16 +132,29 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
     }
 
     if (m_initail_recruit) {
-        // 开局指定招募：顺位无论成败都消耗，本次没招到则落入下方默认优先级遍历
+        // 指定项保留到职业匹配的招募券，不能在第一张不兼容券上消耗。
         const RoguelikeStartOper* start_oper = m_config->get_current_start_oper();
         if (start_oper != nullptr) {
-            const int max_refresh = Task.get("RoguelikeRefreshSupportBtnOcr")->special_params.front();
-            const bool recruited = start_oper->use_support ? recruit_support_char(start_oper->name, max_refresh)
-                                                           : recruit_own_char(start_oper->name);
-            if (recruited) {
-                m_config->advance_start_oper_index();
-                m_starts_complete = true;
-                return true;
+            const auto requested_role = BattleData.get_first_role(start_oper->name);
+            RoguelikeRecruitImageAnalyzer voucher_analyzer(ctrler()->get_image());
+            const bool compatible = requested_role != battle::Role::Unknown && voucher_analyzer.analyze() &&
+                                    std::ranges::any_of(voucher_analyzer.get_result(), [&](const auto& candidate) {
+                                        return BattleData.get_first_role(candidate.name) == requested_role;
+                                    });
+            if (compatible) {
+                const int max_refresh = Task.get("RoguelikeRefreshSupportBtnOcr")->special_params.front();
+                const bool recruited = start_oper->use_support ? recruit_support_char(start_oper->name, max_refresh)
+                                                               : recruit_own_char(start_oper->name);
+                if (recruited) {
+                    m_config->advance_start_oper_index();
+                    m_starts_complete = true;
+                    return true;
+                }
+            }
+            else {
+                // 指定核心尚未兑现，前置职业券优先使用低星补位，保留招募核心的希望。
+                LogInfo << __FUNCTION__ << "Defer requested opening operator until a compatible voucher"
+                        << start_oper->name;
             }
         }
     }
@@ -205,12 +218,7 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
     // 开始识别前先往前翻两页，是方舟的bug，有可能进招募界面时不是从最左边开始
     swipe_to_the_left_of_operlist();
 
-    bool temp_recruit_exist = false; // 检测是否存在临时招募
     auto image = ctrler()->get_image();
-    Matcher temp_recruit_analyzer(image);
-    temp_recruit_analyzer.set_task_info("Roguelike@TempRecruitFlag");
-    temp_recruit_exist = temp_recruit_analyzer.analyze().has_value();
-    Log.trace(__FUNCTION__, "temp_recruit_exist", temp_recruit_exist);
 
     // 读取当前希望值（招募界面顶部「希望 ⚡N」）。
     // 识别失败时保持 -1，此时不启用希望储蓄策略，行为与旧版完全一致。
@@ -350,10 +358,6 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                     // 干员待晋升
                     priority = team_full_without_rookie ? recruit_info.promote_priority_when_team_full
                                                         : recruit_info.promote_priority;
-                    if (temp_recruit_exist) { // 临时招募干员的进阶优先级略微提高
-                        priority += 150;
-                        temp_recruit_exist = false;
-                    }
                     if (oper_info.elite < 2) { // 若未精二，则晋升无意义
                         priority = 0;
                     }
@@ -362,10 +366,9 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
             else {
                 // 干员待招募，检查练度
                 if (oper_info.elite == 2) {
-                    // TODO: 招募时已精二 (随机提升或对应分队) => promoted_priority
-                    priority = team_full_without_rookie ? recruit_info.recruit_priority_when_team_full +
-                                                              recruit_info.promote_priority_when_team_full
-                                                        : recruit_info.recruit_priority + recruit_info.promote_priority;
+                    // 先判断新成员是否适合当前队伍，精二收益在条件修正后计入。
+                    priority = team_full_without_rookie ? recruit_info.recruit_priority_when_team_full
+                                                        : recruit_info.recruit_priority;
                 }
                 else if (is_recruitment_strength_sufficient(oper_info.elite, oper_info.level)) {
                     // 精一55级以上
@@ -392,10 +395,20 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                     }
                 }
 
-                if (temp_recruit_exist && !oper_info.name.starts_with("预备干员")) {
-                    // 临时招募干员具有极高抓取优先级，但是在编队时会占用前面的位置
-                    priority += 600;
-                    temp_recruit_exist = false;
+                // 只在初始招募页面使用开局分，且沿用普通招募的练度门槛。
+                // 局内的前几次招募、低练度候选均不能被开局分覆盖。
+                const bool opening_eligible = is_recruitment_strength_sufficient(oper_info.elite, oper_info.level);
+                if (m_initail_recruit && opening_eligible && recruit_info.start_priority > 0) {
+                    Log.trace(
+                        __FUNCTION__,
+                        "| start phase: use start_priority",
+                        recruit_info.start_priority,
+                        "for",
+                        oper_info.name,
+                        "(was",
+                        priority,
+                        ")");
+                    priority = recruit_info.start_priority;
                 }
 
                 if (!recruit_info.is_alternate) {
@@ -413,6 +426,40 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                             }
                         }
                     }
+
+                    // 黑流树海第三层首领的持续伤害会迅速耗尽没有治疗的队伍。
+                    // 当队伍尚未拥有医疗干员时，提高所有医疗候选的优先级，
+                    // 让随机招募优先补齐最基本的续航能力。
+                    if (theme == RoguelikeTheme::BlackFlow &&
+                        BattleDataConfig::get_instance().get_first_role(oper_info.name) == battle::Role::Medic) {
+                        const bool has_medic = std::ranges::any_of(chars_map, [](const auto& entry) {
+                            return BattleDataConfig::get_instance().get_first_role(entry.first) == battle::Role::Medic;
+                        });
+                        if (!has_medic) {
+                            priority += 450;
+                            Log.trace(__FUNCTION__, "| BlackFlow no medic yet, boost", oper_info.name, priority);
+                        }
+                    }
+
+                    // 同理，队伍里一个地面阻挡都没有时（坦克/近卫/先锋都算），
+                    // 第一个阻挡阵亡就会变成「全员放高台、门口的怪直接走进去」，
+                    // 因此优先补齐能站在道路上的干员。
+                    if (theme == RoguelikeTheme::BlackFlow) {
+                        const auto is_blocker_role = [](battle::Role role) {
+                            return role == battle::Role::Tank || role == battle::Role::Warrior ||
+                                   role == battle::Role::Pioneer;
+                        };
+                        if (is_blocker_role(BattleDataConfig::get_instance().get_first_role(oper_info.name))) {
+                            const bool has_blocker = std::ranges::any_of(chars_map, [&](const auto& entry) {
+                                return is_blocker_role(BattleDataConfig::get_instance().get_first_role(entry.first));
+                            });
+                            if (!has_blocker) {
+                                priority += 450;
+                                Log.trace(__FUNCTION__, "| BlackFlow no blocker yet, boost", oper_info.name, priority);
+                            }
+                        }
+                    }
+
                     for (const auto& priority_offset : recruit_info.collection_priority_offsets) {
                         auto iter =
                             std::find(owned_collection.begin(), owned_collection.end(), priority_offset.collection);
@@ -420,21 +467,35 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                             priority += priority_offset.offset;
                         }
                     }
-                    if (!m_starts_complete) {
+                    // 初始三张免费券由 start_priority 决定开局结构；不能再用 is_start/is_key
+                    // 把同一批候选全部扣成负分，否则会出现第一张招到人、第二张整券跳过。
+                    if (!m_initail_recruit && !m_starts_complete) {
                         if (!recruit_info.is_start) {
                             priority -= 1000;
                         }
                     }
-                    else if (!m_team_complete) {
+                    else if (!m_initail_recruit && !m_team_complete) {
                         if (!recruit_info.is_key) {
                             priority -= 1000;
                         }
                     }
                 }
+
+                // 晋升价值不能抵消当前队伍的招募否决；开局沿用独立的开局分。
+                if (oper_info.elite == 2 && !(m_initail_recruit && recruit_info.start_priority > 0)) {
+                    const int promotion_value = team_full_without_rookie ? recruit_info.promote_priority_when_team_full
+                                                                         : recruit_info.promote_priority;
+                    priority = score_elite_two_recruit(priority, promotion_value);
+                }
             }
 
-            // 优先级为0，可能练度不够被忽略
-            if (priority <= 0) {
+            const auto tier = classify_recruit_candidate(
+                oper_info.elite == 2,
+                priority > 0,
+                oper_info.hope_cost.has_value() && *oper_info.hope_cost == 0,
+                oper_info.temporary,
+                BattleData.get_rarity(battle::Role::Unknown, oper_info.name));
+            if (tier == RoguelikeRecruitTier::Skip) {
                 continue;
             }
 
@@ -446,6 +507,7 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                 RoguelikeRecruitInfo info;
                 info.name = recruit_info.name;
                 info.priority = priority;
+                info.tier = tier;
                 info.is_alternate = recruit_info.is_alternate;
                 info.page_index = i;
                 recruit_list.emplace_back(info);
@@ -477,113 +539,13 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
         sleep(Task.get("RoguelikeCustom-HijackCoChar")->post_delay);
     }
 
-    bool recruited = false;
-    auto recruit_oper = [&](const battle::roguelike::Recruitment& info) {
-        select_oper(info);
-        recruited = true;
-    };
-
     // 没有候选干员，进入后备逻辑
     if (recruit_list.empty()) {
-        Log.trace(__FUNCTION__, "| No oper in recruit list.");
-
-        // 如果划动过，先划回最左边
-        if (i != 0) {
-            swipe_to_the_left_of_operlist(i + 1);
-        }
-
-        image = ctrler()->get_image();
-        RoguelikeRecruitImageAnalyzer analyzer(image);
-        if (!analyzer.analyze()) {
-            Log.error(__FUNCTION__, "| Random recruitment analyse failed");
-            return false;
-        }
-
-        const auto& oper_list = analyzer.get_result();
-
-        // 可能有临时招募的精二的，不要白不要
-        for (const auto& info : oper_list) {
-            if (info.elite != 2) {
-                continue;
-            }
-            Log.trace(__FUNCTION__, "| Choose temporary recruitment elite 2:", info.name, info.elite, info.level);
-            recruit_oper(info);
-            return true;
-        }
-
-        //// 仍然没选，随便选个精一 50 以上的
-        // for (const auto& info : oper_list) {
-        //     if (info.elite == 0 || (info.elite == 1 && info.level < 50)) {
-        //         continue;
-        //     }
-        //     Log.trace(__FUNCTION__, "| Choose random elite 1:", info.name, info.elite, info.level);
-        //     recruit_oper(info);
-        //     return true;
-        // }
-
-        Log.trace(__FUNCTION__, "| Did not choose oper");
+        LogInfo << __FUNCTION__ << "No suitable recruitment candidate; continue voucher flow normally";
         return true;
     }
 
-    // 希望预算：希望不足 6 且队伍已有 4 人时，暂停招募，把希望攒够来买高星干员。
-    // 背景：MAA 原来是无条件见招募点就招，希望会一路被 1 费的 3 星干员吃光，
-    // 导致整局永远凑不齐 6 希望，也就永远招不到六星，队伍强度上不去、后期一路漏怪。
-    // 两重止损，避免「一直攒着不招」把队伍卡死在 4 人：
-    //   1) 希望达到 6 时条件自然不成立，会正常招募；
-    //   2) 连续放弃招募超过 HopeSaveMaxSkips 次后，强制恢复招募。
-    // 例外：本次候选里有｢已拥有、可晋升｣的干员时必须放行。
-    // 依据：晋升通常只要 1~2 希望，比招新干员便宜得多；被储蓄逻辑拦掉等于白丢一次强化，
-    // 表现为｢能精二的时候反而不招募了｣。
-    constexpr int HopeSaveThreshold = 6;
-    constexpr int TeamSizeWhenSaving = 4;
-    constexpr int HopeSaveMaxSkips = 5;
-    const int team_size = static_cast<int>(m_config->status().opers.size());
-    const bool has_promotable = std::ranges::any_of(recruit_list, [](const RoguelikeRecruitInfo& info) {
-        return info.is_alternate;
-    });
-    if (!has_promotable && cur_hope >= 0 && cur_hope < HopeSaveThreshold && team_size >= TeamSizeWhenSaving &&
-        m_hope_save_skips < HopeSaveMaxSkips) {
-        ++m_hope_save_skips;
-        Log.info(
-            __FUNCTION__,
-            "| Saving hope for a better oper. hope:",
-            cur_hope,
-            "team size:",
-            team_size,
-            "skips:",
-            m_hope_save_skips);
-        return true;
-    }
-    if (m_hope_save_skips >= HopeSaveMaxSkips && cur_hope >= 0 && cur_hope < HopeSaveThreshold) {
-        Log.info(
-            __FUNCTION__,
-            "| Hope saving gave up after",
-            m_hope_save_skips,
-            "skips, recruit anyway. hope:",
-            cur_hope);
-        m_hope_save_skips = 0;
-    }
-
-    // 走到这里说明本次要正常招募，把「连续放弃」计数清零。
-    m_hope_save_skips = 0;
-
-    // 临时招募（精英二）是白拿的，必须优先于任何普通候选。
-    // 依据：玩家反馈 MAA 会跳过精二临时招募、转头挑精一普通干员。
-    // 原实现只在｢候选列表为空｣的后备分支里才挑精二，有普通候选时永远轮不到它。
-    {
-        const cv::Mat recruit_image = ctrler()->get_image();
-        RoguelikeRecruitImageAnalyzer temp_analyzer(recruit_image);
-        if (temp_analyzer.analyze()) {
-            for (const auto& info : temp_analyzer.get_result()) {
-                if (info.elite != 2 || m_config->status().opers.contains(info.name)) {
-                    continue;
-                }
-                LogInfo << __FUNCTION__ << "| Choose free elite 2 recruit:" << info.name << "level:" << info.level;
-                recruit_oper(info);
-                return true;
-            }
-        }
-    }
+    // 候选已通过适用性筛选，统一排序；固定希望阈值不能阻断免费券或有效晋升。
 
     // 选择优先级最高的干员
     // 希望宽裕时给六星加权。依据：n6 下六星要 6~7 希望（实测峰值 4~10），
@@ -592,16 +554,31 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
     constexpr int SixStarBonus = 50;
     constexpr int HopeRichThreshold = 5; // 2026-10-26 由 6 降为 5：后期阵容强度不足，提前抢六星
     const bool hope_rich = cur_hope >= HopeRichThreshold;
-    auto oper_score = [hope_rich](const RoguelikeRecruitInfo& info) {
+    // 初始招募页面：职业尚未覆盖的候选加分，鼓励开局职业互补。
+    // 加分数值来自资源 opening.role_diversity_bonus（缺省 500），C++ 不硬编码玩法策略。
+    const bool opening_phase = m_initail_recruit;
+    const int role_bonus = RoguelikeRecruit.get_opening_role_bonus(theme);
+    auto oper_score = [hope_rich, opening_phase, role_bonus, &theme, this](const RoguelikeRecruitInfo& info) {
         int bonus = 0;
         if (hope_rich && BattleDataConfig::get_instance().get_rarity(battle::Role::Unknown, info.name) >= 5) {
             bonus = SixStarBonus;
+        }
+        if (opening_phase && role_bonus > 0) {
+            // role 取自 battle_data.json：recruitment.json 的干员条目没有 role 字段，
+            // 用 RoguelikeRecruit.get_oper_info(...).role 会恒为 Unknown。
+            const battle::Role role = BattleDataConfig::get_instance().get_first_role(info.name);
+            if (role != battle::Role::Unknown && !m_opening_roles.contains(role)) {
+                bonus += role_bonus;
+            }
         }
         return info.priority + bonus;
     };
     auto selected_oper = std::ranges::max_element(
         recruit_list,
         [&oper_score](const RoguelikeRecruitInfo& a, const RoguelikeRecruitInfo& b) {
+            if (a.tier != b.tier) {
+                return a.tier > b.tier;
+            }
             return oper_score(a) < oper_score(b);
         });
     if (selected_oper == recruit_list.cend()) {
@@ -620,6 +597,26 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
         "base_priority:",
         selected_oper->priority);
     std::string char_name = selected_oper->name;
+    LogInfo << __FUNCTION__ << "Selected recruitment tier" << static_cast<int>(selected_oper->tier) << char_name;
+    // 记录开局阶段的职业覆盖情况，供下一轮加分与日志追溯。
+    if (opening_phase) {
+        const battle::Role picked_role = BattleDataConfig::get_instance().get_first_role(char_name);
+        if (picked_role != battle::Role::Unknown) {
+            m_opening_roles.insert(picked_role);
+        }
+        Log.info(
+            __FUNCTION__,
+            "| opening phase: picked",
+            char_name,
+            "role",
+            static_cast<int>(picked_role),
+            "covered roles",
+            m_opening_roles.size(),
+            "diversity bonus",
+            role_bonus,
+            "recruit_count",
+            m_recruit_count);
+    }
     Log.trace(
         __FUNCTION__,
         "| Top priority oper:",
@@ -652,6 +649,7 @@ void asst::RoguelikeRecruitTaskPlugin::reset_in_run_variables()
     m_recruit_count = 0;
     m_starts_complete = false;
     m_team_complete = false;
+    m_opening_roles.clear();
     m_config->reset_start_oper_index();
 }
 

@@ -151,7 +151,9 @@ bool asst::TaskData::lazy_parse(const json::value& json)
                             validity = false;
                             continue;
                         }
-                        else if (ptr->algorithm == AlgorithmType::JustReturn) {
+                        else if (
+                            ptr->algorithm == AlgorithmType::JustReturn && ptr->required_page.empty() &&
+                            ptr->excluded_pages.empty()) {
                             justreturn_task_name = ptr->name;
                         }
 
@@ -277,10 +279,11 @@ bool asst::TaskData::load(const std::filesystem::path& path)
     }
 
 #ifdef ASST_DEBUG
-    return parse(merged);
+    const bool parsed_ok = parse(merged);
 #else
+    bool parsed_ok = false;
     try {
-        return parse(merged);
+        parsed_ok = parse(merged);
     }
     catch (const json::exception& e) {
         Log.error("TaskData::load", "Json parse failed:", path, e.what());
@@ -291,6 +294,102 @@ bool asst::TaskData::load(const std::filesystem::path& path)
         return false;
     }
 #endif
+    // 阶段 D：设定环境变量 MAA_DUMP_TASKS=<输出路径>，资源加载结束后导出真实任务图。
+    char* dump_env = nullptr;
+    size_t dump_len = 0;
+    if (_dupenv_s(&dump_env, &dump_len, "MAA_DUMP_TASKS") == 0 && dump_env != nullptr) {
+        dump_json_tasks(dump_env);
+        free(dump_env);
+    }
+    return parsed_ok;
+}
+
+bool asst::TaskData::dump_json_tasks(const std::filesystem::path& path)
+{
+    LogTraceFunction;
+
+    // get() 是惰性的，先把声明过的任务全部强制解析，否则只能导出被访问过的那批。
+    for (const auto& [declared_name, _] : m_json_all_tasks_info) {
+        get(declared_name);
+    }
+
+    json::object root;
+    for (const auto& [task_name, info] : m_all_tasks_info) {
+        json::object node;
+        node["exists"] = (info != nullptr);
+        if (info != nullptr) {
+            node["algorithm"] = enum_to_string(info->algorithm);
+            node["action"] = enum_to_string(info->action);
+            node["required_page"] = info->required_page;
+            node["excluded_pages"] = json::array(info->excluded_pages);
+            node["max_times"] = info->max_times;
+            node["retry_times"] = info->retry_times;
+            auto to_array = [](const TaskList& tasks) {
+                json::array arr;
+                for (const auto& t : tasks) {
+                    arr.emplace_back(t);
+                }
+                return arr;
+            };
+            node["next"] = to_array(info->next);
+            node["sub"] = to_array(info->sub);
+            node["on_error_next"] = to_array(info->on_error_next);
+            node["exceeded_next"] = to_array(info->exceeded_next);
+            node["reduce_other_times"] = to_array(info->reduce_other_times);
+            // 几何与时间参数：判断「为什么这个任务在错误页面命中」必需
+            auto rect_to_array = [](const Rect& r) {
+                json::array arr;
+                arr.emplace_back(r.x);
+                arr.emplace_back(r.y);
+                arr.emplace_back(r.width);
+                arr.emplace_back(r.height);
+                return arr;
+            };
+            node["roi"] = rect_to_array(info->roi);
+            node["rect_move"] = rect_to_array(info->rect_move);
+            node["specific_rect"] = rect_to_array(info->specific_rect);
+            node["pre_delay"] = info->pre_delay;
+            node["post_delay"] = info->post_delay;
+            node["cache"] = info->cache;
+            node["sub_error_ignored"] = info->sub_error_ignored;
+            // 不同 algorithm 使用不同的派生结构，按真实类型补识别参数
+            if (const auto* ocr = dynamic_cast<const OcrTaskInfo*>(info.get()); ocr != nullptr) {
+                json::array txt;
+                for (const auto& t : ocr->text) {
+                    txt.emplace_back(t);
+                }
+                node["text"] = txt;
+                node["full_match"] = ocr->full_match;
+                node["use_raw"] = ocr->use_raw;
+                json::array bin;
+                bin.emplace_back(ocr->bin_threshold[0]);
+                bin.emplace_back(ocr->bin_threshold[1]);
+                node["bin_threshold"] = bin;
+            }
+            else if (const auto* match = dynamic_cast<const MatchTaskInfo*>(info.get()); match != nullptr) {
+                json::array names;
+                for (const auto& n : match->templ_names) {
+                    names.emplace_back(n);
+                }
+                node["templ_names"] = names;
+                json::array thresholds;
+                for (double th : match->templ_thresholds) {
+                    thresholds.emplace_back(th);
+                }
+                node["templ_thresholds"] = thresholds;
+            }
+        }
+        root[task_name] = node;
+    }
+
+    std::ofstream ofs(path, std::ios::out);
+    if (!ofs.is_open()) {
+        Log.error(__FUNCTION__, "open failed:", path);
+        return false;
+    }
+    ofs << json::value(root).to_string();
+    Log.info(__FUNCTION__, "dumped", m_all_tasks_info.size(), "tasks ->", path);
+    return true;
 }
 
 bool asst::TaskData::parse(const json::value& json)
@@ -325,6 +424,9 @@ void asst::TaskData::clear_tasks()
 
 void asst::TaskData::set_task_base(const std::string& task_name, std::string base_task_name)
 {
+    // 阶段 D：运行时重定向不在静态 dump 里（dump 的是加载后的解析结果），
+    // 这里单独打一行，便于把「运行时把 X 重定向到 Y」与静态图对齐。
+    Log.info(__FUNCTION__, "| runtime redirect:", task_name, "->", base_task_name);
     m_json_all_tasks_info[task_name_view(task_name)]["baseTask"] = std::move(base_task_name);
     clear_tasks();
 }
@@ -541,6 +643,8 @@ asst::TaskPtr asst::TaskData::generate_task_info(const std::string& name)
     ASST_TASKDATA_GET_VALUE_OR("highResolutionSwipeFix", high_resolution_swipe_fix);
     ASST_TASKDATA_GET_VALUE_OR("specialParams", special_params);
     ASST_TASKDATA_GET_VALUE_OR("inputText", input_text);
+    ASST_TASKDATA_GET_VALUE_OR("requiredPage", required_page);
+    ASST_TASKDATA_GET_VALUE_OR("excludedPages", excluded_pages);
 
     // 展开五个任务列表中的虚任务
     ASST_TASKDATA_GET_VALUE_OR_LAZY("next", next, false);
@@ -1100,6 +1204,7 @@ asst::TaskConstPtr asst::TaskData::_default_task_info()
 #ifdef ASST_DEBUG
 // 为了解决类似 beddc7c828126c678391e0b4da288db6d2c2d58a 导致的问题，加载的时候做一个语法检查
 // 主要是处理是否包含未知键值的问题
+
 bool asst::TaskData::syntax_check(const std::string& task_name, const json::value& task_json)
 {
     // 以下按字典序排序
@@ -1195,6 +1300,8 @@ bool asst::TaskData::syntax_check(const std::string& task_name, const json::valu
     }
 
     std::unordered_set<std::string> allowed_key {};
+    allowed_key.insert("requiredPage");
+    allowed_key.insert("excludedPages");
     if (allowed_key_under_algorithm.contains(algorithm)) {
         decltype(allowed_key) tmp = allowed_key_under_algorithm.at(algorithm);
         allowed_key.merge(tmp);

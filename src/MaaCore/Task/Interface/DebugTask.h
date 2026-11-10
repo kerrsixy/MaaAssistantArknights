@@ -28,6 +28,7 @@ private:
     // 结果通过 SubTaskExtraInfo 回调（what = "DebugImageTest"）与日志输出。
     // 配套 python 驱动 tools/maa_core_eval.py（可 import 或 CLI），测试本地图片用它即可
     bool image_test_report();   // 每张图 × 每个任务独立评估命中情况
+    bool image_test_numeric();  // 生产数值观察入口，缺失/无效返回 null
     bool image_test_pipeline(); // 每张图按任务列表跑一次首命中，附带命中任务的 next 列表
     bool image_test_ocr();      // 返回 OCR 原始识别文本（不套任务的 ocrReplace 与 expected 过滤）
     bool image_test_templ();    // 每张图 × 裸模板文件匹配（物品图标等非任务模板），报最佳得分

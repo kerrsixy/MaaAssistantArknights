@@ -183,6 +183,12 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
         int rank = 1;
         for (auto& deploy_info : opt.value()) {
             DeployInfoWithRank info;
+            info.minimum_elite = deploy_info.get("minimum_elite", 0);
+            if (info.minimum_elite < 0 || info.minimum_elite > 2) {
+                LogError << __FUNCTION__ << "Invalid deployment elite requirement" << stage_name;
+                return false;
+            }
+            info.operator_names = deploy_info.get("operator_names", std::vector<std::string> {});
             info.location = Point(deploy_info["location"][0].as_integer(), deploy_info["location"][1].as_integer());
             const std::string& direction_str = deploy_info.get("direction", "none");
             if (auto iter = DeployDirectionMapping.find(direction_str); iter != DeployDirectionMapping.end()) {

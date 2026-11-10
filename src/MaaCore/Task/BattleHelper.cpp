@@ -58,6 +58,8 @@ void asst::BattleHelper::clear()
     m_cur_deployment_opers.clear();
     m_battlefield_opers.clear();
     m_used_tiles.clear();
+    m_unverified_deployment_attempts.clear();
+    m_unverified_deployment_tiles.clear();
 }
 
 bool asst::BattleHelper::calc_tiles_info(const std::string& stage_name, double shift_x, double shift_y)
@@ -223,8 +225,13 @@ bool asst::BattleHelper::update_deployment_(
 
             std::string name = analyze_detail_page_oper_name(name_image, oper.role);
             // 这时候即使名字不合法也只能凑合用了，但是为空还是不行的
-            if (name.empty()) {
-                Log.error("name is empty");
+            if (is_card_name_unusable(name)) {
+                // 无名卡片：肉鸽地图自带的可放置物（黑流树海的「工人」）没有名字文本。
+                // 保留在候选列表里并挂合成名，供 RoguelikeBattleTaskPlugin 用「工人」组匹配。
+                name = std::string(NamelessDeployablePrefix) + std::to_string(oper.index);
+                Log.warn("nameless deployable card, synthesized name", name);
+                set_oper_name(oper, name);
+                m_cur_deployment_opers[oper.index] = oper;
             }
             else {
                 set_oper_name(oper, name);
@@ -288,6 +295,16 @@ bool asst::BattleHelper::update_deployment(bool init, const cv::Mat& reusable, b
         return false;
     }
     const auto old_deployment_opers = std::move(m_cur_deployment_opers);
+
+    // 某些肉鸽地图在全员退场/冷却时会暂时让 BattlefieldMatcher 读不到
+    // 部署栏卡片。不要把上一帧的卡片状态清空，否则冷却结束后永远没有候选
+    // 可以重新识别；保留旧状态只用于等待下一帧，实际部署仍会经过当前费用、
+    // 位置和可用性检查。
+    if (oper_result_opt->deployment.empty() && !old_deployment_opers.empty() && check_in_battle(image)) {
+        m_cur_deployment_opers = old_deployment_opers;
+        Log.warn("BattlefieldMatcher deployment empty; retain previous deployment cards", m_cur_deployment_opers.size());
+        return true;
+    }
 
     if (!update_deployment_(oper_result_opt->deployment, old_deployment_opers, false)) {
         // 发现未知干员，暂停游戏后再重新识别干员
@@ -426,9 +443,16 @@ bool asst::BattleHelper::deploy_oper(
         return false;
     }
 
-    const auto& oper_role = it->role;
-    const auto& oper_name = it->name;
-    const Rect& oper_rect = it->rect;
+    const auto oper = *it;
+    const bool nameless_deployable = is_nameless_deployable(name);
+    if (verify_deployment_enabled() && !nameless_deployable &&
+        (!oper.available || oper.cooling || !deployment_target_allowed(oper, loc))) {
+        LogWarn << __FUNCTION__ << "Deployment precondition rejected" << oper.name << loc;
+        return false;
+    }
+    const auto& oper_role = oper.role;
+    const auto& oper_name = oper.name;
+    const Rect& oper_rect = oper.rect;
 
     auto target_iter = m_side_tile_info.find(loc);
     if (target_iter == m_side_tile_info.cend()) {
@@ -452,7 +476,7 @@ bool asst::BattleHelper::deploy_oper(
         pause();
     }
     Point oper_point(oper_rect.x + oper_rect.width / 2, oper_rect.y + oper_rect.height / 2);
-    m_inst_helper.ctrler()->swipe(
+    bool input_accepted = m_inst_helper.ctrler()->swipe(
         oper_point,
         target_point,
         duration,
@@ -461,7 +485,7 @@ bool asst::BattleHelper::deploy_oper(
         swipe_oper_task_ptr->special_params.at(3) / 10.0);
 
     // 拖动干员朝向
-    if (direction != DeployDirection::None) {
+    if (direction != DeployDirection::None && input_accepted) {
         static const std::unordered_map<DeployDirection, Point> DirectionMap = {
             { DeployDirection::Right, Point::right() }, { DeployDirection::Down, Point::down() },
             { DeployDirection::Left, Point::left() },   { DeployDirection::Up, Point::up() },
@@ -485,7 +509,8 @@ bool asst::BattleHelper::deploy_oper(
             swipe_oper_task_ptr->special_params.at(1));
 
         m_inst_helper.sleep(use_oper_task_ptr->post_delay);
-        m_inst_helper.ctrler()->swipe(target_point, end_point, swipe_oper_task_ptr->post_delay);
+        input_accepted =
+            m_inst_helper.ctrler()->swipe(target_point, end_point, swipe_oper_task_ptr->post_delay) && input_accepted;
         // 仅简单复用，该延迟含义与此处逻辑无关 by MistEO
         m_inst_helper.sleep(use_oper_task_ptr->pre_delay);
     }
@@ -495,28 +520,123 @@ bool asst::BattleHelper::deploy_oper(
         ProcessTask(this_task(), { "BattlePauseCancel" }).run();
     }
 
-    // for SSS, multiple operator may be deployed at the same location.
-    if (m_used_tiles.contains(loc)) {
-        const auto& pre_oper = m_used_tiles.at(loc);
-        LogInfo << "remove previous oper" << pre_oper << loc;
-        m_battlefield_opers.erase(pre_oper);
-        m_used_tiles.erase(loc);
+    if (!input_accepted) {
+        cancel_oper_selection();
+        return false;
+    }
+    auto outcome = battle::DeploymentOutcome::Confirmed;
+    // 无名放置物的卡片没有名字、头像也不在模板库里，验证一定失败并会把格子拉黑，因此直接跳过。
+    if (verify_deployment_enabled() && !nameless_deployable) {
+        outcome = verify_deployment(oper, loc, input_accepted);
+        LogInfo << __FUNCTION__ << "Deployment verification" << oper_name << loc << static_cast<int>(outcome);
+        if (outcome == battle::DeploymentOutcome::Unknown &&
+            (oper_name.starts_with("预备干员") || oper_name.starts_with("罗德岛临时雇员"))) {
+            LogInfo << __FUNCTION__ << "Allowing unverified reserve operator deployment" << oper_name << loc;
+            outcome = battle::DeploymentOutcome::Confirmed;
+        }
+        if (outcome != battle::DeploymentOutcome::Confirmed) {
+            ++m_unverified_deployment_attempts[{ { oper.role, oper.name }, loc }];
+            if (outcome == battle::DeploymentOutcome::Unknown) {
+                ++m_unverified_deployment_tiles[loc];
+                LogWarn << __FUNCTION__ << "Quarantine unverified deployment tile" << loc;
+            }
+        }
+        else {
+            m_unverified_deployment_attempts.erase({ { oper.role, oper.name }, loc });
+            m_unverified_deployment_tiles.erase(loc);
+        }
+        if (deployment_kind(oper) == battle::DeploymentKind::Consumable) {
+            return outcome == battle::DeploymentOutcome::Confirmed;
+        }
     }
 
-    // 肉鸽中，一个干员可能被部署多次
-    battle::OperNameTag oper_tag { oper_role, oper_name };
-    if (m_battlefield_opers.contains(oper_tag) && oper_role != battle::Role::Drone) {
-        Point pre_loc = m_battlefield_opers.at(oper_tag);
-        LogInfo << "remove deploy failed oper" << oper_tag << pre_loc;
-        m_battlefield_opers.erase(oper_tag);
-        // 擦除已使用干员,但是不擦除已使用格子
-        // m_used_tiles.erase(pre_loc);
+    return battle::commit_verified_deployment(outcome, [&]() {
+        // for SSS, multiple operator may be deployed at the same location.
+        if (m_used_tiles.contains(loc)) {
+            const auto& pre_oper = m_used_tiles.at(loc);
+            LogInfo << "remove previous oper" << pre_oper << loc;
+            m_battlefield_opers.erase(pre_oper);
+            m_used_tiles.erase(loc);
+        }
+
+        // 肉鸽中，一个干员可能被部署多次
+        battle::OperNameTag oper_tag { oper_role, oper_name };
+        if (m_battlefield_opers.contains(oper_tag) && oper_role != battle::Role::Drone) {
+            Point pre_loc = m_battlefield_opers.at(oper_tag);
+            LogInfo << "remove deploy failed oper" << oper_tag << pre_loc;
+            m_battlefield_opers.erase(oper_tag);
+            if (const auto previous = m_used_tiles.find(pre_loc);
+                previous != m_used_tiles.end() && previous->second == oper_tag) {
+                m_used_tiles.erase(previous);
+            }
+        }
+
+        register_deployed_oper(oper_role, oper_name, loc);
+        m_inst_helper.sleep(200); // 部署完会有 166 ms 的动画
+    });
+}
+
+asst::battle::DeploymentOutcome
+    asst::BattleHelper::verify_deployment(const battle::DeploymentOper& oper, const Point& loc, bool input_accepted)
+{
+    battle::DeploymentEvidence evidence { .input_accepted = input_accepted };
+    const auto kind = deployment_kind(oper);
+    if (!input_accepted) {
+        return battle::DeploymentOutcome::Rejected;
     }
+    cancel_oper_selection();
+    for (int attempt = 0; attempt < 2 && !m_inst_helper.need_exit(); ++attempt) {
+        evidence.card_present.reset();
+        evidence.target_identity_matches.reset();
+        if (!m_inst_helper.sleep(200)) {
+            break;
+        }
+        BattlefieldMatcher bar(m_inst_helper.ctrler()->get_image());
+        bar.set_object_of_interest({ .deployment = true });
+        if (const auto result = bar.analyze();
+            result && result->deployment.size() + 1 >= m_cur_deployment_opers.size()) {
+            bool present = false;
+            for (const auto& candidate : result->deployment) {
+                if (candidate.role != oper.role || candidate.cooling) {
+                    continue;
+                }
+                if (analyze_oper_with_cache(candidate, std::vector { std::make_pair(oper.name, oper.avatar) })) {
+                    present = true;
+                    break;
+                }
+            }
+            evidence.card_present = present;
+        }
+        evidence.absent_observations = evidence.card_present == false ? evidence.absent_observations + 1 : 0;
+        if (kind != battle::DeploymentKind::Consumable && click_oper_on_battlefield(loc)) {
+            const auto observed_name = analyze_detail_page_oper_name(m_inst_helper.ctrler()->get_image(), oper.role);
+            if (!observed_name.empty()) {
+                evidence.target_identity_matches = observed_name == oper.name;
+            }
+            cancel_oper_selection();
+        }
+        const auto outcome = battle::evaluate_deployment(kind, evidence);
+        LogInfo << __FUNCTION__ << "Deployment evidence" << m_stage_name << oper.name << loc << "kind"
+                << static_cast<int>(kind) << "card_present"
+                << (evidence.card_present ? static_cast<int>(*evidence.card_present) : -1) << "identity_matches"
+                << (evidence.target_identity_matches ? static_cast<int>(*evidence.target_identity_matches) : -1)
+                << "outcome" << static_cast<int>(outcome);
+        if (outcome != battle::DeploymentOutcome::Unknown) {
+            return outcome;
+        }
+    }
+    LogWarn << __FUNCTION__ << "Unconfirmed deployment; occupancy was not committed" << oper.name << loc;
+    utils::save_debug_image(m_inst_helper.ctrler()->get_image_cache(), utils::path("debug/roguelike"), false);
+    return battle::DeploymentOutcome::Unknown;
+}
 
-    register_deployed_oper(oper_role, oper_name, loc);
-    m_inst_helper.sleep(200); // 部署完会有 166 ms 的动画
-
-    return true;
+bool asst::BattleHelper::deployment_retry_allowed(const battle::DeploymentOper& oper, const Point& loc) const
+{
+    if (m_unverified_deployment_tiles.contains(loc)) {
+        return false;
+    }
+    const auto it = m_unverified_deployment_attempts.find({ { oper.role, oper.name }, loc });
+    return it == m_unverified_deployment_attempts.end() || battle::deployment_retry_allowed(it->second);
 }
 
 bool asst::BattleHelper::retreat_oper(const std::string& name)
@@ -1252,3 +1372,4 @@ void asst::BattleHelper::remove_cooling_from_battlefield(const battle::Deploymen
     m_used_tiles.erase(loc);
     m_battlefield_opers.erase(iter);
 }
+

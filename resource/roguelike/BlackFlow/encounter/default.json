@@ -36,6 +36,7 @@
         { "name": "窥视箱中", "option_text": ["保护证据，查缴那些机器！"] },
         { "name": "泪之聚落", "option_num": 2, "choose": 1 },
         { "name": "调谐仪式", "option_text": ["我有一些头绪"] },
-        { "name": "溯源", "option_text": ["不应该冒进"] }
+        { "name": "溯源", "option_text": ["不应该冒进"] },
+        { "name": "狭路相逢", "option_num": 2, "choose": 1 }
     ]
 }

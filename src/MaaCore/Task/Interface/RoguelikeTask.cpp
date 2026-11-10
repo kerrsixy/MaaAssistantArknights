@@ -1,10 +1,12 @@
 #include "RoguelikeTask.h"
 
+#include <filesystem>
 #include <utility>
 
 #include "Common/AsstBattleDef.h"
 #include "Config/TaskData.h"
 #include "Task/ProcessTask.h"
+#include "Utils/Platform/Platform.h"
 
 // ------------------ 通用配置及插件 ------------------
 #include "Task/Miscellaneous/ScreenshotTaskPlugin.h"
@@ -210,6 +212,21 @@ bool asst::RoguelikeTask::run()
         const bool result = InterfaceTask::run();
         finish_run();
         return result;
+    }
+    catch (const std::filesystem::filesystem_error& e) {
+        // 常见于 UTF-8 路径被当成 ANSI 转换（Win32 1113），把失败路径打出来便于定位
+        Log.error(
+            __FUNCTION__,
+            "filesystem_error code:",
+            e.code().value(),
+            "what:",
+            e.what(),
+            "path1:",
+            utils::path_to_utf8_string(e.path1()),
+            "path2:",
+            utils::path_to_utf8_string(e.path2()));
+        finish_run();
+        throw;
     }
     catch (...) {
         finish_run();

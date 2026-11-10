@@ -68,6 +68,8 @@ public class RoguelikeTask : BaseTask, IJsonOnDeserialized
     /// </summary>
     public string Roles { get; set; } = string.Empty;
 
+    public bool PhantomOpeningDefaultsInitialized { get; set; }
+
     /// <summary>
     /// Gets or sets 探索次数
     /// </summary>
@@ -243,6 +245,13 @@ public class RoguelikeTask : BaseTask, IJsonOnDeserialized
 
     public void OnDeserialized()
     {
+        // 已有傀影手动配置视为初始化过，保留用户选择。
+        if (Theme == RoguelikeTheme.Phantom &&
+            (!string.IsNullOrEmpty(Squad) || !string.IsNullOrEmpty(Roles) || StartingOpers.Count > 0))
+        {
+            PhantomOpeningDefaultsInitialized = true;
+        }
+
         // 刷襁褓动物已并入刷开局：原来的培育目标改为刷开局的第一只动物。
         // 放在读配置时做，没打开过设置页就直接启动的旧任务也能迁移到。
         // 迁移只用到本类现有的字段，所以照 StartUpTask 写在 OnDeserialized 里；

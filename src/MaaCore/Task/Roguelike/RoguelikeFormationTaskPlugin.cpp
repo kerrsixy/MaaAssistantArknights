@@ -135,7 +135,25 @@ void asst::RoguelikeFormationTaskPlugin::clear_and_reselect()
     }
 
     std::erase_if(oper_list, [&](const auto& oper) { return oper_to_select.contains(oper.name); });
-    std::ranges::stable_partition(oper_list, [](const auto& oper) { return !oper.name.starts_with("预备干员"); });
+
+    // 剩下的位置按招募优先级从高到低补，而不是按游戏列表顺序补
+    // （游戏列表按等级/稀有度排，会让低伤害干员抢到位置）
+    const auto is_reserve_oper = [](const std::string& name) {
+        return name.starts_with("预备干员") || name.starts_with("罗德岛临时雇员");
+    };
+    const auto priority_of = [&](const std::string& name) {
+        const auto& info = RoguelikeRecruit.get_oper_info(m_config->get_theme(), name);
+        return info.recruit_priority_when_team_full > 0 ? info.recruit_priority_when_team_full : info.recruit_priority;
+    };
+    std::ranges::stable_sort(oper_list, [&](const auto& lhs, const auto& rhs) {
+        const bool lhs_reserve = is_reserve_oper(lhs.name);
+        const bool rhs_reserve = is_reserve_oper(rhs.name);
+        if (lhs_reserve != rhs_reserve) {
+            return !lhs_reserve; // 预备干员永远排最后
+        }
+        return priority_of(lhs.name) > priority_of(rhs.name);
+    });
+
     std::ranges::move(oper_list | std::views::take(13 - sorted_oper_list.size()), std::back_inserter(sorted_oper_list));
 
     for (const auto& oper : sorted_oper_list) {

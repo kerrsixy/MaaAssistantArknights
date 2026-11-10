@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "Common/AsstTypes.h"
@@ -34,6 +35,9 @@ public:
     ResultOpt analyze() const;
 
 private:
+    std::optional<bool> recognize_page(const std::string& name) const;
+    bool check_page(const std::shared_ptr<TaskInfo>& task) const;
+    mutable std::unordered_map<std::string, bool> m_page_results;
     Matcher::ResultOpt match(const std::shared_ptr<TaskInfo>& task_ptr) const;
     OCRer::ResultsVecOpt ocr(const std::shared_ptr<TaskInfo>& task_ptr) const;
     FeatureMatcher::ResultsVecOpt feature_match(const std::shared_ptr<TaskInfo>& task_ptr) const;

@@ -238,9 +238,52 @@ bool BlackFlowMapObservationSource::recognize(
 
         result = m_analyzer->recognize(image, floor, m_diagnostics.level != DiagnosticLevel::Normal);
         record_timing();
+        // 地图移动后的过渡帧可能暂时没有当前标记；若网格尺寸一致且上一帧
+        // 有可靠标记，先沿用上一帧完成路线重建，下一次稳定帧再校正。
+        if (!result.ok && result.error.find("did not locate the current marker") != std::string::npos &&
+            m_last_result.ok && m_last_result.rows == result.rows && m_last_result.columns == result.columns &&
+            m_last_result.node_detection.current_marker_node_id >= 0) {
+            result.ok = true;
+            result.error.clear();
+            const auto previous_marker = std::ranges::find_if(
+                m_last_result.node_detection.nodes,
+                [&](const auto& node) { return node.id == m_last_result.node_detection.current_marker_node_id; });
+            if (previous_marker != m_last_result.node_detection.nodes.end()) {
+                const auto remapped = std::ranges::find_if(
+                    result.node_detection.nodes,
+                    [&](const auto& node) {
+                        return node.row == previous_marker->row && node.column == previous_marker->column && node.exists;
+                    });
+                if (remapped != result.node_detection.nodes.end()) {
+                    result.node_detection.current_marker_node_id = remapped->id;
+                }
+            }
+            result.node_detection.current_marker_score = m_last_result.node_detection.current_marker_score * 0.75;
+        }
+        // 若上一帧也没有可复用的标记，允许在同一张稳定地图上用节点置信度
+        // 选取一个候选当前位置，避免角色标记短暂闪烁导致整层路线重建失败。
+        if (!result.ok && result.error.find("did not locate the current marker") != std::string::npos) {
+            const auto candidate = std::ranges::max_element(
+                result.node_detection.nodes,
+                [](const auto& lhs, const auto& rhs) {
+                    const double l = lhs.exists ? lhs.confidence : -1.0;
+                    const double r = rhs.exists ? rhs.confidence : -1.0;
+                    return l < r;
+                });
+            if (candidate != result.node_detection.nodes.end() && candidate->exists && candidate->confidence >= 0.15) {
+                result.ok = true;
+                result.error.clear();
+                result.node_detection.current_marker_node_id = candidate->id;
+                result.node_detection.current_marker_score = candidate->confidence * 0.5;
+            }
+        }
         if (!result.ok) {
             set_error(error, result.error);
-            m_last_result = std::move(result);
+            // 保留最近一次带有效当前位置的地图帧，供诊断三图使用；
+            // 过渡到战斗/选人页的失败帧不能覆盖它，否则会把选人页保存成地图。
+            if (!m_last_result.ok || m_last_result.node_detection.current_marker_node_id < 0) {
+                m_last_result = std::move(result);
+            }
             observation = std::move(next);
             return false;
         }
@@ -328,8 +371,20 @@ bool BlackFlowMapObservationSource::persist_diagnostics(const DiagnosticArtifact
         set_error(error, "BlackFlow diagnostic artifact set id is invalid");
         return false;
     }
+    // 诊断请求可能在节点战斗/选人页失败后才到达。没有有效的当前地图标记
+    // 时，禁止把预备干员/选人画面写成地图原图，等待下一次真正的地图观测。
+    if (!m_last_result.ok || m_last_result.node_detection.current_marker_node_id < 0 ||
+        m_last_result.node_detection.nodes.empty()) {
+        return true;
+    }
     try {
-        const auto directory = UserDir.get() / "debug" / "BlackFlow" / request.artifact_set_id;
+        std::string round_id = request.artifact_set_id;
+        if (const auto separator = round_id.find('-', 5); separator != std::string::npos) {
+            round_id.erase(separator);
+        }
+        const auto directory = UserDir.get() / "BlackFlowEvidence" /
+                               ("round-" + round_id) /
+                               ("floor-" + std::to_string(m_last_result.floor));
         std::filesystem::create_directories(directory);
         json::object snapshot = request.snapshot;
         snapshot["accepted_observation_id"] = request.observation_id;
@@ -355,9 +410,35 @@ bool BlackFlowMapObservationSource::persist_diagnostics(const DiagnosticArtifact
                 overlay = m_analyzer != nullptr ? m_analyzer->draw_overlay(m_last_result)
                                                 : m_last_result.captured_bgr.clone();
             }
-            if (!write_image_if_present(directory / "captured.png", m_last_result.captured_bgr, error) ||
-                !write_image_if_present(directory / "overlay.png", overlay, error)) {
+            // 同一层固定保留三张图：地图原图、识别/Buff 叠加图、路线规划图。
+            // 当前路线规划图以识别叠加图为底，后续规划步骤会继续在该图上补线。
+            if (!write_image_if_present(directory / "map_original.png", m_last_result.captured_bgr, error) ||
+                !write_image_if_present(directory / "recognition_overlay.png", overlay, error)) {
                 return false;
+            }
+            const auto route_path = directory / "recommended_route.png";
+            if (!std::filesystem::exists(route_path) && !write_image_if_present(route_path, overlay, error)) {
+                return false;
+            }
+            if (request.snapshot.contains("planned_route_steps") &&
+                request.snapshot.contains("rows") && request.snapshot.contains("columns")) {
+                cv::Mat route = overlay.clone();
+                const int rows = std::max(1, request.snapshot.at("rows").as_integer());
+                const int columns = std::max(1, request.snapshot.at("columns").as_integer());
+                const auto point_for = [&](const json::value& node) {
+                    const int row = node.at("row").as_integer();
+                    const int column = node.at("column").as_integer();
+                    return cv::Point(
+                        static_cast<int>((column + 0.5) * route.cols / (columns + 1.0)),
+                        static_cast<int>((row + 0.5) * route.rows / (rows + 1.0)));
+                };
+                for (const auto& step : request.snapshot.at("planned_route_steps").as_array()) {
+                    const auto& path = step.at("path").as_array();
+                    for (std::size_t i = 1; i < path.size(); ++i) {
+                        cv::line(route, point_for(path[i - 1]), point_for(path[i]), cv::Scalar(0, 80, 255), 5, cv::LINE_AA);
+                    }
+                }
+                write_image_if_present(route_path, route, error);
             }
         }
         return true;
