@@ -7,12 +7,12 @@ icon: material-symbols:task
 
 `resource/tasks` 的使用方法及各欄位說明
 
-::: tip
-推薦使用 [Visual Studio Code](https://code.visualstudio.com/) 並安裝 [Maa Pipeline Support](https://marketplace.visualstudio.com/items?itemName=nekosu.maa-support) 擴充功能以實作高效編輯，詳情請查閱擴充功能首頁和 [文件](../develop/vsc-ext-tutorial.md)。
+::: tip  
+推薦使用 [Visual Studio Code](https://code.visualstudio.com/) 並安裝 [Maa Pipeline Support](https://marketplace.visualstudio.com/items?itemName=nekosu.maa-support) 擴充功能以實作高效編輯，詳情請查閱擴充功能首頁和 [文件](../develop/vsc-ext-tutorial.md)。  
 :::
 
-::: warning
-請注意，json 檔案不支援註解。文件中的註解僅供說明參考，請勿直接複製使用。
+::: warning  
+請注意，json 檔案不支援註解。文件中的註解僅供說明參考，請勿直接複製使用。  
 :::
 
 ## 完整欄位一覽
@@ -208,14 +208,14 @@ icon: material-symbols:task
 
 任務列表類型欄位（`sub`, `next`, `onErrorNext`, `exceededNext`, `reduceOtherTimes`）支援運算式計算。
 
-|    符號     |                           含義                           |                  實例                   |
+| 符號 | 含義 | 實例 |
 | :---------: | :------------------------------------------------------: | :-------------------------------------: |
-|     `@`     |                        `@` 型任務                        |            `Fight@ReturnTo`             |
-| `#`（一元） |                          虛任務                          |                 `#self`                 |
-| `#`（二元） |                          虛任務                          |          `StartUpThemes#next`           |
-|     `*`     |                       重複多個任務                       | `(ClickCornerAfterPRTS+ClickCorner)*10` |
-|     `+`     | 任務列表合併（在 next 系列欄位中同名任務只保留最靠前者） |                  `A+B`                  |
-|     `^`     |         任務列表差（在前者但不在後者，順序不變）         |    `(A+A+B+C)^(A+B+D)`（結果為 `C`）    |
+| `@` | `@` 型任務 | `Fight@ReturnTo` |
+| `#`（一元） | 虛任務 | `#self` |
+| `#`（二元） | 虛任務 | `StartUpThemes#next` |
+| `*` | 重複多個任務 | `(ClickCornerAfterPRTS+ClickCorner)*10` |
+| `+` | 任務列表合併（在 next 系列欄位中同名任務只保留最靠前者） | `A+B` |
+| `^` | 任務列表差（在前者但不在後者，順序不變） | `(A+A+B+C)^(A+B+D)`（結果為 `C`） |
 
 運算子 `@`, `#`, `*`, `+`, `^` 有優先順序：`#`（一元）> `@` = `#`（二元）> `*` > `+` = `^`。
 
@@ -255,12 +255,12 @@ icon: material-symbols:task
 
 可以將虛任務分為**指令虛任務**（`#none` / `#self` / `#back`）和**欄位虛任務**（`#next` 等）。
 
-|  虛任務類型  |         含義         |                                                                簡單範例                                                                |
+| 虛任務類型 | 含義 | 簡單範例 |
 | :----------: | :------------------: | :------------------------------------------------------------------------------------------------------------------------------------: |
-|     none     |        空任務        |        直接跳過<sup>1</sup><br>`"A": {"next": ["#none", "T1"]}` 被視為 `"A": {"next": ["T1"]}`<br>`"A#none + T1"` 被視為 `"T1"`        |
-|     self     |     目前任務名稱     | `"A": {"next": ["#self"]}` 中的 `"#self"` 被視為 `"A"`<br>`"B": {"next": ["A@B@C#self"]}` 中的 `"A@B@C#self"` 被視為 `"B"`<sup>2</sup> |
-|     back     |   # 前面的任務名稱   |                                `"A@B#back"` 被視為 `"A@B"`<br>`"#back"` 直接出現則會被跳過<sup>3</sup>                                 |
-| next, sub 等 | # 前任務名稱對應欄位 |                      以 `next` 為例：<br>`"A#next"` 被視為 `Task.get("A")->next`<br>`"#next"` 直接出現則會被跳過                       |
+| none | 空任務 | 直接跳過<sup>1</sup><br>`"A": {"next": ["#none", "T1"]}` 被視為 `"A": {"next": ["T1"]}`<br>`"A#none + T1"` 被視為 `"T1"` |
+| self | 目前任務名稱 | `"A": {"next": ["#self"]}` 中的 `"#self"` 被視為 `"A"`<br>`"B": {"next": ["A@B@C#self"]}` 中的 `"A@B@C#self"` 被視為 `"B"`<sup>2</sup> |
+| back | # 前面的任務名稱 | `"A@B#back"` 被視為 `"A@B"`<br>`"#back"` 直接出現則會被跳過<sup>3</sup> |
+| next, sub 等 | # 前任務名稱對應欄位 | 以 `next` 為例：<br>`"A#next"` 被視為 `Task.get("A")->next`<br>`"#next"` 直接出現則會被跳過 |
 
 _Note<sup>1</sup>: `"#none"` 一般配合範本任務增加前綴的特性使用，或用在欄位 `baseTask` 中避免多檔案繼承不必要的欄位。_
 

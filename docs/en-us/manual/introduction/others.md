@@ -5,8 +5,8 @@ icon: icon-park-solid:other
 
 # Others
 
-::: info UI-Only Feature
-Most features on this page are implemented by the UI layer. See [Getting Started](../newbie.md) for details.
+::: info UI-Only Feature  
+Most features on this page are implemented by the UI layer. See [Getting Started](../newbie.md) for details.  
 :::
 
 ## GPU-Accelerated Inference
@@ -14,6 +14,8 @@ Most features on this page are implemented by the UI layer. See [Getting Started
 Uses DirectML to call the GPU for recognition inference acceleration<sup>[PR](https://github.com/MaaAssistantArknights/MaaAssistantArknights/pull/9236)</sup>, reducing CPU usage significantly with minimal GPU usage. Recommended to enable.
 
 Testing has shown that some graphics cards may experience recognition issues when using this feature due to missing functionality or lower performance. MAA has built-in a blacklist for certain GPUs<sup>[PR1](https://github.com/MaaAssistantArknights/MaaAssistantArknights/pull/9990)[PR2](https://github.com/MaaAssistantArknights/MaaAssistantArknights/pull/12134)</sup>. If you encounter recognition issues with GPUs not on the blacklist after enabling this feature, please submit an Issue.
+
+In `Settings` - `Performance`, the inference backend can be switched: `Auto` and `DirectML` use the DirectML implementation above (Windows only), while `WebGPU` is an experimental option available on Windows / macOS / Linux. If recognition issues appear after enabling WebGPU, switch back to `Auto` or `DirectML`.
 
 ## One-Time Only
 
@@ -66,8 +68,8 @@ MAA updates come in two types of content:
 - **Software version**: Updates to the main program's UI and features.
 - **Resource version**: Material data updates, including new stage maps, drop item icons, recruitment operator tags, etc. Software releases typically include the latest resources at the time of release.
 
-::: tip Navigation Hot Update
-There is also a "navigation hot update" that triggers automatically to update the main interface prompts and event stage entries. A notification appears in the top-right corner upon success.
+::: tip Navigation Hot Update  
+There is also a "navigation hot update" that triggers automatically to update the main interface prompts and event stage entries. A notification appears in the top-right corner upon success.  
 :::
 
 ### Update Channel
@@ -78,18 +80,18 @@ You can switch update channels in `Settings` - `Update Settings`:
 - **Beta**: May have minor bugs, faster support for new features and themes.
 - **Nightly**: Contains unstable features, for testing only. Do not discuss nightly issues elsewhere.
 
-::: tip
-If the interface prompts that your version is too low and the minimum required version is beta, but you are already on the latest version, this means the feature is currently only available in the beta channel. Wait for the stable release or switch to beta to get it.
+::: tip  
+If the interface prompts that your version is too low and the minimum required version is beta, but you are already on the latest version, this means the feature is currently only available in the beta channel. Wait for the stable release or switch to beta to get it.  
 :::
 
 ### Auto Update
 
 In `Settings` - `Update Settings`, you can choose the update source:
 
-| Update Source              | Description                                                                                                                                                                                                |
-| :------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Global Source** (GitHub) | Software version pulled from GitHub; resource version uses [MirrorChyan](https://mirrorchyan.com/en/projects?rid=MAA) for free update detection, manually click `Resource Update` to download from GitHub. |
-| **MirrorChyan**            | Enter CDK to enable automatic updates for both software and resources, prioritizing high-speed CDN downloads. More stable and faster.                                                                      |
+| Update Source | Description |
+| :------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Global Source** (GitHub) | Software updates are checked through the MAA API and downloaded from GitHub; resource updates use [MirrorChyan](https://mirrorchyan.com/en/projects?rid=MAA) for free update checks, and you can click `Resource Update` to download them from GitHub manually.<br>After a GitHub Token is entered and validated, both software and resource updates are checked and downloaded through GitHub. |
+| **MirrorChyan** | Enter CDK to enable automatic updates for both software and resources, prioritizing high-speed CDN downloads. More stable and faster. |
 
 You can toggle the following options in update settings:
 
@@ -123,12 +125,12 @@ If automatic downloads fail or your network is poor, you can manually download t
 - **Full package updates require manual confirmation**: Full packages clean old files in the installation directory (preserving `config`, `data`, `debug`, `cache`, `achievement`, etc.). Ensure MAA is installed in a standalone folder.
 - **Update restrictions while the installation is incomplete**: When resources are corrupted or a previous update failed and has not recovered, MAA rejects OTA packages (both automatic updates and drag-and-drop) and only accepts full packages; dragging in a full package of the same version is also allowed for recovery.
 
-::: danger Full Package Update Risk
-If you place MAA directly in a disk root, Desktop, Downloads, or mix it with other programs/personal files at the same directory level, full package updates may delete sibling files. Always install MAA in a standalone folder and manually back up before updating.
+::: danger Full Package Update Risk  
+If you place MAA directly in a disk root, Desktop, Downloads, or mix it with other programs/personal files at the same directory level, full package updates may delete sibling files. Always install MAA in a standalone folder and manually back up before updating.  
 :::
 
-::: details Traditional method (without drag-and-drop)
-If your MAA version is too old to support drag-and-drop (before v6.8.0-beta.2), extract the full package into a **new** folder, then copy the `config`, `data`, and `debug` folders from the old directory to preserve your settings and logs (the `cache` and `achievement` folders are optional to keep). ⚠️ Do not overwrite the old folder directly — incorrect operations may cause resource corruption.
+::: details Traditional method (without drag-and-drop)  
+If your MAA version is too old to support drag-and-drop (before v6.8.0-beta.2), extract the full package into a **new** folder, then copy the `config`, `data`, and `debug` folders from the old directory to preserve your settings and logs (the `cache` and `achievement` folders are optional to keep). ⚠️ Do not overwrite the old folder directly — incorrect operations may cause resource corruption.  
 :::
 
 #### Resource Update Packages

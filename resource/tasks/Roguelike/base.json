@@ -1,16 +1,9 @@
 {
     "Roguelike": {
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
-        "roi": [
-            227,
-            327,
-            159,
-            152
-        ],
-        "sub": [
-            "Terminal-Entry"
-        ],
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
+        "roi": [227, 327, 159, 152],
+        "sub": ["Terminal-Entry"],
         "next": [
             "Roguelike@CloseAnnos#next",
             "Roguelike@TodoEnter",
@@ -1591,16 +1584,8 @@
     },
     "Roguelike@IntegratedStrategies": {
         "action": "ClickSelf",
-        "roi": [
-            884,
-            606,
-            146,
-            114
-        ],
-        "next": [
-            "Roguelike@IntegratedStrategies",
-            "Roguelike@PreSelectTheme"
-        ]
+        "roi": [760, 606, 270, 114],
+        "next": ["Roguelike@IntegratedStrategies", "Roguelike@PreSelectTheme"]
     },
     "Roguelike@LastReward": {
         "Doc": "你的上一次探索突破了至少两层困难，这一次可以获得更多支援——热水壶",

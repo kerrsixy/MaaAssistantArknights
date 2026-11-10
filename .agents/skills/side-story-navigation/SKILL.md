@@ -11,12 +11,12 @@ description: 新增/更新 SideStory（别传）活动关卡导航。涵盖 task
 
 典型输入是一行式：活动 wiki 链接 + 关卡号与掉落物名称粘着的配对（搓玉关如有一并给出）：
 
-```
+```text
 https://prts.wiki/w/昨日海 6全新装置 7转质盐组 8液化高能气体
 ```
 
 - wiki 链接用 WebFetch 抓取，提取：活动全名、关卡开放起止时间、分期章节名（二期/三期章节名及其开放时间）。**关卡前缀（关卡代号形如 `YW-N`）在 wiki 活动主页通常没有**，可靠路径是从关卡子页面确认（如直接访问 `https://prts.wiki/w/<XX>-1` 验证页面存在），拿不准就向用户要。
-- `<关卡号><材料名>` 配对：材料名在 `resource/item_index.json` 按 `name` 字段反查 key，得 Drop 的 item ID。
+- `<关卡号><材料名>` 配对：材料名在 `resource/item_index.json` 按 `name` 字段反查 key，得 Drop 的 item ID；掉落配对只给材料名，关卡固定掉落的当期活动代币不作 Drop。
 - 选章三件套（方式、识别内容、roi 坐标）与进活动等待时间不在输入里，需另行向用户收集。
 
 ## 必需信息清单
@@ -24,7 +24,7 @@ https://prts.wiki/w/昨日海 6全新装置 7转质盐组 8液化高能气体
 先从用户输入与 wiki 链接提取；仍缺的向用户收集，列出缺少的项目。
 
 | # | 信息项 | 来源 | 说明 | 示例 |
-|---|--------|------|------|------|
+| --- | -------- | ------ | ------ | ------ |
 | 1 | 活动前缀代号 XX | wiki/用户 | 两字母关卡前缀；wiki 活动主页通常无关卡代号，从关卡子页面确认（访问 `prts.wiki/w/<XX>-1` 验证）或直接问用户 | `TO` |
 | 2 | 活动全名 | wiki | 填入 StageActivityV2 的 Tip/StageName | `昨日海` |
 | 3 | OpenOcr 识别文字 | wiki | 活动名、二期章节名、三期章节名（如有），见 §2.4 | `昨日海, 我们的伊比利亚` |
@@ -42,7 +42,7 @@ https://prts.wiki/w/昨日海 6全新装置 7转质盐组 8液化高能气体
 ## 0. 术语
 
 | 简称 | 含义 |
-|------|------|
+| ------ | ------ |
 | **XX** | 活动前缀代号，如 `TD`、`TO`、`AT`，取自关卡名 `XX-7` 的前半 |
 | **tasks 导航文件** | `resource/tasks/Stages/XX.json` |
 | **StageActivityV2** | `build/bin/Debug/cache/gui/StageActivityV2.json`（主仓库的缓存副本） |
@@ -51,7 +51,7 @@ https://prts.wiki/w/昨日海 6全新装置 7转质盐组 8液化高能气体
 ## 1. 涉及的文件
 
 | # | 文件路径 | 必需性 | 作用 |
-|---|----------|--------|------|
+| --- | ---------- | -------- | ------ |
 | 1 | `resource/tasks/Stages/XX.json` | ✅ 必须 | 关卡导航任务定义（OCR 识别活动入口、选章、找关） |
 | 2 | `build/bin/Debug/cache/gui/StageActivityV2.json` | ✅ 本地测试 | 本地构建缓存，客户端运行时从远程 API（`gui/StageActivityV2.json`）拉取，改此文件用于本地测试 |
 | 3 | `../MaaRelease/MaaAssistantArknights/api/gui/StageActivityV2.json` | ✅ 必须 | MaaRelease 远程源文件，StageActivityV2 的真正来源 |
@@ -120,11 +120,12 @@ https://prts.wiki/w/昨日海 6全新装置 7转质盐组 8液化高能气体
 ### 2.3 `XXChapterToXX` 选章任务的两种方式
 
 | 方式 | 适用场景 | algorithm |
-|------|----------|------------|
+| ------ | ---------- | ------------ |
 | **A. OCR** | 章节名是可识别的文字 | `OcrDetect` |
 | **B. 模板图** | 章节名不可 OCR（特殊字体/图标） | `MatchTemplate` |
 
 方式 B 示例：
+
 ```jsonc
 "XXChapterToXX": {
     "action": "ClickSelf",
@@ -143,6 +144,7 @@ https://prts.wiki/w/昨日海 6全新装置 7转质盐组 8液化高能气体
   - 示例：`"text": ["昨日海", "我们的伊比利亚"]`
   - 活动入口横幅随分期开放变化：第一期显示活动名，后续章节开放后变为对应章节名，须提前从 wiki/公告把各期章节名写全。
   - **不切短词**：活动名与章节名都是常用字，OCR 不存在问题，切出的短词反而有误匹配风险。
+  - **text 不允许含标点**：活动名/章节名自带标点时，按标点拆成无标点片段写入（如 ｢时间啊，向前！｣ → `["时间啊", "向前"]`）；拆段仅因标点发生，与不切短词不冲突——后者指不为 OCR 容易而主动切词。
 
 ### 2.5 排列顺序规则
 
@@ -153,6 +155,7 @@ https://prts.wiki/w/昨日海 6全新装置 7转质盐组 8液化高能气体
 ### 2.6 roi 坐标
 
 由用户提供截图坐标。格式为 `[x, y, width, height]`。
+
 - `XXChapterToXX` 的 roi 通常由用户指定形如 "x1040+150 y420+50"，即 `[1040, 420, 150, 50]`。
 
 ## 3. StageActivityV2.json
@@ -191,11 +194,12 @@ https://prts.wiki/w/昨日海 6全新装置 7转质盐组 8液化高能气体
 ### 3.3 MinimumRequired 版本号规则
 
 | `XXChapterToXX` 方式 | 版本号处理 |
-|----------------------|------------|
+| ---------------------- | ------------ |
 | **A. OCR**（已有任务可复用） | 沿用旧活动的值，通常无需改动 |
 | **B. 模板图**（需新增模板） | 必须改为**当前最新 tag 的下一个版本** |
 
 模板图方式的具体操作：
+
 1. 查看当前最新版本号（如 `git describe --tags` 得到 `v6.15.1`）。
 2. 将 `MinimumRequired` 改为下一个 patch 版本（如 `v6.15.2`）。
 3. **通知用户复查**该版本号是否正确，因为新模板图片需要随新版本客户端分发。
@@ -209,8 +213,8 @@ https://prts.wiki/w/昨日海 6全新装置 7转质盐组 8液化高能气体
 ### 3.5 Drop 字段
 
 | 关卡类型 | Drop 取值 | 获取方式 |
-|----------|------------|----------|
-| 后三关（常规掉落） | item_index ID（如 `"31033"`） | 在 `resource/item_index.json` 中按材料名查表取 key |
+| ---------- | ------------ | ---------- |
+| 后三关（常规掉落） | item_index ID（如 `"31033"`） | 在 `resource/item_index.json` 中按材料名查表取 key；活动关卡掉落为当期代币 + 材料，代币不写入 Drop，只取材料掉落 |
 | 搓玉关等特殊关 | 用户提供的文字描述（如 `"搓玉效率0.98"`） | **直接使用用户提供的描述，不查表** |
 
 > 💡 **知识**：个别关卡可能有独立的 `MinimumRequired`（如某关卡需要更新版本才能解锁），可单独加到该关卡的条目中：`{ "Display": "XX-4", "Value": "XX-4", "Drop": "搓玉用", "MinimumRequired": "v6.16.0" }`。但用户通常不会指定，不需要主动询问。
@@ -231,9 +235,9 @@ Test-Path ..\MaaRelease
 ### 4.2 需要同步的文件
 
 | 文件 | 操作 |
-|------|------|
+| ------ | ------ |
 | `api/gui/StageActivityV2.json` | 与主仓库缓存保持一致 |
-| `api/resource/tasks.json` | 将新活动导航任务放文件**开头**（`BlackFlowTemporary` 之前），**并删除被替换旧活动的整块任务** |
+| `api/resource/tasks.json` | 将新活动导航任务放文件**开头**（`BlackFlowTemporary` 之前），**并删除被替换旧活动的整块任务**；选章为模板图时不写入新活动任务，仅删除旧活动整块（见 §4.3） |
 
 ### 4.3 tasks.json 追加规则
 
@@ -241,11 +245,12 @@ Test-Path ..\MaaRelease
 - 新内容放**文件开头**（`{` 之后、第一个已有 key 之前），不是末尾。
 - **同时删除被替换旧活动的全部任务块**（旧前缀 `<旧XX>-` 开头的所有键）：覆盖层只保留现役活动导航，与 StageActivityV2 旧条目整体替换的语义对齐。
 - 内容与主仓库 `resource/tasks/Stages/XX.json` 完全一致。
+- **选章为模板图时不同步新活动任务**：模板图随客户端版本分发，未达 MinimumRequired 的旧客户端拿不到模板图，覆盖层下发的导航任务无法执行；达标的客户端已自带新版 Stages 文件，覆盖层冗余。此情况下仍删除被替换旧活动的整块任务，覆盖层不保留过期导航。
 
 ## 5. 排列顺序速查
 
 | 文件 | 顺序 |
-|------|------|
+| ------ | ------ |
 | `resource/tasks/Stages/XX.json` | 常规关卡编号**从小到大**，**搓玉关放最后** |
 | MaaRelease `api/resource/tasks.json` | 同上 |
 | `StageActivityV2.json` 的 `Stages` 数组 | 关卡编号**从大到小**（搓玉关天然在末尾） |
@@ -259,4 +264,4 @@ Test-Path ..\MaaRelease
 3. 🔶 检查 `../MaaRelease/` 是否存在；存在则：
    - `cd ../MaaRelease; git pull`
    - 修改 `api/gui/StageActivityV2.json`（远程源文件，同步骤 2）
-   - 修改 `api/resource/tasks.json`（导航任务放开头、删除旧活动整块，关卡从小到大）
+   - 修改 `api/resource/tasks.json`（OCR 选章时导航任务放开头并删除旧活动整块；模板图选章时仅删除旧活动整块）

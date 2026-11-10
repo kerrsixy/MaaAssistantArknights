@@ -108,6 +108,7 @@ enum class SubRole
     Special_DollKeeper,       // 傀儡师; 致命伤时切换替身作战, 归溟幽灵鲨, 风丸
     Special_Alchemist,        // 炼金师; 投掷炼金单元协助作战, 引星棘刺, 锡人
     Special_SkyWalker,        // 巡空者; 起飞后阻挡2个飞行敌人, 予愿安洁莉娜, 云迹
+    Special_Dispatcher,       // 调度者; 技能开启后造成超远距离的全体物理伤害, 行铃
 };
 
 // 统一变量名：

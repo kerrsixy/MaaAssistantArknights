@@ -5,8 +5,8 @@ icon: mdi:package-variant-closed
 
 # Depot Maintain
 
-::: info UI-Only Feature
-This page covers UI-layer features. See [Getting Started](../newbie.md) for details.
+::: info UI-Only Feature  
+This page covers UI-layer features. See [Getting Started](../newbie.md) for details.  
 :::
 
 Depot Maintain is a task that **automatically farms materials to a target inventory level**. It calculates the shortfall based on the cached depot data from [Depot Recognition](./tools.md#depot-recognition) and farms the specified stage until the target quantity is reached.
@@ -18,21 +18,21 @@ Depot Maintain is a task that **automatically farms materials to a target invent
 3. After each stage drop, the depot cache is updated in real-time, so materials farmed by earlier plans affect the shortfall calculation of later plans.
 4. Right before each plan starts, MAA re-checks whether it needs to run: if the target inventory is already reached, or the current sanity estimated from the sanity reported by the most recent fight is below the stage's minimum entry cost and the plan has no potion/Originium budget, the plan is skipped entirely (no terminal, no navigation), with the reason logged. Data refreshed by depot recognition takes effect from this step. If a skipped plan turns out to be insufficient after recognition, it will be logged; re-running the task farms it based on the actual inventory. When expiring potions count as unavailable, see [Use expiring sanity potions within 48 hours](#use-expiring-sanity-potions-within-48-hours).
 
-::: tip Depot Data Sync
-Depot data is cached and may differ from your actual stock after manual farming, crafting, or material use. Sync it with [Update Doctor Data](./user-data-update.md) or [Depot Recognition](./tools.md#depot-recognition). If there is no depot data at all, the task skips farming; sync the depot with one of the methods above before running it.
+::: tip Depot Data Sync  
+Depot data is cached and may differ from your actual stock after manual farming, crafting, or material use. Sync it with [Update Doctor Data](./user-data-update.md) or [Depot Recognition](./tools.md#depot-recognition). If there is no depot data at all, the task skips farming; sync the depot with one of the methods above before running it.  
 :::
 
 ## Plan Configuration
 
 Each plan contains the following:
 
-| Setting           | Description                                                                                                            |
+| Setting | Description |
 | :---------------- | :--------------------------------------------------------------------------------------------------------------------- |
-| Stage Selection   | Select the stage to farm. Supports regular stages, chip stages, resource stages, etc. "Current/Last" is not supported. |
-| Specified Drop    | Select the target drop material. Each stage may have multiple drops; choose the one you actually need.                 |
-| Target Inventory  | Set the target quantity for the material. The plan completes automatically when reached.                               |
-| Use Sanity Potion | Check to set the number of sanity potions to use.                                                                      |
-| Use Originium     | Check to set the number of Originium to use.                                                                           |
+| Stage Selection | Select the stage to farm. Supports regular stages, chip stages, resource stages, etc. "Current/Last" is not supported. |
+| Specified Drop | Select the target drop material. Each stage may have multiple drops; choose the one you actually need. |
+| Target Inventory | Set the target quantity for the material. The plan completes automatically when reached. |
+| Use Sanity Potion | Check to set the number of sanity potions to use. |
+| Use Originium | Check to set the number of Originium to use. |
 
 Items in the plan list can be **dragged to reorder**. Plans are executed in order during the task; when "[Execute in inventory progress order](#execute-in-inventory-progress-order)" is enabled, plans are instead queued by inventory progress, and drag ordering only takes effect while it is disabled.
 

@@ -1,0 +1,57 @@
+{
+    "TL-7": {
+        "algorithm": "JustReturn",
+        "sub": ["TL-7@TL-OpenOpt"],
+        "next": ["TL-7@SideStoryStage", "TL-7@SwipeToStage"]
+    },
+    "TL-8": {
+        "algorithm": "JustReturn",
+        "sub": ["TL-8@TL-OpenOpt"],
+        "next": ["TL-8@SideStoryStage", "TL-8@SwipeToStage"]
+    },
+    "TL-9": {
+        "algorithm": "JustReturn",
+        "sub": ["TL-9@TL-OpenOpt"],
+        "next": ["TL-9@SideStoryStage", "TL-9@SwipeToStage"]
+    },
+    "TL-4": {
+        "algorithm": "JustReturn",
+        "sub": ["TL-4@TL-OpenOpt"],
+        "next": ["TL-4@SideStoryStage", "TL-4@SwipeToStage"]
+    },
+    "TL-7@SideStoryStage": {
+        "text": ["TL-7"]
+    },
+    "TL-8@SideStoryStage": {
+        "text": ["TL-8"]
+    },
+    "TL-9@SideStoryStage": {
+        "text": ["TL-9"]
+    },
+    "TL-4@SideStoryStage": {
+        "text": ["TL-4"]
+    },
+    "TL-OpenOpt": {
+        "algorithm": "JustReturn",
+        "next": ["TL-OpenOcr", "TL-Open"]
+    },
+    "TL-Open": {
+        "baseTask": "SS-Open",
+        "postDelay": 5000,
+        "template": ["StageSideStory.png", "StageActivity.png"],
+        "next": ["TLChapterToTL"]
+    },
+    "TL-OpenOcr": {
+        "baseTask": "SS-OpenOcr",
+        "text": ["时间啊", "向前", "长冬初青", "世纪之春"],
+        "postDelay": 5000,
+        "next": ["TLChapterToTL"]
+    },
+    "TLChapterToTL": {
+        "action": "ClickSelf",
+        "template": ["TLChapterToTL.png", "TLChapterToTL2.png"],
+        "roi": [410, 571, 237, 149],
+        "postDelay": 2000,
+        "next": ["#self", "SideStoryStage", "ChapterSwipeToTheRight"]
+    }
+}

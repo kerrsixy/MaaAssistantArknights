@@ -313,7 +313,7 @@
             ["([A-Z])0(?=-)", "${1}O"],
             [".*?([A-Z]{2}-EX-\\d+)", "$1"]
         ],
-        "roi": [845, 72, 220, 50]
+        "roi": [845, 72, 220, 43]
     },
     "StageNavigationByTemplateMatchBegin": {
         "doc": "模板匹配导航入口（对应 OCR 的 StageNavigationBegin）",
@@ -538,7 +538,7 @@
     },
     "StageQueue": {
         "baseTask": "Fight",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "exceededNext": ["Stop"],
         "next": ["StageQueue@GoLastBattle", "StageQueue"]
     },
@@ -592,7 +592,7 @@
         "action": "ClickSelf",
         "Doc": "进入资源关卡",
         "templThreshold": 0.65,
-        "roi": [462, 600, 140, 120]
+        "roi": [400, 600, 202, 120]
     },
     "Stage": {
         "Doc": "base_task",
@@ -664,7 +664,7 @@
     },
     "SwitchAccount": {
         "baseTask": "StartUp",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "next": ["Settings"]
     },
     "Settings": {
@@ -902,7 +902,7 @@
     "StartAtHome": {
         "baseTask": "Home",
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "next": ["Home", "StartUpBegin"],
         "postDelay_Doc": "等待以防万一（StartUp还有双倍的任务延迟等待，默认0.5s x2",
         "postDelay": 1000
@@ -919,7 +919,7 @@
     },
     "StartUp": {
         "Doc": "有时候明明已经在主界面了，停了一小会又弹个窗。多检测几次，一直在主界面才算完成",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "action": "DoNothing",
         "roi": [227, 327, 159, 152],
         "postDelay": 1000,
@@ -1447,6 +1447,13 @@
         "roi": [0, 290, 70, 60],
         "next": ["ClickCorner"]
     },
+    "EndOfActionThenStop": {
+        "baseTask": "EndOfAction",
+        "template": "EndOfAction.png",
+        "preDelay": 1000,
+        "Doc": "失败次数超限后等待结算动画完成，确认返回关卡页后停止",
+        "next": ["ClickCornerAfterFailure"]
+    },
     "EndOfActionAnnihilation": {
         "Doc": "本任务注册了插件 StageDropsTaskPlugin",
         "roi": [50, 50, 170, 180],
@@ -1477,6 +1484,11 @@
     "ClickCornerThenStop": {
         "baseTask": "ClickCorner",
         "next": []
+    },
+    "ClickCornerAfterFailure": {
+        "baseTask": "ClickCorner",
+        "postDelay": 500,
+        "next": ["BattleStartPreFlag", "#self"]
     },
     "SanityMatch": {
         "baseTask": "NumberOcrReplace",
@@ -1653,7 +1665,8 @@
         "text": ["任务失败"],
         "preDelay": 5000,
         "action": "ClickSelf",
-        "roi": [36, 226, 482, 269]
+        "roi": [36, 226, 482, 269],
+        "next": ["EndOfActionThenStop"]
     },
     "RestartGameAndContinue": {
         "Doc": "base_task。掉线重连移除后暂无引用，保留作恢复重连时的参考（原为 ClickCorner/ClickCornerAfterPRTS 超限后的重启续跑入口）",
@@ -1663,7 +1676,7 @@
     },
     "Fight": {
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "roi": [227, 327, 159, 152],
         "sub": ["Terminal-Entry"],
         "next": ["Fight@GoLastBattle", "Fight@CloseAnnos#next", "Fight@GoTerminalStopflag", "Fight@ReturnButtons#next"]
@@ -1672,7 +1685,7 @@
         "template": "StageResource.png",
         "Doc": "看到资源关卡图标说明在终端",
         "templThreshold": 0.65,
-        "roi": [462, 600, 140, 120],
+        "roi": [400, 600, 202, 120],
         "action": "Stop"
     },
     "GoLastBattle": {
@@ -1717,7 +1730,7 @@
     },
     "Recruit": {
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "roi": [227, 327, 159, 152],
         "sub": ["Recruit-Entry"],
         "next": ["RecruitBegin@LoadingText", "RecruitBegin"]
@@ -1790,7 +1803,7 @@
     "MiningActivitiesReturnHome": {
         "baseTask": "Home",
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "next": ["MiningActivities", "Stop"]
     },
     "MiningActivities": {
@@ -1830,7 +1843,7 @@
     "OrundumActivitiesReturnHome": {
         "baseTask": "Home",
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "next": ["OrundumActivities", "Stop"]
     },
     "OrundumActivities": {
@@ -1902,7 +1915,7 @@
     "RecruitingActivitiesReturnHome": {
         "baseTask": "Home",
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "next": ["RecruitingActivities", "Stop"]
     },
     "RecruitingActivities": {
@@ -1968,7 +1981,7 @@
         "next": ["AwardNeedExpand", "AwardNotNeedExpand", "AwardCheckSkip"]
     },
     "AwardNeedExpand": {
-        "doc": "匹配到有待领取标记的的图示，点击展开",
+        "doc": "匹配到有待领取标记的图示，点击展开",
         "action": "ClickSelf",
         "roi": [0, 192, 155, 115],
         "postDelay": 500
@@ -1998,7 +2011,7 @@
     "SpecialAccessActivitiesReturnHome": {
         "baseTask": "Home",
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "next": ["SpecialAccessActivities", "Stop"]
     },
     "SpecialAccessActivities": {
@@ -2045,7 +2058,7 @@
     "SignInEventReturnHome": {
         "baseTask": "Home",
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "next": ["SignInEventEnter", "SignInEventEnterByIcon", "Stop"]
     },
     "SignInEventEnter": {
@@ -2067,7 +2080,7 @@
         "action": "ClickSelf",
         "roi": [5, 21, 203, 258],
         "postDelay": 1500,
-        "next": ["SignInEventInPopup"],
+        "next": ["SpecialAccessActivitiesReturn", "SignInEventInPopup"],
         "onErrorNext": ["Stop"]
     },
     "SignInEventInPopup": {
@@ -2150,7 +2163,7 @@
     },
     "Award": {
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "roi": [227, 327, 159, 152],
         "sub": ["Task-Entry"],
         "next": ["ReceiveAward", "DailyTask", "WeeklyTask", "Award@CloseAnnos#next"]
@@ -2206,7 +2219,7 @@
     "MailReturnToHome": {
         "baseTask": "Home",
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "next": ["Mail", "MailWithoutAward"]
     },
     "Mail": {
@@ -2255,7 +2268,7 @@
     },
     "Visit": {
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "roi": [227, 327, 159, 152],
         "sub": ["Friends-Entry"],
         "next": ["FriendsList", "Visit@CloseAnnos#next"]
@@ -2325,7 +2338,7 @@
     },
     "Mall": {
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "roi": [227, 327, 159, 152],
         "sub": ["Mall-Entry"],
         "next": ["CreditStoreOcr", "Mall@CloseAnnos#next"]
@@ -2367,7 +2380,7 @@
     },
     "Home": {
         "action": "Stop",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "roi": [227, 327, 159, 152]
     },
     "CreditShop-Commodities": {
@@ -2908,7 +2921,7 @@
     },
     "Infrast": {
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "roi": [227, 327, 159, 152],
         "sub": ["Infrast-Entry"],
         "next": ["InfrastEnteredFlag", "Infrast@InfrastLoading", "Infrast@CloseAnnos#next", "Infrast@OfflineConfirm"]
@@ -2934,7 +2947,23 @@
         "roi": [0, 600, 800, 118],
         "postDelay": 1000,
         "postDelay_Doc": "UI 更新之后给这 b 玩意也加了动画，会点到一键换班",
+        "next": ["InfrastRewardRecycleProduct", "InfrastReward", "InfrastReward@LoadingText", "InfrastExitReward"]
+    },
+    "InfrastRewardRecycleProduct": {
+        "baseTask": "CreditShop-Bought",
+        "template": "ItemObtainedIcon.png",
+        "specificRect": [640, 645, 1, 1],
+        "specificRect_Doc": "基建获得物资弹窗的确认按钮位置与信用商店弹窗不同，覆写为基建弹窗的确认按钮",
+        "doc": "基建收获点击 ｢材料产出｣ 后弹出的获得物资弹窗，挂载的插件识别回收站产物并回调，随后点击下方确认按钮关闭",
         "next": ["InfrastReward", "InfrastReward@LoadingText", "InfrastExitReward"]
+    },
+    "InfrastRecycleProductItem": {
+        "template": "empty.png",
+        "roi": [0, 105, 1280, 455],
+        "roi_Doc": "霍夫圆检测物品图标的区域，覆盖弹窗两行图标（720p 圆心 y 约 240/421，圆环半径约 60），不含上方获得物资图标",
+        "templThreshold": 0.7,
+        "maskRange": [1, 255],
+        "doc": "回收站产物弹窗的物品模板匹配参数载体，模板由插件从 template/items 缩放到弹窗图标尺寸后逐个传入，maskRange 排除模板中被置黑的圆底与圆环"
     },
     "InfrastExitReward": {
         "Doc": "干员疲劳、线索收集 是不能一键收获的，所以要先退出一键收获的界面，这里点击的是控制中枢左侧那一片空白的区域",
@@ -4645,10 +4674,6 @@
         "maskRange": [100, 255],
         "templThreshold": 0.7
     },
-    "BattleDeployWhenPause": {
-        "algorithm": "JustReturn",
-        "specialParams": [1]
-    },
     "BattleSpeedUp": {
         "algorithm": "JustReturn",
         "action": "ClickRect",
@@ -5056,7 +5081,7 @@
     },
     "Depot": {
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "roi": [227, 327, 159, 152],
         "sub": ["Depot-Entry"],
         "next": ["DepotMaterialTab"]
@@ -5109,7 +5134,7 @@
         "Doc": "本任务是插件 ScreenshotTaskPlugin 的配置",
         "Doc_2": "需要在任务 Task 开始时截图时，将 Task 加入到此任务的 next 列表。",
         "algorithm": "JustReturn",
-        "next": ["Roguelike@StageEncounterOptionUnknown", "SwitchTheme@ToggleSettingsMenu"]
+        "next": ["Roguelike@StageEncounterOptionUnknown"]
     },
     "ScreenshotTaskPlugin-Config-Debug": {
         "Doc": "本任务是插件 ScreenshotTaskPlugin 的配置",
@@ -5141,7 +5166,7 @@
     },
     "OperBox": {
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "roi": [227, 327, 159, 152],
         "sub": ["OperBox-Entry"],
         "next": ["OperBoxRoleTabSelect", "OperBoxSortTabSelect", "OperBoxRoleTab"]
@@ -5854,7 +5879,7 @@
     },
     "Gacha": {
         "action": "DoNothing",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "roi": [227, 327, 159, 152],
         "sub": ["Gacha-Entry"],
         "next": ["Gacha@LoadingText", "DoGacha"]
@@ -5959,7 +5984,7 @@
     },
     "Store@EnterStore": {
         "baseTask": "Mall",
-        "template": "SwitchTheme@ToggleSettingsMenu.png",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
         "next": ["Store@EnterTicketStore@LoadingIcon", "Store@EnterTicketStore"]
     },
     "Store@EnterTicketStore": {

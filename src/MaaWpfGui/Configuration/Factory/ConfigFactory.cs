@@ -45,7 +45,7 @@ public static class ConfigFactory
     // TODO: write backup method. WIP: https://github.com/Cryolitia/MaaAssistantArknights/tree/config
     private static readonly string _configBakFile = Path.Combine(ConfigDir, "gui.new.json.bak");
 
-    private static readonly ILogger _logger = Log.ForContext("SourceContext", "ConfigFactory");
+    private static readonly ILogger _logger = Log.ForContext(typeof(ConfigFactory));
 
     private static readonly Lock _lock = new();
     private static Task? _saveTask;
@@ -61,7 +61,7 @@ public static class ConfigFactory
 
     public static event ConfigurationUpdateEventHandler? ConfigurationUpdateEvent;
 
-    private static readonly JsonSerializerOptions _options = new() { WriteIndented = true, Converters = { new DiscordWebhookFixConverter(), new GlobalGuiRenameConverter(), new SettingsPageReorgMigrationConverter(), new ToolboxSectionMigrationConverter(), new ThirdPartyMigrationConverter(), new NotificationSettingsMigrationConverter(), new RecruitTaskHoldTagsConverter(), new FightTaskStageResetModeConverter(), new RoguelikeStartingOpersConverter(), new FaultTolerantRootConverter(), new TolerantEnumConverterFactory(), new FightTaskStageResetModeInvalidToIgnoreConverter() }, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All), DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { JsonPredictSerializationModifier.Modify } } };
+    private static readonly JsonSerializerOptions _options = new() { WriteIndented = true, Converters = { new DiscordWebhookFixConverter(), new GlobalGuiRenameConverter(), new SettingsPageReorgMigrationConverter(), new ToolboxSectionMigrationConverter(), new ThirdPartyMigrationConverter(), new NotificationSettingsMigrationConverter(), new RecruitTaskHoldTagsConverter(), new RoguelikeStartingOpersConverter(), new FaultTolerantRootConverter(), new TolerantEnumConverterFactory() }, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All), DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { JsonPredictSerializationModifier.Modify } } };
 
     private static readonly List<string> _brokenConfigs = [];
 
@@ -312,6 +312,12 @@ public static class ConfigFactory
         _debounceTimer.Change(PendingDelayMs, Timeout.Infinite);
 
         ConfigurationUpdateEvent?.Invoke(key, oldValue, newValue);
+        if (key is "Root.Update.GitHubToken" or "Root.Update.MirrorChyanCdk")
+        {
+            _logger.Information("Configuration {Key} has been updated, save scheduled", key);
+            return;
+        }
+
         _logger.Information("Configuration {Key} has been set: `{OldValue}` -> `{NewValue}`, save scheduled", key, oldValue, newValue);
     }
 

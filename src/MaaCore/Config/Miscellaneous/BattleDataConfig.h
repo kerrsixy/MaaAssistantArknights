@@ -328,6 +328,7 @@ private:
         { "dollkeeper", battle::SubRole::Special_DollKeeper },
         { "alchemist", battle::SubRole::Special_Alchemist },
         { "skywalker", battle::SubRole::Special_SkyWalker },
+        { "dispatcher", battle::SubRole::Special_Dispatcher },
         // clang-format on
     };
 };
