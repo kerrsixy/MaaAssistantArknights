@@ -438,7 +438,7 @@ jobs:
           cmake --install build --prefix install
 
       - name: Setup Python for OCR conversion
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -872,7 +872,7 @@ jobs:
           find . -type f | while read f; do mv -fvt . $f; done
 
       - name: Publish release to GitHub
-        uses: softprops/action-gh-release@v3.0.3
+        uses: softprops/action-gh-release@v3.0.4
         with:
           body_path: CHANGELOG.md
           files: |
