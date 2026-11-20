@@ -1340,11 +1340,13 @@ bool BlackFlowSession::apply_movement_inventory_observation(
         const auto known = staged.m_run.resources.movement_pieces.find(movement);
         const int previous_pieces =
             charges > 0 && known != staged.m_run.resources.movement_pieces.end() ? known->second : 0;
-        if (pieces > previous_pieces) {
-            charges += (pieces - previous_pieces) * spec->initial_charges;
+        // 部分页面只给出数量下界；未看到的同类卡片不能被当作已消耗。
+        const int observed_pieces = complete ? pieces : std::max(pieces, previous_pieces);
+        if (observed_pieces > previous_pieces) {
+            charges += (observed_pieces - previous_pieces) * spec->initial_charges;
         }
-        charges = std::clamp(charges, pieces, pieces * spec->initial_charges);
-        staged.m_run.resources.movement_pieces.insert_or_assign(movement, pieces);
+        charges = std::clamp(charges, observed_pieces, observed_pieces * spec->initial_charges);
+        staged.m_run.resources.movement_pieces.insert_or_assign(movement, observed_pieces);
     }
 
     // 零件箱观察覆盖完整的横向分页。只在完整观察中看不到的「仅当层可用」加工品
@@ -1899,6 +1901,8 @@ bool BlackFlowSession::commit(EnteredPageObservation entered_page, std::string* 
     }
     std::string page_intent = resolve_page_intent(identity, page_node, page_floor);
 
+    // 先发布本次已提交移动的决策编号，再绑定页面；否则页面结果会沿用上一次移动编号。
+    queue_decision();
     m_page_context = PageExecutionContext {
         m_run_revision,
         ++m_page_revision,
@@ -1916,7 +1920,6 @@ bool BlackFlowSession::commit(EnteredPageObservation entered_page, std::string* 
     if (m_pending_probe_target == proposal.target) {
         m_pending_probe_target.reset();
     }
-    queue_decision();
     return true;
 }
 

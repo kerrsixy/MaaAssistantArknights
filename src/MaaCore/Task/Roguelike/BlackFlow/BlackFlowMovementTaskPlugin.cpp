@@ -24,8 +24,8 @@ constexpr std::string_view SelectMovementTrigger = "BlackFlow@Roguelike@SelectMo
 constexpr std::string_view SelectionAction = "BlackFlow@Roguelike@SelectMovementAction";
 constexpr std::string_view InventoryObservationTrigger = "BlackFlow@Roguelike@MovementInventoryObserve";
 constexpr std::string_view InventoryObservationAction = "BlackFlow@Roguelike@MovementInventoryObservationAction";
-constexpr std::string_view InventoryItemsTask = "BlackFlow@Roguelike@MovementInventoryItems";
 constexpr std::string_view InventorySwipeTask = "BlackFlow@Roguelike@MovementInventorySwipe";
+constexpr std::string_view InventorySwipeBackTask = "BlackFlow@Roguelike@MovementInventorySwipeBack";
 // 经 -Enter 转发，避免占位任务从 MovementInventoryClose 继承 maxTimes。
 constexpr std::string_view InventoryCloseTask = "BlackFlow@Roguelike@MovementInventoryClose-Enter";
 constexpr std::string_view OpenPanelTask = "BlackFlow@Roguelike@MovementPanelOpenClick";
@@ -47,9 +47,7 @@ constexpr int LoadedMarkerMaximumDistance = 60;
 constexpr int RemainingMarkerMaximumGap = 120;
 constexpr int SelectionSettleDelay = 500;
 constexpr int RecognitionRetryDelay = 200;
-constexpr int InventoryLoadedMarkerMaximumVerticalGap = 32;
-// 零件箱是横向分页的卡片网格。每次打开从上次停留页开始，最多向右推进三页，
-// 足以覆盖当前容量上限；重复帧会提前停止，避免在末页反复滑动。
+// 零件箱记忆上次停留页。先回卷核验起点，再有界扫描；未覆盖的内容保留缓存。
 constexpr int MaxInventoryForwardSwipes = 3;
 
 void set_error(std::string* error, std::string message)
@@ -146,7 +144,7 @@ bool BlackFlowMovementTaskPlugin::observe_inventory()
         return true;
     }
 
-    InventoryFrame frame;
+    MovementInventoryFrame frame;
     std::string error;
     if (!scan_inventory_frame(frame, &error) ||
         !m_session->apply_movement_inventory_observation(frame.movements, frame.complete, &error)) {
@@ -173,23 +171,55 @@ bool BlackFlowMovementTaskPlugin::observe_inventory()
     return true;
 }
 
-bool BlackFlowMovementTaskPlugin::scan_inventory_frame(InventoryFrame& frame, std::string* error)
+bool BlackFlowMovementTaskPlugin::rewind_inventory(bool& head_verified, std::string* error)
 {
-    frame = InventoryFrame {};
+    head_verified = false;
+    MovementInventoryFrame previous;
+    auto outcome = analyze_movement_inventory_frame(ctrler()->get_image(), previous, error);
+    if (outcome == MovementInventoryFrameStatus::Failed) {
+        return false;
+    }
+    for (int swipe = 0; swipe < MaxBackwardSwipes && !need_exit(); ++swipe) {
+        if (!run_fixed_task(InventorySwipeBackTask)) {
+            set_error(error, "movement inventory rewind gesture failed");
+            return false;
+        }
+        MovementInventoryFrame current;
+        outcome = analyze_movement_inventory_frame(ctrler()->get_image(), current, error);
+        if (outcome == MovementInventoryFrameStatus::Failed) {
+            return false;
+        }
+        if (same_movement_inventory_page(previous, current)) {
+            head_verified = true;
+            return true;
+        }
+        previous = std::move(current);
+    }
+    Log.info("BlackFlow inventory rewind remained uncertain; retaining partial observation");
+    return true;
+}
+
+bool BlackFlowMovementTaskPlugin::scan_inventory_frame(MovementInventoryFrame& frame, std::string* error)
+{
+    frame = MovementInventoryFrame {};
+    bool head_verified = false;
+    if (!rewind_inventory(head_verified, error)) {
+        return false;
+    }
     std::unordered_set<std::string> page_signatures;
     std::string latest_error;
-    std::vector<InventoryItem> all_items;
-    InventoryFrame previous_page;
+    std::vector<MovementInventoryItem> all_items;
+    MovementInventoryFrame previous_page;
     int page_offset = 0;
-    bool recognized_page = false;
+    bool reached_end = false;
+    bool has_unmatched_loaded_marker = false;
 
-    const auto signature = [](const InventoryFrame& page) {
-        std::vector<std::tuple<int, int, int>> cards;
-        cards.reserve(page.items.size());
-        for (const InventoryItem& item : page.items) {
+    const auto signature = [](const MovementInventoryFrame& page) {
+        std::vector<std::tuple<std::string, int, int>> cards;
+        cards.reserve(page.labels.size());
+        for (const auto& label : page.labels) {
             // OCR 框有少量抖动，按 20px 桶归一化；不同横向分页仍会得到不同签名。
-            cards.emplace_back(
-                static_cast<int>(item.movement), item.name_rect.x / 20, item.name_rect.y / 20);
+            cards.emplace_back(label.name, label.rect.x / 20, label.rect.y / 20);
         }
         std::ranges::sort(cards);
         std::ostringstream stream;
@@ -201,16 +231,17 @@ bool BlackFlowMovementTaskPlugin::scan_inventory_frame(InventoryFrame& frame, st
 
     for (int page_index = 0; page_index <= MaxInventoryForwardSwipes; ++page_index) {
         int no_candidate_frames = 0;
-        InventoryFrame page;
+        MovementInventoryFrame page;
+        bool page_recognized = false;
         for (int attempt = 0; attempt < MaxFrameRecognitionAttempts; ++attempt) {
-            page = InventoryFrame {};
-            const InventoryAnalysisOutcome outcome =
-                analyze_inventory_frame(ctrler()->get_image(), page, &latest_error);
-            if (outcome == InventoryAnalysisOutcome::Recognized) {
-                recognized_page = true;
+            page = MovementInventoryFrame {};
+            const MovementInventoryFrameStatus outcome =
+                analyze_movement_inventory_frame(ctrler()->get_image(), page, &latest_error);
+            if (outcome == MovementInventoryFrameStatus::Recognized) {
+                page_recognized = true;
                 break;
             }
-            if (outcome == InventoryAnalysisOutcome::NoCandidate) {
+            if (outcome == MovementInventoryFrameStatus::NoCandidate) {
                 ++no_candidate_frames;
             }
             if (attempt + 1 < MaxFrameRecognitionAttempts) {
@@ -218,25 +249,28 @@ bool BlackFlowMovementTaskPlugin::scan_inventory_frame(InventoryFrame& frame, st
             }
         }
 
-        if (page.movements.empty()) {
+        if (!page_recognized) {
             if (no_candidate_frames == MaxFrameRecognitionAttempts) {
-                // 末页可能没有卡片；保留已经汇总的前几页。
+                // 缺测只保留已汇总内容，不能据此宣布完整扫描或清掉缓存加工品。
                 break;
             }
             set_error(error, latest_error.empty() ? "movement inventory OCR failed" : latest_error);
             return false;
         }
 
+        has_unmatched_loaded_marker |= page.has_unmatched_loaded_marker;
+
         // 末页的重复画面不再累加，避免滑动到边界时把同一批卡片重复计数。
         if (!page_signatures.emplace(signature(page)).second) {
+            reached_end = true;
             break;
         }
         if (!previous_page.items.empty()) {
             // 横向分页之间通常有一列重叠。用同类型、同一行的卡片估计实际内容
             // 位移，再把当前页映射到同一坐标系，避免重叠卡片被重复计数。
             std::vector<int> shifts;
-            for (const InventoryItem& current : page.items) {
-                const auto matches = [&current](const InventoryItem& previous) {
+            for (const MovementInventoryItem& current : page.items) {
+                const auto matches = [&current](const MovementInventoryItem& previous) {
                     return previous.movement == current.movement &&
                            std::abs(vertical_center(previous.name_rect) - vertical_center(current.name_rect)) <= 28;
                 };
@@ -250,15 +284,15 @@ bool BlackFlowMovementTaskPlugin::scan_inventory_frame(InventoryFrame& frame, st
                 page_offset += shifts[shifts.size() / 2];
             }
         }
-        for (const InventoryItem& item : page.items) {
+        for (const MovementInventoryItem& item : page.items) {
             const int virtual_x = item.name_rect.x - page_offset;
-            const bool already_seen = std::ranges::any_of(all_items, [&](const InventoryItem& seen) {
+            const bool already_seen = std::ranges::any_of(all_items, [&](const MovementInventoryItem& seen) {
                 return seen.movement == item.movement &&
                        std::abs(vertical_center(seen.name_rect) - vertical_center(item.name_rect)) <= 28 &&
                        std::abs(seen.name_rect.x - virtual_x) <= 40;
             });
             if (!already_seen) {
-                InventoryItem normalized = item;
+                MovementInventoryItem normalized = item;
                 normalized.name_rect.x = virtual_x;
                 all_items.emplace_back(std::move(normalized));
             }
@@ -274,71 +308,13 @@ bool BlackFlowMovementTaskPlugin::scan_inventory_frame(InventoryFrame& frame, st
     }
 
     frame.items = std::move(all_items);
-    for (const InventoryItem& item : frame.items) {
+    for (const MovementInventoryItem& item : frame.items) {
         ++frame.movements[item.movement];
     }
-    frame.complete = recognized_page;
+    frame.has_unmatched_loaded_marker = has_unmatched_loaded_marker;
+    frame.complete = head_verified && reached_end && !has_unmatched_loaded_marker;
 
     return true;
-}
-
-BlackFlowMovementTaskPlugin::InventoryAnalysisOutcome BlackFlowMovementTaskPlugin::analyze_inventory_frame(
-    const cv::Mat& image,
-    InventoryFrame& frame,
-    std::string* error) const
-{
-    if (image.empty()) {
-        set_error(error, "movement inventory screenshot is empty");
-        return InventoryAnalysisOutcome::Failed;
-    }
-
-    const auto task = Task.get<OcrTaskInfo>(std::string(InventoryItemsTask));
-    if (task == nullptr) {
-        set_error(error, "movement inventory OCR task is missing");
-        return InventoryAnalysisOutcome::Failed;
-    }
-
-    OCRer analyzer(image);
-    analyzer.set_task_info(task);
-    analyzer.set_required(inventory_ocr_candidates());
-    const auto results = analyzer.analyze();
-    if (!results.has_value()) {
-        return InventoryAnalysisOutcome::NoCandidate;
-    }
-
-    std::vector<InventoryItem> items;
-    std::vector<Rect> loaded_markers;
-    for (const auto& result : *results) {
-        if (const MovementSpec* movement = movement_from_name(result.text);
-            movement != nullptr && movement->kind != MovementKind::Walk) {
-            ++frame.movements[movement->kind];
-            items.emplace_back(InventoryItem { movement->kind, result.rect });
-        }
-        else if (result.text == LoadedText) {
-            loaded_markers.emplace_back(result.rect);
-        }
-    }
-
-    frame.items = items;
-
-    int best_horizontal_gap = std::numeric_limits<int>::max();
-    for (const Rect& marker : loaded_markers) {
-        const int marker_center = vertical_center(marker);
-        for (const InventoryItem& item : items) {
-            if (std::abs(vertical_center(item.name_rect) - marker_center) > InventoryLoadedMarkerMaximumVerticalGap) {
-                continue;
-            }
-            const int horizontal_gap = marker.x - (item.name_rect.x + item.name_rect.width);
-            if (horizontal_gap >= 0 && horizontal_gap < best_horizontal_gap) {
-                frame.loaded_movement = item.movement;
-                best_horizontal_gap = horizontal_gap;
-            }
-        }
-    }
-    if (!loaded_markers.empty() && !frame.loaded_movement.has_value()) {
-        Log.warn("BlackFlow movement inventory loaded marker has no recognized item on its left");
-    }
-    return InventoryAnalysisOutcome::Recognized;
 }
 
 BlackFlowMovementTaskPlugin::SelectionOutcome
@@ -677,15 +653,6 @@ bool BlackFlowMovementTaskPlugin::report_target_observation(
     return m_session->apply_movement_panel_observation(std::move(panel), active_movement, error);
 }
 
-const MovementSpec* BlackFlowMovementTaskPlugin::movement_from_name(std::string_view name) noexcept
-{
-    const auto movement =
-        std::find_if(movement_specs().begin(), movement_specs().end(), [name](const MovementSpec& spec) {
-            return spec.name == name;
-        });
-    return movement == movement_specs().end() ? nullptr : &*movement;
-}
-
 std::optional<int> BlackFlowMovementTaskPlugin::remaining_uses_from_text(std::string_view text) noexcept
 {
     if (text == "剩余1次") {
@@ -714,16 +681,4 @@ std::vector<std::string> BlackFlowMovementTaskPlugin::ocr_candidates()
     return candidates;
 }
 
-std::vector<std::string> BlackFlowMovementTaskPlugin::inventory_ocr_candidates()
-{
-    std::vector<std::string> candidates;
-    candidates.reserve(movement_specs().size());
-    for (const MovementSpec& movement : movement_specs()) {
-        if (movement.kind != MovementKind::Walk) {
-            candidates.emplace_back(movement.name);
-        }
-    }
-    candidates.emplace_back(LoadedText);
-    return candidates;
-}
 } // namespace asst::blackflow
