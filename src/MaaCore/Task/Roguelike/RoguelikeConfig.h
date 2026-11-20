@@ -133,6 +133,17 @@ public:
     }
 
     bool verify_and_load_params(const json::value& params);
+
+    void bind_account(std::string client, std::string uid)
+    {
+        m_account_client = std::move(client);
+        m_account_uid = std::move(uid);
+    }
+
+    [[nodiscard]] const std::string& account_uid() const noexcept { return m_account_uid; }
+
+    [[nodiscard]] const std::string& account_client() const noexcept { return m_account_client; }
+
     void clear(); // 重置肉鸽局内数据
 
     const std::vector<std::string>& get_blackflow_start_animals() const { return m_blackflow_start_animals; }
@@ -195,7 +206,9 @@ public:
     int get_find_playTime_target() const { return m_find_playTime_target; }
 
 private:
-    std::string m_theme;                       // 主题
+    std::string m_theme; // 主题
+    std::string m_account_client;
+    std::string m_account_uid;
     RoguelikeMode m_mode = RoguelikeMode::Exp; // 模式
     int m_difficulty = 0;                      // 难度
     std::string m_squad;                       // 分队

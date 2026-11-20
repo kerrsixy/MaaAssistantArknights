@@ -14,6 +14,7 @@
     python tools\\blackflow_pick.py --squad 远程战术分队 --voucher 近卫
     python tools\\blackflow_pick.py --squad 堡垒战术分队 --voucher 重装 --json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,26 +36,44 @@ def load_rules() -> dict:
         return json.load(fp)
 
 
-def load_account(uid: str | None = None) -> tuple[dict, str]:
+def load_account(uid: str | None = None, client: str | None = None) -> tuple[dict, str]:
+    """Select by identity inside a roster snapshot, never by filename order."""
+    package = {
+        "Official": "com.hypergryph.arknights",
+        "Bilibili": "com.hypergryph.arknights.bilibili",
+    }.get(client)
+    if client is not None and package is None:
+        raise ValueError(f"Unsupported client: {client}")
     files = sorted(glob.glob(os.path.join(ACCOUNT_DIR, "*.json")))
-    if uid:
-        files = [f for f in files if uid in os.path.basename(f)]
-    elif len(files) > 1:
-        # 有绑定 UID 的快照优先
-        files.sort(key=lambda p: os.path.basename(p).endswith("unknown.json"))
-    if not files:
-        raise SystemExit(f"找不到账号快照：{ACCOUNT_DIR}")
-    path = files[0]
-    with io.open(path, encoding="utf-8") as fp:
-        snap = json.load(fp)
-    return snap, os.path.basename(path)
+    candidates = []
+    for path in files:
+        with io.open(path, encoding="utf-8") as fp:
+            snap = json.load(fp)
+        if not isinstance(snap, dict) or not isinstance(snap.get("operators"), dict):
+            continue
+        identity = snap.get("account", {})
+        snapshot_uid = str(identity.get("uid", "")).strip()
+        if not snapshot_uid or (uid is not None and snapshot_uid != str(uid)):
+            continue
+        if package is not None and snap.get("package") != package:
+            continue
+        candidates.append((snap, os.path.basename(path)))
+    if len(candidates) != 1:
+        raise SystemExit(
+            f"账号快照必须唯一匹配 UID 与客户端：uid={uid}, client={client}, matches={len(candidates)}"
+        )
+    return candidates[0]
 
 
 def score_oper(oper: dict, gates: dict) -> dict:
     elite = int(oper.get("elite") or 0)
     level = int(oper.get("level") or 0)
     rarity = str(oper.get("rarity") or 0)
-    cap_by_rarity = gates["level_cap_by_rarity"].get(rarity) or {"e2": 90, "e1": 80, "e0": 50}
+    cap_by_rarity = gates["level_cap_by_rarity"].get(rarity) or {
+        "e2": 90,
+        "e1": 80,
+        "e0": 50,
+    }
     cap = cap_by_rarity.get(f"e{elite}") or cap_by_rarity["e0"]
     level_ratio = min(1.0, level / cap) if cap else 0.0
 
@@ -63,7 +82,11 @@ def score_oper(oper: dict, gates: dict) -> dict:
     module = oper.get("module_status")
     if module == "unlocked":
         lv = int(oper.get("module_level") or 0)
-        m = gates["module"]["unlocked_and_level_ok"] if lv >= 3 else gates["module"]["unlocked_level_low"]
+        m = (
+            gates["module"]["unlocked_and_level_ok"]
+            if lv >= 3
+            else gates["module"]["unlocked_level_low"]
+        )
     elif module == "locked":
         m = gates["module"]["locked"]
     else:
@@ -141,7 +164,9 @@ def requirement_blocks(req: dict | None, info: dict) -> str | None:
     return None
 
 
-def resolve(rules: dict, snapshot: dict, squad: str, voucher_role: str, limit: int = 3) -> dict:
+def resolve(
+    rules: dict, snapshot: dict, squad: str, voucher_role: str, limit: int = 3
+) -> dict:
     gates = rules["gates"]
     opers = snapshot.get("operators", {})
     rule = pick_rule(rules, squad, voucher_role)
@@ -158,18 +183,33 @@ def resolve(rules: dict, snapshot: dict, squad: str, voucher_role: str, limit: i
             name = step["operator"]
             info = score_oper(opers.get(name, {}), gates) if name in opers else None
             need = int(step.get("require", {}).get("module_level_min", 3))
-            ok = bool(info and info["module"] == "unlocked" and info["module_level"] >= need and info["available"])
+            ok = bool(
+                info
+                and info["module"] == "unlocked"
+                and info["module_level"] >= need
+                and info["available"]
+            )
             if ok:
-                chosen.append({"name": name, "via": "module_gate", "rule": rule["id"], **info})
+                chosen.append(
+                    {"name": name, "via": "module_gate", "rule": rule["id"], **info}
+                )
             else:
-                skipped.append({"name": name, "reason": "模组未达 3 级或未知", "rule": rule["id"]})
+                skipped.append(
+                    {"name": name, "reason": "模组未达 3 级或未知", "rule": rule["id"]}
+                )
             continue
         reqs = step.get("operator_requirements") or {}
         for name in flatten_order(step["order"]):
             if len(chosen) >= limit:
                 break
             if name not in opers:
-                skipped.append({"name": name, "reason": "快照里没有（未拥有/未识别到）", "rule": rule["id"]})
+                skipped.append(
+                    {
+                        "name": name,
+                        "reason": "快照里没有（未拥有/未识别到）",
+                        "rule": rule["id"],
+                    }
+                )
                 continue
             info = score_oper(opers[name], gates)
             req_block = requirement_blocks(reqs.get(name), info)
@@ -177,9 +217,17 @@ def resolve(rules: dict, snapshot: dict, squad: str, voucher_role: str, limit: i
                 skipped.append({"name": name, "reason": req_block, "rule": rule["id"]})
                 continue
             if info["available"]:
-                chosen.append({"name": name, "via": "sequence", "rule": rule["id"], **info})
+                chosen.append(
+                    {"name": name, "via": "sequence", "rule": rule["id"], **info}
+                )
             else:
-                skipped.append({"name": name, "reason": f"U={info['U']} 低于阈值 {gates['theta']}", "rule": rule["id"]})
+                skipped.append(
+                    {
+                        "name": name,
+                        "reason": f"U={info['U']} 低于阈值 {gates['theta']}",
+                        "rule": rule["id"],
+                    }
+                )
         if len(chosen) >= limit:
             break
 
@@ -192,8 +240,14 @@ def resolve(rules: dict, snapshot: dict, squad: str, voucher_role: str, limit: i
             info = score_oper(opers[name], gates)
             if info["available"]:
                 chosen.append({"name": name, "via": "fallback", "rule": "R5", **info})
-    return {"rule": rule["id"], "rule_title": rule["title"], "squad": squad,
-            "voucher": voucher_role, "chosen": chosen, "skipped": skipped}
+    return {
+        "rule": rule["id"],
+        "rule_title": rule["title"],
+        "squad": squad,
+        "voucher": voucher_role,
+        "chosen": chosen,
+        "skipped": skipped,
+    }
 
 
 def main() -> int:
@@ -202,12 +256,17 @@ def main() -> int:
     parser.add_argument("--voucher", default="近卫")
     parser.add_argument("--limit", type=int, default=3)
     parser.add_argument("--uid")
+    parser.add_argument(
+        "--client", choices=("Official", "Bilibili"), default="Official"
+    )
     parser.add_argument("--json", action="store_true")
-    parser.add_argument("--table", action="store_true", help="逐条列出规则里的干员及其练度状态")
+    parser.add_argument(
+        "--table", action="store_true", help="逐条列出规则里的干员及其练度状态"
+    )
     args = parser.parse_args()
 
     rules = load_rules()
-    snapshot, filename = load_account(args.uid)
+    snapshot, filename = load_account(args.uid, args.client)
     gates = rules["gates"]
     opers = snapshot.get("operators", {})
 
@@ -233,20 +292,35 @@ def main() -> int:
                 continue
             info = score_oper(opers[n], gates)
             state = "可用" if info["available"] else f"闸门未过（U<{gates['theta']}）"
-            print(f"{n:<12}{info['elite']:>4}{info['level']:>4}{info['rarity']:>4}"
-                  f"{info['module']:>8}{info['U']:>7}  {state}")
+            print(
+                f"{n:<12}{info['elite']:>4}{info['level']:>4}{info['rarity']:>4}"
+                f"{info['module']:>8}{info['U']:>7}  {state}"
+            )
         print(f"\n规则涉及 {len(seen)} 人，快照缺失 {missing} 人")
         return 0
 
     result = resolve(rules, snapshot, args.squad, args.voucher, args.limit)
+    result["account"] = {
+        "uid": snapshot["account"]["uid"],
+        "client": args.client,
+        "snapshot": filename,
+        "scanned_at": snapshot.get("scanned_at"),
+    }
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
-    print(f"[{result['rule']}] {result['rule_title']}  分队={args.squad}  券={args.voucher}")
+    print(
+        f"[{result['rule']}] {result['rule_title']}  分队={args.squad}  券={args.voucher}"
+    )
     for i, item in enumerate(result["chosen"], 1):
-        print(f"  {i}. {item['name']}（精英{item['elite']} lv{item['level']} U={item['U']}，via {item['via']}）")
+        print(
+            f"  {i}. {item['name']}（精英{item['elite']} lv{item['level']} U={item['U']}，via {item['via']}）"
+        )
     if result["skipped"]:
-        print("  跳过：" + "；".join(f"{s['name']}（{s['reason']}）" for s in result["skipped"][:6]))
+        print(
+            "  跳过："
+            + "；".join(f"{s['name']}（{s['reason']}）" for s in result["skipped"][:6])
+        )
     return 0
 
 

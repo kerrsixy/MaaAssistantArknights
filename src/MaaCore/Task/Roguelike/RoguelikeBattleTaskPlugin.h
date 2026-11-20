@@ -28,6 +28,7 @@ public:
     virtual ~RoguelikeBattleTaskPlugin() override = default;
 
     virtual bool verify(AsstMsg msg, const json::value& details) const override;
+    bool load_params(const json::value& params) override;
 
 protected:
     virtual bool _run() override;
@@ -120,6 +121,7 @@ protected:
 
     void check_drone_tiles();
     bool wait_until_start_button_clicked();
+    std::string m_resume_stage;
 
     std::vector<Point> available_locations(const battle::DeploymentOper& oper) const;
     std::vector<Point> available_locations(battle::LocationType type) const;

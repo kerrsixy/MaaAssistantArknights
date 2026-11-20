@@ -78,3 +78,16 @@ Use BWIKI and PRTS as complementary sources. The PRTS BlackFlow page separates u
 - Current conclusion:
 - Next step and rollback point:
 ```
+
+### 2026-11-20–21 Official-client workflow regression (clear unproven)
+
+- Update this knowledge base at each completed phase and commit/push the finished phase with its evidence and outstanding work; no daily schedule is required.
+- Conditions: second MuMu device, official client, N8, Remote Tactical Squad and Wis'adel. N8 is the highest unlocked difficulty. N9, N10 and an unattended first-ending clear remain unproven.
+- Verified: native quick formation restored 4/7 to 5/7. The solo-duel preparation recognized 0/1, read all three enemy tooltips, and placed Wis'adel in the requested right group using map projection, verifying 1/1. Preparation selects participants; the actual arena requires another deployment.
+- Outcome: Black Countercurrent and Pathbreaking completed their combat/reward transitions; the later Glorious Expedition failed. The run included debug assistance and is not an unattended-clear or stability sample. `RoguelikeCombatEnd` does not establish victory.
+- Residual fixes: 电弧 still had priority 999. Remove its BlackFlow group memberships and references in twelve stage plans; a theme-specific exclusion now covers recruitment, formation and deployment. Glorious Expedition's fourteen right-side buildable cells use the existing `blacklist_location`; damage dealers defend the left high ground and center. This exclusion still needs live regression.
+- Structure: move opponent selection, preparation deployment and arena control into `BlackFlowDuelTaskPlugin`, removing two unused vision helpers. Map exports must share an observation ID; a pending plan must not retain a previous route image. Compilation is not end-to-end acceptance.
+- Outstanding: account UID preflight passed live and returned through the shared home/terminal/theme chain to start N8. Full roster/module refresh and local-cache consumption behind the separate scan option remain incomplete. Horn still requires current-battle equipped-module evidence. Security Measures requires consecutive-frame identification of the real 圆仔; no classifier is implemented. Workflow continuity takes priority over combat tuning.
+- Evidence root: `D:/dsh/明日方舟/日志/blackflow_official_device1_20261120`; see `formation_restore_validation`, `duel_prepare_validation_fix4`, `n8_run08_post_duel_fix2`, and `n8_run08_boss_resume`.
+
+Account-entry handoff evidence: `D:/dsh/明日方舟/日志/blackflow_official_device1_20261121/n8_run10_account_return_live` (N8 exploration started at 00:08).

@@ -35,7 +35,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 TEMPLATE_DIR = REPO_ROOT / "resource" / "template" / "Roguelike" / "BlackFlow"
 
 ADB_PATH = r"D:\app\tool\mumu模拟器\MuMuPlayer-12.0\nx_main\adb.exe"
-ADB_ADDRESS = "127.0.0.1:16384"
+ADB_ADDRESS = "127.0.0.1:16416"
 
 THRESHOLD = 0.65
 # 只用够大、够独特的模板；14x13 的缩放按钮会在任何画面刷到 0.7+，实测误判。
@@ -45,22 +45,22 @@ TEMPLATES = (
 )
 
 
-def adb_screencap() -> np.ndarray:
+def adb_screencap(address: str = ADB_ADDRESS) -> np.ndarray:
     with tempfile.TemporaryDirectory() as tmp:
         remote = "/sdcard/_bf_state_check.png"
         local = pathlib.Path(tmp) / "state.png"
         subprocess.run(
-            [ADB_PATH, "-s", ADB_ADDRESS, "shell", "screencap", "-p", remote],
+            [ADB_PATH, "-s", address, "shell", "screencap", "-p", remote],
             check=True,
             capture_output=True,
         )
         subprocess.run(
-            [ADB_PATH, "-s", ADB_ADDRESS, "pull", remote, str(local)],
+            [ADB_PATH, "-s", address, "pull", remote, str(local)],
             check=True,
             capture_output=True,
         )
         subprocess.run(
-            [ADB_PATH, "-s", ADB_ADDRESS, "shell", "rm", remote],
+            [ADB_PATH, "-s", address, "shell", "rm", remote],
             check=False,
             capture_output=True,
         )
@@ -70,14 +70,16 @@ def adb_screencap() -> np.ndarray:
         return image
 
 
-def check(screen: np.ndarray | None = None) -> dict:
-    image = adb_screencap() if screen is None else screen
+def check(screen: np.ndarray | None = None, *, address: str = ADB_ADDRESS) -> dict:
+    image = adb_screencap(address) if screen is None else screen
     best = {"score": 0.0, "template": None, "rect": None}
     for name in TEMPLATES:
         path = TEMPLATE_DIR / name
         if not path.is_file():
             continue
-        template = cv2.imdecode(np.fromfile(str(path), dtype=np.uint8), cv2.IMREAD_COLOR)
+        template = cv2.imdecode(
+            np.fromfile(str(path), dtype=np.uint8), cv2.IMREAD_COLOR
+        )
         if template is None:
             continue
         if template.shape[0] > image.shape[0] or template.shape[1] > image.shape[1]:
@@ -88,16 +90,27 @@ def check(screen: np.ndarray | None = None) -> dict:
             best = {
                 "score": float(max_val),
                 "template": name,
-                "rect": [int(max_loc[0]), int(max_loc[1]), template.shape[1], template.shape[0]],
+                "rect": [
+                    int(max_loc[0]),
+                    int(max_loc[1]),
+                    template.shape[1],
+                    template.shape[0],
+                ],
             }
     ok = best["score"] >= THRESHOLD
-    return {"ok": ok, "threshold": THRESHOLD, "best": best}
+    return {
+        "ok": ok,
+        "threshold": THRESHOLD,
+        "best": best,
+        "address": address if screen is None else None,
+    }
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="黑流树海起轮前状态预检")
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     ap.add_argument("--image", default=None, help="改用本地图片而不是 adb 截图")
+    ap.add_argument("--address", default=ADB_ADDRESS)
     args = ap.parse_args()
 
     screen = None
@@ -108,7 +121,7 @@ def main() -> int:
             return 2
 
     try:
-        result = check(screen)
+        result = check(screen, address=args.address)
     except Exception as exc:  # noqa: BLE001 - 预检失败不应该让调用方崩
         print(f"预检失败：{exc}", file=sys.stderr)
         return 2
@@ -129,4 +142,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -22,7 +22,8 @@ bool asst::RoguelikeSkillSelectionTaskPlugin::verify(AsstMsg msg, const json::va
     if (task_view.starts_with(roguelike_name)) {
         task_view.remove_prefix(roguelike_name.length());
     }
-    if (task_view == "Roguelike@StartAction") {
+    if (task_view == "Roguelike@StartAction" ||
+        (m_config->get_theme() == RoguelikeTheme::BlackFlow && task_view == "Roguelike@DuelStartAction")) {
         return true;
     }
     else {

@@ -31,11 +31,11 @@ struct CollectionPriorityOffset
 // 干员信息，战斗相关
 struct RoguelikeOperInfo
 {
-    battle::Role role = battle::Role::Unknown;                         // 干员职业
-    std::string name;                                                  // 干员名
-    std::vector<int> group_id = {};                                    // 干员组 id,允许一个干员存在于多个干员组
-    std::unordered_map<int, int> order_in_group;                       // 干员在干员组内的顺序 干员组 id:干员组内顺序
-    int recruit_priority = 0;                                          // 招募优先级 (0-1000)
+    battle::Role role = battle::Role::Unknown;   // 干员职业
+    std::string name;                            // 干员名
+    std::vector<int> group_id = {};              // 干员组 id,允许一个干员存在于多个干员组
+    std::unordered_map<int, int> order_in_group; // 干员在干员组内的顺序 干员组 id:干员组内顺序
+    int recruit_priority = 0;                    // 招募优先级 (0-1000)
     // 开局顺位优先级：开局前 3 次招募只按它排序。
     // 资源未写时回落到 recruit_priority，因此不填等于沿用旧行为。
     int start_priority = 0;
@@ -75,6 +75,13 @@ public:
     const RoguelikeOperInfo& get_oper_info(const std::string& theme, const std::string& oper_name) noexcept;
     const RoguelikeOperInfo& get_oper_info(const std::string& theme, const battle::OperNameTag& oper_tag) noexcept;
     const RoguelikeGroupInfo& get_group_info(const std::string& theme, const std::string& group_name) noexcept;
+
+    [[nodiscard]] bool is_oper_excluded(const std::string& theme, const std::string& name) const noexcept
+    {
+        const auto found = m_excluded_opers.find(theme);
+        return found != m_excluded_opers.end() && found->second.contains(name);
+    }
+
     const std::vector<RecruitPriorityOffset> get_team_complete_info(const std::string& theme) const noexcept;
     std::string get_opening_roles(const std::string& theme, const std::string& squad) const noexcept;
     // 未显式选择分队时使用的分队名（资源 opening.default_squad）。
@@ -114,10 +121,11 @@ protected:
     std::unordered_map<std::string, std::vector<RecruitPriorityOffset>> m_team_complete_condition; // <theme, offsets>
     std::unordered_map<std::string, int> m_team_complete_require; // <theme, require> 阵容完备所需干员总数
     std::unordered_map<std::string, std::string> m_default_opening_roles;
-    std::unordered_map<std::string, int> m_opening_role_bonus; // <theme, bonus> // <theme, roles>
+    std::unordered_map<std::string, int> m_opening_role_bonus;    // <theme, bonus> // <theme, roles>
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
-        m_squad_opening_roles; // <theme, <squad, roles>>
+        m_squad_opening_roles;                                    // <theme, <squad, roles>>
     std::unordered_map<std::string, std::string> m_default_squad; // <theme, squad>
+    std::unordered_map<std::string, std::unordered_set<std::string>> m_excluded_opers;
 };
 
 inline static auto& RoguelikeRecruit = RoguelikeRecruitConfig::get_instance();

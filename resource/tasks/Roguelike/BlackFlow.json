@@ -83,6 +83,8 @@
   "BlackFlow@Roguelike@Begin": {
     "baseTask": "Roguelike@Begin",
     "next": [
+      "BlackFlow@Roguelike@DuelOpponentSelection",
+      "BlackFlow@Roguelike@DuelRetreat",
       "BlackFlow@Roguelike@StartAction",
       "BlackFlow@Roguelike@InitialRecruitAbandonCancel",
       "BlackFlow@Roguelike@RecruitMain",
@@ -92,8 +94,6 @@
       "BlackFlow@Roguelike@InitialRecruitEnter",
       "BlackFlow@Roguelike@InitialCollectible",
       "BlackFlow@Roguelike@ChooseDifficulty",
-      "BlackFlow@Roguelike@TerminalHomeFallback",
-      "BlackFlow@Roguelike@ThemeCardFallback",
       "BlackFlow@Roguelike@ScrapTradePageFallback",
       "BlackFlow@Roguelike@StartExplore",
       "BlackFlow@Roguelike@EnterAfterRecruit",
@@ -118,6 +118,26 @@
       "BlackFlow@Roguelike@ScrapTradeCollapse"
     ]
   },
+  "BlackFlow@Roguelike@AccountBegin": {
+    "algorithm": "JustReturn",
+    "action": "DoNothing",
+    "next": [
+      "BlackFlow@Roguelike@AccountHome",
+      "BlackFlow@Roguelike@AccountHome@QuickSwitch@ToHome#next",
+      "BlackFlow@Roguelike@AccountHome@ReturnButtons#next"
+    ]
+  },
+  "BlackFlow@Roguelike@AccountHome": {
+    "baseTask": "Home",
+    "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
+    "action": "DoNothing",
+    "next": ["BlackFlow@Roguelike@AccountRead"]
+  },
+  "BlackFlow@Roguelike@AccountRead": {
+    "algorithm": "JustReturn",
+    "action": "DoNothing",
+    "next": ["BlackFlow@Roguelike"]
+  },
   "BlackFlow@Roguelike@ScrapTradePageFallback": {
     "Doc": "B 服新版行商顶部购买按钮作为页面识别锚点；命中后交回行商决策插件。",
     "algorithm": "OcrDetect",
@@ -134,38 +154,6 @@
     "fullMatch": false,
     "next": [
       "BlackFlow@Roguelike@ScrapTradeDecision"
-    ]
-  },
-  "BlackFlow@Roguelike@TerminalHomeFallback": {
-    "algorithm": "OcrDetect",
-    "action": "ClickRect",
-    "roi": [
-      700,
-      100,
-      470,
-      300
-    ],
-    "text": [
-      "终端"
-    ],
-    "next": [
-      "BlackFlow@Roguelike@ThemeCardFallback"
-    ]
-  },
-  "BlackFlow@Roguelike@ThemeCardFallback": {
-    "algorithm": "OcrDetect",
-    "action": "ClickSelf",
-    "roi": [
-      930,
-      70,
-      340,
-      250
-    ],
-    "text": [
-      "沉浸者的黑流树海"
-    ],
-    "next": [
-      "BlackFlow@Roguelike@StartExplore"
     ]
   },
   "BlackFlow@Roguelike@CancelNodeSelection": {
@@ -1643,13 +1631,14 @@
     "postDelay": 500
   },
   "BlackFlow@Roguelike@MapPrepare-FloorEnterZoom": {
-    "Doc": "刚进入楼层时比例尺必定是大的，此刻两种放大镜状态分不清，所以不判状态直接切一次；比例尺缩小后节点不会压到顶部标题，楼层 OCR 才干净。",
+    "Doc": "只观察地图入口，不盲切比例尺。缩放状态由高阈值模板区分，放大状态交给 NextLevel-ZoomOut 处理。",
     "baseTask": "BlackFlow@Roguelike@MapPrepare-Ready",
     "template": [
       "BlackFlow@Roguelike@MapZoomIn.png",
       "BlackFlow@Roguelike@MapZoomOut.png"
     ],
-    "action": "ClickSelf",
+    "action": "DoNothing",
+    "templThreshold": 0.9,
     "preDelay": 500,
     "postDelay": 1000,
     "next": [
@@ -1668,7 +1657,7 @@
       "以本任务为 baseTask 的派生任务必须自己覆盖 next：派生任务以自己的名字执行，插件收不到回调，若沿用本任务的 next 会带着上一次改写结果进入 ReadyAction。"
     ],
     "template": "BlackFlow@Roguelike@MapZoomIn.png",
-    "templThreshold": 0.7,
+    "templThreshold": 0.9,
     "roi": [
       24,
       468,
@@ -1689,7 +1678,7 @@
   },
   "BlackFlow@Roguelike@MapPrepare-ZoomOut": {
     "template": "BlackFlow@Roguelike@MapZoomOut.png",
-    "templThreshold": 0.45,
+    "templThreshold": 0.9,
     "roi": [
       24,
       468,
@@ -2463,7 +2452,7 @@
     ]
   },
   "BlackFlow@Roguelike@QuickFormation": {
-    "template": "empty.png",
+    "template": "Roguelike@QuickFormation.png",
     "action": "ClickSelf",
     "roi": [
       817,
@@ -2478,7 +2467,7 @@
     ]
   },
   "BlackFlow@Roguelike@FormationConfirm": {
-    "template": "empty.png",
+    "template": "Roguelike@FormationConfirm.png",
     "action": "ClickSelf",
     "roi": [
       1015,
@@ -2487,9 +2476,88 @@
       119
     ],
     "next": [
-      "BlackFlow@Roguelike@FormationEmployLeavePrompt",
-      "BlackFlow@Roguelike@ReturnToMap"
+      "BlackFlow@Roguelike@StartAction"
     ]
+  },
+  "BlackFlow@Roguelike@FormationValidationComplete": {
+    "algorithm": "OcrDetect",
+    "text": ["开始行动"],
+    "roi": [905, 593, 375, 127],
+    "action": "DoNothing",
+    "next": []
+  },
+  "BlackFlow@Roguelike@DuelStageEnter": {
+    "algorithm": "OcrDetect",
+    "text": ["出发前往"],
+    "roi": [1020, 455, 260, 160],
+    "action": "ClickSelf",
+    "postDelay": 700,
+    "next": ["BlackFlow@Roguelike@DuelQuickFormation"]
+  },
+  "BlackFlow@Roguelike@DuelQuickFormation": {
+    "baseTask": "BlackFlow@Roguelike@QuickFormation",
+    "template": "Roguelike@QuickFormation.png",
+    "next": ["BlackFlow@Roguelike@DuelFormationConfirm"]
+  },
+  "BlackFlow@Roguelike@DuelFormationConfirm": {
+    "baseTask": "BlackFlow@Roguelike@FormationConfirm",
+    "template": "Roguelike@FormationConfirm.png",
+    "next": ["BlackFlow@Roguelike@DuelStartAction"]
+  },
+  "BlackFlow@Roguelike@DuelStartAction": {
+    "baseTask": "BlackFlow@Roguelike@StartAction",
+    "template": "Roguelike@StartAction.png",
+    "postDelay": 1000,
+    "next": ["BlackFlow@Roguelike@DuelOpponentSelection"]
+  },
+  "BlackFlow@Roguelike@DuelOpponentSelection": {
+    "algorithm": "OcrDetect",
+    "text": ["部署到敌人前"],
+    "roi": [390, 15, 510, 115],
+    "action": "DoNothing",
+    "next": ["BlackFlow@Roguelike@DuelCombat-Enter"]
+  },
+  "BlackFlow@Roguelike@DuelCombat-Enter": {
+    "algorithm": "OcrDetect",
+    "text": ["开始战斗"],
+    "roi": [1000, 420, 280, 150],
+    "action": "ClickSelf",
+    "postDelay": 1000,
+    "next": ["BlackFlow@Roguelike@DuelRetreat", "BlackFlow@Roguelike@StartAction#next"]
+  },
+  "BlackFlow@Roguelike@DuelRetreat": {
+    "algorithm": "OcrDetect",
+    "text": ["暂时撤退"],
+    "roi": [0, 480, 470, 150],
+    "action": "ClickRect",
+    "specificRect": [800, 570, 200, 80],
+    "postDelay": 800,
+    "next": [
+      "BlackFlow@Roguelike@RewardAllClaimed",
+      "BlackFlow@Roguelike@GetDrops#next",
+      "BlackFlow@Roguelike@Stages#next"
+    ]
+  },
+  "BlackFlow@Roguelike@DuelPreparationVerified": {
+    "algorithm": "JustReturn",
+    "action": "DoNothing",
+    "next": []
+  },
+  "BlackFlow@Roguelike@DuelBattleResume": {
+    "algorithm": "JustReturn",
+    "action": "ClickRect",
+    "specificRect": [1170, 20, 60, 60],
+    "postDelay": 100,
+    "next": ["BlackFlow@Roguelike@StartAction#next"]
+  },
+  "BlackFlow@Roguelike@BattleResume": {
+    "algorithm": "JustReturn",
+    "action": "DoNothing",
+    "next": ["BlackFlow@Roguelike@StartAction#next"]
+  },
+  "BlackFlow@Roguelike@BattleStartEmployLeavePrompt": {
+    "baseTask": "BlackFlow@Roguelike@FormationEmployLeavePrompt",
+    "next": []
   },
   "BlackFlow@Roguelike@FormationEmployLeavePrompt": {
     "Doc": "编队确认后出现的临时干员离队确认弹窗；确认后回到地图入口链，再由 StartAction 进入战斗。",
@@ -3242,11 +3310,7 @@
       "BlackFlow@Roguelike@SquadConfirmObserve*2"
     ],
     "next": [
-      "BlackFlow@Roguelike@SquadPickTeqin",
-      "BlackFlow@Roguelike@SquadPickWenming",
-      "BlackFlow@Roguelike@SquadPickGaotai",
-      "BlackFlow@Roguelike@SquadPickDimi",
-      "BlackFlow@Roguelike@SquadPickTuji"
+      "BlackFlow@Roguelike@SquadConfirm"
     ]
   },
   "BlackFlow@Roguelike@SquadConfirm": {
@@ -3260,9 +3324,7 @@
     "action": "ClickSelf",
     "postDelay": 1500,
     "next": [
-      "BlackFlow@Roguelike@Squad-EnterPoint",
-      "BlackFlow@Roguelike@InitialRecruitEnter",
-      "BlackFlow@Roguelike@RolesDefault"
+      "BlackFlow@Roguelike@SquadConfirmLeave#next"
     ]
   },
   "BlackFlow@Roguelike@SquadConfirmLeave": {

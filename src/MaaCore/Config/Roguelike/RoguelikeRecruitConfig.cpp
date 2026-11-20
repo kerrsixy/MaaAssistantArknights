@@ -76,9 +76,8 @@ const std::vector<asst::RecruitPriorityOffset>
     return m_team_complete_condition.at(theme);
 }
 
-std::string asst::RoguelikeRecruitConfig::get_opening_roles(
-    const std::string& theme,
-    const std::string& squad) const noexcept
+std::string
+    asst::RoguelikeRecruitConfig::get_opening_roles(const std::string& theme, const std::string& squad) const noexcept
 {
     if (auto theme_it = m_squad_opening_roles.find(theme); theme_it != m_squad_opening_roles.end()) {
         if (auto squad_it = theme_it->second.find(squad); squad_it != theme_it->second.end()) {
@@ -194,11 +193,20 @@ bool asst::RoguelikeRecruitConfig::parse(const json::value& json)
     // 肉鸽名字
     const std::string theme = json.at("theme").as_string();
     clear(theme);
+    if (const auto excluded = json.find<json::array>("excluded_opers")) {
+        for (const auto& name : *excluded) {
+            if (!name.is_string() || name.as_string().empty()) {
+                LogError << "Invalid roguelike excluded operator" << theme;
+                return false;
+            }
+            m_excluded_opers[theme].emplace(name.as_string());
+        }
+    }
 
     if (auto opening = json.find<json::object>("opening")) {
         m_default_opening_roles[theme] = opening->get("default_roles", std::string {});
-            // 开局阶段未覆盖职业的加分，0 关闭（退化为纯 start_priority）。
-            m_opening_role_bonus[theme] = opening->get("role_diversity_bonus", 500);
+        // 开局阶段未覆盖职业的加分，0 关闭（退化为纯 start_priority）。
+        m_opening_role_bonus[theme] = opening->get("role_diversity_bonus", 500);
         // 未显式选择分队时使用哪个分队（玩法策略，全在资源里）
         m_default_squad[theme] = opening->get("default_squad", std::string {});
         if (auto squad_roles = opening->find<json::object>("squad_roles")) {
@@ -340,6 +348,7 @@ bool asst::RoguelikeRecruitConfig::parse(const json::value& json)
 
 void asst::RoguelikeRecruitConfig::clear(const std::string& theme)
 {
+    m_excluded_opers.erase(theme);
     m_all_opers.erase(theme);
     m_all_groups.erase(theme);
     m_oper_groups.erase(theme);

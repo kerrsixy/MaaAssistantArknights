@@ -48,7 +48,9 @@
 #include "Task/Roguelike/JieGarden/RoguelikeCoppersTaskPlugin.h"
 
 // ------------------ 黑流树海主题专用配置及插件 ------------------
+#include "Task/Roguelike/BlackFlow/BlackFlowAccountTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowCultivationTaskPlugin.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowDuelTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowLifecycleTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowMapObservationSource.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowMovementTaskPlugin.h"
@@ -134,6 +136,11 @@ asst::RoguelikeTask::RoguelikeTask(const AsstCallback& callback, Assistant* inst
         std::make_shared<blackflow::BlackFlowTaskPort>(callback, inst, TaskType, m_blackflow_map_source_ptr);
     encounter_plugin->set_blackflow_session(m_blackflow_session_ptr);
     shopping_plugin->set_blackflow_session(m_blackflow_session_ptr);
+    m_roguelike_task_ptr->register_plugin<blackflow::BlackFlowAccountTaskPlugin>(m_config_ptr, m_control_ptr)
+        ->set_retry_times(0);
+    m_roguelike_task_ptr
+        ->register_plugin<blackflow::BlackFlowDuelTaskPlugin>(m_config_ptr, m_control_ptr, m_blackflow_session_ptr)
+        ->set_retry_times(0);
     m_roguelike_task_ptr->register_plugin<blackflow::BlackFlowLifecycleTaskPlugin>(
         m_config_ptr,
         m_control_ptr,
@@ -251,6 +258,41 @@ bool asst::RoguelikeTask::set_params(const json::value& params)
     const auto& mode = m_config_ptr->get_mode();
 
     m_roguelike_task_ptr->set_tasks({ theme + "@Roguelike@Begin" });
+    if (theme == RoguelikeTheme::BlackFlow && params.get("starts_count", INT_MAX) > 0) {
+        m_roguelike_task_ptr->set_tasks({ "BlackFlow@Roguelike@AccountBegin" });
+    }
+#ifdef ASST_DEBUG
+    if (!params.get("battle_resume_stage", std::string()).empty()) {
+        if (theme != RoguelikeTheme::BlackFlow) {
+            return false;
+        }
+        m_roguelike_task_ptr->set_tasks({ "BlackFlow@Roguelike@BattleResume" });
+    }
+    if (!params.get("duel_battle_resume", std::string()).empty()) {
+        if (theme != RoguelikeTheme::BlackFlow) {
+            return false;
+        }
+        m_roguelike_task_ptr->set_tasks({ "BlackFlow@Roguelike@DuelBattleResume" });
+    }
+    if (params.get("duel_prepare_only", false)) {
+        if (theme != RoguelikeTheme::BlackFlow) {
+            return false;
+        }
+        m_roguelike_task_ptr->set_tasks({ "BlackFlow@Roguelike@DuelOpponentSelection" });
+        m_roguelike_task_ptr->override_next(
+            "BlackFlow@Roguelike@DuelOpponentSelection",
+            { "BlackFlow@Roguelike@DuelPreparationVerified" });
+    }
+    if (params.get("formation_only", false)) {
+        if (theme != RoguelikeTheme::BlackFlow) {
+            return false;
+        }
+        m_roguelike_task_ptr->set_tasks({ "BlackFlow@Roguelike@QuickFormation" });
+        m_roguelike_task_ptr->override_next(
+            "BlackFlow@Roguelike@FormationConfirm",
+            { "BlackFlow@Roguelike@FormationValidationComplete" });
+    }
+#endif
 
     if (mode == RoguelikeMode::Investment) {
         // 刷源石锭模式是否进入第二层

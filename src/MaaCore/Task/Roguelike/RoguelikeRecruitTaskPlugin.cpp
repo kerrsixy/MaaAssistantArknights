@@ -344,6 +344,10 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
             }
 
             // 查询招募配置
+            if (RoguelikeRecruit.is_oper_excluded(theme, oper_info.name)) {
+                LogInfo << "Excluded roguelike recruitment candidate" << theme << oper_info.name;
+                continue;
+            }
             const auto& recruit_info = RoguelikeRecruit.get_oper_info(m_config->get_theme(), oper_info.name);
             int priority = 0;
 
@@ -768,6 +772,9 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
 
 bool asst::RoguelikeRecruitTaskPlugin::recruit_support_char(const std::string& name, const int max_refresh)
 {
+    if (RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), name)) {
+        return false;
+    }
     LogTraceFunction;
 
     // 判断是否存在“选择助战”按钮，存在则点击
@@ -856,6 +863,9 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_support_char(const std::string& n
 
 bool asst::RoguelikeRecruitTaskPlugin::recruit_own_char(const std::string& name)
 {
+    if (RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), name)) {
+        return false;
+    }
     LogTraceFunction;
 
     return recruit_appointed_char(name, false, true);

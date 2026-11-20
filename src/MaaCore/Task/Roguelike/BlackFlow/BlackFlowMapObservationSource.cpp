@@ -5,8 +5,9 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
-#include <string_view>
 #include <opencv2/imgproc.hpp>
+#include <optional>
+#include <string_view>
 
 #include "Config/Roguelike/BlackFlow/BlackFlowMapPerceptionResource.h"
 #include "MaaUtils/ImageIo.h"
@@ -58,12 +59,23 @@ std::optional<std::vector<cv::Point>> detect_temporal_buff_scope(
     const std::deque<cv::Mat>& frames,
     const std::vector<perception::Node>& nodes)
 {
-    if (frames.size() < 4 || image.empty() || nodes.empty()) return std::nullopt;
+    if (frames.size() < 4 || image.empty() || nodes.empty()) {
+        return std::nullopt;
+    }
     cv::Mat mean = cv::Mat::zeros(image.size(), CV_32F);
-    for (const auto& frame : frames) { cv::Mat f; frame.convertTo(f, CV_32F); mean += f; }
+    for (const auto& frame : frames) {
+        cv::Mat f;
+        frame.convertTo(f, CV_32F);
+        mean += f;
+    }
     mean /= static_cast<float>(frames.size());
     cv::Mat variance = cv::Mat::zeros(image.size(), CV_32F);
-    for (const auto& frame : frames) { cv::Mat f; frame.convertTo(f, CV_32F); cv::Mat d = f - mean; variance += d.mul(d); }
+    for (const auto& frame : frames) {
+        cv::Mat f;
+        frame.convertTo(f, CV_32F);
+        cv::Mat d = f - mean;
+        variance += d.mul(d);
+    }
     variance /= static_cast<float>(frames.size());
     std::vector<double> x_positions;
     std::vector<double> y_positions;
@@ -76,9 +88,13 @@ std::optional<std::vector<cv::Point>> detect_temporal_buff_scope(
     std::ranges::sort(y_positions);
     for (std::size_t index = 1; index < x_positions.size(); ++index) {
         const double gap = x_positions[index] - x_positions[index - 1];
-        if (gap > 1.0) horizontal_gaps.push_back(gap);
+        if (gap > 1.0) {
+            horizontal_gaps.push_back(gap);
+        }
     }
-    if (horizontal_gaps.empty()) return std::nullopt;
+    if (horizontal_gaps.empty()) {
+        return std::nullopt;
+    }
     std::ranges::sort(horizontal_gaps);
     const double pitch = horizontal_gaps[horizontal_gaps.size() / 2];
     const double x_cut = x_positions[static_cast<std::size_t>((x_positions.size() - 1) * 0.70)];
@@ -86,11 +102,14 @@ std::optional<std::vector<cv::Point>> detect_temporal_buff_scope(
     const int right = std::min(image.cols, static_cast<int>(std::lround(x_positions.back() + 0.60 * pitch)));
     const int top = std::max(0, static_cast<int>(std::lround(y_positions.front() - 0.60 * pitch)));
     const int bottom = std::min(image.rows, static_cast<int>(std::lround(y_positions.back() + 0.60 * pitch)));
-    if (left >= right || top >= bottom) return std::nullopt;
+    if (left >= right || top >= bottom) {
+        return std::nullopt;
+    }
 
     cv::Mat flat = variance.reshape(1, 1), sorted;
     cv::sort(flat, sorted, cv::SORT_ASCENDING);
-    const auto index = std::min(static_cast<std::size_t>(sorted.total() - 1), static_cast<std::size_t>(sorted.total() * 0.90));
+    const auto index =
+        std::min(static_cast<std::size_t>(sorted.total() - 1), static_cast<std::size_t>(sorted.total() * 0.90));
     cv::Mat mask;
     cv::threshold(variance, mask, sorted.at<float>(0, static_cast<int>(index)), 255.0, cv::THRESH_BINARY);
     mask.convertTo(mask, CV_8U);
@@ -98,7 +117,11 @@ std::optional<std::vector<cv::Point>> detect_temporal_buff_scope(
     roi_mask(cv::Rect(left, top, right - left, bottom - top)).setTo(255);
     mask &= roi_mask;
     const int kernel_size = std::max(3, static_cast<int>(std::lround(pitch * 0.25)) | 1);
-    cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, cv::getStructuringElement(cv::MORPH_ELLIPSE, { kernel_size, kernel_size }));
+    cv::morphologyEx(
+        mask,
+        mask,
+        cv::MORPH_CLOSE,
+        cv::getStructuringElement(cv::MORPH_ELLIPSE, { kernel_size, kernel_size }));
 
     cv::Mat labels, stats, centroids;
     const int component_count = cv::connectedComponentsWithStats(mask, labels, stats, centroids, 8, CV_32S);
@@ -119,11 +142,15 @@ std::optional<std::vector<cv::Point>> detect_temporal_buff_scope(
             best_area = area;
         }
     }
-    if (best_label == 0 || best_nodes == 0) return std::nullopt;
+    if (best_label == 0 || best_nodes == 0) {
+        return std::nullopt;
+    }
     cv::Mat selected = labels == best_label;
     std::vector<std::vector<cv::Point>> contours;
     cv::findContours(selected, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-    if (contours.empty()) return std::nullopt;
+    if (contours.empty()) {
+        return std::nullopt;
+    }
     return *std::ranges::max_element(contours, [](const auto& lhs, const auto& rhs) {
         return cv::contourArea(lhs) < cv::contourArea(rhs);
     });
@@ -166,6 +193,7 @@ void BlackFlowMapObservationSource::release() noexcept
     m_initialization_error.clear();
     m_last_result = {};
     m_last_attempt_id.clear();
+    m_last_accepted_observation_id.clear();
     m_accumulated_screenshot_us = 0;
     m_accumulated_recognition_us = 0;
     m_last_attempt_count = 0;
@@ -222,11 +250,15 @@ bool BlackFlowMapObservationSource::recognize(
         if (!m_last_temporal_gray.empty() && m_last_temporal_gray.size() == gray.size()) {
             cv::Mat delta;
             cv::absdiff(gray, m_last_temporal_gray, delta);
-            if (cv::mean(delta)[0] > 18.0) m_temporal_gray_frames.clear();
+            if (cv::mean(delta)[0] > 18.0) {
+                m_temporal_gray_frames.clear();
+            }
         }
         m_last_temporal_gray = gray.clone();
         m_temporal_gray_frames.push_back(gray);
-        while (m_temporal_gray_frames.size() > 8) m_temporal_gray_frames.pop_front();
+        while (m_temporal_gray_frames.size() > 8) {
+            m_temporal_gray_frames.pop_front();
+        }
         if (m_analyzer == nullptr && !prepare(error)) {
             result.error = m_initialization_error;
             result.captured_bgr = image.clone();
@@ -245,15 +277,14 @@ bool BlackFlowMapObservationSource::recognize(
             m_last_result.node_detection.current_marker_node_id >= 0) {
             result.ok = true;
             result.error.clear();
-            const auto previous_marker = std::ranges::find_if(
-                m_last_result.node_detection.nodes,
-                [&](const auto& node) { return node.id == m_last_result.node_detection.current_marker_node_id; });
+            const auto previous_marker =
+                std::ranges::find_if(m_last_result.node_detection.nodes, [&](const auto& node) {
+                    return node.id == m_last_result.node_detection.current_marker_node_id;
+                });
             if (previous_marker != m_last_result.node_detection.nodes.end()) {
-                const auto remapped = std::ranges::find_if(
-                    result.node_detection.nodes,
-                    [&](const auto& node) {
-                        return node.row == previous_marker->row && node.column == previous_marker->column && node.exists;
-                    });
+                const auto remapped = std::ranges::find_if(result.node_detection.nodes, [&](const auto& node) {
+                    return node.row == previous_marker->row && node.column == previous_marker->column && node.exists;
+                });
                 if (remapped != result.node_detection.nodes.end()) {
                     result.node_detection.current_marker_node_id = remapped->id;
                 }
@@ -263,9 +294,8 @@ bool BlackFlowMapObservationSource::recognize(
         // 若上一帧也没有可复用的标记，允许在同一张稳定地图上用节点置信度
         // 选取一个候选当前位置，避免角色标记短暂闪烁导致整层路线重建失败。
         if (!result.ok && result.error.find("did not locate the current marker") != std::string::npos) {
-            const auto candidate = std::ranges::max_element(
-                result.node_detection.nodes,
-                [](const auto& lhs, const auto& rhs) {
+            const auto candidate =
+                std::ranges::max_element(result.node_detection.nodes, [](const auto& lhs, const auto& rhs) {
                     const double l = lhs.exists ? lhs.confidence : -1.0;
                     const double r = rhs.exists ? rhs.confidence : -1.0;
                     return l < r;
@@ -339,6 +369,7 @@ bool BlackFlowMapObservationSource::recognize(
         }
 
         observation = std::move(next);
+        m_last_accepted_observation_id = observation.observation_id;
         m_last_result = std::move(result);
         return true;
     }
@@ -377,13 +408,16 @@ bool BlackFlowMapObservationSource::persist_diagnostics(const DiagnosticArtifact
         m_last_result.node_detection.nodes.empty()) {
         return true;
     }
+    if (!request.observation_id.empty() && request.observation_id != m_last_accepted_observation_id) {
+        // 排队中的旧决策不能画到新识别帧上。
+        return true;
+    }
     try {
         std::string round_id = request.artifact_set_id;
         if (const auto separator = round_id.find('-', 5); separator != std::string::npos) {
             round_id.erase(separator);
         }
-        const auto directory = UserDir.get() / "BlackFlowEvidence" /
-                               ("round-" + round_id) /
+        const auto directory = UserDir.get() / "BlackFlowEvidence" / ("round-" + round_id) /
                                ("floor-" + std::to_string(m_last_result.floor));
         std::filesystem::create_directories(directory);
         json::object snapshot = request.snapshot;
@@ -395,6 +429,7 @@ bool BlackFlowMapObservationSource::persist_diagnostics(const DiagnosticArtifact
         snapshot["recognition_us"] = m_accumulated_recognition_us;
         snapshot["recognition_floor"] = m_last_result.floor;
         snapshot["recognition_floor_source"] = "next_level_ocr";
+        snapshot["route_status"] = request.snapshot.contains("planned_route_steps") ? "planned" : "pending";
         if (!m_last_result.error.empty()) {
             snapshot["recognition_error"] = m_last_result.error;
         }
@@ -417,28 +452,49 @@ bool BlackFlowMapObservationSource::persist_diagnostics(const DiagnosticArtifact
                 return false;
             }
             const auto route_path = directory / "recommended_route.png";
-            if (!std::filesystem::exists(route_path) && !write_image_if_present(route_path, overlay, error)) {
-                return false;
-            }
-            if (request.snapshot.contains("planned_route_steps") &&
-                request.snapshot.contains("rows") && request.snapshot.contains("columns")) {
+            if (request.snapshot.contains("planned_route_steps")) {
                 cv::Mat route = overlay.clone();
-                const int rows = std::max(1, request.snapshot.at("rows").as_integer());
-                const int columns = std::max(1, request.snapshot.at("columns").as_integer());
-                const auto point_for = [&](const json::value& node) {
+                const auto point_for = [&](const json::value& node) -> std::optional<cv::Point> {
                     const int row = node.at("row").as_integer();
                     const int column = node.at("column").as_integer();
-                    return cv::Point(
-                        static_cast<int>((column + 0.5) * route.cols / (columns + 1.0)),
-                        static_cast<int>((row + 0.5) * route.rows / (rows + 1.0)));
+                    const auto& nodes = m_last_result.node_detection.nodes;
+                    const auto found = std::find_if(nodes.begin(), nodes.end(), [&](const auto& detected) {
+                        return detected.row == row && detected.column == column;
+                    });
+                    if (found == nodes.end()) {
+                        return std::nullopt;
+                    }
+                    return cv::Point(std::lround(found->center.x), std::lround(found->center.y));
                 };
                 for (const auto& step : request.snapshot.at("planned_route_steps").as_array()) {
                     const auto& path = step.at("path").as_array();
-                    for (std::size_t i = 1; i < path.size(); ++i) {
-                        cv::line(route, point_for(path[i - 1]), point_for(path[i]), cv::Scalar(0, 80, 255), 5, cv::LINE_AA);
+                    auto previous = point_for(step.at("source"));
+                    for (const auto& node : path) {
+                        const auto current = point_for(node);
+                        if (previous && current && *previous != *current) {
+                            cv::arrowedLine(route, *previous, *current, cv::Scalar(0, 80, 255), 5, cv::LINE_AA, 0, 0.2);
+                        }
+                        previous = current;
                     }
                 }
-                write_image_if_present(route_path, route, error);
+                if (!write_image_if_present(route_path, route, error)) {
+                    return false;
+                }
+            }
+            else {
+                cv::Mat route = overlay.clone();
+                cv::putText(
+                    route,
+                    "Route pending for " + request.observation_id,
+                    { 30, 110 },
+                    cv::FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    cv::Scalar(0, 200, 255),
+                    2,
+                    cv::LINE_AA);
+                if (!write_image_if_present(route_path, route, error)) {
+                    return false;
+                }
             }
         }
         return true;

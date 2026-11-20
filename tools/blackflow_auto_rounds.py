@@ -30,7 +30,7 @@ LOG_ROOT = Path(r"D:\dsh\明日方舟\日志")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from blackflow_state_check import check as check_state  # noqa: E402
-
+from blackflow_state_check import ADB_ADDRESS  # noqa: E402
 
 
 def main() -> int:
@@ -39,6 +39,9 @@ def main() -> int:
     ap.add_argument("--seconds", type=int, default=2400, help="每轮时长上限")
     ap.add_argument("--squad", default="开拓者分队")
     ap.add_argument("--roles", default="先手必胜")
+    ap.add_argument("--address", default=ADB_ADDRESS)
+    ap.add_argument("--client", choices=("Official", "Bilibili"), default="Official")
+    ap.add_argument("--difficulty", type=int, default=2147483647)
     ap.add_argument("--gap", type=int, default=20, help="轮间等待秒数")
     ap.add_argument("--tag", default=None, help="输出目录 tag，默认按日期时间生成")
     ap.add_argument(
@@ -76,10 +79,16 @@ def main() -> int:
             args.squad,
             "--roles",
             args.roles,
+            "--address",
+            args.address,
+            "--client",
+            args.client,
+            "--difficulty",
+            str(args.difficulty),
         ]
         print(f"\n=== 第 {i}/{args.rounds} 轮：{out.name} ===", flush=True)
         if not args.skip_precheck:
-            state = check_state()
+            state = check_state(address=args.address)
             best = state["best"]
             if not state["ok"]:
                 print(
@@ -87,13 +96,18 @@ def main() -> int:
                     f"当前不在黑流树海主界面（阈值 {state['threshold']}）",
                     flush=True,
                 )
-                print("中止连跑；请先把游戏恢复到黑流树海主界面（终端→集成战略）。", flush=True)
+                print(
+                    "中止连跑；请先把游戏恢复到黑流树海主界面（终端→集成战略）。",
+                    flush=True,
+                )
                 return 4
             print(f"预检通过：{best['template']} score={best['score']:.4f}", flush=True)
         started = time.time()
         code = subprocess.call(cmd, cwd=str(REPO_ROOT))
         elapsed = time.time() - started
-        print(f"--- 第 {i} 轮结束，exit={code}，用时 {elapsed / 60:.1f} 分钟", flush=True)
+        print(
+            f"--- 第 {i} 轮结束，exit={code}，用时 {elapsed / 60:.1f} 分钟", flush=True
+        )
         if elapsed / 60 < args.quick_fail_minutes:
             quick_fails += 1
             print(
@@ -102,7 +116,10 @@ def main() -> int:
                 flush=True,
             )
             if quick_fails >= args.max_quick_fails:
-                print("连续快速失败，中止连跑；请先把游戏恢复到黑流树海主界面后再跑。", flush=True)
+                print(
+                    "连续快速失败，中止连跑；请先把游戏恢复到黑流树海主界面后再跑。",
+                    flush=True,
+                )
                 return 3
         else:
             quick_fails = 0

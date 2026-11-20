@@ -7,6 +7,28 @@
 #include "Utils/Logger.hpp"
 #include <ranges>
 
+bool asst::RoguelikeFormationTaskPlugin::load_params([[maybe_unused]] const json::value& params)
+{
+    set_retry_times(m_config->get_theme() == RoguelikeTheme::BlackFlow ? 2 : RetryTimesDefault);
+    return true;
+}
+
+bool asst::RoguelikeFormationTaskPlugin::on_run_fails()
+{
+    if (m_config->get_theme() != RoguelikeTheme::BlackFlow || m_cur_retry < m_retry_times) {
+        return true;
+    }
+
+    // A failed plugin otherwise lets ProcessTask confirm an unchanged formation and start the battle.
+    Log.error(__FUNCTION__, "BlackFlow quick formation failed; stop before battle");
+    save_img(utils::path("debug/roguelike"), false);
+    auto info = basic_info_with_what("BlackFlowFormationFailed");
+    info["details"] = json::object { { "reason", "Quick formation could not be verified" } };
+    callback(AsstMsg::SubTaskExtraInfo, info);
+    m_task_ptr->set_enable(false);
+    return false;
+}
+
 bool asst::RoguelikeFormationTaskPlugin::verify(AsstMsg msg, const json::value& details) const
 {
     if (msg != AsstMsg::SubTaskCompleted || details.get("subtask", std::string()) != "ProcessTask") {
@@ -23,7 +45,8 @@ bool asst::RoguelikeFormationTaskPlugin::verify(AsstMsg msg, const json::value& 
     if (task_view.starts_with(roguelike_name)) {
         task_view.remove_prefix(roguelike_name.length());
     }
-    if (task_view == "Roguelike@QuickFormation") {
+    if (task_view == "Roguelike@QuickFormation" ||
+        (m_config->get_theme() == RoguelikeTheme::BlackFlow && task_view == "Roguelike@DuelQuickFormation")) {
         return true;
     }
     else {
@@ -43,6 +66,12 @@ bool asst::RoguelikeFormationTaskPlugin::_run()
     size_t pre_selected = 0;
     size_t select_count = 0;
     for (const auto& oper : formation_analyzer.get_result()) {
+        if (RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name)) {
+            if (oper.selected) {
+                ctrler()->click(oper.rect);
+            }
+            continue;
+        }
         if (oper.selected) {
             ++pre_selected;
             continue;
@@ -99,6 +128,9 @@ void asst::RoguelikeFormationTaskPlugin::clear_and_reselect()
         scan_oper();
     }
     max_page = cur_page;
+    std::erase_if(oper_list, [&](const auto& oper) {
+        return RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name);
+    });
 
     // 将oper_list的每个干员重置为未选择
     for (auto& oper : oper_list) {

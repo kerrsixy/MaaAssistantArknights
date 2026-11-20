@@ -11,6 +11,10 @@ public:
     using AbstractTask::AbstractTask;
     virtual ~AccountSnapshotTask() override = default;
 
+    [[nodiscard]] const std::string& uid() const noexcept { return m_uid; }
+
+    [[nodiscard]] const std::string& nick() const noexcept { return m_nick; }
+
 protected:
     virtual bool _run() override;
 

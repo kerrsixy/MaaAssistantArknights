@@ -16,9 +16,11 @@ public:
     virtual ~RoguelikeFormationTaskPlugin() override = default;
 
     virtual bool verify(AsstMsg msg, const json::value& details) const override;
+    virtual bool load_params(const json::value& params) override;
 
 protected:
     virtual bool _run() override;
+    virtual bool on_run_fails() override;
 
     void clear_and_reselect();
     bool analyze();

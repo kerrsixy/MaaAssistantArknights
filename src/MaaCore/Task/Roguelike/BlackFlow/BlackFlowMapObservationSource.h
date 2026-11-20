@@ -32,6 +32,7 @@ private:
     DiagnosticSettings m_diagnostics;
     perception::MapRecognitionResult m_last_result;
     std::string m_last_attempt_id;
+    std::string m_last_accepted_observation_id;
     std::int64_t m_accumulated_screenshot_us = 0;
     std::int64_t m_accumulated_recognition_us = 0;
     int m_last_attempt_count = 0;

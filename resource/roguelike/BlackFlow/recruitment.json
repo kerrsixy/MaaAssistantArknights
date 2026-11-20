@@ -42,19 +42,6 @@
       ]
     },
     {
-      "name": "电弧",
-      "opers": [
-        {
-          "name": "电弧",
-          "skill": 2,
-          "is_start": true,
-          "is_key": true,
-          "recruit_priority": 999,
-          "promote_priority": 999
-        }
-      ]
-    },
-    {
       "name": "元素",
       "opers": [
         {
@@ -1808,9 +1795,6 @@
               "offset": -300
             }
           ]
-        },
-        {
-          "name": "电弧"
         }
       ]
     },
@@ -3865,9 +3849,6 @@
           "promote_priority": 402
         },
         {
-          "name": "电弧"
-        },
-        {
           "name": "塑心"
         },
         {
@@ -4110,9 +4091,6 @@
         },
         {
           "name": "古米"
-        },
-        {
-          "name": "赛柯"
         },
         {
           "name": "泡泡"
@@ -4423,9 +4401,6 @@
       "opers": [
         {
           "name": "丰川祥子"
-        },
-        {
-          "name": "赛柯"
         },
         {
           "name": "棘刺"
@@ -4833,9 +4808,6 @@
           "name": "娜仁图亚"
         },
         {
-          "name": "电弧"
-        },
-        {
           "name": "假日威龙陈"
         },
         {
@@ -5224,9 +5196,6 @@
           "name": "卡夫卡"
         },
         {
-          "name": "赛柯"
-        },
-        {
           "name": "Mon3tr"
         },
         {
@@ -5314,15 +5283,6 @@
         },
         {
           "name": "机动盾牌"
-        }
-      ]
-    },
-    {
-      "name": "鱼",
-      "doc": "电弧的2技能召唤物",
-      "opers": [
-        {
-          "name": "赛柯"
         }
       ]
     },
@@ -6025,5 +5985,9 @@
       ],
       "threshold": 1
     }
-  ]
+  ],
+  "excluded_opers": [
+    "电弧"
+  ],
+  "excluded_opers_Doc": "Excluded from automatic recruitment, formation and deployment in this theme."
 }

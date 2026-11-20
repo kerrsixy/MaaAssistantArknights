@@ -58,6 +58,8 @@ std::string normalize_uid_text(std::string text)
 bool asst::AccountSnapshotTask::_run()
 {
     LogTraceFunction;
+    m_uid.clear();
+    m_nick.clear();
 
     // 约定：调用方已把游戏停在首页（OperStrengthTask 的第一个子任务）
     LogInfo << "正在识别账号：读取首页左下角名片上的昵称与 UID（识别不到不影响后续练度扫描）。";
@@ -134,8 +136,8 @@ bool asst::AccountSnapshotTask::_run()
                 << "本次练度快照不会绑定到具体账号。";
     }
     else {
-        LogInfo << "账号识别完成：昵称「" << (m_nick.empty() ? std::string("<未识别>") : m_nick)
-                << "」，UID " << m_uid << "；练度快照将绑定到这个账号。";
+        LogInfo << "账号识别完成：昵称「" << (m_nick.empty() ? std::string("<未识别>") : m_nick) << "」，UID " << m_uid
+                << "；练度快照将绑定到这个账号。";
     }
 
     json::value info = basic_info_with_what("OperStrengthAccount");

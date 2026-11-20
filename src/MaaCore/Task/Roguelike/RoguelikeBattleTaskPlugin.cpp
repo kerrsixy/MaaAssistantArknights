@@ -19,6 +19,7 @@
 #include "Task/ProcessTask.h"
 #include "Utils/Logger.hpp"
 #include "Vision/Matcher.h"
+#include "Vision/OCRer.h"
 #include "Vision/RegionOCRer.h"
 
 using namespace asst::battle;
@@ -51,7 +52,7 @@ bool asst::RoguelikeBattleTaskPlugin::verify(AsstMsg msg, const json::value& det
     if (task_view.starts_with(roguelike_name)) {
         task_view.remove_prefix(roguelike_name.length());
     }
-    if (task_view == "Roguelike@StartAction") {
+    if (task_view == "Roguelike@StartAction" || (!m_resume_stage.empty() && task_view == "Roguelike@BattleResume")) {
         return true;
     }
     else {
@@ -59,8 +60,17 @@ bool asst::RoguelikeBattleTaskPlugin::verify(AsstMsg msg, const json::value& det
     }
 }
 
+bool asst::RoguelikeBattleTaskPlugin::load_params(const json::value& params)
+{
+#ifdef ASST_DEBUG
+    m_resume_stage = params.get("battle_resume_stage", std::string());
+#endif
+    return true;
+}
+
 bool asst::RoguelikeBattleTaskPlugin::_run()
 {
+    const bool resuming = !m_resume_stage.empty();
     // 进入战斗前位于地图界面，读取「目标生命值」并记录掉血，供判断关卡风险
     {
         RegionOCRer hp_ocr(ctrler()->get_image());
@@ -97,6 +107,27 @@ bool asst::RoguelikeBattleTaskPlugin::_run()
 
     if (!calc_stage_info()) {
         return false;
+    }
+    if (resuming) {
+        OCRer paused(ctrler()->get_image());
+        paused.set_roi({ 450, 270, 400, 150 });
+        paused.set_required({ "PAUSE", "暂停中" });
+        if (!paused.analyze()) {
+            LogError << "Battle resume requires an observed paused screen";
+            m_task_ptr->set_enable(false);
+            return false;
+        }
+        auto ready = basic_info_with_what("BlackFlowBattleResumeReady");
+        ready["details"]["stage"] = m_stage_name;
+        callback(AsstMsg::SubTaskExtraInfo, ready);
+        if (!ctrler()->click(Point { 1200, 50 }) || !sleep(200)) {
+            return false;
+        }
+    }
+
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow && (m_stage_name == "搏杀" || m_stage_name == "共斗")) {
+        LogInfo << "BlackFlow duel preparation is delegated to its observed deployment-limit handler";
+        return true;
     }
 
     if (!update_deployment(true)) {
@@ -147,15 +178,31 @@ bool asst::RoguelikeBattleTaskPlugin::wait_until_start_button_clicked()
     const auto start = std::chrono::steady_clock::now();
     const auto timeout = std::chrono::seconds(Config.get_options().battle_start_timeout_seconds);
     while (!need_exit()) {
-        Matcher formation(ctrler()->get_image());
+        if (std::chrono::steady_clock::now() - start >= timeout) {
+            LogError << __FUNCTION__ << "Formation transition timed out";
+            return false;
+        }
+        const auto image = ctrler()->get_image();
+        if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+            OCRer leave_prompt(image);
+            leave_prompt.set_task_info("BlackFlow@Roguelike@BattleStartEmployLeavePrompt");
+            // A normal formation card also contains the operator name. Only
+            // warning language proves that the departure dialog is present.
+            leave_prompt.set_required({ "离队", "离开", "未编入" });
+            if (leave_prompt.analyze()) {
+                save_img(utils::path("debug") / utils::path("roguelike"));
+                ctrler()->click(Task.get("BlackFlow@Roguelike@BattleStartEmployLeavePrompt")->specific_rect);
+                if (!sleep(500)) {
+                    return false;
+                }
+                continue;
+            }
+        }
+        Matcher formation(image);
         formation.set_task_info(task);
         if (!formation.analyze()) {
             // Leaving formation is expected. calc_stage_info subsequently verifies the battle scene.
             return true;
-        }
-        if (std::chrono::steady_clock::now() - start >= timeout) {
-            LogError << __FUNCTION__ << "Formation transition timed out";
-            return false;
         }
         if (!sleep(250)) {
             return false;
@@ -168,7 +215,8 @@ bool asst::RoguelikeBattleTaskPlugin::calc_stage_info()
 {
     LogTraceFunction;
 
-    if (!wait_until_start_button_clicked()) {
+    const std::string resume_stage = std::exchange(m_resume_stage, {});
+    if (resume_stage.empty() && !wait_until_start_button_clicked()) {
         return false;
     }
     clear();
@@ -185,12 +233,15 @@ bool asst::RoguelikeBattleTaskPlugin::calc_stage_info()
         if (need_exit()) {
             return false;
         }
-        RegionOCRer name_analyzer(ctrler()->get_image());
-        name_analyzer.set_task_info(stage_name_task_ptr);
-        if (!name_analyzer.analyze()) {
-            continue;
+        std::string text = resume_stage;
+        if (text.empty()) {
+            RegionOCRer name_analyzer(ctrler()->get_image());
+            name_analyzer.set_task_info(stage_name_task_ptr);
+            if (!name_analyzer.analyze()) {
+                continue;
+            }
+            text = name_analyzer.get_result().text;
         }
-        const std::string& text = name_analyzer.get_result().text;
         if (text.empty()) {
             continue;
         }
@@ -416,7 +467,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
         // 骰子等道具永远不在任何 deploy plan 里，直接跳过。
         // 否则每轮循环都会刷一条 "is not in ALL deploy plan"，并且它们还会被当成
         // 候选干员参与后续的部署链判断，干扰正常干员的部署次序。
-        if (DiceSet.contains(oper.name)) {
+        if (DiceSet.contains(oper.name) || RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name)) {
             continue;
         }
         // 地图自带的无名放置物（黑流树海的「工人」）：没有招募信息，只按固定组名匹配。
@@ -429,9 +480,10 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
             // 只认部署栏最右侧那张：地图自带放置物固定排在最后。
             // 不能靠「从左往右数第几张」——部署栏会随选中/费用变化重排，位置索引不可靠；
             // 这里同时要求「没有名字」且「rect.x 最大」，两道条件一起才认为是工人。
-            const auto rightmost = std::ranges::max_element(m_cur_deployment_opers, [](const auto& lhs, const auto& rhs) {
-                return lhs.rect.x < rhs.rect.x;
-            });
+            const auto rightmost =
+                std::ranges::max_element(m_cur_deployment_opers, [](const auto& lhs, const auto& rhs) {
+                    return lhs.rect.x < rhs.rect.x;
+                });
             if (rightmost != m_cur_deployment_opers.end() && rightmost->rect.x != oper.rect.x) {
                 LogDebug << "nameless card is not the rightmost one, skip" << oper.rect.x << rightmost->rect.x;
                 continue;
@@ -584,8 +636,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
             }
             // 但也不能一味等：场上人数不足 3 时先把人放下，否则前期就漏怪。
             if (!is_nameless_deployable(deploy_plan.oper_name) && !early_phase && m_used_tiles.size() >= 3 &&
-                deploy_plan.rank > best_waiting_rank &&
-                !(need_medic && deploy_plan.role == battle::Role::Medic)) {
+                deploy_plan.rank > best_waiting_rank && !(need_medic && deploy_plan.role == battle::Role::Medic)) {
                 Log.info(
                     "reserve slot: skip",
                     deploy_plan.oper_name,
@@ -1023,7 +1074,8 @@ std::optional<asst::battle::DeploymentOper> asst::RoguelikeBattleTaskPlugin::cal
     bool has_blocking = false;
     bool has_air_defense = false;
     for (const auto& oper : m_cur_deployment_opers) {
-        if (!oper.available || oper.cooling || DiceSet.contains(oper.name)) {
+        if (!oper.available || oper.cooling || DiceSet.contains(oper.name) ||
+            RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name)) {
             continue;
         }
         const auto& role = oper.role;
@@ -1068,7 +1120,7 @@ std::optional<asst::battle::DeploymentOper> asst::RoguelikeBattleTaskPlugin::cal
 
     std::vector<DeploymentOper> cur_available;
     for (const auto& oper : m_cur_deployment_opers) {
-        if (oper.available) {
+        if (oper.available && !RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name)) {
             cur_available.emplace_back(oper);
         }
     }
@@ -1197,14 +1249,12 @@ std::optional<asst::battle::DeploymentOper> asst::RoguelikeBattleTaskPlugin::cal
     // 2026-10-26 移除「随机兑底」：职业组全不匹配时强行放人，是无效站位的主要来源
     // （会把近卫放到高台、把医疗放到没怪的路径上）。没有匹配就不放。
     if (!best_oper) {
-        LogInfo << __FUNCTION__ << "No best oper" << "stage" << m_stage_name << "cost" << m_cost
-                << "available_cards" << cur_available.size();
+        LogInfo << __FUNCTION__ << "No best oper" << "stage" << m_stage_name << "cost" << m_cost << "available_cards"
+                << cur_available.size();
         for (const auto& candidate : cur_available) {
-            LogInfo << __FUNCTION__ << "candidate" << candidate.name << "role"
-                    << static_cast<int>(candidate.role)
-                    << "cost" << candidate.cost << "cooling" << candidate.cooling
-                    << "position_full" << get_position_full(candidate)
-                    << "legal_locations" << available_locations(candidate).size();
+            LogInfo << __FUNCTION__ << "candidate" << candidate.name << "role" << static_cast<int>(candidate.role)
+                    << "cost" << candidate.cost << "cooling" << candidate.cooling << "position_full"
+                    << get_position_full(candidate) << "legal_locations" << available_locations(candidate).size();
         }
         return std::nullopt;
     }
@@ -1449,8 +1499,8 @@ std::optional<asst::RoguelikeBattleTaskPlugin::DeployInfo>
         // 近战干员优先站在敌人行军路线上：只有踩在道路上才能真正挡住敌人，
         // 站在道路旁边只能等敌人绕过去，漏怪往往就是从这里开始的。
         constexpr int PathBlockBonus = 1500;
-        const bool melee_like = oper.role == battle::Role::Tank || oper.role == battle::Role::Warrior
-                             || oper.role == battle::Role::Pioneer;
+        const bool melee_like =
+            oper.role == battle::Role::Tank || oper.role == battle::Role::Warrior || oper.role == battle::Role::Pioneer;
         if (melee_like) {
             if (auto tile_iter = m_side_tile_info.find(loc);
                 tile_iter != m_side_tile_info.end() && tile_iter->second.key == TilePack::TileKey::Road) {
