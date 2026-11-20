@@ -265,15 +265,28 @@ bool asst::spa::append_egir_defended_name(
     return true;
 }
 
+static bool
+    egir_boss_pose_reaches(const asst::spa::DeploymentUnit& unit, const asst::spa::EgirFormationContext& context)
+{
+    const auto overlaps = [&](asst::spa::BoardCell cell) {
+        return asst::spa::boss_attack_overlaps_cell(unit, cell);
+    };
+    return !context.boss_cells.empty() &&
+           (context.boss_cells_are_alternatives
+                ? std::all_of(context.boss_cells.begin(), context.boss_cells.end(), overlaps)
+                : std::any_of(context.boss_cells.begin(), context.boss_cells.end(), overlaps));
+}
+
 asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
     const std::vector<EgirPlacementUnit>& units,
     const EgirFormationContext& context,
     const std::string& forced_core)
 {
     EgirFormationPlan result;
+    const bool aim_at_boss = context.stationary_boss || context.boss_opening_only;
     if (units.empty() || units.size() > 8 || !context.pact_active || context.evaluation_budget <= 0 ||
         !context.chain_facing || std::string("ENSW").find(context.chain_facing) == std::string::npos ||
-        (context.stationary_boss ? context.boss_cells.empty() : context.lanes.empty())) {
+        (aim_at_boss ? context.boss_cells.empty() : context.lanes.empty())) {
         result.reason = "Missing active pact, field, objective or evaluation budget";
         return result;
     }
@@ -313,10 +326,10 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
     result.input_complete = true;
     result.core = units[*core].entity.id;
     const bool ordered_head =
-        !context.stationary_boss &&
+        !aim_at_boss &&
         ((!context.defended_chain_prefix.empty() && result.core == context.defended_chain_prefix.front()) ||
          (!context.defended_chain_names.empty() && units[*core].entity.name == context.defended_chain_names.front()));
-    using Score = std::tuple<int, int, double, int, double, int, int, int, int, int>;
+    using Score = std::tuple<int, int, double, int, int, double, int, int, int, int, int>;
     std::optional<Score> best;
     std::vector<size_t> chain { *core };
     std::vector<BoardCell> chain_cells;
@@ -378,11 +391,16 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
             }
         }
         std::stable_sort(others.begin(), others.end(), [&](size_t left, size_t right) {
-            return std::tuple(units[left].required_cell.has_value(), !candidate[left].movable, candidate[left].healer) >
+            return std::tuple(
+                       units[left].required_cell.has_value(),
+                       !candidate[left].movable,
+                       candidate[left].healer,
+                       aim_at_boss && units[left].preferred_boss_output) >
                    std::tuple(
                        units[right].required_cell.has_value(),
                        !candidate[right].movable,
-                       candidate[right].healer);
+                       candidate[right].healer,
+                       aim_at_boss && units[right].preferred_boss_output);
         });
         for (const size_t index : others) {
             auto& target = candidate[index];
@@ -409,7 +427,9 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
                 const bool healing = choice.healer && choice.range_known &&
                                      (candidate[*core].accepts_direct_healing || choice.provides_regeneration) &&
                                      range_covers(choice, root);
-                return std::tuple(healing, choice.cell == target.cell, choice.facing == target.facing);
+                const bool boss_coverage = aim_at_boss && units[index].preferred_boss_output && choice.damage_output &&
+                                           choice.range_known && egir_boss_pose_reaches(choice, context);
+                return std::tuple(healing, boss_coverage, choice.cell == target.cell, choice.facing == target.facing);
             };
             target = *std::max_element(choices.begin(), choices.end(), [&](const auto& left, const auto& right) {
                 return value(left) < value(right);
@@ -450,9 +470,9 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
                 choice.facing = facing;
                 int coverage = 0;
                 if (choice.damage_output && choice.range_known) {
-                    if (context.stationary_boss) {
+                    if (aim_at_boss) {
                         for (const auto& cell : context.boss_cells) {
-                            coverage += range_covers(choice, cell);
+                            coverage += boss_attack_overlaps_cell(choice, cell);
                         }
                     }
                     else {
@@ -507,7 +527,7 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
             return item.source == result.core;
         });
         if (source == projection.sources.end() || source->marked_targets.empty() ||
-            (!context.stationary_boss && !candidate[*core].holds_position) ||
+            (!aim_at_boss && !candidate[*core].holds_position) ||
             candidate[*core].block_count + source->inherited_block_count.value_or(0) <= 0) {
             return;
         }
@@ -524,14 +544,38 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
             min_approach = std::min(min_approach, covered);
         }
         for (const auto& cell : context.boss_cells) {
-            boss_covered += range_covers(candidate[*core], cell);
+            boss_covered += boss_attack_overlaps_cell(candidate[*core], cell);
         }
-        if (context.stationary_boss
+        if (aim_at_boss
                 ? (context.boss_cells_are_alternatives ? boss_covered != context.boss_cells.size() : !boss_covered)
                 : guarded != context.lanes.size()) {
             return;
         }
         const int distance = std::abs(root.first - context.home.first) + std::abs(root.second - context.home.second);
+        int priority_attackers = 0, chain_attack_priority = 0;
+        if (aim_at_boss) {
+            const auto attacks_boss = [&](size_t index) {
+                const auto& unit = candidate[index];
+                return unit.damage_output && !unit.healer && unit.range_known && egir_boss_pose_reaches(unit, context);
+            };
+            for (size_t index = 0; index < units.size(); ++index) {
+                if (index == *core) {
+                    ++priority_attackers;
+                    continue;
+                }
+                if (units[index].preferred_boss_output && attacks_boss(index) &&
+                    std::none_of(projection.victims.begin(), projection.victims.end(), [&](const auto& victim) {
+                        return victim.id == candidate[index].id;
+                    })) {
+                    ++priority_attackers;
+                }
+            }
+            for (size_t offset = 1; offset < chain.size(); ++offset) {
+                if (attacks_boss(chain[offset])) {
+                    chain_attack_priority += 8 - static_cast<int>(offset);
+                }
+            }
+        }
         int tail_preference = 0;
         if (units[*core].entity.name == "克莱门莎" || units[*core].entity.name == "乌尔比安") {
             for (size_t offset = 0; offset < chain.size(); ++offset) {
@@ -540,15 +584,14 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
                 }
             }
         }
-        const Score score { context.stationary_boss ? 0 : guarded,
-                            context.stationary_boss ? static_cast<int>(boss_covered > 0) : boss_covered,
-                            context.stationary_boss
-                                ? source->inherited_base_attack.value_or(0)
-                                : static_cast<double>(projection.conditional_unique_target_layers.value_or(0)),
+        const Score score { aim_at_boss ? priority_attackers : guarded,
+                            aim_at_boss ? static_cast<int>(boss_covered > 0) : boss_covered,
+                            aim_at_boss ? source->inherited_base_attack.value_or(0)
+                                        : static_cast<double>(projection.conditional_unique_target_layers.value_or(0)),
+                            chain_attack_priority,
                             -distance,
-                            context.stationary_boss
-                                ? static_cast<double>(projection.conditional_unique_target_layers.value_or(0))
-                                : source->inherited_base_attack.value_or(0),
+                            aim_at_boss ? static_cast<double>(projection.conditional_unique_target_layers.value_or(0))
+                                        : source->inherited_base_attack.value_or(0),
                             min_approach,
                             tail_preference,
                             row_triggers,
@@ -560,6 +603,8 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
             }
             best = score;
             result.found = true;
+            result.boss_priority_attackers = priority_attackers;
+            result.boss_chain_attack_priority = chain_attack_priority;
             result.units = std::move(candidate);
             result.conditional_consumption = std::move(projection);
             result.changed_units = 0;
@@ -657,20 +702,20 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
         return distance(left) < distance(right);
     });
     for (const auto& root : roots) {
-        if (context.stationary_boss) {
+        if (aim_at_boss) {
             auto attacking_pose = units[*core].deployment;
             attacking_pose.cell = root;
             attacking_pose.facing = context.chain_facing;
             const auto covered =
                 std::count_if(context.boss_cells.begin(), context.boss_cells.end(), [&](const auto& cell) {
-                    return range_covers(attacking_pose, cell);
+                    return boss_attack_overlaps_cell(attacking_pose, cell);
                 });
             if (context.boss_cells_are_alternatives ? static_cast<size_t>(covered) != context.boss_cells.size()
                                                     : covered == 0) {
                 continue;
             }
         }
-        if (ordered_head && !context.stationary_boss && root != advance(context.home, context.chain_facing)) {
+        if (ordered_head && root != advance(context.home, context.chain_facing)) {
             continue;
         }
         if (can_place(*core, root)) {
@@ -706,7 +751,7 @@ asst::spa::EgirFormationPlan
     });
     EgirFormationPlan result;
     int evaluated = 0;
-    if (!context.stationary_boss || context.boss_cells.empty()) {
+    if ((!context.stationary_boss && !context.boss_opening_only) || context.boss_cells.empty()) {
         for (const auto index : cores) {
             if (!context.defended_chain_prefix.empty() &&
                 units[index].entity.id != context.defended_chain_prefix.front()) {
@@ -734,13 +779,6 @@ asst::spa::EgirFormationPlan
         result.reason = "No admissible defended Egir core chain within budget";
         return result;
     }
-    const auto covers_boss = [&](const DeploymentUnit& unit) {
-        const auto count = std::count_if(context.boss_cells.begin(), context.boss_cells.end(), [&](BoardCell cell) {
-            return range_covers(unit, cell);
-        });
-        return context.boss_cells_are_alternatives ? static_cast<size_t>(count) == context.boss_cells.size()
-                                                   : count > 0;
-    };
     for (const auto index : cores) {
         const auto& attacker = units[index];
         std::vector<DeploymentUnit> poses;
@@ -753,7 +791,7 @@ asst::spa::EgirFormationPlan
                 auto pose = attacker.deployment;
                 pose.cell = cell;
                 pose.facing = facing;
-                if (covers_boss(pose)) {
+                if (egir_boss_pose_reaches(pose, context)) {
                     poses.push_back(std::move(pose));
                 }
             }
@@ -771,7 +809,9 @@ asst::spa::EgirFormationPlan
                 plan.conditional_consumption.sources.end(),
                 [&](const auto& item) { return item.source == plan.core; });
             return std::tuple(
+                plan.boss_priority_attackers,
                 source == plan.conditional_consumption.sources.end() ? 0.0 : source->inherited_base_attack.value_or(0),
+                plan.boss_chain_attack_priority,
                 plan.conditional_consumption.conditional_unique_target_layers.value_or(0),
                 -plan.changed_units);
         };
@@ -838,6 +878,7 @@ asst::spa::EgirFormationPlan
                 working[index].required_facing = pose.facing;
                 auto growth_context = context;
                 growth_context.stationary_boss = false;
+                growth_context.boss_opening_only = false;
                 if (!growth_context.defended_chain_prefix.empty() &&
                     growth_context.defended_chain_prefix.front() == attacker.entity.id) {
                     growth_context.defended_chain_prefix.clear();
@@ -853,6 +894,7 @@ asst::spa::EgirFormationPlan
                 if (growth.found) {
                     growth.core = attacker.entity.id;
                     growth.attacking_core_separate_from_chain = true;
+                    growth.boss_priority_attackers = 1;
                     growth.evaluations = evaluated;
                     growth.reason = "Provisional boss attacker with a separate defended Egir growth chain";
                     return growth;

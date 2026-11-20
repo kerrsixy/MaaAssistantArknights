@@ -100,7 +100,7 @@ private:
     std::optional<json::object> m_pending_direct_promotion;
     std::set<int> m_direct_promotion_attempted_rounds;
     std::set<int> m_direct_promotion_observed_rounds;
-    int m_direct_promotion_grid_round = -1;
+    int m_spatial_snapshot_round = -1;
     std::vector<std::string> field_added_pacts(const std::string& name) const;
     bool handle_spatial_reorientation(const json::value& state);
     void observe_egir_formation(

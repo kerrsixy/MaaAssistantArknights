@@ -134,6 +134,10 @@ std::optional<cv::Rect> preparation_boss_health_bar(const cv::Mat& image);
 // Only visible red pixels are retained; occluded body pixels are not invented.
 std::optional<cv::Mat> boss_attackable_region(const cv::Mat& image, cv::Rect boss_bar);
 std::vector<std::pair<int, int>> project_boss_attackable_cells(const cv::Mat& region, const cv::Mat& grid_to_screen);
+// Estimate the five-by-three opening footprint from the visible lower boundary
+// when the Boss model occludes the solid hatching. This is a planning cue.
+std::vector<std::pair<int, int>>
+    estimate_boss_opening_footprint(const cv::Mat& image, cv::Rect boss_bar, const cv::Mat& grid_to_screen);
 bool active_strategy_ready(const cv::Mat& image);
 bool green_deployment_hint(const cv::Mat& image, cv::Point center);
 // Fallback for a separately registered, legal and vacant tile. A supported

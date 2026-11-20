@@ -787,6 +787,60 @@ std::vector<std::pair<int, int>>
     return result;
 }
 
+std::vector<std::pair<int, int>>
+    asst::spa::estimate_boss_opening_footprint(const cv::Mat& image, cv::Rect boss_bar, const cv::Mat& grid_to_screen)
+{
+    if (image.type() != CV_8UC3 || image.size() != cv::Size(1280, 720) || boss_bar.width < 140 ||
+        boss_bar.width > 230 || boss_bar.height < 4 || boss_bar.height > 12 ||
+        (boss_bar & cv::Rect(0, 0, 1280, 720)) != boss_bar || boss_bar.y < 150 || boss_bar.y > 480 ||
+        grid_to_screen.size() != cv::Size(3, 3) || grid_to_screen.type() != CV_64FC1 ||
+        !cv::checkRange(grid_to_screen) || std::abs(cv::determinant(grid_to_screen)) < 1e-8) {
+        return {};
+    }
+    const cv::Rect below(boss_bar.x, boss_bar.br().y + 18, boss_bar.width, boss_bar.width * 3 / 8);
+    cv::Mat hsv, red, wrap;
+    cv::cvtColor(image(below), hsv, cv::COLOR_BGR2HSV);
+    cv::inRange(hsv, cv::Scalar(0, 120, 110), cv::Scalar(10, 255, 255), red);
+    cv::inRange(hsv, cv::Scalar(170, 120, 110), cv::Scalar(180, 255, 255), wrap);
+    red |= wrap;
+
+    int boundary_row = -1, widest = 0;
+    for (int row = 0; row + 8 <= below.height; row += 4) {
+        cv::Mat columns;
+        cv::reduce(red.rowRange(row, row + 8), columns, 0, cv::REDUCE_MAX);
+        const int third = below.width / 3;
+        const int left = cv::countNonZero(columns.colRange(0, third));
+        const int middle = cv::countNonZero(columns.colRange(third, third * 2));
+        const int right = cv::countNonZero(columns.colRange(third * 2, below.width));
+        if (std::min({ left, middle, right }) >= third / 7 && left + middle + right > widest) {
+            boundary_row = below.y + row + 4;
+            widest = left + middle + right;
+        }
+    }
+    if (boundary_row < 0 || widest * 3 < below.width) {
+        return {};
+    }
+    // Sample just inside the boundary. Inverting the registered grid handles
+    // perspective and the opposite player's mirrored board in the same way.
+    std::vector<cv::Point2f> mapped;
+    cv::perspectiveTransform(
+        std::vector<cv::Point2f> { { boss_bar.x + boss_bar.width * .5F, boundary_row - boss_bar.width * .08F } },
+        mapped,
+        grid_to_screen.inv());
+    if (!std::isfinite(mapped.front().x) || !std::isfinite(mapped.front().y) || mapped.front().x < 1.5F ||
+        mapped.front().x >= 10.5F || mapped.front().y < 1.5F || mapped.front().y >= 4.5F) {
+        return {};
+    }
+    const int center_col = cvRound(mapped.front().x), bottom_row = cvRound(mapped.front().y);
+    std::vector<std::pair<int, int>> cells;
+    for (int row = bottom_row - 2; row <= bottom_row; ++row) {
+        for (int col = center_col - 2; col <= center_col + 2; ++col) {
+            cells.emplace_back(col, row);
+        }
+    }
+    return cells;
+}
+
 bool asst::spa::occupied_swap_hint(const cv::Mat& image, cv::Point center)
 {
     return occupied_preview_votes(occupied_preview_integral(image), center) >= 3;

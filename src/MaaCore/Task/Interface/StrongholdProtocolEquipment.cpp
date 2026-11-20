@@ -666,7 +666,7 @@ bool asst::StrongholdProtocolTask::reconcile_direct_promotion_equipment(const js
     const int round = state.get("round", -1);
     if (!m_pending_direct_promotion || !state.get("round_known", false) ||
         m_direct_promotion_observed_rounds.contains(round) || m_field_checkpoint_loaded ||
-        m_pending_spatial_orientation || m_pending_field_replacement || m_direct_promotion_grid_round != round ||
+        m_pending_spatial_orientation || m_pending_field_replacement || m_spatial_snapshot_round != round ||
         m_growth_population_poses != m_auto_deploy_positions || m_population_grid_members.empty() ||
         (m_mode == "joint" && state.get("preparation_seconds_remaining_known", false) &&
          state.get("preparation_seconds_remaining", 0) <= 25)) {

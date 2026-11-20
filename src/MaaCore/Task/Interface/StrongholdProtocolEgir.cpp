@@ -156,55 +156,67 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
     }
     spa::BossObjective boss;
     bool boss_bar_verified = false;
-    bool attackable_region_observed = false;
+    std::string boss_target_source = "unknown";
     if (boss_phase && !visible_bar) {
         return std::nullopt;
     }
     if (visible_bar) {
-        const bool registered =
-            !m_spatial_grid_reference.empty() && !m_spatial_grid_projection.empty() &&
-            spa::registered_grid_projection(m_spatial_grid_reference, frame, m_spatial_grid_projection).has_value();
-        if (registered && m_mode == "independent") {
+        const auto projection =
+            spa::registered_grid_projection(m_spatial_grid_reference, frame, m_spatial_grid_projection);
+        boss_bar_verified = projection.has_value();
+        if (projection && m_mode == "independent") {
             boss = spa::boss_objective(m_advertised_boss_family, request.home, m_difficulty);
-            boss_bar_verified = boss.known;
         }
-        if (!boss_bar_verified) {
+        if (projection) {
+            if (const auto red_region = spa::boss_attackable_region(frame, *visible_bar)) {
+                const auto cells = spa::project_boss_attackable_cells(*red_region, *projection);
+                if (!cells.empty()) {
+                    m_boss_attackable_cells = cells;
+                    m_boss_attackable_map_id = m_spatial_map_id;
+                    m_boss_attackable_round = round;
+                }
+            }
+            request.boss_cells = spa::verified_boss_opening_region(
+                true,
+                m_spatial_map_id,
+                round,
+                m_boss_attackable_map_id,
+                m_boss_attackable_round,
+                m_boss_attackable_cells);
+            if (!request.boss_cells.empty()) {
+                boss_target_source = "observed_red_hatched_attackable_region";
+            }
+            else {
+                request.boss_cells = spa::estimate_boss_opening_footprint(frame, *visible_bar, *projection);
+                if (!request.boss_cells.empty()) {
+                    boss_target_source = "projected_five_by_three_opening_footprint";
+                }
+            }
+        }
+        request.boss_opening_only = !boss.known && !request.boss_cells.empty();
+        request.stationary_boss = boss.stationary_route;
+        if (request.boss_cells.empty() && boss.known && !boss.possible_cells.empty()) {
+            request.boss_cells = boss.possible_cells;
+            request.boss_cells_are_alternatives = !boss.variant_known;
+            boss_target_source = "client_route_translated_from_registered_home";
+        }
+        if (!boss_bar_verified || request.boss_cells.empty()) {
             m_dynamic_layout_target.clear();
             const auto deferred_context = "unresolved-boss:" + std::to_string(round);
             if (m_egir_plan_context != deferred_context) {
                 m_egir_plan_context = deferred_context;
                 auto deferred = basic_info_with_what("SPABossLayoutDeferred");
-                deferred["details"] =
-                    json::object { { "round", round },
-                                   { "reason", "Visible boss bar lacks registered advertised identity" },
-                                   { "boss_family_name", m_advertised_boss_family },
-                                   { "board_changed", false },
-                                   { "battle_blocked", false } };
+                deferred["details"] = json::object { { "round", round },
+                                                     { "reason", "Visible boss bar lacks a registered attack target" },
+                                                     { "boss_family_name", m_advertised_boss_family },
+                                                     { "board_changed", false },
+                                                     { "battle_blocked", false } };
                 callback(AsstMsg::SubTaskExtraInfo, deferred);
             }
             return std::nullopt;
         }
-        request.stationary_boss = boss.stationary_route;
-        request.boss_cells = boss.possible_cells;
-        request.boss_cells_are_alternatives = !boss.variant_known;
-        const auto projection =
-            spa::registered_grid_projection(m_spatial_grid_reference, frame, m_spatial_grid_projection);
-        const auto red_region = spa::boss_attackable_region(frame, *visible_bar);
-        if (projection && red_region) {
-            const auto cells = spa::project_boss_attackable_cells(*red_region, *projection);
-            if (!cells.empty()) {
-                m_boss_attackable_cells = cells;
-                m_boss_attackable_map_id = m_spatial_map_id;
-                m_boss_attackable_round = round;
-            }
-        }
-        if (request.stationary_boss && m_boss_attackable_round == round &&
-            m_boss_attackable_map_id == m_spatial_map_id && !m_boss_attackable_cells.empty()) {
-            request.boss_cells = m_boss_attackable_cells;
-            request.boss_cells_are_alternatives = false;
-            attackable_region_observed = true;
-        }
     }
+    const bool prioritize_boss = request.stationary_boss || request.boss_opening_only;
     json::array conditional_windows;
     const auto catalogue = spa::operator_pacts();
     std::vector<spa::EgirPlacementUnit> inputs;
@@ -303,6 +315,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
         // A route-specific role order: bard is protected regeneration, not
         // the attacking terminal merely because it is a high-tier carry.
         input.core_priority = spa::egir_output_priority(member.name);
+        input.preferred_boss_output = unit.damage_output && (carry || input.core_priority >= 4);
         input.eligible_chain_head = member.name != "归溟幽灵鲨";
         input.same_row_recruitment_members = member.name == "歌蕾蒂娅" && !owned.elite ? 3 : 0;
         current.push_back(unit);
@@ -311,7 +324,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
     // The output is the head of the chain. Dollkeeper is a relay: its
     // substitute has zero block and must not replace the defended output.
     const auto append_member = [&](const std::string& name) {
-        if (!request.stationary_boss &&
+        if (!prioritize_boss &&
             std::none_of(
                 inputs.begin(),
                 inputs.end(),
@@ -431,6 +444,8 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
             json::object { { "round", round },
                            { "map_id", m_spatial_map_id },
                            { "core", proposal.core },
+                           { "boss_priority_attackers", proposal.boss_priority_attackers },
+                           { "boss_chain_attack_priority", proposal.boss_chain_attack_priority },
                            { "attacking_core_separate_from_chain", proposal.attacking_core_separate_from_chain },
                            { "input_complete", proposal.input_complete },
                            { "found", proposal.found },
@@ -444,16 +459,16 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
                            { "validation_mode", true },
                            { "failed_spatial_inputs_excluded", true },
                            { "current_season_semantics_live_verified", false },
-                           { "objective", request.stationary_boss ? "stationary_boss_attack" : "home_defense" },
+                           { "objective",
+                             request.stationary_boss     ? "stationary_boss_attack"
+                             : request.boss_opening_only ? "boss_opening_attack"
+                                                         : "home_defense" },
                            { "boss_family_name", m_advertised_boss_family },
                            { "boss_health_bar_verified", boss_bar_verified },
                            { "boss_variant_verified", boss.variant_known },
                            { "possible_boss_cells", std::move(boss_cells) },
                            { "all_alternative_cells_required", request.boss_cells_are_alternatives },
-                           { "boss_target_source",
-                             attackable_region_observed ? "observed_red_hatched_attackable_region"
-                             : boss_bar_verified        ? "client_route_translated_from_registered_home"
-                                                        : "unknown" },
+                           { "boss_target_source", boss_target_source },
                            { "boss_physical_hit_verified", false },
                            { "conditional_skill_windows", std::move(conditional_windows) },
                            { "enemy_paths_observed", false },

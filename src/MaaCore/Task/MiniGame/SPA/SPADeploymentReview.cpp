@@ -281,7 +281,7 @@ static bool can_attack_boss(const asst::spa::DeploymentUnit& unit, const std::ve
 {
     return unit.damage_output && !unit.healer && unit.holds_position &&
            std::any_of(boss_cells.begin(), boss_cells.end(), [&](const auto cell) {
-               return asst::spa::range_covers(unit, cell);
+               return asst::spa::boss_attack_overlaps_cell(unit, cell);
            });
 }
 

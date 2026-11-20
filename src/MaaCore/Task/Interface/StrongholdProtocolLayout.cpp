@@ -138,7 +138,7 @@ void
             m_boss_attackable_map_id = m_spatial_map_id;
             m_boss_attackable_round = round;
         }
-        m_direct_promotion_grid_round = round;
+        m_spatial_snapshot_round = round;
     }
     auto evidence = basic_info_with_what("SPASpatialGridSnapshotRefreshed");
     const bool complete = populations.has_value() && grid.size() == m_auto_deploy_positions.size();
@@ -252,13 +252,20 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     m_deployable_cells = terrain->buildable;
     m_dynamic_layout_observed = true;
     const auto boss_mobility = spa::boss_family_mobility(m_advertised_boss_family);
-    const auto boss_cells = spa::verified_boss_opening_region(
-        m_spatial_boss_phase && m_spatial_boss_phase_round == round,
+    const auto measured_boss_cells = spa::verified_boss_opening_region(
+        boss_round,
         m_spatial_map_id,
         round,
         m_boss_attackable_map_id,
         m_boss_attackable_round,
         m_boss_attackable_cells);
+    auto boss_cells = measured_boss_cells;
+    if (boss_cells.empty() && boss_round && m_spatial_snapshot_round == round) {
+        if (const auto bar = spa::preparation_boss_health_bar(m_spatial_grid_reference)) {
+            boss_cells =
+                spa::estimate_boss_opening_footprint(m_spatial_grid_reference, *bar, m_spatial_grid_projection);
+        }
+    }
     std::string boss_context;
     for (const auto& [col, row] : boss_cells) {
         boss_context += "#boss-cell:" + std::to_string(col) + "." + std::to_string(row);
@@ -473,10 +480,11 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         { "unblocked_lanes_improvement", proposal.unblocked_lanes_improvement },
         { "score_improvement", proposal.score_improvement },
         { "blocking_capacity_improvement", proposal.blocking_capacity_improvement },
-        { "boss_opening_region_verified", !boss_cells.empty() },
+        { "boss_opening_region_verified", !measured_boss_cells.empty() },
         { "boss_opening_region_cells", boss_cells.size() },
-        { "stationary_boss_region_verified", !boss_cells.empty() && boss_mobility.stationary_route },
-        { "stationary_boss_region_cells", boss_mobility.stationary_route ? boss_cells.size() : 0 },
+        { "boss_opening_footprint_estimated", measured_boss_cells.empty() && !boss_cells.empty() },
+        { "stationary_boss_region_verified", !measured_boss_cells.empty() && boss_mobility.stationary_route },
+        { "stationary_boss_region_cells", boss_mobility.stationary_route ? measured_boss_cells.size() : 0 },
         { "boss_basic_attackers_before", spa::stationary_boss_attackers(current, boss_cells) },
         { "boss_basic_attackers_after", spa::stationary_boss_attackers(proposal.units, boss_cells) },
         { "boss_coverage_improvement", proposal.boss_coverage_improvement },

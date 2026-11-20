@@ -95,7 +95,7 @@ inline std::vector<BoardCell> verified_boss_opening_region(
     if (!current_boss_phase || map_id.empty() || map_id != observed_map_id || round < 1 || round > 20 ||
         round != observed_round || observed_cells.empty() || observed_cells.size() > 55 ||
         std::any_of(observed_cells.begin(), observed_cells.end(), [](BoardCell cell) {
-            return cell.first < 0 || cell.first > 10 || cell.second < 0 || cell.second > 4;
+            return cell.first < 0 || cell.first > 12 || cell.second < 0 || cell.second > 4;
         })) {
         return {};
     }

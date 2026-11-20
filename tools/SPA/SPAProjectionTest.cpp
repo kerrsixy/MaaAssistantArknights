@@ -161,6 +161,25 @@ int main()
     cv::line(red_cross, { 900, 225 }, { 979, 294 }, cv::Scalar(0, 0, 255), 12);
     cv::line(red_cross, { 979, 225 }, { 900, 294 }, cv::Scalar(0, 0, 255), 12);
     assert(!boss_attackable_region(red_cross, *manual_boss_bar));
+    const cv::Rect occluded_bar(969, 335, 186, 6);
+    const cv::Mat grid_projection = (cv::Mat_<double>(3, 3) << 82, 0, 302, 0, 64, 180, 0, 0, 1);
+    cv::Mat occluded_boss(720, 1280, CV_8UC3, cv::Scalar(0, 0, 0));
+    cv::rectangle(occluded_boss, occluded_bar, cv::Scalar(38, 31, 213), cv::FILLED);
+    assert(estimate_boss_opening_footprint(occluded_boss, occluded_bar, grid_projection).empty());
+    for (int x = 974; x < 1152; x += 14) {
+        cv::line(occluded_boss, { x, 395 }, { x + 8, 397 }, cv::Scalar(31, 33, 212), 2);
+    }
+    assert(!boss_attackable_region(occluded_boss, occluded_bar));
+    const auto footprint = estimate_boss_opening_footprint(occluded_boss, occluded_bar, grid_projection);
+    assert(footprint.size() == 15);
+    assert((footprint.front() == std::pair { 7, 1 }));
+    assert((footprint.back() == std::pair { 11, 3 }));
+    const cv::Mat mirror_screen = (cv::Mat_<double>(3, 3) << -1, 0, 1279, 0, 1, 0, 0, 0, 1);
+    cv::flip(occluded_boss, occluded_boss, 1);
+    const cv::Rect mirrored_occluded_bar(1280 - occluded_bar.br().x, occluded_bar.y, occluded_bar.width, 6);
+    assert(
+        estimate_boss_opening_footprint(occluded_boss, mirrored_occluded_bar, mirror_screen * grid_projection) ==
+        footprint);
     cv::Mat partial_region = cv::Mat::zeros(720, 1280, CV_8UC1);
     cv::rectangle(partial_region, cv::Rect(795, 255, 30, 20), cv::Scalar(255), cv::FILLED);
     const cv::Mat example_grid = (cv::Mat_<double>(3, 3) << 80, 0, 200, 0, 60, 160, 0, 0, 1);

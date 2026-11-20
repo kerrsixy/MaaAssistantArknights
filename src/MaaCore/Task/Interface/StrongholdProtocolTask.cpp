@@ -190,7 +190,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_pending_direct_promotion.reset();
     m_direct_promotion_attempted_rounds.clear();
     m_direct_promotion_observed_rounds.clear();
-    m_direct_promotion_grid_round = -1;
+    m_spatial_snapshot_round = -1;
     if (params.contains("direct_promotion_pending") && !params.at("direct_promotion_pending").is_null()) {
         const auto pending = params.find<json::object>("direct_promotion_pending");
         if (!pending) {
@@ -3565,7 +3565,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             refresh_spatial_grid_snapshot(
                 state,
                 (boss_preparation && m_boss_attackable_round != preparation_round) ||
-                    (m_pending_direct_promotion && m_direct_promotion_grid_round != preparation_round));
+                    (m_pending_direct_promotion && m_spatial_snapshot_round != preparation_round));
         }
         if (m_auto_run && field_work_due && reconcile_direct_promotion_equipment(state)) {
             continue;
@@ -5372,12 +5372,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 continue;
             }
             if (m_policy.primary_locked_after_activation && m_policy.allow_refresh &&
-                funds > m_policy.minimum_recruit_price &&
-                std::none_of(
-                    m_failed_bench_sales.begin(),
-                    m_failed_bench_sales.end(),
-                    [&](const auto& sale) { return sale.first == round; }) &&
-                handle_full_bench_sale(state)) {
+                funds > m_policy.minimum_recruit_price && handle_full_bench_sale(state)) {
                 continue;
             }
         }

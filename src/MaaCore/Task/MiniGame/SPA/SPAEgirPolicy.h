@@ -97,6 +97,7 @@ struct EgirPlacementUnit
     // observed source cell is retained for journaled placement sequencing.
     std::optional<BoardCell> required_cell;
     std::optional<char> required_facing;
+    bool preferred_boss_output = false;
 };
 
 struct EgirFormationContext
@@ -123,6 +124,7 @@ struct EgirFormationContext
     // Reject an unreachable target or an already failed first physical input
     // while the planner still has an opportunity to examine alternatives.
     std::function<bool(const std::vector<DeploymentUnit>&)> target_admissible;
+    bool boss_opening_only = false;
 };
 
 // Append a preferred physical member only when it can occupy the next
@@ -149,6 +151,8 @@ struct EgirFormationPlan
     int changed_units = 0;
     std::string core;
     bool attacking_core_separate_from_chain = false;
+    int boss_priority_attackers = 0;
+    int boss_chain_attack_priority = 0;
     std::vector<std::string> chain;
     std::vector<DeploymentUnit> units;
     EgirConsumptionProjection conditional_consumption;

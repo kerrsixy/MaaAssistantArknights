@@ -148,6 +148,12 @@ DeploymentSequence sequence_deployment(
     int state_budget = 5000);
 
 bool range_covers(const DeploymentUnit& unit, BoardCell target);
+
+inline bool boss_attack_overlaps_cell(const DeploymentUnit& unit, BoardCell cell)
+{
+    return unit.cell == cell || range_covers(unit, cell);
+}
+
 DeploymentReview review_deployment(
     const std::vector<DeploymentUnit>& units,
     const std::vector<DeploymentLane>& lanes,

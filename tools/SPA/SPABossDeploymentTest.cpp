@@ -70,15 +70,17 @@ int main()
     assert(region(mobile, true, "m01", 9, cells).empty());
     assert(verified_boss_opening_region(true, "m01", 9, "m01", 9, cells) == cells);
     assert(verified_boss_opening_region(true, "m01", 9, "m01", 8, cells).empty());
+    assert((
+        verified_boss_opening_region(true, "m01", 9, "m01", 9, { { 12, 3 } }) == std::vector<BoardCell> { { 12, 3 } }));
     assert(region({}, true, "m01", 9, cells).empty());
     assert(region(fixed, false, "m01", 9, cells).empty());
     assert(region(fixed, true, "m02", 9, cells).empty());
     assert(region(fixed, true, "m01", 8, cells).empty());
     assert(region(fixed, true, "m01", 10, cells).empty());
     assert(region(fixed, true, "m01", 9, {}).empty());
-    assert(region(fixed, true, "m01", 9, { { 11, 3 } }).empty());
+    assert(region(fixed, true, "m01", 9, { { 13, 3 } }).empty());
     assert(region(fixed, true, "m01", 9, { { 10, -1 } }).empty());
-    assert(region(fixed, true, "m01", 9, { { 10, 3 }, { 11, 3 } }).empty());
+    assert(region(fixed, true, "m01", 9, { { 10, 3 }, { 13, 3 } }).empty());
     const auto terrain = terrain_layout_model("m01", true);
     assert(terrain);
     const std::map<std::string, PlacementRole> roles {
@@ -169,6 +171,7 @@ int main()
     auto output =
         *std::find_if(next.units.begin(), next.units.end(), [](const auto& unit) { return unit.id == "冻河"; });
     assert(stationary_boss_attackers({ output }, { { 10, 3 }, { 9, 3 }, { 10, 3 } }) == 1);
+    assert(stationary_boss_attackers({ output }, { output.cell }) == 1);
     output.healer = true;
     assert(stationary_boss_attackers({ output }, cells) == 0);
     output.healer = false;
