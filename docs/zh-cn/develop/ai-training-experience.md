@@ -301,3 +301,10 @@ PRTS 可以作为互补来源：[黑流树海主题页](https://prts.wiki/w/%E6%
 
 - run17 准备页每个干员出现一次 `correct_rect image is empty`，随后姓名识别成功。根因为 `RoguelikeSkillSelectionImageAnalyzer::name_analyze` 先在空图 OCR 上调用 `set_task_info`，再设置图像；不是实机截图丢失。直接以当前图像构造区域 OCR，移除后补图像的调用，公共 OCR 流程未改动。
 - 使用真实 `formation_restore_validation/after.png` 原生 Debug 对比：卡达、晓歌、机械师、维什戴尔、蜜莓五个姓名与 15 个技能按钮矩形完全一致；空图错误由 5 次降为 0，未降低日志级别。证据 `work/skill_before.log`、`work/skill_after.log`、`work/skill_comparison.json`。独立输出 `build/bin/BlackFlowAfter` 的 Debug 构建通过；run17 仍用此前的 BlackFlowNext，不中断当前探索。
+
+### 2026-11-21 阶段 11：自然败北结算闭环与铁腕核心位
+
+- run17 无游戏内人工接管，自动完成开局、两层探索及三层 ｢铁腕迷思｣ 败北，06:30:04 回调真实结算：N8、329 分、演化算子 +2、`game_pass=false`，06:30:20 结束并到大厅。失败翻页子链已获实机证据；这不等于 N8 通关，也不是最终结局胜利。
+- 铁腕只确认史都华德 (4,6)、卡达 (3,6) 两次部署，EW 与机械师均未上场。修订为机械师/重装 (4,5) 朝上先阻挡传送出口路径，再放专用 EW (4,6) 朝上；医疗 (3,6) 朝上、(4,3) 朝下，副输出 (6,3) 朝左。移除抢费诱饵和通用补位，并预留费用。原生地形验证拦下不可部署的 (5,5) `tile_floor`，该备用点已移除。五个保留位置、主医疗覆盖、核心专用位通过原生 Debug 检查（`work/iron_regression_fixed.log`，退出码 0），仍待实战。
+- 本轮结束后人工购买 ｢舌｣：应急助力出现折扣栏位，61/67→62/67，3→0 点。原图证据在账号模组核验目录 `life_game_tongue_after.png`；自动加点仍未实现。
+- 官服当前账号人工核验提丰 E2/90、ISW α STAGE 3（旧快照为 80），号角 E2/90、ISW α STAGE 3。仅记录账号证据，不开放号角本场蓝门能力。完整自动扫描、缓存消费与 GUI 验收仍未完成，当前正采集逐槽页面用于实现。

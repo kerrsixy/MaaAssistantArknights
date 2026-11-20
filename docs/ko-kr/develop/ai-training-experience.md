@@ -153,3 +153,10 @@ OCR이 왼쪽 카드만 읽는다면 전체 화면, 이전/새 ROI, 카드 수, 
 
 - run17 준비 화면은 이름 인식에 성공하기 전에 각 인원마다 `correct_rect image is empty`를 기록했다. `RoguelikeSkillSelectionImageAnalyzer::name_analyze`에서 이미지보다 작업을 먼저 설정한 원인이다. 현재 이미지로 OCR을 직접 생성하도록 했으며 공통 OCR 처리는 바꾸지 않았다.
 - 실제 `formation_restore_validation/after.png` 원생 Debug 비교에서 이름 5개와 스킬 영역 15개가 완전히 일치했다. 로그 수준을 바꾸지 않고 빈 이미지 오류가 5→0이 됐다. 증거는 `work/skill_before.log`, `work/skill_after.log`, `work/skill_comparison.json`이다. `build/bin/BlackFlowAfter` Debug는 통과했고 run17은 기존 BlackFlowNext로 계속 실행한다.
+
+### 2026-11-21 단계 11: 자연 패배 결산과 철완 핵심 자리
+
+- run17은 게임 내 수동 개입 없이 3층 铁腕迷思 패배, 통계, 로비까지 진행했다. 06:30:04 결산은 N8, 329점, 진화 포인트 +2, `game_pass=false`이며 06:30:20에 종료했다. 패배 이동은 실기 확인됐지만 N8과 최종 결말은 미클리어다.
+- 스튜어드 (4,6), 카샤 (3,6)만 배치됐다. 새 작전은 (4,5) 위 주 저지를 먼저 놓고 전용 EW (4,6) 위, 의료 (3,6) 위/(4,3) 아래, 보조 화력 (6,3) 왼쪽을 예약한다. 미끼와 일반 보충을 제거하고 비용을 보존했다. 지형 검사에서 불가 판정된 (5,5)는 제거했다. 다섯 자리, 치료 범위, 핵심 예약은 원생 Debug `work/iron_regression_fixed.log`에서 종료 0으로 통과했으나 실전은 남아 있다.
+- 종료 후 舌을 수동 구매해 응급 지원 할인 칸을 열었다. 61/67→62/67, 3→0점이며 증거는 `life_game_tongue_after.png`다. 자동 강화는 미완료다.
+- 공식 계정에서 티폰 E2/90(기존 캐시 80)과 혼 E2/90, 모두 ISW α STAGE 3을 수동 확인했다. 계정 증거만 기록하며 이번 전투 청색 문 능력은 활성화하지 않는다. 전체 자동 스캔·캐시 사용·GUI 검증은 미완료다.

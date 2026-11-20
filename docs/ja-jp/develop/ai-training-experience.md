@@ -153,3 +153,10 @@ OCR が左側のカードだけを読む場合、全体画像、旧新 ROI、カ
 
 - run17 の準備画面で各名前の認識成功前に `correct_rect image is empty` が出ていた。`RoguelikeSkillSelectionImageAnalyzer::name_analyze` が画像設定前にタスク設定をしていたため、現在画像で OCR を直接構築する。共通 OCR 処理は変更しない。
 - 実際の `formation_restore_validation/after.png` を原生 Debug で比較し、5 名と 15 個の技能矩形が完全一致した。ログレベルを変えず空画像エラーは 5→0。`work/skill_before.log`、`work/skill_after.log`、`work/skill_comparison.json` が証拠。`build/bin/BlackFlowAfter` Debug は成功し、run17 は既存 BlackFlowNext で継続する。
+
+### 2026-11-21 フェーズ 11：自然敗北決算と鉄腕の中核配置
+
+- run17 はゲーム内の手動介入なしで 3 層の铁腕迷思敗北、統計、ロビーまで進んだ。06:30:04 の決算は N8、329 点、強化ポイント +2、`game_pass=false`、06:30:20 終了。敗北遷移は実機確認済みだが N8 と最終結末は未クリア。
+- 配置はスチュワード (4,6) とカシャ (3,6) のみだった。新案は (4,5) 上向きブロッカーを先行し、専用 EW (4,6) 上向き、医療 (3,6) 上/(4,3) 下、副火力 (6,3) 左を予約する。囮と汎用補充を外し費用を保持した。配置不可の (5,5) は地形検査で除外。5 マス、医療範囲、中核予約は原生 Debug の `work/iron_regression_fixed.log`（終了 0）で確認し、戦闘は未検証。
+- 終了後に舌を手動購入し、応急支援の割引枠を解放した。61/67→62/67、3→0 点。`life_game_tongue_after.png` が証拠で、自動強化は未完成。
+- 公式アカウントでティフォン E2/90（旧キャッシュ 80）、ホルン E2/90、双方 ISW α STAGE 3 を手動確認した。アカウント証拠のみで、本戦の青ゲート能力は有効にしない。完全自動走査、キャッシュ使用、GUI 受入は未完成。

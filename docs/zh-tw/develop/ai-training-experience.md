@@ -153,3 +153,10 @@ icon: mdi:brain
 
 - run17 準備頁每個干員先記一次 `correct_rect image is empty` 再成功辨識姓名，原因是 `RoguelikeSkillSelectionImageAnalyzer::name_analyze` 先配置任務才設定圖像。改為以當前圖像直接建構 OCR，公共 OCR 流程未改動。
 - 真實 `formation_restore_validation/after.png` 的原生 Debug 前後比較：五個姓名、15 個技能按鈕矩形完全相同，空圖錯誤 5→0，未調低日誌級別。證據為 `work/skill_before.log`、`work/skill_after.log`、`work/skill_comparison.json`。`build/bin/BlackFlowAfter` Debug 通過；run17 繼續使用既有 BlackFlowNext。
+
+### 2026-11-21 階段 11：自然敗北結算與鐵腕核心位
+
+- run17 無遊戲內人工接管，自動到三層 ｢铁腕迷思｣ 敗北、統計與大廳。06:30:04 真實結算為 N8、329 分、演化算子 +2、`game_pass=false`，06:30:20 結束。失敗翻頁已獲實機驗證，N8 與最終結局仍未通關。
+- 只有史都華德 (4,6)、卡達 (3,6) 上場。新作業先在 (4,5) 朝上放主阻擋，再放專用 EW (4,6) 朝上，醫療 (3,6) 朝上/(4,3) 朝下，副輸出 (6,3) 朝左。移除誘餌與通用補位、保留費用；地形檢查發現 (5,5) 不可部署，已移除。五個位置、醫療覆蓋及核心預留通過原生 Debug（`work/iron_regression_fixed.log`，退出碼 0），實戰待驗。
+- 結束後人工購買 ｢舌｣，應急助力出現折扣欄位，61/67→62/67、3→0 點。證據 `life_game_tongue_after.png`；自動加點未完成。
+- 官服人工確認提豐 E2/90、ISW α STAGE 3（舊快取 80 級），號角 E2/90、ISW α STAGE 3；僅為帳號證據，不開放本場藍門能力。完整自動掃描、快取消費及 GUI 驗收仍未完成。
