@@ -296,3 +296,8 @@ PRTS 可以作为互补来源：[黑流树海主题页](https://prts.wiki/w/%E6%
 - 原生 Debug 验证确认六个格可部署、诱敌射程跨坑、精一安赛尔/芙蓉的医疗范围同时覆盖主阻挡与 EW。该检查不包含 Boss 伤害、技能时机、动态占格或完整通关；`work/ending_regression.log` 明确标记 `live_pass=0`。原始 [关卡资料](https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/levels/obt/roguelike/ro6/level_rogue6_b-4.json) 与用户教程 81 秒帧用于推导；49 条路径终点均为 (7,0)。
 - [科技树资料](https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/roguelike_topic_table.json) 共 67 节点，与游戏总数一致。多个 ｢瘤胃｣ 同名但 ID、前置和位置不同，自动加点必须按节点 ID 区分；不能仅按 OCR 名称认定已购买或满足前置。现有自动加点与完整模组扫描仍未完成。
 - run17 已自动通过首层 ｢急不可耐｣ 和 ｢灌水贤者｣，06:05:57 进入第二层，4×5 地图首试识别。仍是 N8 在途测试，不能据此认定 N8 或 N10 通关；该进程启动时尚未加载本次新增最终作业。
+
+### 2026-11-21 阶段 10：技能页 OCR 初始化顺序
+
+- run17 准备页每个干员出现一次 `correct_rect image is empty`，随后姓名识别成功。根因为 `RoguelikeSkillSelectionImageAnalyzer::name_analyze` 先在空图 OCR 上调用 `set_task_info`，再设置图像；不是实机截图丢失。直接以当前图像构造区域 OCR，移除后补图像的调用，公共 OCR 流程未改动。
+- 使用真实 `formation_restore_validation/after.png` 原生 Debug 对比：卡达、晓歌、机械师、维什戴尔、蜜莓五个姓名与 15 个技能按钮矩形完全一致；空图错误由 5 次降为 0，未降低日志级别。证据 `work/skill_before.log`、`work/skill_after.log`、`work/skill_comparison.json`。独立输出 `build/bin/BlackFlowAfter` 的 Debug 构建通过；run17 仍用此前的 BlackFlowNext，不中断当前探索。

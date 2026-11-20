@@ -148,3 +148,8 @@ OCR이 왼쪽 카드만 읽는다면 전체 화면, 이전/새 ROI, 카드 수, 
 - 원생 Debug에서 배치 가능한 여섯 칸, 구덩이 너머 미끼 사거리, 1정예 안셀/히비스커스가 EW와 주 저지를 치료하는 범위가 통과했다. Boss 피해·스킬 시점·동적 점유·승리는 미검증이며 `work/ending_regression.log`는 `live_pass=0`이다. [원본 맵](https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/levels/obt/roguelike/ro6/level_rogue6_b-4.json)의 49 경로는 (7,0)에서 끝나며 사용자 영상 81초도 참고했다.
 - [기술 자료](https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/roguelike_topic_table.json)는 67노드다. 여러 瘤胃는 이름이 같아도 ID·선행·위치가 다르므로 이름만으로 판정하지 않는다. 자동 강화와 전체 모듈 스캔은 미완료다.
 - run17은 急不可耐와 灌水贤者를 자동 통과하고 06:05:57에 2층에 진입했으며 4×5 지도는 첫 인식에 성공했다. N8은 진행 중이며 이번 최종 작전은 해당 프로세스 시작 후 추가되어 아직 로드되지 않았다.
+
+### 2026-11-21 단계 10: 스킬 화면 OCR 초기화 순서
+
+- run17 준비 화면은 이름 인식에 성공하기 전에 각 인원마다 `correct_rect image is empty`를 기록했다. `RoguelikeSkillSelectionImageAnalyzer::name_analyze`에서 이미지보다 작업을 먼저 설정한 원인이다. 현재 이미지로 OCR을 직접 생성하도록 했으며 공통 OCR 처리는 바꾸지 않았다.
+- 실제 `formation_restore_validation/after.png` 원생 Debug 비교에서 이름 5개와 스킬 영역 15개가 완전히 일치했다. 로그 수준을 바꾸지 않고 빈 이미지 오류가 5→0이 됐다. 증거는 `work/skill_before.log`, `work/skill_after.log`, `work/skill_comparison.json`이다. `build/bin/BlackFlowAfter` Debug는 통과했고 run17은 기존 BlackFlowNext로 계속 실행한다.

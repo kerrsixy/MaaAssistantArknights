@@ -148,3 +148,8 @@ OCR が左側のカードだけを読む場合、全体画像、旧新 ROI、カ
 - 原生 Debug で 6 配置可能マス、穴を越える囮射程、昇進 1 のアンセル/ハイビスカスが EW と主ブロッカーを治療できることを確認した。Boss 火力、技能時機、動的占有、勝利は未確認で `work/ending_regression.log` は `live_pass=0`。[原始配置](https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/levels/obt/roguelike/ro6/level_rogue6_b-4.json) の 49 経路は (7,0) で終わる。ユーザー動画 81 秒も参照した。
 - [技術資料](https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/roguelike_topic_table.json) は 67 ノード。瘤胃は同名でも ID・前提・位置が異なり、名前のみの判定はできない。自動強化と完全モジュール走査は未完成。
 - run17 は急不可耐と灌水贤者を自動通過し、06:05:57 に 2 層へ進んだ。4×5 地図は初回認識成功。N8 は進行中で、このプロセスは今回の最終配置追加前に起動している。
+
+### 2026-11-21 フェーズ 10：技能画面 OCR の初期化順序
+
+- run17 の準備画面で各名前の認識成功前に `correct_rect image is empty` が出ていた。`RoguelikeSkillSelectionImageAnalyzer::name_analyze` が画像設定前にタスク設定をしていたため、現在画像で OCR を直接構築する。共通 OCR 処理は変更しない。
+- 実際の `formation_restore_validation/after.png` を原生 Debug で比較し、5 名と 15 個の技能矩形が完全一致した。ログレベルを変えず空画像エラーは 5→0。`work/skill_before.log`、`work/skill_after.log`、`work/skill_comparison.json` が証拠。`build/bin/BlackFlowAfter` Debug は成功し、run17 は既存 BlackFlowNext で継続する。

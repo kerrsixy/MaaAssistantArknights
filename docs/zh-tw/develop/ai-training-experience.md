@@ -148,3 +148,8 @@ icon: mdi:brain
 - 原生 Debug 通過六格可部署、跨坑射程及精一安賽爾/芙蓉同時治療主阻擋與 EW 的檢查；Boss 傷害、技能時機、動態佔格和通關未驗證，`work/ending_regression.log` 標示 `live_pass=0`。[關卡資料](https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/levels/obt/roguelike/ro6/level_rogue6_b-4.json) 的 49 路徑終點均為 (7,0)，另參照使用者教程 81 秒畫面。
 - [科技資料](https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/roguelike_topic_table.json) 有 67 節點；多個 ｢瘤胃｣ 同名但 ID、前置和位置不同，不能只靠名字判定。自動加點與完整模組掃描未完成。
 - run17 自動通過 ｢急不可耐｣、｢灌水贤者｣，06:05:57 進二層，4×5 地圖首試成功；N8 仍在途，該進程啟動時尚未載入新增最終作業。
+
+### 2026-11-21 階段 10：技能頁 OCR 初始化順序
+
+- run17 準備頁每個干員先記一次 `correct_rect image is empty` 再成功辨識姓名，原因是 `RoguelikeSkillSelectionImageAnalyzer::name_analyze` 先配置任務才設定圖像。改為以當前圖像直接建構 OCR，公共 OCR 流程未改動。
+- 真實 `formation_restore_validation/after.png` 的原生 Debug 前後比較：五個姓名、15 個技能按鈕矩形完全相同，空圖錯誤 5→0，未調低日誌級別。證據為 `work/skill_before.log`、`work/skill_after.log`、`work/skill_comparison.json`。`build/bin/BlackFlowAfter` Debug 通過；run17 繼續使用既有 BlackFlowNext。
