@@ -1,0 +1,18 @@
+{
+  "source": "archive/SPA/bench_source_unresolved/2026.11.19-05.53.33.611_raw.png",
+  "sha256": "3b7242262f60703e6ceb0ca544fdfe6570e91891123dafec46938bb665ba6ba5",
+  "run_id": "staged-quick-batch2-20261119-1",
+  "round": 9,
+  "native_failure_timestamp": "2026-11-19 05:53:33.692",
+  "observed_source": [
+    964,
+    450
+  ],
+  "observed_title": "",
+  "candidate_retry": [
+    964,
+    420
+  ],
+  "status": "unmodified failure-frame geometry only; no live retry/sale verified",
+  "negative_frames": "selected_panel_title_live.png already archived; other negatives are explicitly synthetic mutations"
+}

@@ -27,6 +27,17 @@ asst::StartUpTask::StartUpTask(const AsstCallback& callback, Assistant* inst) :
     m_account_switch_task_ptr->set_retry_times(0);
 }
 
+asst::AbstractTask& asst::StartUpTask::set_task_id(int task_id) noexcept
+{
+    InterfaceTask::set_task_id(task_id);
+    // These helpers run directly and are not part of PackageTask::m_subtasks.
+    // Their callbacks must retain the owning task's identity as well.
+    m_start_game_task_ptr->set_task_id(task_id);
+    m_start_up_task_ptr->set_task_id(task_id);
+    m_account_switch_task_ptr->set_task_id(task_id);
+    return *this;
+}
+
 bool asst::StartUpTask::run()
 {
     LogTraceFunction;

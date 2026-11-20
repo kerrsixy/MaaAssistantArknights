@@ -5,6 +5,16 @@
 #include "Task/MiniGame/EventShopTaskPlugin.h"
 #include "Task/MiniGame/MaterialSynthesisTaskPlugin.h"
 #include "Task/MiniGame/PixelPaintTaskPlugin.h"
+#include "Task/MiniGame/SPA/SPADifficultyPolicy.h"
+#include "Task/MiniGame/SPA/SPADifficultyTaskPlugin.h"
+#include "Task/MiniGame/SPA/SPAFormationSelectTaskPlugin.h"
+#include "Task/MiniGame/SPA/SPAObserverTaskPlugin.h"
+#include "Task/MiniGame/SPA/SPARoundTaskPlugin.h"
+#include "Task/MiniGame/SPA/SPASetupTaskPlugin.h"
+#include "Task/MiniGame/SPA/SPAShopTaskPlugin.h"
+#include "Task/MiniGame/SPA/SPAStrategyCardTaskPlugin.h"
+#include "Task/MiniGame/SPA/SPAStrategyReportTaskPlugin.h"
+#include "Task/MiniGame/SPA/SPASwapTaskPlugin.h"
 #include "Task/MiniGame/SecretFrontTaskPlugin.h"
 #include "Task/Miscellaneous/ScreenshotTaskPlugin.h"
 #include "Task/ProcessTask.h"
@@ -38,7 +48,209 @@ bool asst::CustomTask::set_params(const json::value& params)
         std::string task_name = t.as_string();
         std::string resolved_task = task_name;
 
-        if (parse_and_register_secretfront(task_name, resolved_task)) {
+        if (task_name == "MiniGame@SPA@Observe" || task_name == "MiniGame@SPA@OpenIndependentDifficulty" ||
+            task_name == "MiniGame@SPA@PrepareIndependent" || task_name == "MiniGame@SPA@SelectDifficulty" ||
+            task_name == "MiniGame@SPA@BuyShopItem" || task_name == "MiniGame@SPA@UpgradeShop" ||
+            task_name == "MiniGame@SPA@ReadyRound" || task_name == "MiniGame@SPA@SwapOperator" ||
+            task_name == "MiniGame@SPA@RefreshShop" || task_name == "MiniGame@SPA@FreezeShop" ||
+            task_name == "MiniGame@SPA@SelectSupply" || task_name == "MiniGame@SPA@AckSync" ||
+            task_name == "MiniGame@SPA@OpenLobby" || task_name == "MiniGame@SPA@ReconnectSolo" ||
+            task_name == "MiniGame@SPA@ReturnResultHome" || task_name == "MiniGame@SPA@OpenReport" ||
+            task_name == "MiniGame@SPA@OpenStrategyReport" || task_name == "MiniGame@SPA@ScanStrategyReport" ||
+            task_name == "MiniGame@SPA@ReportBack" || task_name == "MiniGame@SPA@StartIndependent" ||
+            task_name == "MiniGame@SPA@InspectCurrentStrategy" || task_name == "MiniGame@SPA@SelectBounty" ||
+            task_name == "MiniGame@SPA@SetupPacts" || task_name == "MiniGame@SPA@SelectStrategy" ||
+            task_name == "MiniGame@SPA@SelectFormation" || task_name == "MiniGame@SPA@DirectExit" ||
+            task_name == "MiniGame@SPA@ForceExit" || task_name == "MiniGame@SPA@LifecycleFindLobby" ||
+            task_name == "MiniGame@SPA@LifecycleDifficultyBack" || task_name == "MiniGame@SPA@LifecycleSelectJoint" ||
+            task_name == "MiniGame@SPA@LifecycleOpenJoint") {
+            if (task_name == "MiniGame@SPA@DirectExit") {
+                resolved_task = "MiniGame@SPA@DiagnosticDirectExit";
+            }
+            if (task_name.starts_with("MiniGame@SPA@Lifecycle")) {
+                // A standalone navigation probe needs a fresh screenshot;
+                // otherwise AsstGetImage returns its pre-click cached frame.
+                m_custom_task_ptr->override_next("MiniGame@SPA@LifecycleDispatch", { "MiniGame@SPA@Observe" });
+            }
+            if (task_name == "MiniGame@SPA@ScanStrategyReport") {
+                m_custom_task_ptr->register_plugin<spa::StrategyReportTaskPlugin>()->set_retry_times(0);
+            }
+            if (task_name == "MiniGame@SPA@SelectFormation") {
+                const auto nested = params.find<json::object>("params");
+                const auto spa = nested ? nested->find<json::object>("spa") : std::nullopt;
+                const auto configured = spa ? spa->find<json::array>("formation_operators") : std::nullopt;
+                if (!configured || configured->empty()) {
+                    LogError << "SPA formation requires params.spa.formation_operators";
+                    return false;
+                }
+                const auto formation_core = spa ? spa->find<std::string>("formation_core_pact") : std::nullopt;
+                std::vector<std::string> operators;
+                for (const auto& value : *configured) {
+                    if (!value.is_string()) {
+                        return false;
+                    }
+                    operators.emplace_back(value.as_string());
+                }
+                auto plugin = m_custom_task_ptr->register_plugin<spa::FormationSelectTaskPlugin>();
+                if (!plugin->configure(std::move(operators), formation_core.value_or(""))) {
+                    LogError << "SPA formation configuration is invalid";
+                    return false;
+                }
+                plugin->set_retry_times(0);
+            }
+            if (task_name == "MiniGame@SPA@SelectStrategy") {
+                const auto nested = params.find<json::object>("params");
+                const auto spa = nested ? nested->find<json::object>("spa") : std::nullopt;
+                const int strategy_index = spa ? spa->get("strategy_index", -1) : -1;
+                auto plugin = m_custom_task_ptr->register_plugin<spa::StrategyCardTaskPlugin>();
+                if (!plugin->configure(strategy_index, spa ? spa->get("prefer_unclaimed_strategy", true) : true)) {
+                    LogError << "SPA strategy card configuration is invalid";
+                    return false;
+                }
+                plugin->set_retry_times(0);
+            }
+            if (task_name == "MiniGame@SPA@SetupPacts") {
+                const auto nested = params.find<json::object>("params");
+                const auto spa = nested ? nested->find<json::object>("spa") : std::nullopt;
+                const auto setup = spa ? spa->find<json::object>("setup") : std::nullopt;
+                const auto core = setup ? setup->find<std::string>("core_pact") : std::nullopt;
+                if (!core) {
+                    LogError << "SPA setup requires params.spa.setup.core_pact";
+                    return false;
+                }
+                std::vector<std::string> support;
+                if (const auto configured = setup->find<json::array>("support_pacts")) {
+                    for (const auto& value : *configured) {
+                        if (!value.is_string()) {
+                            LogError << "SPA setup support pact must be a string";
+                            return false;
+                        }
+                        support.emplace_back(value.as_string());
+                    }
+                }
+                const int strategy_index = setup->get("strategy_index", 0);
+                auto plugin = m_custom_task_ptr->register_plugin<spa::SetupTaskPlugin>();
+                if (!plugin->configure(*core, std::move(support), strategy_index)) {
+                    LogError << "SPA setup configuration is invalid";
+                    return false;
+                }
+                plugin->set_retry_times(0);
+            }
+            if (task_name == "MiniGame@SPA@SelectBounty") {
+                const auto nested = params.find<json::object>("params");
+                const auto settings = nested ? nested->find<json::object>("spa") : std::nullopt;
+                const auto name = settings ? settings->find<std::string>("bounty_enemy") : std::nullopt;
+                auto plugin = m_custom_task_ptr->register_plugin<spa::ShopTaskPlugin>();
+                if (!name || !plugin->configure_bounty(*name, settings->get("bounty_confirm", false))) {
+                    return false;
+                }
+                plugin->set_retry_times(0);
+            }
+            if (task_name == "MiniGame@SPA@SelectSupply") {
+                const auto nested = params.find<json::object>("params");
+                const auto settings = nested ? nested->find<json::object>("spa") : std::nullopt;
+                const auto name = settings ? settings->find<std::string>("supply_name") : std::nullopt;
+                auto plugin = m_custom_task_ptr->register_plugin<spa::ShopTaskPlugin>();
+                if (!name || !plugin->configure_supply(*name)) {
+                    return false;
+                }
+                plugin->set_retry_times(0);
+            }
+            if (task_name == "MiniGame@SPA@SwapOperator") {
+                const auto nested = params.find<json::object>("params");
+                const auto spa = nested ? nested->find<json::object>("spa") : std::nullopt;
+                const auto swap = spa ? spa->find<json::object>("swap") : std::nullopt;
+                auto plugin = m_custom_task_ptr->register_plugin<spa::SwapTaskPlugin>();
+                if (!swap || !plugin->configure(*swap)) {
+                    return false;
+                }
+                plugin->set_retry_times(0);
+            }
+            if (task_name == "MiniGame@SPA@ReadyRound") {
+                const auto nested = params.find<json::object>("params");
+                const auto spa = nested ? nested->find<json::object>("spa") : std::nullopt;
+                const auto ready = spa ? spa->find<json::object>("ready") : std::nullopt;
+                if (!ready) {
+                    return false;
+                }
+                auto plugin = m_custom_task_ptr->register_plugin<spa::RoundTaskPlugin>();
+                if (!plugin->configure(
+                        ready->get("round", -1),
+                        ready->get("remaining_deployment", -1),
+                        ready->get("layout_reviewed", false),
+                        ready->get("wait_for_next", true),
+                        ready->get("expected_funds", 0),
+                        ready->get("spending_reviewed", false),
+                        ready->get("spending_reason", std::string()))) {
+                    return false;
+                }
+                plugin->set_retry_times(0);
+            }
+            if (task_name == "MiniGame@SPA@BuyShopItem" || task_name == "MiniGame@SPA@UpgradeShop" ||
+                task_name == "MiniGame@SPA@RefreshShop" || task_name == "MiniGame@SPA@FreezeShop") {
+                const auto nested = params.find<json::object>("params");
+                const auto spa = nested ? nested->find<json::object>("spa") : std::nullopt;
+                const bool refresh = task_name == "MiniGame@SPA@RefreshShop";
+                const bool upgrade = task_name == "MiniGame@SPA@UpgradeShop";
+                const bool freeze = task_name == "MiniGame@SPA@FreezeShop";
+                const auto buy = spa ? spa->find<json::object>(
+                                           refresh   ? "refresh"
+                                           : upgrade ? "upgrade"
+                                           : freeze  ? "freeze"
+                                                     : "buy")
+                                     : std::nullopt;
+                if (!buy) {
+                    return false;
+                }
+                const auto name = buy->find<std::string>("name");
+                const auto price = buy->find<int>("price");
+                const auto funds = buy->find<int>("funds");
+                const auto round = buy->find<int>("round");
+                auto shop = m_custom_task_ptr->register_plugin<spa::ShopTaskPlugin>();
+                const auto slot = buy->get("right_slot", -1);
+                if (!funds || !round || (!freeze && !price) ||
+                    !(freeze    ? shop->configure_freeze(*funds, *round)
+                      : refresh ? shop->configure_refresh(*price, *funds, *round)
+                      : upgrade ? shop->configure_upgrade(*price, *funds, *round)
+                                : (name && shop->configure(*name, *price, *funds, *round, slot)))) {
+                    LogError << "SPA shop purchase configuration is invalid";
+                    return false;
+                }
+                shop->set_retry_times(0);
+            }
+            if (task_name == "MiniGame@SPA@PrepareIndependent" || task_name == "MiniGame@SPA@SelectDifficulty" ||
+                task_name == "MiniGame@SPA@StartIndependent") {
+                const auto nested = params.find<json::object>("params");
+                const auto spa = nested ? nested->find<json::object>("spa") : std::nullopt;
+                const auto difficulty = spa ? spa->find<int>("difficulty") : std::nullopt;
+                if (!difficulty || !spa::valid_difficulty_request(*difficulty)) {
+                    LogError << "SPA preparation requires a valid difficulty request";
+                    return false;
+                }
+                auto selector = m_custom_task_ptr->register_plugin<spa::DifficultyTaskPlugin>();
+                if (!selector->set_target(
+                        *difficulty,
+                        task_name == "MiniGame@SPA@StartIndependent",
+                        spa->get("mode", std::string("independent")))) {
+                    return false;
+                }
+                selector->set_retry_times(0);
+            }
+            if (!m_custom_task_ptr->find_plugin<spa::ObserverTaskPlugin>()) {
+                auto observer = m_custom_task_ptr->register_plugin<spa::ObserverTaskPlugin>();
+                observer->set_retry_times(0);
+                if (task_name == "MiniGame@SPA@Observe") {
+                    const auto nested = params.find<json::object>("params");
+                    const auto options = nested ? nested->find<json::object>("spa") : std::nullopt;
+                    if (options) {
+                        // Diagnostic only. The observer still verifies the
+                        // current page and round before taking the HUD path.
+                        observer->expect_unchanged_preparation(options->get("expected_preparation_round", -1));
+                    }
+                }
+            }
+        }
+        else if (parse_and_register_secretfront(task_name, resolved_task)) {
             Log.info("Parsed and registered SecretFront task: ", task_name, " -> ", resolved_task);
         }
         else if (parse_and_register_auto_raise_potential(task_name, params)) {

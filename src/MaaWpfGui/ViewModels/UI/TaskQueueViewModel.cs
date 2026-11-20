@@ -148,6 +148,8 @@ public class TaskQueueViewModel : Screen
     /// </summary>
     public static CustomTaskUserControlModel CustomTask => CustomTaskUserControlModel.Instance;
 
+    public static StrongholdProtocolTaskUserControlModel StrongholdProtocolTask => StrongholdProtocolTaskUserControlModel.Instance;
+
     #endregion 长草任务Model
 
     private static readonly IEnumerable<TaskSettingsViewModel> _taskViewModelTypes = InitTaskViewModelList();
@@ -1794,6 +1796,7 @@ public class TaskQueueViewModel : Screen
             new TaskTypeItem(LocalizationHelper.GetString("TaskQueue.Task.DepotMaintain"), typeof(DepotMaintainTask)),
             new TaskTypeItem(LocalizationHelper.GetString("TaskQueue.Task.SwitchTheme"), typeof(SwitchThemeTask), introducedVersion: "6.19.0-beta.2"),
             new TaskTypeItem(LocalizationHelper.GetString("TaskQueue.Task.Custom"), typeof(CustomTask), isDebugOnly: true),
+            new TaskTypeItem(LocalizationHelper.GetString("TaskQueue.Task.StrongholdProtocol"), typeof(StrongholdProtocolTask)),
         ]);
 
     private void RefreshTaskTypeListLocalization()
@@ -1813,6 +1816,7 @@ public class TaskQueueViewModel : Screen
                 nameof(DepotMaintainTask) => LocalizationHelper.GetString("TaskQueue.Task.DepotMaintain"),
                 nameof(SwitchThemeTask) => LocalizationHelper.GetString("TaskQueue.Task.SwitchTheme"),
                 nameof(CustomTask) => LocalizationHelper.GetString("TaskQueue.Task.Custom"),
+                nameof(StrongholdProtocolTask) => LocalizationHelper.GetString("TaskQueue.Task.StrongholdProtocol"),
                 _ => item.Display,
             };
         }

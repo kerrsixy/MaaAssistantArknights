@@ -2294,6 +2294,27 @@ DEBUG 目錄下儲存的圖片有數量限制，超出後會自動清理舊圖�
     <system:String x:Key="TaskQueue.StopTimeout">停止逾時，Core 未能及時回應停止請求</system:String>
     <system:String x:Key="TaskQueue.Stopped">已停止</system:String>
     <system:String x:Key="TaskQueue.Stopping">正在停止……</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Current">不改難度</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Joint1">標準模擬</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Joint2">險境模擬</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Joint3">絕境模擬</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Joint4">終極模擬</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.JointMax">Max（終極模擬）</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.JointTitle">聯合難度</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Max">Max（20）</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Independent">獨立模擬</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Joint">聯合模擬</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Quick">極速模擬</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Title">模擬方式</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Default">預設（智慧規劃）</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Tip">指定的策略或陣營被禁用時，使用預設智慧規劃。副陣營隨主陣營與實際發牌情況搭配。</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Title">主陣營</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.RunCount.Tip">以已結算並返回大廳的局數計次，不以勝利次數計數。每局結束後繼續下一局，達到次數後停止。</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.RunCount.Title">執行次數</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Strategy.Default">預設策略（不考慮策略章）</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Strategy.Specific">指定策略</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Strategy.Title">策略選擇</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Strategy.Unclaimed">優先解鎖策略章</system:String>
     <system:String x:Key="TaskQueue.SwitchTheme.Add">新增主題</system:String>
     <system:String x:Key="TaskQueue.SwitchTheme.AlreadySet">目標已是目前主題：{0}，無需切換</system:String>
     <system:String x:Key="TaskQueue.SwitchTheme.Locked">主題未解鎖，無法切換：{0}</system:String>
@@ -2320,6 +2341,7 @@ DEBUG 目錄下儲存的圖片有數量限制，超出後會自動清理舊圖�
     <system:String x:Key="TaskQueue.Task.Recruiting">自動公招</system:String>
     <system:String x:Key="TaskQueue.Task.Roguelike">{key=TaskQueue.Task.AutoRoguelike}</system:String>
     <system:String x:Key="TaskQueue.Task.StartUp">{key=TaskQueue.Task.WakeUp}</system:String>
+    <system:String x:Key="TaskQueue.Task.StrongholdProtocol">衛戍協議·規程</system:String>
     <system:String x:Key="TaskQueue.Task.SwitchTheme">更換主題</system:String>
     <system:String x:Key="TaskQueue.Task.UserDataUpdate">更新使用者資料</system:String>
     <system:String x:Key="TaskQueue.Task.WakeUp">開始喚醒</system:String>
@@ -2526,10 +2548,18 @@ HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Notifications\Settin
     <system:String x:Key="Toolbox.MiniGame.Reclamation.ToolToCraft.Placeholder">螢光棒</system:String>
     <system:String x:Key="Toolbox.MiniGame.Reclamation.ToolToCraft.Tip">支援道具名稱</system:String>
     <system:String x:Key="Toolbox.MiniGame.SPA">衛戍協議</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.Defeat">戰鬥失敗</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.Difficulty">規程等級</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.PlanningTip">預設啟用動態規劃：結合禁用資訊、實際卡池與陣容，決定購買、升級、刷新及部署。功能仍在驗證。</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.RecoveryLog">衛戍協議：恢復登入並重新連線目前對局</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.ResultLog">衛戍協議：{0}，通過 {1} 回合，已返回主頁</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.RoundLog">衛戍協議：第 {0} 回合，上場幹員：{1}</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.StrategyLog">衛戍協議：策略 {0}</system:String>
     <system:String x:Key="Toolbox.MiniGame.SPA.Tip" xml:space="preserve">在活動主介面（有 ｢極速模擬｣ 處）開始任務。
 需要使用預設皮膚
 在有存檔時需要先手動放棄
 只能刷等級獎勵，拿蝕刻章得打完所有的 ｢關鍵目標｣。</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.Victory">模擬完成</system:String>
     <system:String x:Key="Toolbox.MiniGame.SecretFront">隱秘戰線</system:String>
     <system:String x:Key="Toolbox.MiniGame.SecretFront.Ending">結局</system:String>
     <system:String x:Key="Toolbox.MiniGame.SecretFront.Event">優先系列事件</system:String>

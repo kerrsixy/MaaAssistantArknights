@@ -75,6 +75,8 @@ if(APPLE AND WITH_MAC_SCK)
 endif()
 
 if(MSVC)
+    # The native SPA controller exceeds the standard COFF section limit in Debug.
+    set_property(SOURCE Task/Interface/StrongholdProtocolTask.cpp APPEND PROPERTY COMPILE_OPTIONS /bigobj)
     set_target_properties(MaaCore PROPERTIES VS_DEBUGGER_VISUALIZER "${CMAKE_CURRENT_SOURCE_DIR}/meojson.natvis")
 endif()
 

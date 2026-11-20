@@ -1,0 +1,79 @@
+#pragma once
+
+#include "SPAOperatorCombatData.h"
+#include "SPAOperatorSkillData.h"
+#include <algorithm>
+#include <cmath>
+#include <optional>
+
+namespace asst::spa
+{
+inline std::optional<SeasonCombatStats> season_combat_stats(std::string_view name, bool elite)
+{
+    const auto found =
+        std::find_if(SeasonOperatorCombatCatalogue.begin(), SeasonOperatorCombatCatalogue.end(), [&](const auto& row) {
+            return row.name == name;
+        });
+    if (found == SeasonOperatorCombatCatalogue.end()) {
+        return std::nullopt;
+    }
+    return elite ? found->elite : found->initial;
+}
+
+inline std::optional<SeasonDefaultSkill> season_default_skill(std::string_view name, bool elite)
+{
+    const auto found = std::find_if(SeasonDefaultSkills.begin(), SeasonDefaultSkills.end(), [&](const auto& row) {
+        return row.operator_name == name && row.elite == elite;
+    });
+    return found == SeasonDefaultSkills.end() ? std::nullopt : std::optional(*found);
+}
+
+struct ConditionalSkillAttackWindow
+{
+    bool possible = false;
+    double first_activation_seconds = 0;
+    double active_seconds = 0;
+    std::span<const std::pair<int, int>> attack_range;
+};
+
+// This is the season default, not proof of a player-selected alternate skill.
+// Until a live override is verified, moving defaults cannot secure a fixed lane.
+inline bool default_skill_holds_position(std::string_view name, bool elite)
+{
+    const auto skill = season_default_skill(name, elite);
+    return skill && !skill->self_movement;
+}
+
+// A baseline opportunity, not observed activation or guaranteed uptime.
+// Attack/defense charge, movement targeting and unknown semantics remain
+// outside this estimate; a declared targeting range is not a basic range.
+inline ConditionalSkillAttackWindow
+    conditional_skill_attack_window(std::string_view name, bool elite, double fight_seconds)
+{
+    ConditionalSkillAttackWindow result;
+    const auto skill = season_default_skill(name, elite);
+    if (!skill || !std::isfinite(fight_seconds) || fight_seconds <= 0 || fight_seconds > 3600 ||
+        !skill->attack_range_replacement || skill->self_movement || skill->declared_range.empty() ||
+        skill->charge != SeasonSkillCharge::Time || skill->recovery_per_second <= 0 ||
+        (skill->duration_seconds <= 0 && skill->duration_seconds != -1)) {
+        return result;
+    }
+    const double recharge = skill->sp_cost / skill->recovery_per_second;
+    result.first_activation_seconds = std::max(0.0, (skill->sp_cost - skill->initial_sp) / skill->recovery_per_second);
+    if (result.first_activation_seconds >= fight_seconds) {
+        return result;
+    }
+    result.attack_range = skill->declared_range;
+    if (skill->duration_seconds == -1) {
+        result.active_seconds = fight_seconds - result.first_activation_seconds;
+    }
+    else {
+        const double cycle = recharge + skill->duration_seconds;
+        for (double start = result.first_activation_seconds; start < fight_seconds; start += cycle) {
+            result.active_seconds += std::min(skill->duration_seconds, fight_seconds - start);
+        }
+    }
+    result.possible = result.active_seconds > 0;
+    return result;
+}
+}

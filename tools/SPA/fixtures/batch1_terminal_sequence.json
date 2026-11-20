@@ -1,0 +1,535 @@
+{
+    "source": "spa_entry_controls_20261118/staged-quick-batch1/events.jsonl",
+    "sha256": "ae10c3bc5d37b33bf3e806de31611c985b401a291808c9b9e58f43f9e7f404dc",
+    "selection": "Unmodified terminal/boundary/promotion event records in original order; no inserted events.",
+    "records": [
+        {
+            "source_line": 8,
+            "event": {
+                "message": 20003,
+                "details": {
+                    "batch_run_id": "staged-quick-batch1-20261119-1",
+                    "class": "asst::StrongholdProtocolTask",
+                    "details": {
+                        "assisted_run": false,
+                        "difficulty": -1,
+                        "mode": "quick",
+                        "run_id": "staged-quick-batch1-20261119-1",
+                        "task_id": 1
+                    },
+                    "host_session_id": "5a32397c-6e34-4774-b8b3-45d41037f605",
+                    "run_execution_id": "6e20eb2d-931a-4316-98c3-30446ae6a0d8",
+                    "run_id": "staged-quick-batch1-20261119-1",
+                    "subtask": "StrongholdProtocolTask",
+                    "taskchain": "StrongholdProtocol",
+                    "taskid": 1,
+                    "uuid": "20b10e2844d5be51",
+                    "what": "SPARunExecutionStarted"
+                }
+            }
+        },
+        {
+            "source_line": 1662,
+            "event": {
+                "message": 20003,
+                "details": {
+                    "batch_run_id": "staged-quick-batch1-20261119-1",
+                    "class": "asst::StrongholdProtocolTask",
+                    "details": {
+                        "battle_started": false,
+                        "copies": 3,
+                        "name": "折桠",
+                        "required_copies": 3,
+                        "resumable": true,
+                        "round": 9,
+                        "run_id": "staged-quick-batch1-20261119-1",
+                        "run_victory_verified": false,
+                        "temporary_offer_cost": 0,
+                        "temporary_offer_count": 3,
+                        "temporary_shop_expected": true
+                    },
+                    "host_session_id": "5a32397c-6e34-4774-b8b3-45d41037f605",
+                    "run_execution_id": "6e20eb2d-931a-4316-98c3-30446ae6a0d8",
+                    "run_id": "staged-quick-batch1-20261119-1",
+                    "subtask": "StrongholdProtocolTask",
+                    "taskchain": "StrongholdProtocol",
+                    "taskid": 1,
+                    "uuid": "20b10e2844d5be51",
+                    "what": "SPAPromotionReconciliationRequired"
+                }
+            }
+        },
+        {
+            "source_line": 1787,
+            "event": {
+                "message": 20003,
+                "details": {
+                    "batch_run_id": "staged-quick-batch1-20261119-1",
+                    "class": "asst::StrongholdProtocolTask",
+                    "details": {
+                        "battle_started": false,
+                        "copies": 3,
+                        "name": "烈夏",
+                        "required_copies": 3,
+                        "resumable": true,
+                        "round": 9,
+                        "run_id": "staged-quick-batch1-20261119-1",
+                        "run_victory_verified": false,
+                        "temporary_offer_cost": 0,
+                        "temporary_offer_count": 3,
+                        "temporary_shop_expected": true
+                    },
+                    "host_session_id": "5a32397c-6e34-4774-b8b3-45d41037f605",
+                    "run_execution_id": "6e20eb2d-931a-4316-98c3-30446ae6a0d8",
+                    "run_id": "staged-quick-batch1-20261119-1",
+                    "subtask": "StrongholdProtocolTask",
+                    "taskchain": "StrongholdProtocol",
+                    "taskid": 1,
+                    "uuid": "20b10e2844d5be51",
+                    "what": "SPAPromotionReconciliationRequired"
+                }
+            }
+        },
+        {
+            "source_line": 2080,
+            "event": {
+                "message": 20003,
+                "details": {
+                    "batch_run_id": "staged-quick-batch1-20261119-1",
+                    "class": "asst::spa::LifecycleTaskPlugin",
+                    "details": {
+                        "badge_verified": false,
+                        "band_id": "",
+                        "battle_seen": true,
+                        "bonus_round": false,
+                        "boss_id": "",
+                        "boss_identity_known": false,
+                        "contradictory": false,
+                        "enemies_known": false,
+                        "enemies_resolved": 0,
+                        "enemies_resolved_known": false,
+                        "enemies_total": 0,
+                        "free_refreshes": 0,
+                        "free_refreshes_known": false,
+                        "free_refreshes_source": "unknown",
+                        "funds": 0,
+                        "funds_known": false,
+                        "hidden_boss_marker": false,
+                        "life": 0,
+                        "life_known": false,
+                        "pact_layers": {},
+                        "page": "result",
+                        "paid_refresh_price": 0,
+                        "paid_refresh_price_known": false,
+                        "passed_rounds": 9,
+                        "passed_rounds_known": true,
+                        "passed_rounds_scope": "personal",
+                        "personal_passed_rounds": 0,
+                        "personal_passed_rounds_known": false,
+                        "personal_result_completed": false,
+                        "personal_result_difficulty_name": "",
+                        "personal_result_identity": "",
+                        "personal_result_interrupted": false,
+                        "phase1_complete": true,
+                        "preparation_boss_bar_visible": false,
+                        "preparation_seconds_remaining": 0,
+                        "preparation_seconds_remaining_known": false,
+                        "remaining_deployment": 0,
+                        "remaining_deployment_known": false,
+                        "result_completed": true,
+                        "result_difficulty": 0,
+                        "result_difficulty_known": false,
+                        "result_difficulty_name": "极速模拟",
+                        "result_interrupted": false,
+                        "result_joint": false,
+                        "result_text_verified": true,
+                        "return_home_verified": true,
+                        "round": 0,
+                        "round_known": false,
+                        "round_source": "numeric_badge",
+                        "selected_difficulty": 0,
+                        "selected_difficulty_known": false,
+                        "setup_boss_texts": [],
+                        "setup_core_candidates": [],
+                        "setup_core_rects": [],
+                        "setup_stage": "",
+                        "setup_support_candidates": [],
+                        "setup_support_rects": [],
+                        "shop_level": 0,
+                        "shop_level_known": false,
+                        "texts": [
+                            {
+                                "score": 0.999797,
+                                "text": "STRONGHOLD",
+                                "x": 225,
+                                "y": 52
+                            },
+                            {
+                                "score": 0.971361,
+                                "text": "PROTOCOL",
+                                "x": 234,
+                                "y": 74
+                            },
+                            {
+                                "score": 0.926819,
+                                "text": "STROHGHOLD PROTOCOL",
+                                "x": 49,
+                                "y": 91
+                            },
+                            {
+                                "score": 0.999938,
+                                "text": "极速模拟",
+                                "x": 208,
+                                "y": 153
+                            },
+                            {
+                                "score": 0.999253,
+                                "text": "TARGETPOINT",
+                                "x": 476,
+                                "y": 145
+                            },
+                            {
+                                "score": 0.961034,
+                                "text": "STRONGHOLD-PROTOO",
+                                "x": 476,
+                                "y": 169
+                            },
+                            {
+                                "score": 0.99983,
+                                "text": "模拟完成",
+                                "x": 160,
+                                "y": 189
+                            },
+                            {
+                                "score": 0.999906,
+                                "text": "通过回合",
+                                "x": 49,
+                                "y": 270
+                            },
+                            {
+                                "score": 0.286167,
+                                "text": "☑",
+                                "x": 245,
+                                "y": 275
+                            },
+                            {
+                                "score": 0.59286,
+                                "text": "X",
+                                "x": 705,
+                                "y": 288
+                            },
+                            {
+                                "score": 0.956218,
+                                "text": "50",
+                                "x": 817,
+                                "y": 293
+                            },
+                            {
+                                "score": 0.99997,
+                                "text": "50",
+                                "x": 926,
+                                "y": 309
+                            },
+                            {
+                                "score": 0.959109,
+                                "text": "NO INFO",
+                                "x": 1073,
+                                "y": 346
+                            },
+                            {
+                                "score": 0.940855,
+                                "text": "NO INFO",
+                                "x": 1184,
+                                "y": 346
+                            },
+                            {
+                                "score": 0.991702,
+                                "text": "Dr.Test#0000",
+                                "x": 182,
+                                "y": 465
+                            },
+                            {
+                                "score": 0.435986,
+                                "text": "承",
+                                "x": 1153,
+                                "y": 471
+                            },
+                            {
+                                "score": 0.999982,
+                                "text": "00时34分22秒",
+                                "x": 213,
+                                "y": 505
+                            },
+                            {
+                                "score": 0.359004,
+                                "text": "A",
+                                "x": 1076,
+                                "y": 498
+                            },
+                            {
+                                "score": 0.993931,
+                                "text": "2026/11/19 04:34",
+                                "x": 210,
+                                "y": 534
+                            },
+                            {
+                                "score": 0.999992,
+                                "text": "77",
+                                "x": 1072,
+                                "y": 526
+                            },
+                            {
+                                "score": 0.999973,
+                                "text": "MAX",
+                                "x": 164,
+                                "y": 623
+                            },
+                            {
+                                "score": 0.99687,
+                                "text": "可获得卫戍认证上限",
+                                "x": 365,
+                                "y": 623
+                            },
+                            {
+                                "score": 0.999963,
+                                "text": "返回主页",
+                                "x": 1025,
+                                "y": 640
+                            },
+                            {
+                                "score": 0.999972,
+                                "text": "6250/6250",
+                                "x": 369,
+                                "y": 653
+                            },
+                            {
+                                "score": 0.999909,
+                                "text": "即将扩充上限",
+                                "x": 165,
+                                "y": 669
+                            },
+                            {
+                                "score": 0.9,
+                                "score_is_lower_bound": true,
+                                "source": "result_rounds_roi",
+                                "text": "9",
+                                "x": 35,
+                                "y": 295
+                            }
+                        ],
+                        "upgrade_price": 0,
+                        "upgrade_price_known": false,
+                        "wins": 0,
+                        "wins_known": false
+                    },
+                    "host_session_id": "5a32397c-6e34-4774-b8b3-45d41037f605",
+                    "run_execution_id": "6e20eb2d-931a-4316-98c3-30446ae6a0d8",
+                    "run_id": "staged-quick-batch1-20261119-1",
+                    "subtask": "LifecycleTask",
+                    "taskchain": "StrongholdProtocol",
+                    "taskid": 1,
+                    "uuid": "20b10e2844d5be51",
+                    "what": "SPALifecycleCompleted"
+                }
+            }
+        },
+        {
+            "source_line": 2085,
+            "event": {
+                "message": 20003,
+                "details": {
+                    "batch_run_id": "staged-quick-batch1-20261119-1",
+                    "class": "asst::StrongholdProtocolTask",
+                    "details": {
+                        "assisted_run": false,
+                        "difficulty": -1,
+                        "mode": "quick",
+                        "run_id": "staged-quick-batch1-20261119-1",
+                        "run_victory_verified": false,
+                        "runner_success": true,
+                        "stop_requested": false,
+                        "task_id": 1
+                    },
+                    "host_session_id": "5a32397c-6e34-4774-b8b3-45d41037f605",
+                    "run_execution_id": "6e20eb2d-931a-4316-98c3-30446ae6a0d8",
+                    "run_id": "staged-quick-batch1-20261119-1",
+                    "subtask": "StrongholdProtocolTask",
+                    "taskchain": "StrongholdProtocol",
+                    "taskid": 1,
+                    "uuid": "20b10e2844d5be51",
+                    "what": "SPARunExecutionFinished"
+                }
+            }
+        },
+        {
+            "source_line": 2086,
+            "event": {
+                "message": 20003,
+                "details": {
+                    "class": "asst::StrongholdProtocolTask",
+                    "details": {
+                        "requested_runs": 3,
+                        "result_completed": true,
+                        "return_home_verified": true,
+                        "run_victory_verified": false,
+                        "settled_runs": 1
+                    },
+                    "subtask": "StrongholdProtocolTask",
+                    "taskchain": "StrongholdProtocol",
+                    "taskid": 1,
+                    "uuid": "20b10e2844d5be51",
+                    "what": "SPABatchProgress"
+                }
+            }
+        },
+        {
+            "source_line": 2087,
+            "event": {
+                "message": 20003,
+                "details": {
+                    "batch_run_id": "staged-quick-batch1-20261119-2",
+                    "class": "asst::StrongholdProtocolTask",
+                    "details": {
+                        "assisted_run": false,
+                        "difficulty": -1,
+                        "mode": "quick",
+                        "run_id": "staged-quick-batch1-20261119-2",
+                        "task_id": 1
+                    },
+                    "host_session_id": "5a32397c-6e34-4774-b8b3-45d41037f605",
+                    "run_execution_id": "b71e09be-f306-4577-91c6-4318f51a13ba",
+                    "run_id": "staged-quick-batch1-20261119-2",
+                    "subtask": "StrongholdProtocolTask",
+                    "taskchain": "StrongholdProtocol",
+                    "taskid": 1,
+                    "uuid": "20b10e2844d5be51",
+                    "what": "SPARunExecutionStarted"
+                }
+            }
+        },
+        {
+            "source_line": 2171,
+            "event": {
+                "message": 20003,
+                "details": {
+                    "batch_run_id": "staged-quick-batch1-20261119-2",
+                    "class": "asst::spa::LifecycleTaskPlugin",
+                    "details": {
+                        "next": "MiniGame@SPA@SetupPacts",
+                        "page": "unknown",
+                        "reason": "Navigation did not change the observed page after two attempts",
+                        "repeated_input_suppressed": true,
+                        "resumable": true,
+                        "run_abandoned": false
+                    },
+                    "host_session_id": "5a32397c-6e34-4774-b8b3-45d41037f605",
+                    "run_execution_id": "b71e09be-f306-4577-91c6-4318f51a13ba",
+                    "run_id": "staged-quick-batch1-20261119-2",
+                    "subtask": "LifecycleTask",
+                    "taskchain": "StrongholdProtocol",
+                    "taskid": 1,
+                    "uuid": "20b10e2844d5be51",
+                    "what": "SPALifecycleRecoveryRequired"
+                }
+            }
+        },
+        {
+            "source_line": 2175,
+            "event": {
+                "message": 20003,
+                "details": {
+                    "batch_run_id": "staged-quick-batch1-20261119-2",
+                    "class": "asst::StrongholdProtocolTask",
+                    "details": {
+                        "input_issued": false,
+                        "reason": "Native lifecycle ended without a verified settlement return",
+                        "resumable": true,
+                        "return_home_verified": false,
+                        "run_abandoned": false
+                    },
+                    "host_session_id": "5a32397c-6e34-4774-b8b3-45d41037f605",
+                    "run_execution_id": "b71e09be-f306-4577-91c6-4318f51a13ba",
+                    "run_id": "staged-quick-batch1-20261119-2",
+                    "subtask": "StrongholdProtocolTask",
+                    "taskchain": "StrongholdProtocol",
+                    "taskid": 1,
+                    "uuid": "20b10e2844d5be51",
+                    "what": "SPALifecycleIncomplete"
+                }
+            }
+        },
+        {
+            "source_line": 2177,
+            "event": {
+                "message": 20003,
+                "details": {
+                    "batch_run_id": "staged-quick-batch1-20261119-2",
+                    "class": "asst::StrongholdProtocolTask",
+                    "details": {
+                        "assisted_run": false,
+                        "difficulty": -1,
+                        "mode": "quick",
+                        "run_id": "staged-quick-batch1-20261119-2",
+                        "run_victory_verified": false,
+                        "runner_success": false,
+                        "stop_requested": false,
+                        "task_id": 1
+                    },
+                    "host_session_id": "5a32397c-6e34-4774-b8b3-45d41037f605",
+                    "run_execution_id": "b71e09be-f306-4577-91c6-4318f51a13ba",
+                    "run_id": "staged-quick-batch1-20261119-2",
+                    "subtask": "StrongholdProtocolTask",
+                    "taskchain": "StrongholdProtocol",
+                    "taskid": 1,
+                    "uuid": "20b10e2844d5be51",
+                    "what": "SPARunExecutionFinished"
+                }
+            }
+        },
+        {
+            "source_line": 2178,
+            "event": {
+                "message": 20003,
+                "details": {
+                    "class": "asst::StrongholdProtocolTask",
+                    "details": {
+                        "new_run_started": false,
+                        "requested_runs": 3,
+                        "return_home_verified": false,
+                        "settled_runs": 1
+                    },
+                    "subtask": "StrongholdProtocolTask",
+                    "taskchain": "StrongholdProtocol",
+                    "taskid": 1,
+                    "uuid": "20b10e2844d5be51",
+                    "what": "SPABatchStopped"
+                }
+            }
+        },
+        {
+            "source_line": 2180,
+            "event": {
+                "message": 10000,
+                "details": {
+                    "taskchain": "StrongholdProtocol",
+                    "taskid": 1,
+                    "uuid": "20b10e2844d5be51"
+                }
+            }
+        },
+        {
+            "source_line": 2181,
+            "event": {
+                "message": 3,
+                "details": {
+                    "finished_tasks": [
+                        1
+                    ],
+                    "taskchain": "StrongholdProtocol",
+                    "taskid": 1,
+                    "uuid": "20b10e2844d5be51"
+                }
+            }
+        }
+    ]
+}

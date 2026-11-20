@@ -2293,6 +2293,27 @@ Right-clicking other options will check/uncheck this option simultaneously</syst
     <system:String x:Key="TaskQueue.StopTimeout">Stop timed out: Core did not respond to the stop request in time</system:String>
     <system:String x:Key="TaskQueue.Stopped">Has stopped</system:String>
     <system:String x:Key="TaskQueue.Stopping">Stopping……</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Current">Keep current difficulty</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Joint1">标准模拟 (standard)</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Joint2">险境模拟 (dangerous)</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Joint3">绝境模拟 (extreme)</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Joint4">终极模拟 (ultimate)</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.JointMax">Max (终极模拟)</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.JointTitle">Co-op difficulty</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Max">Max (20)</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Independent">独立模拟 (independent solo)</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Joint">联合模拟 (co-op)</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Quick">极速模拟 (quick solo)</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Title">Simulation mode</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Default">Default (automatic)</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Tip">Banned strategy or faction choices fall back to automatic planning. Secondary pacts follow the primary faction and available cards.</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Title">Primary faction</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.RunCount.Tip">Counts settled runs that return to the lobby, not victories. Starts the next run after settlement and stops when the limit is reached.</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.RunCount.Title">Runs</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Strategy.Default">Default (ignore strategy badges)</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Strategy.Specific">Specific strategy</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Strategy.Title">Strategy selection</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.Strategy.Unclaimed">Prioritize unclaimed strategy badges</system:String>
     <system:String x:Key="TaskQueue.SwitchTheme.Add">Add Theme</system:String>
     <system:String x:Key="TaskQueue.SwitchTheme.AlreadySet">Target theme is already in use: {0}</system:String>
     <system:String x:Key="TaskQueue.SwitchTheme.Locked">Theme not unlocked, cannot switch: {0}</system:String>
@@ -2319,6 +2340,7 @@ Right-clicking other options will check/uncheck this option simultaneously</syst
     <system:String x:Key="TaskQueue.Task.Recruiting">Auto Recruit</system:String>
     <system:String x:Key="TaskQueue.Task.Roguelike">{key=TaskQueue.Task.AutoRoguelike}</system:String>
     <system:String x:Key="TaskQueue.Task.StartUp">{key=TaskQueue.Task.WakeUp}</system:String>
+    <system:String x:Key="TaskQueue.Task.StrongholdProtocol">Stronghold Protocol</system:String>
     <system:String x:Key="TaskQueue.Task.SwitchTheme">Switch Theme</system:String>
     <system:String x:Key="TaskQueue.Task.UserDataUpdate">Update Doctor Data</system:String>
     <system:String x:Key="TaskQueue.Task.WakeUp">Login</system:String>
@@ -2526,10 +2548,18 @@ Task flow: Use the Gold from Strategy Business Management to unlock areas, and u
     <system:String x:Key="Toolbox.MiniGame.Reclamation.ToolToCraft.Placeholder">Glow Stick</system:String>
     <system:String x:Key="Toolbox.MiniGame.Reclamation.ToolToCraft.Tip">Support prop name</system:String>
     <system:String x:Key="Toolbox.MiniGame.SPA">Stronghold Protocol</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.Defeat">Battle lost</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.Difficulty">Regulation level</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.PlanningTip">Dynamic planning is always enabled. Uses bans, actual offers and the roster to plan purchases, shop upgrades, refreshes and deployment. Still under validation.</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.RecoveryLog">Stronghold Protocol: recovering login and reconnecting the current run</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.ResultLog">Stronghold Protocol: {0}, {1} rounds cleared, returned to the lobby</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.RoundLog">Stronghold Protocol: round {0}, deployed operators: {1}</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.StrategyLog">Stronghold Protocol: strategy {0}</system:String>
     <system:String x:Key="Toolbox.MiniGame.SPA.Tip" xml:space="preserve">Start the task from the main event screen (where ｢Express Simulation｣ (name TBD) is located)
 Default outfits must be used
 If there is a saved game, you need to manually abandon it first
 Only level rewards can be farmed; to get the Engraved Medal, all ｢Key Objectives｣ must be completed</system:String>
+    <system:String x:Key="Toolbox.MiniGame.SPA.Victory">Simulation completed</system:String>
     <system:String x:Key="Toolbox.MiniGame.SecretFront">Hidden Front</system:String>
     <system:String x:Key="Toolbox.MiniGame.SecretFront.Ending">Ending</system:String>
     <system:String x:Key="Toolbox.MiniGame.SecretFront.Event">Priority for Series of Events</system:String>

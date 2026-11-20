@@ -17,6 +17,7 @@ public:
 
     virtual bool run() override;
     bool set_params(const json::value& params) override;
+    AbstractTask& set_task_id(int task_id) noexcept override;
 
 private:
     std::shared_ptr<StartGameTaskPlugin> m_start_game_task_ptr = nullptr;

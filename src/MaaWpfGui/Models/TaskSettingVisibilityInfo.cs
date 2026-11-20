@@ -62,6 +62,8 @@ public class TaskSettingVisibilityInfo : PropertyChangedBase
 
     public bool Custom { get => field; set => SetAndNotify(ref field, value); }
 
+    public bool StrongholdProtocol { get => field; set => SetAndNotify(ref field, value); }
+
     public bool PostAction { get => field; set => SetAndNotify(ref field, value); }
 
     public static TaskSettingVisibilityInfo Instance { get; } = new();
@@ -161,6 +163,7 @@ public class TaskSettingVisibilityInfo : PropertyChangedBase
             DepotMaintainTask => DepotMaintain = enable,
             SwitchThemeTask => SwitchTheme = enable,
             CustomTask => Custom = enable,
+            StrongholdProtocolTask => StrongholdProtocol = enable,
             _ => throw new NotImplementedException(),
         };
         EnableAdvancedSettings = false;
@@ -189,6 +192,7 @@ public class TaskSettingVisibilityInfo : PropertyChangedBase
         DepotMaintain = false;
         SwitchTheme = false;
         Custom = false;
+        StrongholdProtocol = false;
     }
 
     public void SetPostAction(bool value)

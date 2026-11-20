@@ -2348,6 +2348,36 @@ public class AsstProxy
         string what = details["what"]?.ToString() ?? string.Empty;
         switch (what)
         {
+            case "SPAStrategyCardSelected":
+                Instances.TaskQueueViewModel.AddLog(
+                    LocalizationHelper.GetStringFormat("Toolbox.MiniGame.SPA.StrategyLog", subTaskDetails?["strategy_name"] ?? subTaskDetails?["strategy_index"] ?? "?"),
+                    UiLogColor.Info);
+                break;
+
+            case "SPAAutomationBattleObserved":
+                {
+                    var deployed = (subTaskDetails?["roster"] as JArray ?? [])
+                        .Where(unit => (bool?)unit?["deployed"] == true)
+                        .Select(unit => unit?["name"]?.ToString() ?? string.Empty);
+                    Instances.TaskQueueViewModel.AddLog(
+                        LocalizationHelper.GetStringFormat("Toolbox.MiniGame.SPA.RoundLog", subTaskDetails?["round"] ?? "?", string.Join(", ", deployed)),
+                        UiLogColor.Info);
+                    break;
+                }
+
+            case "SPALifecycleRecovery":
+                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("Toolbox.MiniGame.SPA.RecoveryLog"), UiLogColor.Info);
+                break;
+
+            case "SPALifecycleCompleted":
+                Instances.TaskQueueViewModel.AddLog(
+                    LocalizationHelper.GetStringFormat(
+                        "Toolbox.MiniGame.SPA.ResultLog",
+                        LocalizationHelper.GetString((bool?)subTaskDetails?["result_completed"] == true ? "Toolbox.MiniGame.SPA.Victory" : "Toolbox.MiniGame.SPA.Defeat"),
+                        subTaskDetails?["passed_rounds"] ?? "?"),
+                    (bool?)subTaskDetails?["result_completed"] == true ? UiLogColor.Success : UiLogColor.Info);
+                break;
+
             case "StageDrops":
                 {
                     string allDrops = string.Empty;
@@ -3752,6 +3782,9 @@ public class AsstProxy
 
         /// <summary>自定义任务s</summary>
         Custom,
+
+        /// <summary>卫戍协议完整流程。</summary>
+        StrongholdProtocol,
     }
 
     private readonly ObservableDictionary<AsstTaskId, (TaskType Type, TaskStatus Status)> _tasksStatus = [];

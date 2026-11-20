@@ -1,0 +1,69 @@
+﻿<UserControl
+    x:Class="MaaWpfGui.Views.UserControl.TaskQueue.StrongholdProtocolTaskUserControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:CalcBinding;assembly=CalcBinding"
+    xmlns:controls="clr-namespace:MaaWpfGui.Styles.Controls"
+    xmlns:hc="https://handyorg.github.io/handycontrol"
+    xmlns:ui_vms="clr-namespace:MaaWpfGui.ViewModels.UI"
+    MaxWidth="220">
+    <StackPanel>
+        <StackPanel Visibility="{c:Binding !EnableAdvancedSettings, Source={x:Static ui_vms:TaskQueueViewModel.TaskSettingVisibilities}}">
+            <ComboBox
+                Margin="0,0,0,10"
+                hc:TitleElement.Title="{DynamicResource TaskQueue.StrongholdProtocol.Mode.Title}"
+                DisplayMemberPath="Display"
+                ItemsSource="{Binding ModeOptions}"
+                SelectedValue="{Binding SimulationMode, UpdateSourceTrigger=PropertyChanged}"
+                SelectedValuePath="Value" />
+            <ComboBox
+                Margin="0,0,0,10"
+                hc:TitleElement.Title="{Binding DifficultyTitle}"
+                DisplayMemberPath="Display"
+                ItemsSource="{Binding DifficultyOptions}"
+                SelectedValue="{Binding Difficulty, UpdateSourceTrigger=PropertyChanged}"
+                SelectedValuePath="Value"
+                Visibility="{c:Binding HasDifficulty}" />
+            <ComboBox
+                Margin="0,0,0,10"
+                hc:TitleElement.Title="{DynamicResource TaskQueue.StrongholdProtocol.Strategy.Title}"
+                DisplayMemberPath="Display"
+                ItemsSource="{Binding StrategyOptions}"
+                SelectedValue="{Binding StrategyPolicy, UpdateSourceTrigger=PropertyChanged}"
+                SelectedValuePath="Value" />
+            <ComboBox
+                Margin="0,0,0,10"
+                DisplayMemberPath="Display"
+                ItemsSource="{Binding SpecifiedStrategies}"
+                SelectedValue="{Binding SpecifiedStrategy, UpdateSourceTrigger=PropertyChanged}"
+                SelectedValuePath="Value"
+                Visibility="{c:Binding IsSpecificStrategy}" />
+            <ComboBox
+                Margin="0,0,0,10"
+                hc:TitleElement.Title="{DynamicResource TaskQueue.StrongholdProtocol.Pact.Title}"
+                DisplayMemberPath="Display"
+                ItemsSource="{Binding PrimaryPactOptions}"
+                SelectedValue="{Binding PrimaryPact, UpdateSourceTrigger=PropertyChanged}"
+                SelectedValuePath="Value" />
+            <controls:TextBlock
+                Margin="0,0,0,10"
+                Text="{DynamicResource TaskQueue.StrongholdProtocol.Pact.Tip}"
+                TextWrapping="Wrap" />
+            <controls:TextBlock Text="{DynamicResource Toolbox.MiniGame.SPA.PlanningTip}" TextWrapping="Wrap" />
+        </StackPanel>
+        <StackPanel Visibility="{c:Binding EnableAdvancedSettings, Source={x:Static ui_vms:TaskQueueViewModel.TaskSettingVisibilities}}">
+            <hc:NumericUpDown
+                Margin="0,5"
+                hc:InfoElement.Title="{DynamicResource TaskQueue.StrongholdProtocol.RunCount.Title}"
+                DecimalPlaces="0"
+                Increment="1"
+                Maximum="99999"
+                Minimum="1"
+                Value="{Binding RunCount, UpdateSourceTrigger=PropertyChanged}" />
+            <controls:TextBlock
+                Margin="0,10,0,0"
+                Text="{DynamicResource TaskQueue.StrongholdProtocol.RunCount.Tip}"
+                TextWrapping="Wrap" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>
