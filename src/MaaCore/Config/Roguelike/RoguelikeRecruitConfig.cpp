@@ -7,6 +7,18 @@
 
 #include "Utils/Logger.hpp"
 
+int asst::AccountModuleRecruitPolicy::adjust_priority(int current, bool promoting, bool available) const noexcept
+{
+    // Module evidence cannot revive an operator rejected by strength or team requirements.
+    if (current <= 0) {
+        return current;
+    }
+    if (available) {
+        return std::max(current, promoting ? ready_promote_priority : ready_recruit_priority);
+    }
+    return std::min(current, promoting ? unavailable_promote_priority : unavailable_recruit_priority);
+}
+
 const asst::RoguelikeOperInfo&
     asst::RoguelikeRecruitConfig::get_oper_info(const std::string& theme, const std::string& oper_name) noexcept
 {
@@ -277,6 +289,26 @@ bool asst::RoguelikeRecruitConfig::parse(const json::value& json)
             oper_info.is_key = oper_json.get("is_key", oper_info.is_key);
             oper_info.is_start = oper_json.get("is_start", oper_info.is_start);
             oper_info.auto_retreat = oper_json.get("auto_retreat", oper_info.auto_retreat);
+            if (const auto module = oper_json.find<json::object>("account_module")) {
+                AccountModuleRecruitPolicy policy;
+                policy.module_id = module->get("module_id", "");
+                policy.minimum_level = module->get("minimum_level", 3);
+                policy.ready_recruit_priority = module->get("ready_recruit_priority", oper_info.recruit_priority);
+                policy.ready_promote_priority = module->get("ready_promote_priority", oper_info.promote_priority);
+                policy.unavailable_recruit_priority = module->get("unavailable_recruit_priority", 0);
+                policy.unavailable_promote_priority = module->get("unavailable_promote_priority", 0);
+                const auto valid_priority = [](int value) {
+                    return value >= 0 && value <= 1000;
+                };
+                if (policy.module_id.empty() || policy.minimum_level < 1 || policy.minimum_level > 3 ||
+                    !valid_priority(policy.ready_recruit_priority) || !valid_priority(policy.ready_promote_priority) ||
+                    !valid_priority(policy.unavailable_recruit_priority) ||
+                    !valid_priority(policy.unavailable_promote_priority)) {
+                    LogError << __FUNCTION__ << "Invalid account module recruitment policy" << theme << name;
+                    return false;
+                }
+                oper_info.account_module = std::move(policy);
+            }
 
             // __________________will-be-removed-begin__________________
             oper_info.recruit_priority_when_team_full =

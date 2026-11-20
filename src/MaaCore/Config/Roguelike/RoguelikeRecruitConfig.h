@@ -2,6 +2,7 @@
 
 #include "Config/AbstractConfig.h"
 
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -29,6 +30,18 @@ struct CollectionPriorityOffset
 };
 
 // 干员信息，战斗相关
+struct AccountModuleRecruitPolicy
+{
+    std::string module_id;
+    int minimum_level = 3;
+    int ready_recruit_priority = 0;
+    int ready_promote_priority = 0;
+    int unavailable_recruit_priority = 0;
+    int unavailable_promote_priority = 0;
+
+    [[nodiscard]] int adjust_priority(int current, bool promoting, bool available) const noexcept;
+};
+
 struct RoguelikeOperInfo
 {
     battle::Role role = battle::Role::Unknown;   // 干员职业
@@ -54,6 +67,7 @@ struct RoguelikeOperInfo
     battle::SkillUsage alternate_skill_usage = battle::SkillUsage::Possibly; // 备选技能使用模式
     int alternate_skill_times = 1;                                           // 备选技能使用次数
     int auto_retreat = 0;                                                    // 部署几秒后自动撤退
+    std::optional<AccountModuleRecruitPolicy> account_module;
 };
 
 // 干员组信息，招募相关

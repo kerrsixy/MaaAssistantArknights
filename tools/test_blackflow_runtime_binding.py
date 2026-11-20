@@ -159,6 +159,35 @@ class RuntimeBindingTests(unittest.TestCase):
         self.assertEqual(result["address"], "device-1")
         self.assertFalse(result["ok"])
 
+    def test_verified_cache_choice_reaches_native_task(self):
+        image = self.root / "screen.png"
+        cv2.imencode(".png", np.zeros((720, 1280, 3), dtype=np.uint8))[1].tofile(image)
+        for scan in (True, False):
+            with self.subTest(scan=scan):
+                driver = Mock()
+                driver.snapshot.return_value = image
+                driver.save.return_value = (self.root / "callbacks.jsonl", 0)
+                args = [
+                    "live",
+                    "--out",
+                    str(self.root),
+                    "--account-cache-file",
+                    "same-uid.json",
+                ]
+                if not scan:
+                    args.append("--no-scan-account-modules")
+                with (
+                    patch("sys.argv", args),
+                    patch.object(live, "LiveDriver", return_value=driver),
+                    patch.object(state, "check", return_value={"ok": True}),
+                    contextlib.redirect_stdout(io.StringIO()),
+                ):
+                    self.assertEqual(live.main(), 0)
+                task, params = driver.append_task.call_args.args
+                self.assertEqual(task, "Roguelike")
+                self.assertEqual(params["scan_account_modules"], scan)
+                self.assertEqual(params["account_cache_file"], "same-uid.json")
+
 
 if __name__ == "__main__":
     unittest.main()

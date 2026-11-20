@@ -1,5 +1,6 @@
 #include "RoguelikeRecruitTaskPlugin.h"
 #include "Config/Miscellaneous/BattleDataConfig.h"
+#include "Config/Roguelike/BlackFlow/BlackFlowAccountProfile.h"
 
 #include <cctype>
 
@@ -491,6 +492,30 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                                                                          : recruit_info.promote_priority;
                     priority = score_elite_two_recruit(priority, promotion_value);
                 }
+            }
+
+            if (theme == RoguelikeTheme::BlackFlow && recruit_info.account_module && !recruit_info.is_alternate) {
+                const auto& policy = *recruit_info.account_module;
+                const auto& account = m_config->account_profile();
+                const auto evidence =
+                    account ? account->module_evidence(oper_info.name, policy.module_id) : std::nullopt;
+                const bool ready =
+                    account && account->module_available(oper_info.name, policy.module_id, policy.minimum_level);
+                const int before = priority;
+                priority = policy.adjust_priority(priority, chars_map.contains(oper_info.name), ready);
+                auto decision = basic_info_with_what("BlackFlowRecruitmentModuleGate");
+                decision["details"] = json::object {
+                    { "client", m_config->account_client() },
+                    { "uid", m_config->account_uid() },
+                    { "operator", oper_info.name },
+                    { "module_id", policy.module_id },
+                    { "known", evidence.has_value() },
+                    { "module_level", evidence ? evidence->level : -1 },
+                    { "ready", ready },
+                    { "priority_before", before },
+                    { "priority_after", priority },
+                };
+                callback(AsstMsg::SubTaskExtraInfo, decision);
             }
 
             const auto tier = classify_recruit_candidate(

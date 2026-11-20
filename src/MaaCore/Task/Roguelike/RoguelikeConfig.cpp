@@ -3,8 +3,20 @@
 #include <algorithm>
 #include <array>
 
+#include "Config/Roguelike/BlackFlow/BlackFlowAccountProfile.h"
 #include "Config/TaskData.h"
 #include "Utils/Logger.hpp"
+
+bool asst::RoguelikeConfig::bind_account_profile(std::shared_ptr<const blackflow::BlackFlowAccountProfile> profile)
+{
+    if (!profile || profile->uid() != m_account_uid || profile->client() != m_account_client) {
+        m_account_profile.reset();
+        LogError << __FUNCTION__ << "Account profile identity does not match the bound account";
+        return false;
+    }
+    m_account_profile = std::move(profile);
+    return true;
+}
 
 bool asst::RoguelikeConfig::verify_and_load_params(const json::value& params)
 {

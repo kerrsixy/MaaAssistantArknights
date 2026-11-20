@@ -6,6 +6,14 @@
       "opers": [
         {
           "name": "机械师",
+          "account_module": {
+            "module_id": "uniequip_002_mcnist",
+            "minimum_level": 3,
+            "ready_recruit_priority": 999,
+            "ready_promote_priority": 1000,
+            "unavailable_recruit_priority": 500,
+            "unavailable_promote_priority": 700
+          },
           "skill": 2,
           "is_key": true,
           "is_start": true,
@@ -1114,6 +1122,14 @@
         },
         {
           "name": "号角",
+          "account_module": {
+            "module_id": "uniequip_004_horn",
+            "minimum_level": 3,
+            "ready_recruit_priority": 950,
+            "ready_promote_priority": 1000,
+            "unavailable_recruit_priority": 619,
+            "unavailable_promote_priority": 700
+          },
           "skill": 3,
           "alternate_skill": 1,
           "is_key": true,
@@ -3681,6 +3697,14 @@
         },
         {
           "name": "提丰",
+          "account_module": {
+            "module_id": "uniequip_004_typhon",
+            "minimum_level": 3,
+            "ready_recruit_priority": 990,
+            "ready_promote_priority": 1000,
+            "unavailable_recruit_priority": 370,
+            "unavailable_promote_priority": 510
+          },
           "skill": 2,
           "is_key": true,
           "is_start": true,
@@ -3829,6 +3853,14 @@
         },
         {
           "name": "灵知",
+          "account_module": {
+            "module_id": "uniequip_004_gnosis",
+            "minimum_level": 3,
+            "ready_recruit_priority": 950,
+            "ready_promote_priority": 1000,
+            "unavailable_recruit_priority": 0,
+            "unavailable_promote_priority": 0
+          },
           "skill": 3,
           "alternate_skill": 1,
           "is_key": true,
@@ -5062,6 +5094,14 @@
         },
         {
           "name": "水月",
+          "account_module": {
+            "module_id": "uniequip_004_mizuki",
+            "minimum_level": 3,
+            "ready_recruit_priority": 930,
+            "ready_promote_priority": 1000,
+            "unavailable_recruit_priority": 200,
+            "unavailable_promote_priority": 400
+          },
           "skill": 1,
           "recruit_priority": 395,
           "promote_priority": 440,

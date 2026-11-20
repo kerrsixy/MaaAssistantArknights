@@ -290,6 +290,13 @@ def main():
     parser.add_argument("--core-dir", default=str(DLL_DIR))
     parser.add_argument("--mumu-extras", action="store_true")
     parser.add_argument(
+        "--scan-account-modules",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="首次开局刷新账号模组；关闭时使用同账号本地缓存",
+    )
+    parser.add_argument("--account-cache-file", default=None)
+    parser.add_argument(
         "--diagnostics", choices=("normal", "full", "detailed"), default="full"
     )
     parser.add_argument(
@@ -355,7 +362,10 @@ def main():
             "stop_at_max_level": False,
             "use_nonfriend_support": False,
             "refresh_trader_with_dice": False,
+            "scan_account_modules": args.scan_account_modules,
         }
+        if args.account_cache_file:
+            params["account_cache_file"] = args.account_cache_file
         if args.squad:
             params["squad"] = args.squad
         if args.roles:

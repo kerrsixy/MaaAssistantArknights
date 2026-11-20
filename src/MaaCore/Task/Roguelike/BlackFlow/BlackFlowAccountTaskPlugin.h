@@ -18,5 +18,6 @@ protected:
 private:
     bool m_verified = false;
     bool m_refresh_requested = true;
+    std::string m_cache_file;
 };
 }

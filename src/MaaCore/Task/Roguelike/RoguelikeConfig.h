@@ -1,5 +1,6 @@
 #pragma once
 #include <functional>
+#include <memory>
 #include <meojson/json.hpp>
 #include <optional>
 #include <string>
@@ -9,6 +10,11 @@
 
 namespace asst
 {
+namespace blackflow
+{
+class BlackFlowAccountProfile;
+}
+
 class RoguelikeTheme
 {
 public:
@@ -137,6 +143,9 @@ public:
 
     void bind_account(std::string client, std::string uid)
     {
+        if (m_account_client != client || m_account_uid != uid) {
+            m_account_profile.reset();
+        }
         m_account_client = std::move(client);
         m_account_uid = std::move(uid);
     }
@@ -144,6 +153,13 @@ public:
     [[nodiscard]] const std::string& account_uid() const noexcept { return m_account_uid; }
 
     [[nodiscard]] const std::string& account_client() const noexcept { return m_account_client; }
+
+    bool bind_account_profile(std::shared_ptr<const blackflow::BlackFlowAccountProfile> profile);
+
+    [[nodiscard]] const std::shared_ptr<const blackflow::BlackFlowAccountProfile>& account_profile() const noexcept
+    {
+        return m_account_profile;
+    }
 
     void clear(); // 重置肉鸽局内数据
 
@@ -210,6 +226,7 @@ private:
     std::string m_theme; // 主题
     std::string m_account_client;
     std::string m_account_uid;
+    std::shared_ptr<const blackflow::BlackFlowAccountProfile> m_account_profile;
     RoguelikeMode m_mode = RoguelikeMode::Exp; // 模式
     int m_difficulty = 0;                      // 难度
     std::string m_squad;                       // 分队
