@@ -63,6 +63,9 @@
     "BlackFlow@Roguelike@Begin": {
         "baseTask": "Roguelike@Begin",
         "next": [
+            "BlackFlow@Roguelike@BeginRecovery_DataSync",
+            "BlackFlow@Roguelike@BeginRecovery_DailySupply",
+            "BlackFlow@Roguelike@BeginRecovery_Announcement",
             "BlackFlow@Roguelike@MissionFailedFlag2",
             "BlackFlow@Roguelike@DuelOpponentSelection",
             "BlackFlow@Roguelike@DuelRetreat",
@@ -91,11 +94,8 @@
             "BlackFlow@Roguelike@ReturnButtons#next",
             "BlackFlow@Roguelike@ReturnConfirm",
             "BlackFlow@Roguelike@StartUpThemes#next",
-            "BlackFlow@Roguelike@BeginRecovery_DataSync",
-            "BlackFlow@Roguelike@BeginRecovery_DailySupply",
             "BlackFlow@Roguelike@BeginRecovery_Settlement",
             "BlackFlow@Roguelike@BeginRecovery_SettlementConfirm",
-            "BlackFlow@Roguelike@BeginRecovery_Announcement",
             "BlackFlow@Roguelike@ScrapTradeCollapse"
         ]
     },
@@ -2366,6 +2366,7 @@
         "template": "Roguelike@StartAction.png",
         "sub": ["BlackFlow@Roguelike@TemporaryOperatorCheck"],
         "next": [
+            "BlackFlow@Roguelike@BeginRecovery_DataSync",
             "BlackFlow@Roguelike@EmployLeavePrompt",
             "BlackFlow@Roguelike@NoneSelected",
             "BlackFlow@Roguelike@InBattleFlag",
@@ -2384,6 +2385,13 @@
     "BlackFlow@Roguelike@StartAction-NextLevel": {
         "baseTask": "BlackFlow@Roguelike@NextLevel",
         "next": ["BlackFlow@Roguelike@NodeCompletionAction"]
+    },
+    "BlackFlow@Roguelike@StartActionReCheck": {
+        "algorithm": "JustReturn",
+        "postDelay": 5000,
+        "maxTimes": 20,
+        "next": ["BlackFlow@Roguelike@StartAction#next"],
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
     },
     "BlackFlow@Roguelike@StartExplore": {
         "template": "BlackFlow@Roguelike@StartExplore.png",
@@ -2540,7 +2548,9 @@
         "Doc": "启动时卡在活动公告页（右上角关闭按钮）。原先用 empty.png 恒命中，会在任意未识别页面盲点一次右上角，实测会把游戏带进基建/活动页；改用公告页真实模板 CloseAnno.png（对 anno.png 实测 0.9409）",
         "template": "CloseAnno.png",
         "action": "ClickSelf",
+        "rectMove": [10, 10, 10, 10],
         "roi": [1150, 40, 120, 80],
+        "postDelay": 1000,
         "next": ["BlackFlow@Roguelike@Begin"]
     },
     "BlackFlow@Roguelike@BeginRecovery_Settlement": {
