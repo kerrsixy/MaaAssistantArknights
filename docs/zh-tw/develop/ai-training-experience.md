@@ -141,3 +141,10 @@ icon: mdi:brain
 - 已在官服第二設備人工購買生命遊戲 ｢血管｣，3 點換取 ｢安全的角落｣ 使用留存券，60/67→61/67，4→1 點，並返回大廳。自動加點仍未完成。
 - 首次 Debug 受並行衛戍原始碼重複宣告影響，保留其原始碼後重建成功。原生回放與實機通關分開記錄。N8 尚未通關，N9/N10、完整模組掃描與快取、自動加點及最終結局作業仍待完成。
 - 原生 Debug 回放通過：真實資訊遺失幀命中右箭頭，統計插件於資源子鏈完成後觸發，主阻擋先於專用 EW，赤金條及右側無規劃部署。執行綁定測試 10/10；自然結算仍待實機驗收。
+
+### 2026-11-21 階段 9：第一結局試驗作業與科技節點身分
+
+- 新增 ｢永无安宁｣ 試驗作業：(6,3) 副輸出朝左誘兔入坑，EW (8,2) 朝下，醫療 (7,2) 朝上，主阻擋 (7,1) 朝下，副輸出 (9,5) 朝上，次阻擋 (9,3) 朝左。保留角色和費用，只跑指定作業。
+- 原生 Debug 通過六格可部署、跨坑射程及精一安賽爾/芙蓉同時治療主阻擋與 EW 的檢查；Boss 傷害、技能時機、動態佔格和通關未驗證，`work/ending_regression.log` 標示 `live_pass=0`。[關卡資料](https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/levels/obt/roguelike/ro6/level_rogue6_b-4.json) 的 49 路徑終點均為 (7,0)，另參照使用者教程 81 秒畫面。
+- [科技資料](https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/roguelike_topic_table.json) 有 67 節點；多個 ｢瘤胃｣ 同名但 ID、前置和位置不同，不能只靠名字判定。自動加點與完整模組掃描未完成。
+- run17 自動通過 ｢急不可耐｣、｢灌水贤者｣，06:05:57 進二層，4×5 地圖首試成功；N8 仍在途，該進程啟動時尚未載入新增最終作業。
