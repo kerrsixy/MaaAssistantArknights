@@ -5,6 +5,7 @@
 
 #include <meojson/json.hpp>
 
+#include "Config/Roguelike/BlackFlow/BlackFlowScrapMarketConfig.h"
 #include "Utils/Logger.hpp"
 
 bool asst::RoguelikeShoppingConfig::parse_goods(const json::array& json, std::vector<RoguelikeGoods>& goods)
@@ -49,9 +50,22 @@ bool asst::RoguelikeShoppingConfig::parse_goods(const json::array& json, std::ve
         item.decrease_collapse = goods_json.get("decrease_collapse", false);
         // 招募券门槛：is_recruit_ticket + min_hope，缺省时行为与旧版完全一致
         item.is_recruit_ticket = goods_json.get(
-            "is_recruit_ticket", item.name.find("招募券") != std::string::npos ||
-                                     item.name.find("人事调度函") != std::string::npos);
+            "is_recruit_ticket",
+            item.name.find("招募券") != std::string::npos || item.name.find("人事调度函") != std::string::npos);
         item.min_hope = goods_json.get("min_hope", 0);
+        if (const auto role = goods_json.find<std::string>("recruit_role")) {
+            const auto found = RoleMap.find(*role);
+            if (found == RoleMap.end()) {
+                LogError << __FUNCTION__ << "Unknown recruitment voucher role" << *role;
+                return false;
+            }
+            item.recruit_role = found->second;
+            item.recruit_role_target = goods_json.get("recruit_role_target", 2);
+            if (item.recruit_role_target < 1) {
+                LogError << __FUNCTION__ << "Recruitment role target must be positive" << item.name;
+                return false;
+            }
+        }
         if (const auto price = goods_json.find<int>("price")) {
             if (*price <= 0) {
                 LogError << __FUNCTION__ << "Shopping item price must be positive" << item.name;
@@ -111,8 +125,65 @@ bool asst::RoguelikeShoppingConfig::parse(const json::value& json)
             tables.sell.emplace(name, std::move(names));
         }
     }
+    if (const auto extensions = json.find_value("ordinary_shop_extensions")) {
+        if (!extensions->is_object()) {
+            LogError << __FUNCTION__ << "Ordinary shop extensions must be an object";
+            return false;
+        }
+        for (const auto& [table, sources] : extensions->as_object()) {
+            if (!tables.buy.contains(table) || !sources.is<std::vector<std::string>>()) {
+                LogError << __FUNCTION__ << "Invalid ordinary shop extension" << table;
+                return false;
+            }
+            auto names = sources.as<std::vector<std::string>>();
+            for (const auto& source : names) {
+                if (source != "$scrap_market" && !tables.buy.contains(source)) {
+                    LogError << __FUNCTION__ << "Unknown ordinary shop extension source" << source;
+                    return false;
+                }
+            }
+            tables.ordinary_shop_extensions.emplace(table, std::move(names));
+        }
+    }
     m_tables.insert_or_assign(theme, std::move(tables));
     return true;
+}
+
+std::vector<asst::RoguelikeGoods>
+    asst::RoguelikeShoppingConfig::get_shop_goods(const std::string& theme, const std::string& table) const
+{
+    auto goods = get_goods(theme, table);
+    if (!strategy_shopping_enabled(theme)) {
+        return goods;
+    }
+    const auto& tables = m_tables.at(theme);
+    const auto extension = tables.ordinary_shop_extensions.find(table);
+    if (extension == tables.ordinary_shop_extensions.end()) {
+        return goods;
+    }
+    const auto append = [&](const RoguelikeGoods& item) {
+        if (std::ranges::none_of(goods, [&](const auto& existing) { return existing.name == item.name; })) {
+            goods.emplace_back(item);
+        }
+    };
+    for (const auto& source : extension->second) {
+        if (source == "$scrap_market") {
+            for (const auto& scrap : BlackFlowScrapMarket.items()) {
+                if (scrap.price) {
+                    RoguelikeGoods item;
+                    item.name = scrap.name;
+                    item.price = scrap.price;
+                    append(item);
+                }
+            }
+        }
+        else {
+            for (const auto& item : tables.buy.at(source)) {
+                append(item);
+            }
+        }
+    }
+    return goods;
 }
 
 bool asst::RoguelikeShoppingConfig::parse_legacy(const json::value& json, const std::string& theme)

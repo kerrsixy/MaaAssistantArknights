@@ -993,3 +993,14 @@ MAA 使用以下方法识别和处理通宝：
 对弹药类干员有用
 
 <!-- markdownlint-disable-file MD026 -->
+
+### 可选部署约束
+
+| 字段 | 默认与作用 |
+| --- | --- |
+| `deploy_plan_only` | 关卡级；默认 `false`，为 `true` 时仅执行专用部署计划，关闭通用补位。 |
+| `reserve_deploy_cost` | 关卡级；默认 `false`，为高优先级待部署项保留费用；缺少医疗时仍允许医疗提前。 |
+| `deploy_plan[].operator_names` | 条目级；默认空，非空时只允许名单中的干员。 |
+| `deploy_plan[].minimum_elite` | 条目级；默认 `0`，范围 `0..2`，要求明确的精英阶段证据。 |
+| `deploy_plan[].max_deployments` | 条目级；默认不限，填写时必须为正整数。同一条目的所有分组共享确认成功次数，下一场清空。 |
+| `force_deploy_direction[].operator_names` | 方向约束内；默认空，非空时必须同时满足职业和干员名单。 |

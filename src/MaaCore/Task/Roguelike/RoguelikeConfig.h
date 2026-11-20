@@ -91,6 +91,7 @@ public:
     // ------------------ 商店 ------------------
     bool trader_no_longer_buy = false; // 不再购买藏品
     std::string shopping_buy_table = "default";
+    int shopping_reserved_ingots = 0;
     std::string shopping_sell_table;
 
     // ------------------ 萨米 ------------------

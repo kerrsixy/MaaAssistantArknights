@@ -296,6 +296,7 @@ bool asst::RoguelikeBattleTaskPlugin::calc_stage_info()
         m_homes = opt->replacement_home;
         m_allow_to_use_dice = opt->use_dice_stage;
         m_deploy_plan_only = opt->deploy_plan_only;
+        m_reserve_deploy_cost = opt->reserve_deploy_cost;
         m_blacklist_location = opt->blacklist_location;
         m_role_order = opt->role_order;
         m_force_deploy_direction = opt->force_deploy_direction;
@@ -460,6 +461,10 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
     Log.debug("No operator needs to be retreated.");
     // 构造当前地图的部署指令列表
     std::vector<DeployPlanInfo> deploy_plan_list;
+    const auto limit_reached = [&](const auto& info) {
+        const auto count = m_plan_deployment_counts.find(info.plan_index);
+        return count != m_plan_deployment_counts.end() && count->second >= info.max_deployments;
+    };
     // 获取当前肉鸽的分组信息[干员组1名称,干员组2名称,...]
     const auto& groups = RoguelikeRecruit.get_group_names(m_config->get_theme());
     // 获取当前肉鸽的分组内排名信息
@@ -496,7 +501,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                 continue;
             }
             for (const auto& info : plan_iter->second) {
-                if (m_kills < info.kill_lower_bound || m_kills > info.kill_upper_bound) {
+                if (limit_reached(info) || m_kills < info.kill_lower_bound || m_kills > info.kill_upper_bound) {
                     continue;
                 }
                 DeployPlanInfo deploy_plan;
@@ -504,6 +509,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                 deploy_plan.oper_name = oper.name;
                 deploy_plan.oper_order_in_group = 0;
                 deploy_plan.rank = info.rank;
+                deploy_plan.plan_index = info.plan_index;
                 deploy_plan.placed = info.location;
                 deploy_plan.direction = info.direction;
                 deploy_plan.cost = oper.cost;
@@ -532,6 +538,9 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
             if (m_deploy_plan.contains(group_name)) {
                 is_in_group = true;
                 for (const auto& info : m_deploy_plan[group_name]) {
+                    if (limit_reached(info)) {
+                        continue;
+                    }
                     const auto elite = m_oper_elite.find(oper.name);
                     if ((info.minimum_elite > 0 &&
                          (elite == m_oper_elite.end() || elite->second < info.minimum_elite)) ||
@@ -558,6 +567,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                     deploy_plan.oper_order_in_group =
                         recruit_info.order_in_group.empty() ? INT_MAX : recruit_info.order_in_group.at(group_id);
                     deploy_plan.rank = info.rank;
+                    deploy_plan.plan_index = info.plan_index;
                     deploy_plan.placed = info.location;
                     deploy_plan.direction = info.direction;
                     // 带上部署费用，供同 rank 同位次时按低费优先排序使用。
@@ -636,7 +646,8 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                 continue;
             }
             // 但也不能一味等：场上人数不足 3 时先把人放下，否则前期就漏怪。
-            if (!is_nameless_deployable(deploy_plan.oper_name) && !early_phase && m_used_tiles.size() >= 3 &&
+            if ((m_reserve_deploy_cost ||
+                 (!is_nameless_deployable(deploy_plan.oper_name) && !early_phase && m_used_tiles.size() >= 3)) &&
                 deploy_plan.rank > best_waiting_rank && !(need_medic && deploy_plan.role == battle::Role::Medic)) {
                 Log.info(
                     "reserve slot: skip",
@@ -649,10 +660,12 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                     best_waiting_rank);
                 continue;
             }
-            if (!deploy_oper(deploy_plan.role, deploy_plan.oper_name, deploy_plan.placed, deploy_plan.direction)) {
+            const auto direction = resolve_deploy_direction(*oper_it, deploy_plan.placed, deploy_plan.direction);
+            if (!deploy_oper(deploy_plan.role, deploy_plan.oper_name, deploy_plan.placed, direction)) {
                 LogWarn << __FUNCTION__ << "Deployment action failed" << deploy_plan.oper_name << deploy_plan.placed;
                 return true;
             }
+            ++m_plan_deployment_counts[deploy_plan.plan_index];
             battle::OperNameTag oper_tag { deploy_plan.role, deploy_plan.oper_name };
             // 预设部署也必须登记到防线追踪，退场后才能触发紧急补位。
             if (!m_homes.empty()) {
@@ -665,7 +678,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                     return distance(lhs) < distance(rhs);
                 });
                 m_cur_home_index = static_cast<size_t>(std::distance(m_homes.begin(), nearest));
-                postproc_of_deployment_conditions(*oper_it, deploy_plan.placed, deploy_plan.direction);
+                postproc_of_deployment_conditions(*oper_it, deploy_plan.placed, direction);
                 m_cur_home_index = previous_home;
             }
             // 防止滑动丢失(有些物体比如鸟笼没有方向),点一下右下角费用那里
@@ -1332,6 +1345,8 @@ void asst::RoguelikeBattleTaskPlugin::clear()
     m_need_clear_tiles = decltype(m_need_clear_tiles)();
     m_deploy_plan.clear();
     m_deploy_plan_only = false;
+    m_reserve_deploy_cost = false;
+    m_plan_deployment_counts.clear();
     m_retreat_plan.clear();
     m_deployed_time.clear();
 
@@ -1524,12 +1539,7 @@ std::optional<asst::RoguelikeBattleTaskPlugin::DeployInfo>
         }
     }
 
-    // 强制变化为确定的攻击方向
-    if (auto iter = m_force_deploy_direction.find(best_location); iter != m_force_deploy_direction.end()) {
-        if (iter->second.role.contains(oper.role)) {
-            best_direction = iter->second.direction;
-        }
-    }
+    best_direction = resolve_deploy_direction(oper, best_location, best_direction);
 
     // 2026-10-26 盲放抑制：场上已有 >=2 人，而最近 4 个候选点的原始覆盖分都不为正，
     // 说明这些位置打不到任何敌人，放出去就是浪费费用和部署位（用户反馈的「瞎放」）。
@@ -1539,6 +1549,22 @@ std::optional<asst::RoguelikeBattleTaskPlugin::DeployInfo>
     }
 
     return DeployInfo { best_location, best_direction };
+}
+
+asst::battle::DeployDirection asst::RoguelikeBattleTaskPlugin::resolve_deploy_direction(
+    const battle::DeploymentOper& oper,
+    const Point& location,
+    battle::DeployDirection proposed) const
+{
+    const auto iter = m_force_deploy_direction.find(location);
+    if (iter == m_force_deploy_direction.end() || !iter->second.applies_to(oper.role, oper.name)) {
+        return proposed;
+    }
+    if (iter->second.direction != proposed) {
+        LogInfo << "Apply stage direction constraint" << m_stage_name << oper.name << location
+                << static_cast<int>(iter->second.direction);
+    }
+    return iter->second.direction;
 }
 
 asst::RoguelikeBattleTaskPlugin::DirectionAndScore asst::RoguelikeBattleTaskPlugin::calc_best_direction_and_score(

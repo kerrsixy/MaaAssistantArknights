@@ -79,6 +79,7 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
     }
     data.use_dice_stage = !json.get("not_use_dice", false);
     data.deploy_plan_only = json.get("deploy_plan_only", false);
+    data.reserve_deploy_cost = json.get("reserve_deploy_cost", false);
 
     if (auto opt = json.find<json::value>("force_air_defense_when_deploy_blocking_num")) {
         data.stop_deploy_blocking_num = opt.value().get("melee_num", INT_MAX);
@@ -176,14 +177,23 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
                 fd_role.emplace(role);
             }
             fd_dir.role = std::move(fd_role);
+            const auto operator_names = point.get("operator_names", std::vector<std::string> {});
+            fd_dir.operator_names.insert(operator_names.begin(), operator_names.end());
             data.force_deploy_direction.emplace(location, fd_dir);
         }
     }
 
     if (auto opt = json.find<json::array>("deploy_plan")) {
         int rank = 1;
+        int plan_index = 0;
         for (auto& deploy_info : opt.value()) {
             DeployInfoWithRank info;
+            info.plan_index = plan_index++;
+            info.max_deployments = deploy_info.get("max_deployments", INT_MAX);
+            if (info.max_deployments < 1) {
+                LogError << __FUNCTION__ << "Deployment limit must be positive" << stage_name;
+                return false;
+            }
             info.minimum_elite = deploy_info.get("minimum_elite", 0);
             if (info.minimum_elite < 0 || info.minimum_elite > 2) {
                 LogError << __FUNCTION__ << "Invalid deployment elite requirement" << stage_name;

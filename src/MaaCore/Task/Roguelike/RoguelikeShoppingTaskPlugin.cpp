@@ -3,10 +3,12 @@
 #include <array>
 
 #include "Config/Miscellaneous/BattleDataConfig.h"
+#include "Config/Roguelike/BlackFlow/BlackFlowScrapMarketConfig.h"
 #include "Config/Roguelike/RoguelikeShoppingConfig.h"
 #include "Config/TaskData.h"
 #include "Controller/Controller.h"
 #include "Task/ProcessTask.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowScrapTrade.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowSession.h"
 #include "Utils/Logger.hpp"
 #include "Utils/StringMisc.hpp"
@@ -69,6 +71,10 @@ bool asst::RoguelikeShoppingTaskPlugin::_run()
             if (purchase && !m_blackflow_session->apply_shopping_purchase(*purchase, &error)) {
                 LogError << __FUNCTION__ << "BlackFlow shopping purchase failed" << error;
                 return false;
+            }
+            if (purchase) {
+                m_config->status().collections.emplace_back(*purchase);
+                LogInfo << __FUNCTION__ << "Confirmed BlackFlow shop purchase" << *purchase;
             }
             return true;
         }
@@ -174,6 +180,7 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
 
     const auto& raw_result = analyzer.get_result();
     std::vector<TextRect> result;
+    std::unordered_map<std::string, int> offer_prices;
     Matcher matcher_analyzer;
     matcher_analyzer.set_image(image);
     matcher_analyzer.set_task_info("RoguelikeTraderShopping");
@@ -181,13 +188,24 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
         matcher_analyzer.set_roi(item.rect.move({ -20, 130, 200, 80 }));
         if (matcher_analyzer.analyze()) {
             result.emplace_back(item);
+            if (strategy_shopping) {
+                const auto& coin = matcher_analyzer.get_result().rect;
+                RegionOCRer price_ocr(image);
+                price_ocr.set_task_info("NumberOcrReplace");
+                price_ocr.set_roi({ coin.x + coin.width, coin.y - 8, 90, coin.height + 16 });
+                int price = 0;
+                if (price_ocr.analyze() && utils::chars_to_number(price_ocr.get_result().text, price) && price > 0 &&
+                    price < 1000) {
+                    offer_prices.emplace(item.text, price);
+                }
+            }
         }
     }
 
     // bool bought = false;
-    const auto& all_goods = strategy_shopping
-                                ? RoguelikeShopping.get_goods(theme, m_config->status().shopping_buy_table)
-                                : RoguelikeShopping.get_goods(theme);
+    const auto all_goods = strategy_shopping
+                               ? RoguelikeShopping.get_shop_goods(theme, m_config->status().shopping_buy_table)
+                               : RoguelikeShopping.get_goods(theme);
     // 钱包对所有主题都读：用户要求「商店购买顺序应先看手里有多少钱」。
     // 旧实现把 read_wallet 只在 strategy_shopping（仅 BlackFlow）下调用，傀影/水月等
     // 主题既不读余额也不校验价格，于是会出现「点开确认框才发现买不起」的死循环。
@@ -212,6 +230,33 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
     }
     else {
         shopping_hope = m_config->status().hope;
+    }
+    const int reserved = strategy_shopping && m_blackflow_session ? m_blackflow_session->reserved_amount("ingots") : 0;
+    if (strategy_shopping) {
+        m_config->status().shopping_reserved_ingots = reserved;
+    }
+    const auto report_offer = [&](const std::string& name, const std::string& reason, int price = -1) {
+        if (!strategy_shopping) {
+            return;
+        }
+        auto info = basic_info_with_what("BlackFlowShoppingDecision");
+        info["details"]["name"] = name;
+        info["details"]["reason"] = reason;
+        info["details"]["price"] = price;
+        info["details"]["wallet"] = wallet.value_or(-1);
+        info["details"]["reserved"] = reserved;
+        info["details"]["hope"] = shopping_hope.value_or(-1);
+        info["details"]["buy_table"] = m_config->status().shopping_buy_table;
+        callback(AsstMsg::SubTaskExtraInfo, info);
+        LogInfo << __FUNCTION__ << "BlackFlow shop offer" << name << "reason" << reason << "price" << price << "wallet"
+                << wallet.value_or(-1) << "reserved" << reserved << "hope" << shopping_hope.value_or(-1);
+    };
+    for (const auto& offer : result) {
+        if (std::ranges::none_of(all_goods, [&](const auto& goods) {
+                return offer.text.find(goods.name) != std::string::npos;
+            })) {
+            report_offer(offer.text, "not_in_active_buy_tables");
+        }
     }
     std::vector<std::string> all_foldartal = m_config->get_theme() == RoguelikeTheme::Sami
                                                  ? Task.get<OcrTaskInfo>("Sami@Roguelike@FoldartalGainOcr")->text
@@ -240,9 +285,32 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
             continue;
         }
 
-        if (goods.price && wallet && *goods.price > *wallet) {
-            LogTrace << __FUNCTION__ << "Ready to buy" << goods.name << "but the wallet is not enough, skip"
-                     << *goods.price << *wallet;
+        if (strategy_shopping && m_blackflow_session) {
+            if (const auto scrap = BlackFlowScrapMarket.find(goods.name)) {
+                const auto& resources = m_blackflow_session->run().resources;
+                if (resources.movement_capacity <= 0 || resources.movement_slots_observed < 0) {
+                    report_offer(goods.name, "scrap_capacity_unverified");
+                    continue;
+                }
+                if (blackflow::movement_slots_remaining(resources) < blackflow::scrap_acquisitions(scrap->get())) {
+                    report_offer(goods.name, "insufficient_scrap_capacity");
+                    continue;
+                }
+            }
+        }
+
+        std::optional<int> price = goods.price;
+        if (const auto displayed_price = offer_prices.find(find_it->text); displayed_price != offer_prices.end()) {
+            price = displayed_price->second;
+        }
+        if (strategy_shopping && (!wallet || !price)) {
+            report_offer(goods.name, "wallet_or_price_unverified", price.value_or(-1));
+            continue;
+        }
+        if (price && wallet && *price > std::max(0, *wallet - reserved)) {
+            LogTrace << __FUNCTION__ << "Ready to buy" << goods.name << "but the wallet is not enough, skip" << *price
+                     << *wallet;
+            report_offer(goods.name, "insufficient_unreserved_ingots", *price);
             continue;
         }
 
@@ -253,9 +321,11 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
         //       希望值由 RoguelikeRecruitTaskPlugin 在招募界面 OCR 后回写 status().hope。
         if (goods.is_recruit_ticket && goods.min_hope <= 0) {
             LogInfo << __FUNCTION__ << "Skip voucher without a configured recruitment hope budget" << goods.name;
+            report_offer(goods.name, "voucher_hope_budget_not_configured");
             continue;
         }
         if (goods.is_recruit_ticket && (!shopping_hope || *shopping_hope < goods.min_hope)) {
+            report_offer(goods.name, "insufficient_or_unknown_hope");
             Log.trace(
                 "Ready to buy",
                 goods.name,
@@ -264,6 +334,15 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
                 "need:",
                 goods.min_hope);
             continue;
+        }
+        if (strategy_shopping && goods.is_recruit_ticket && goods.recruit_role) {
+            const auto role = *goods.recruit_role;
+            const auto& promotions = map_wait_promotion[role];
+            const bool needs_promotion = std::ranges::any_of(promotions, [](size_t count) { return count > 0; });
+            if (map_roles_count[role] >= static_cast<size_t>(goods.recruit_role_target) && !needs_promotion) {
+                report_offer(goods.name, "recruitment_role_covered_and_no_pending_promotion");
+                continue;
+            }
         }
 
         if (!goods.roles.empty()) {
@@ -275,6 +354,7 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
                 }
             }
             if (!role_matched) {
+                report_offer(goods.name, "required_role_missing");
                 Log.trace("Ready to buy", goods.name, ", but there is no such professional operator, skip");
                 continue;
             }
@@ -282,6 +362,7 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
 
         if (goods.promotion != 0) {
             if (total_wait_promotion == 0) {
+                report_offer(goods.name, "no_operator_needs_promotion");
                 Log.trace("Ready to buy", goods.name, ", but there is no one waiting for promotion, skip");
                 continue;
             }
@@ -298,6 +379,7 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
                     }
                 }
                 if (!role_matched) {
+                    report_offer(goods.name, "required_role_needs_no_promotion");
                     Log.trace("Ready to buy", goods.name, ", but there is no one waiting for promotion, skip");
                     continue;
                 }
@@ -310,6 +392,7 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
                     }
                 }
                 if (sum_wait_promotion == 0) {
+                    report_offer(goods.name, "no_eligible_promotion");
                     Log.trace("Ready to buy", goods.name, ", but there is no one waiting for promotion, skip");
                     continue;
                 }
@@ -318,6 +401,7 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
 
         if (!goods.chars.empty()) {
             if (std::ranges::find_first_of(chars_list, goods.chars) == chars_list.cend()) {
+                report_offer(goods.name, "required_operator_missing");
                 Log.trace("Ready to buy", goods.name, ", but there is no such character, skip");
                 continue;
             }
@@ -327,6 +411,7 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
         // 的，保证不会点出去 即 ProcessTask 多点的那一下会点到不影响的地方 然后继续走 next 里确认
         // or 取消等等的逻辑
         Log.info("Ready to buy", goods.name);
+        report_offer(goods.name, "selected_by_existing_priority_and_team_filters", price.value_or(-1));
         ctrler()->click(find_it->rect);
         if (strategy_shopping && m_blackflow_session) {
             m_pending_purchase = goods.name;
@@ -340,7 +425,9 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
             }
         }
         // 把goods.name存到已获得藏品里
-        m_config->status().collections.emplace_back(goods.name);
+        if (!strategy_shopping) {
+            m_config->status().collections.emplace_back(goods.name);
+        }
         if (goods.no_longer_buy) {
             m_config->status().trader_no_longer_buy = true;
         }
@@ -352,6 +439,7 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
     继续跑 return ProcessTask(*this, { "RoguelikeTraderShoppingOver" }).run();
     }
     */
+    report_offer("", "no_suitable_affordable_offer_then_invest");
     return false;
 }
 

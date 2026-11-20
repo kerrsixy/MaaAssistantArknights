@@ -55,6 +55,7 @@ protected:
         std::string oper_name;                     // 干员名称
         int oper_order_in_group {};                // 干员在干员组中排名
         int rank {};                               // 干员组在部署指令扁平化后的排名
+        int plan_index = 0;
         Point placed;                              // 指令坐标
         battle::DeployDirection direction {};      // 部署朝向
         int cost = 0;                              // 干员部署费用，0 表示未识别
@@ -99,6 +100,10 @@ protected:
     };
 
     std::optional<DeployInfo> calc_best_loc(const battle::DeploymentOper& oper) const;
+    battle::DeployDirection resolve_deploy_direction(
+        const battle::DeploymentOper& oper,
+        const Point& location,
+        battle::DeployDirection proposed) const;
     battle::AttackRange get_attack_range(
         const battle::DeploymentOper& oper,
         battle::DeployDirection direction = battle::DeployDirection::Right) const;
@@ -137,6 +142,8 @@ protected:
     std::vector<battle::roguelike::ReplacementHome> m_homes;
     bool m_allow_to_use_dice = true;
     bool m_deploy_plan_only = false;
+    bool m_reserve_deploy_cost = false;
+    std::unordered_map<int, int> m_plan_deployment_counts;
     std::unordered_set<Point> m_blacklist_location;
     std::unordered_map<Point, battle::TileAvailability> m_dynamic_tile_observation;
     bool m_dynamic_tile_observation_enabled = false;

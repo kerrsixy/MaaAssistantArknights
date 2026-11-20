@@ -5,6 +5,7 @@
 #include "Task/ProcessTask.h"
 #include "Task/Roguelike/RoguelikeControlTaskPlugin.h"
 #include "Utils/Logger.hpp"
+#include "Vision/Matcher.h"
 #include "Vision/RegionOCRer.h"
 
 bool asst::RoguelikeInvestTaskPlugin::verify(AsstMsg msg, const json::value& details) const
@@ -43,7 +44,18 @@ bool asst::RoguelikeInvestTaskPlugin::_run()
     int retry = 0;                     // 重试次数
     auto deposit = get_deposit(image); // 当前的存款
     // auto wallet = get_wallet(image); // 当前的钱包余额
-    int count_limit = m_maximum - m_invest_count; // 可用投资次数
+    const int configured_count_limit = m_maximum - m_invest_count;
+    int count_limit = configured_count_limit;
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+        const auto wallet = get_wallet(image);
+        if (!wallet) {
+            LogWarn << __FUNCTION__ << "BlackFlow wallet unverified; keep route funds and skip investment";
+            return true;
+        }
+        count_limit = std::min(count_limit, std::max(0, *wallet - m_config->status().shopping_reserved_ingots));
+        LogInfo << __FUNCTION__ << "BlackFlow invests surplus after shopping" << "wallet" << *wallet << "reserved"
+                << m_config->status().shopping_reserved_ingots << "budget" << count_limit;
+    }
     const auto& settlement = [&](auto& image) {
         int retry = 0;
         while (!need_exit()) {
@@ -145,7 +157,7 @@ bool asst::RoguelikeInvestTaskPlugin::_run()
             << "; deposit: " << (deposit ? *deposit : -1);
     m_invest_count = total;
 
-    if (count >= 0 && count_limit <= count) {
+    if (count >= 0 && configured_count_limit <= count) {
         Log.info(__FUNCTION__, "investment reached the configured limit: ", m_maximum);
         auto cb = basic_info_with_what("RoguelikeInvestmentReachLimit");
         cb["details"]["limit"] = m_maximum;
@@ -199,19 +211,16 @@ std::optional<int> asst::RoguelikeInvestTaskPlugin::ocr_count(const auto& img, c
 
 bool asst::RoguelikeInvestTaskPlugin::is_investment_available(const cv::Mat& image) const
 {
-    auto task = ProcessTask(*this, { "Roguelike@StageTraderInvest-Arrow" });
-    task.set_reusable_image(image).set_task_delay(0).set_retry_times(0);
-    return task.run();
+    Matcher matcher(image);
+    matcher.set_task_info("Roguelike@StageTraderInvest-Arrow");
+    return matcher.analyze().has_value();
 }
 
 bool asst::RoguelikeInvestTaskPlugin::is_investment_error(const cv::Mat& image) const
 {
-    auto task = ProcessTask(*this, { "Roguelike@StageTraderInvestSystemError" });
-    task.set_reusable_image(image)
-        .set_task_delay(0)
-        .set_times_limit("Roguelike@StageTraderInvestSystemError", 0)
-        .set_retry_times(0);
-    return task.run();
+    Matcher matcher(image);
+    matcher.set_task_info("Roguelike@StageTraderInvestSystemError");
+    return matcher.analyze().has_value();
 }
 
 std::optional<int> asst::RoguelikeInvestTaskPlugin::get_deposit(const cv::Mat& image) const

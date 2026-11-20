@@ -270,45 +270,38 @@ bool BlackFlowMapObservationSource::recognize(
 
         result = m_analyzer->recognize(image, floor, m_diagnostics.level != DiagnosticLevel::Normal);
         record_timing();
-        // 地图移动后的过渡帧可能暂时没有当前标记；若网格尺寸一致且上一帧
-        // 有可靠标记，先沿用上一帧完成路线重建，下一次稳定帧再校正。
-        if (!result.ok && result.error.find("did not locate the current marker") != std::string::npos &&
-            m_last_result.ok && m_last_result.rows == result.rows && m_last_result.columns == result.columns &&
-            m_last_result.node_detection.current_marker_node_id >= 0) {
-            result.ok = true;
-            result.error.clear();
-            const auto previous_marker =
-                std::ranges::find_if(m_last_result.node_detection.nodes, [&](const auto& node) {
-                    return node.id == m_last_result.node_detection.current_marker_node_id;
-                });
-            if (previous_marker != m_last_result.node_detection.nodes.end()) {
-                const auto remapped = std::ranges::find_if(result.node_detection.nodes, [&](const auto& node) {
-                    return node.row == previous_marker->row && node.column == previous_marker->column && node.exists;
-                });
-                if (remapped != result.node_detection.nodes.end()) {
-                    result.node_detection.current_marker_node_id = remapped->id;
-                }
-            }
-            result.node_detection.current_marker_score = m_last_result.node_detection.current_marker_score * 0.75;
-        }
-        // 若上一帧也没有可复用的标记，允许在同一张稳定地图上用节点置信度
-        // 选取一个候选当前位置，避免角色标记短暂闪烁导致整层路线重建失败。
-        if (!result.ok && result.error.find("did not locate the current marker") != std::string::npos) {
-            const auto candidate =
-                std::ranges::max_element(result.node_detection.nodes, [](const auto& lhs, const auto& rhs) {
-                    const double l = lhs.exists ? lhs.confidence : -1.0;
-                    const double r = rhs.exists ? rhs.confidence : -1.0;
-                    return l < r;
-                });
-            if (candidate != result.node_detection.nodes.end() && candidate->exists && candidate->confidence >= 0.15) {
-                result.ok = true;
-                result.error.clear();
-                result.node_detection.current_marker_node_id = candidate->id;
-                result.node_detection.current_marker_score = candidate->confidence * 0.5;
-            }
-        }
         if (!result.ok) {
             set_error(error, result.error);
+            if (m_diagnostics.level != DiagnosticLevel::Normal && (attempt_count == 1 || attempt_count == 5)) {
+                const auto directory = UserDir.get() / "BlackFlowEvidence" / "recognition_failures" /
+                                       ("floor-" + std::to_string(floor) + "-" + next.observation_id);
+                std::filesystem::create_directories(directory);
+                std::string image_error;
+                write_image_if_present(directory / "original.png", image, &image_error);
+                cv::Mat overlay = m_analyzer->draw_overlay(result);
+                if (overlay.empty()) {
+                    overlay = image.clone();
+                }
+                write_image_if_present(directory / "recognition.png", overlay, &image_error);
+                cv::putText(
+                    overlay,
+                    "CURRENT POSITION UNVERIFIED - ROUTE PENDING",
+                    { 30, 100 },
+                    cv::FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    { 0, 0, 255 },
+                    2);
+                write_image_if_present(directory / "route_pending.png", overlay, &image_error);
+                json::object failure {
+                    { "observation_id", next.observation_id },
+                    { "floor", floor },
+                    { "attempt", attempt_count },
+                    { "recognition_error", result.error },
+                    { "route_status", "pending" },
+                    { "image_error", image_error },
+                };
+                std::ofstream(directory / "failure.json", std::ios::binary) << json::value(std::move(failure)).format();
+            }
             // 保留最近一次带有效当前位置的地图帧，供诊断三图使用；
             // 过渡到战斗/选人页的失败帧不能覆盖它，否则会把选人页保存成地图。
             if (!m_last_result.ok || m_last_result.node_detection.current_marker_node_id < 0) {

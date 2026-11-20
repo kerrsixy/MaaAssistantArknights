@@ -1019,3 +1019,14 @@ The operator deployed in a certain frame, wait x seconds for the skill to turn o
 ### Skills Shutdown
 
 Useful for operators who have ammo skills
+
+### Optional deployment constraints
+
+| Field | Default and behavior |
+| --- | --- |
+| `deploy_plan_only` | Stage-level; `false` by default. Execute only the custom plan and disable generic fallback. |
+| `reserve_deploy_cost` | Stage-level; `false` by default. Reserve costs for higher-priority pending entries; a missing medic may still deploy early. |
+| `deploy_plan[].operator_names` | Entry-level; empty by default. A nonempty list restricts eligible operator names. |
+| `deploy_plan[].minimum_elite` | Entry-level; `0` by default, range `0..2`. Requires observed elite-stage evidence. |
+| `deploy_plan[].max_deployments` | Entry-level; unlimited by default, otherwise a positive integer. Group aliases share confirmed deployments for this entry; reset each battle. |
+| `force_deploy_direction[].operator_names` | Direction constraint; empty by default. A nonempty list must match together with the role constraint. |

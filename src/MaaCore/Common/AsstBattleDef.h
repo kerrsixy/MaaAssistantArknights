@@ -616,6 +616,8 @@ struct ReplacementHome
 
 struct DeployInfoWithRank
 {
+    int plan_index = 0;
+    int max_deployments = INT_MAX;
     int minimum_elite = 0;
     std::vector<std::string> operator_names;
     Point location;
@@ -629,6 +631,12 @@ struct ForceDeployDirection
 {
     DeployDirection direction = DeployDirection::Right;
     std::unordered_set<Role> role = {};
+    std::unordered_set<std::string> operator_names;
+
+    bool applies_to(Role operator_role, const std::string& operator_name) const
+    {
+        return role.contains(operator_role) && (operator_names.empty() || operator_names.contains(operator_name));
+    }
 };
 
 struct CombatData
@@ -640,6 +648,7 @@ struct CombatData
     std::array<Role, 9> role_order = {};
     bool use_dice_stage = true;
     bool deploy_plan_only = false;
+    bool reserve_deploy_cost = false;
     int stop_deploy_blocking_num = INT_MAX;
     int force_deploy_air_defense_num = 0;
     bool force_ban_medic = false;

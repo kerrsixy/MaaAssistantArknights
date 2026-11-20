@@ -140,28 +140,60 @@
                 "name": "板藤"
             },
             {
-                "name": "医疗招募券"
+                "name": "医疗招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "MEDIC",
+                "recruit_role_target": 2
             },
             {
-                "name": "重装招募券"
+                "name": "重装招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "TANK",
+                "recruit_role_target": 2
             },
             {
-                "name": "近卫招募券"
+                "name": "近卫招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "WARRIOR",
+                "recruit_role_target": 2
             },
             {
-                "name": "狙击招募券"
+                "name": "狙击招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "SNIPER",
+                "recruit_role_target": 2
             },
             {
-                "name": "特种招募券"
+                "name": "特种招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "SPECIAL",
+                "recruit_role_target": 2
             },
             {
-                "name": "术师招募券"
+                "name": "术师招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "CASTER",
+                "recruit_role_target": 2
             },
             {
-                "name": "先锋招募券"
+                "name": "先锋招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "PIONEER",
+                "recruit_role_target": 2
             },
             {
-                "name": "辅助招募券"
+                "name": "辅助招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "SUPPORT",
+                "recruit_role_target": 2
             }
         ],
         "scrap_floor1": [
@@ -229,28 +261,60 @@
                 "name": "板藤"
             },
             {
-                "name": "医疗招募券"
+                "name": "医疗招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "MEDIC",
+                "recruit_role_target": 2
             },
             {
-                "name": "重装招募券"
+                "name": "重装招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "TANK",
+                "recruit_role_target": 2
             },
             {
-                "name": "近卫招募券"
+                "name": "近卫招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "WARRIOR",
+                "recruit_role_target": 2
             },
             {
-                "name": "狙击招募券"
+                "name": "狙击招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "SNIPER",
+                "recruit_role_target": 2
             },
             {
-                "name": "特种招募券"
+                "name": "特种招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "SPECIAL",
+                "recruit_role_target": 2
             },
             {
-                "name": "术师招募券"
+                "name": "术师招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "CASTER",
+                "recruit_role_target": 2
             },
             {
-                "name": "先锋招募券"
+                "name": "先锋招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "PIONEER",
+                "recruit_role_target": 2
             },
             {
-                "name": "辅助招募券"
+                "name": "辅助招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "SUPPORT",
+                "recruit_role_target": 2
             }
         ],
         "scrap_movement": [
@@ -318,28 +382,60 @@
                 "name": "板藤"
             },
             {
-                "name": "医疗招募券"
+                "name": "医疗招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "MEDIC",
+                "recruit_role_target": 2
             },
             {
-                "name": "重装招募券"
+                "name": "重装招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "TANK",
+                "recruit_role_target": 2
             },
             {
-                "name": "近卫招募券"
+                "name": "近卫招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "WARRIOR",
+                "recruit_role_target": 2
             },
             {
-                "name": "狙击招募券"
+                "name": "狙击招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "SNIPER",
+                "recruit_role_target": 2
             },
             {
-                "name": "特种招募券"
+                "name": "特种招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "SPECIAL",
+                "recruit_role_target": 2
             },
             {
-                "name": "术师招募券"
+                "name": "术师招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "CASTER",
+                "recruit_role_target": 2
             },
             {
-                "name": "先锋招募券"
+                "name": "先锋招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "PIONEER",
+                "recruit_role_target": 2
             },
             {
-                "name": "辅助招募券"
+                "name": "辅助招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "SUPPORT",
+                "recruit_role_target": 2
             }
         ],
         "seed": [
@@ -1240,6 +1336,62 @@
             {
                 "name": "襁褓九头蛇",
                 "price": 12
+            },
+            {
+                "name": "狙击招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "SNIPER",
+                "recruit_role_target": 2
+            },
+            {
+                "name": "重装招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "TANK",
+                "recruit_role_target": 2
+            },
+            {
+                "name": "医疗招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "MEDIC",
+                "recruit_role_target": 2
+            },
+            {
+                "name": "术师招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "CASTER",
+                "recruit_role_target": 2
+            },
+            {
+                "name": "先锋招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "PIONEER",
+                "recruit_role_target": 2
+            },
+            {
+                "name": "近卫招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "WARRIOR",
+                "recruit_role_target": 2
+            },
+            {
+                "name": "辅助招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "SUPPORT",
+                "recruit_role_target": 2
+            },
+            {
+                "name": "特种招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 1,
+                "recruit_role": "SPECIAL",
+                "recruit_role_target": 2
             }
         ],
         "ending2_sandtable": [
@@ -1254,14 +1406,7 @@
         ]
     },
     "sell_tables": {
-        "idle_naturals": [
-            "枯苔藓球",
-            "光彩松露",
-            "恋家果",
-            "霜晶树",
-            "笼控器",
-            "浪花"
-        ],
+        "idle_naturals": ["枯苔藓球", "光彩松露", "恋家果", "霜晶树", "笼控器", "浪花"],
         "floor5_liquidation": [
             "血蕈",
             "雾滚草",
@@ -1325,5 +1470,9 @@
             "涂装佩洛",
             "涂装阿戈尔"
         ]
+    },
+    "ordinary_shop_extensions": {
+        "default": ["final_relics", "$scrap_market"],
+        "final_relics": ["$scrap_market"]
     }
 }

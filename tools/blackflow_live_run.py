@@ -272,7 +272,10 @@ def main():
         help="难度，INT_MAX 表示沿用游戏当前难度，默认 2147483647",
     )
     parser.add_argument(
-        "--investment", action="store_true", help="开启投资（默认关闭）"
+        "--investment",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="购物后投资余钱，默认开启；--no-investment 可关闭",
     )
     parser.add_argument(
         "--client", choices=("Bilibili", "Official"), default="Official"

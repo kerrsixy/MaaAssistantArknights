@@ -967,3 +967,14 @@ MAAは以下の方法で通宝を認識・処理します：
 弾薬消費系のオペレータに便利です。
 
 <!-- markdownlint-disable-file MD026 -->
+
+### 任意の配置制約
+
+| 項目 | 既定と動作 |
+| --- | --- |
+| `deploy_plan_only` | ステージ単位、既定 `false`。専用計画のみ実行し汎用補充を無効化する。 |
+| `reserve_deploy_cost` | ステージ単位、既定 `false`。高優先の待機項目に費用を残す。医療不在時は医療を先行可能。 |
+| `deploy_plan[].operator_names` | 項目単位、既定は空。非空なら指定したオペレーター名に限定。 |
+| `deploy_plan[].minimum_elite` | 項目単位、既定 `0`、範囲 `0..2`。確認済みの昇進段階が必要。 |
+| `deploy_plan[].max_deployments` | 項目単位、既定は無制限。指定時は正の整数。グループ間で同一項目の確認済み配置回数を共有し毎戦リセット。 |
+| `force_deploy_direction[].operator_names` | 向きの制約内、既定は空。非空なら職業と名前の両方を満たす必要がある。 |

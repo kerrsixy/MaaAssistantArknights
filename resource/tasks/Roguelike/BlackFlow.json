@@ -1677,29 +1677,29 @@
         "next": ["BlackFlow@Roguelike@Event-BurnCompleted"]
     },
     "BlackFlow@Roguelike@Page-Purchase": {
-        "Doc": "按选中的买表反复购买，买不到时离店，不进入投资。",
+        "Doc": "普通商店沿用策略买表并补充通用藏品；购物结束后尝试投资余款，再离店。",
         "algorithm": "JustReturn",
-        "next": ["BlackFlow@Roguelike@TraderRandomShopping", "BlackFlow@Roguelike@StageTraderLeave"]
+        "next": [
+            "BlackFlow@Roguelike@TraderRandomShopping",
+            "BlackFlow@Roguelike@StageTraderInvestSystem",
+            "BlackFlow@Roguelike@StageTraderLeave"
+        ]
     },
     "BlackFlow@Roguelike@Page-ScrapTrade": {
         "algorithm": "JustReturn",
         "next": ["BlackFlow@Roguelike@ScrapTradeEnter"]
     },
     "BlackFlow@Roguelike@Page-SeedPriority": {
-        "Doc": [
-            "刷襁褓动物时的诡意行商：开了投资先投资，离开投资后购物；没开投资直接购物。",
-            "投资链整条复制一份，其他策略的投资页面仍然投资后直接离店、不购物。",
-            "复制的任务保留 Roguelike@StageTraderInvest* 后缀，投资插件与投资开关仍按后缀生效。"
-        ],
+        "Doc": "保留种子购买优先级，先购物，再投资余款。",
         "algorithm": "JustReturn",
-        "next": ["BlackFlow@Roguelike@SeedPriority@Roguelike@StageTraderInvestSystem"]
+        "next": ["BlackFlow@Roguelike@Page-Purchase"]
     },
     "BlackFlow@Roguelike@Page-SeedPriorityFloor3": {
         "baseTask": "BlackFlow@Roguelike@NodeDispatch-Unconfigured"
     },
     "BlackFlow@Roguelike@Page-Shop": {
         "algorithm": "JustReturn",
-        "next": ["BlackFlow@Roguelike@StageTraderLeave"]
+        "next": ["BlackFlow@Roguelike@Page-Purchase"]
     },
     "BlackFlow@Roguelike@RecoverMap": {
         "baseTask": "BlackFlow@Roguelike@RecoverMap-Exit",
@@ -2803,5 +2803,17 @@
         "baseTask": "BlackFlow@Roguelike@MapPrepare-ZoomOut",
         "template": "BlackFlow@Roguelike@MapZoomOut.png",
         "next": ["BlackFlow@Roguelike@NextLevel-ZoomOut", "BlackFlow@Roguelike@NextLevel"]
+    },
+    "BlackFlow@Roguelike@TraderRandomShopping": {
+        "baseTask": "Roguelike@TraderRandomShopping",
+        "template": "Roguelike@TraderRandomShopping.png",
+        "next": [
+            "BlackFlow@Roguelike@TraderRandomShoppingConfirm",
+            "BlackFlow@Roguelike@TraderRandomShoppingCancel",
+            "BlackFlow@Roguelike@ChooseOperFlag",
+            "BlackFlow@Roguelike@StageTraderInvestSystem",
+            "BlackFlow@Roguelike@StageTraderLeave",
+            "BlackFlow@Roguelike@StageTraderLeaveConfirm"
+        ]
     }
 }

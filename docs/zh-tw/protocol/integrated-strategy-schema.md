@@ -990,3 +990,14 @@ MAA 使用以下方法辨識並處理通寶：
 針對彈藥類技能幹員有用。
 
 <!-- markdownlint-disable-file MD026 -->
+
+### 可選部署限制
+
+| 欄位 | 預設與作用 |
+| --- | --- |
+| `deploy_plan_only` | 關卡級；預設 `false`，啟用後只用專用計畫，停用通用補位。 |
+| `reserve_deploy_cost` | 關卡級；預設 `false`，保留高優先待部署項費用；缺少醫療時醫療仍可提前。 |
+| `deploy_plan[].operator_names` | 項目級；預設空，非空時只允許名單幹員。 |
+| `deploy_plan[].minimum_elite` | 項目級；預設 `0`，範圍 `0..2`，要求已觀測精英證據。 |
+| `deploy_plan[].max_deployments` | 項目級；預設不限，填寫須為正整數，同一項所有分組共享確認成功次數，每戰清空。 |
+| `force_deploy_direction[].operator_names` | 方向限制內；預設空，非空時同時符合職業與幹員名單。 |

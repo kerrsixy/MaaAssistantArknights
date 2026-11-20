@@ -28,6 +28,8 @@ struct RoguelikeGoods
     // 招募券条目只填了 name，等于「无门槛商品」，希望为 0 时也会买，白花源石锭。
     bool is_recruit_ticket = false; // 标记该商品是招募券
     int min_hope = 0;               // 买它至少需要多少希望，否则券无法兑现
+    std::optional<battle::Role> recruit_role;
+    int recruit_role_target = 2;
 };
 
 class RoguelikeShoppingConfig final : public MAA_NS::SingletonHolder<RoguelikeShoppingConfig>, public AbstractConfig
@@ -50,6 +52,9 @@ public:
         return m_tables.at(theme).buy.at(table);
     }
 
+    // 普通商店补齐通用藏品，秘境行商仍只使用自己的买表。
+    std::vector<RoguelikeGoods> get_shop_goods(const std::string& theme, const std::string& table) const;
+
     const std::vector<std::string>& get_sell_goods(const std::string& theme, const std::string& table) const
     {
         return m_tables.at(theme).sell.at(table);
@@ -63,6 +68,7 @@ private:
     {
         std::unordered_map<std::string, std::vector<RoguelikeGoods>> buy;
         std::unordered_map<std::string, std::vector<std::string>> sell;
+        std::unordered_map<std::string, std::vector<std::string>> ordinary_shop_extensions;
     };
 
     virtual bool parse(const json::value& json) override;

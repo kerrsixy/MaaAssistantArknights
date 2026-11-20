@@ -10,6 +10,8 @@
 #include <tuple>
 #include <unordered_map>
 
+#include "BlackFlowScrapTrade.h"
+#include "Config/Roguelike/BlackFlow/BlackFlowScrapMarketConfig.h"
 #include "Config/TaskData.h"
 #include "Utils/Logger.hpp"
 
@@ -2125,6 +2127,15 @@ bool BlackFlowSession::apply_shopping_purchase(std::string_view name, std::strin
             *error = "shopping purchase requires a running BlackFlow shop page";
         }
         return false;
+    }
+    if (const auto scrap = BlackFlowScrapMarket.find(std::string(name))) {
+        if (m_run.resources.movement_slots_observed >= 0) {
+            m_run.resources.movement_slots_observed += scrap_acquisitions(scrap->get());
+            ++m_run.resources_revision;
+            if (!synchronize_resource_facts(error)) {
+                return false;
+            }
+        }
     }
     if (name != "沙盘α" && name != "沙盘β") {
         return true;

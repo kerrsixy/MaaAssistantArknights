@@ -973,3 +973,14 @@ MAA는 다음 방법으로 주화를 인식하고 처리합니다:
 탄약형 스킬 끄기 등
 
 <!-- markdownlint-disable-file MD026 -->
+
+### 선택 배치 제약
+
+| 필드 | 기본값과 동작 |
+| --- | --- |
+| `deploy_plan_only` | 스테이지 단위, 기본 `false`. 전용 계획만 실행하고 범용 보충을 끈다. |
+| `reserve_deploy_cost` | 스테이지 단위, 기본 `false`. 높은 우선순위 대기 항목의 비용을 남긴다. 의료 부재 시 의료는 먼저 배치할 수 있다. |
+| `deploy_plan[].operator_names` | 항목 단위, 기본 빈 목록. 값이 있으면 해당 이름만 허용한다. |
+| `deploy_plan[].minimum_elite` | 항목 단위, 기본 `0`, 범위 `0..2`. 확인한 정예 단계 증거가 필요하다. |
+| `deploy_plan[].max_deployments` | 항목 단위, 기본 무제한. 지정 시 양의 정수다. 같은 항목의 그룹이 확인된 배치 횟수를 공유하고 전투마다 초기화한다. |
+| `force_deploy_direction[].operator_names` | 방향 제약 안, 기본 빈 목록. 값이 있으면 직업과 이름을 함께 만족해야 한다. |
