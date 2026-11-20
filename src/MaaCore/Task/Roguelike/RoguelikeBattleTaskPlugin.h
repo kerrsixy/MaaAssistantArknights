@@ -136,6 +136,7 @@ protected:
 
     std::vector<battle::roguelike::ReplacementHome> m_homes;
     bool m_allow_to_use_dice = true;
+    bool m_deploy_plan_only = false;
     std::unordered_set<Point> m_blacklist_location;
     std::unordered_map<Point, battle::TileAvailability> m_dynamic_tile_observation;
     bool m_dynamic_tile_observation_enabled = false;

@@ -13,6 +13,7 @@
 #include "MaaUtils/ImageIo.h"
 #include "MaaUtils/NoWarningCV.hpp"
 #include "Utils/Logger.hpp"
+#include "Utils/Platform.hpp"
 
 namespace asst::utils
 {
@@ -116,8 +117,7 @@ inline bool save_debug_image(
 
     auto norm_dir = relative_dir.lexically_normal();
     const auto& base_dir = UserDir.get();
-    auto res = std::mismatch(base_dir.begin(), base_dir.end(), norm_dir.begin());
-    if (norm_dir.is_relative() && res.first != base_dir.end()) {
+    if (norm_dir.is_relative()) {
         norm_dir = base_dir / norm_dir;
     }
 
@@ -133,7 +133,7 @@ inline bool save_debug_image(
 
     std::string stem = MAA_NS::format_now_for_filename();
     std::string filename = suffix.empty() ? (stem + "_raw." + ext) : (stem + "_" + std::string(suffix) + "." + ext);
-    auto relative_path = norm_dir / filename;
+    auto relative_path = norm_dir / utils::path(filename);
 
     if (description.empty()) {
         Log.trace("Save image", relative_path);

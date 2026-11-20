@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <MaaRepoRoot>$(MSBuildThisFileDirectory)..\</MaaRepoRoot>
+    <MaaDepsRoot>$(MaaRepoRoot)src\MaaUtils\MaaDeps\vcpkg\installed\maa-x64-windows\</MaaDepsRoot>
+    <MaaCoreRuntimeDir Condition="'$(MaaCoreRuntimeDir)'==''">$(MaaRepoRoot)build\bin\Debug</MaaCoreRuntimeDir>
+    <OutDir>$(MaaRepoRoot)build\tests\BlackFlowDebugImagePath\</OutDir>
+    <IntDir>$(OutDir)obj\</IntDir>
+    <TargetName>BlackFlowDebugImagePathTest</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;ASST_DEBUG;MAA_DEBUG;_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <AdditionalIncludeDirectories>$(MaaRepoRoot)src\MaaCore;$(MaaRepoRoot)src\MaaUtils\include;$(MaaRepoRoot)include;$(MaaRepoRoot)3rdparty\include;$(MaaDepsRoot)include;$(MaaDepsRoot)include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>$(MaaRepoRoot)build\lib\Debug\MaaUtils.lib;$(MaaDepsRoot)debug\lib\opencv_world4d.lib;user32.lib;advapi32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Console</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)BlackFlowDebugImagePathTest.cpp" />
+    <ClCompile Include="$(MaaRepoRoot)src\MaaCore\Config\GeneralConfig.cpp" />
+    <ClCompile Include="$(MaaRepoRoot)src\MaaCore\Config\AbstractConfig.cpp" />
+    <ClCompile Include="$(MaaRepoRoot)src\MaaCore\Utils\Platform\PlatformWin32.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="RunRegression" AfterTargets="Build">
+    <Exec WorkingDirectory="$(OutDir)" Command="set &quot;PATH=$(MaaCoreRuntimeDir);%PATH%&quot;&#xD;&#xA;&quot;$(TargetPath)&quot;" />
+  </Target>
+</Project>

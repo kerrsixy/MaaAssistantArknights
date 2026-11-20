@@ -295,6 +295,7 @@ bool asst::RoguelikeBattleTaskPlugin::calc_stage_info()
     if (opt) {
         m_homes = opt->replacement_home;
         m_allow_to_use_dice = opt->use_dice_stage;
+        m_deploy_plan_only = opt->deploy_plan_only;
         m_blacklist_location = opt->blacklist_location;
         m_role_order = opt->role_order;
         m_force_deploy_direction = opt->force_deploy_direction;
@@ -832,6 +833,12 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
 
     // 退场事件必须先处理；预设部署成功后提前返回会漏掉这一帧的防线失守。
     auto urgent_home_opt = check_urgent(pre_cooling, cur_cooling, pre_battlefield);
+    if (m_deploy_plan_only) {
+        if (do_best_deploy()) {
+            m_first_deploy = false;
+        }
+        return true;
+    }
     if (!urgent_home_opt && do_best_deploy()) {
         m_first_deploy = false;
         return true;
@@ -1324,6 +1331,7 @@ void asst::RoguelikeBattleTaskPlugin::clear()
     m_urgent_home_index = decltype(m_urgent_home_index)();
     m_need_clear_tiles = decltype(m_need_clear_tiles)();
     m_deploy_plan.clear();
+    m_deploy_plan_only = false;
     m_retreat_plan.clear();
     m_deployed_time.clear();
 

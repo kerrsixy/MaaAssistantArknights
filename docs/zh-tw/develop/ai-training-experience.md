@@ -59,3 +59,12 @@ icon: mdi:brain
 - 證據根目錄：`D:/dsh/明日方舟/日志/blackflow_official_device1_20261120`；子目錄為 `formation_restore_validation`、`duel_prepare_validation_fix4`、`n8_run08_post_duel_fix2`、`n8_run08_boss_resume`。
 
 帳號入口銜接證據：`D:/dsh/明日方舟/日志/blackflow_official_device1_20261121/n8_run10_account_return_live`（00:08 開始 N8 探索）。
+
+### 2026-11-21 草地配置與異常退出修訂
+
+- run10 在首層 ｢灌水贤者｣ 因技能誤判截圖的中文後綴被當作 Windows 本地編碼路徑而異常退出；後續實機畫面確認失敗，開局成功不等於完整流程通過。
+- 截圖檔名統一轉換 UTF-8 路徑，相對目錄直接接入使用者目錄，移除可能越界的迭代器比較。原生測試呼叫實際儲存函式：修訂前捕獲轉碼例外、退出碼 6；修訂後五份中日文／ASCII、相對／絕對路徑圖片寫入讀回一致、退出碼 0。
+- 幹員名稱 OCR 失敗不代表無名工人；只有 Drone 職業可使用無名標識。其餘未知卡片延後部署且不寫入頭像快取，點擊改為卡片中心。
+- 使用者指定此關僅部署維什戴爾於高台草地 `(3,3)` 朝上，重裝於藍門 `(7,3)` 上方地面草地 `(7,2)` 朝左；不追加其他幹員，召喚物可選。普通／緊急地圖均已核對兩格類型。`deploy_plan_only: true` 關閉通用與緊急補位，其餘作業預設 `false`。run11 於 00:33:04、00:33:20 核驗重裝與 EW 部署；畫面確認 2X、生命 8、僅此兩人與自帶召喚物，00:34 進入勝利獎勵與招募。僅證明當前 N8 單關樣本。
+- 失敗首屏辨識區域原在頂部，未涵蓋中央 ｢信息丢失｣ 標記。補足模板與區域後，`n8_run11_cleanup_fixed` 透過 `MissionFailedFlag2` 自動結算並返回 N8 大廳；不以 `GamePass` 誤記勝利。
+- 證據位於 `D:/dsh/明日方舟/日志/blackflow_official_device1_20261121` 的 run10、`n8_run11_cleanup_fixed`、`grass_and_path_build_final.log`、`n8_run11_grass_plan_live/grass_layout_live.png` 與 `grass_post_battle.png`。依要求，單關通過後已刪除難圖目錄的原圖、辨識圖與配置思路圖，只保留驗證狀態。新局仍在自動繼續，尚無人工遊戲操作或完整通關證據。

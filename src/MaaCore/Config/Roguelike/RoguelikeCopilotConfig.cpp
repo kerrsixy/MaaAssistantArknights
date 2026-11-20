@@ -78,6 +78,7 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
         }
     }
     data.use_dice_stage = !json.get("not_use_dice", false);
+    data.deploy_plan_only = json.get("deploy_plan_only", false);
 
     if (auto opt = json.find<json::value>("force_air_defense_when_deploy_blocking_num")) {
         data.stop_deploy_blocking_num = opt.value().get("melee_num", INT_MAX);

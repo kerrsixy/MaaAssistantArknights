@@ -165,7 +165,7 @@ bool asst::BattleHelper::update_deployment_(
         bool is_analyzed = false;
         if (!old_deployment_opers.empty()) {
             auto avatar = old_deployment_opers | std::views::filter([&](const battle::DeploymentOper& temp_oper) {
-                              return temp_oper.role == oper.role;
+                              return temp_oper.role == oper.role && !temp_oper.name.empty();
                           }) |
                           std::views::transform([&](const battle::DeploymentOper& temp_oper) {
                               return std::make_pair(temp_oper.name, temp_oper.avatar);
@@ -226,11 +226,16 @@ bool asst::BattleHelper::update_deployment_(
             std::string name = analyze_detail_page_oper_name(name_image, oper.role);
             // 这时候即使名字不合法也只能凑合用了，但是为空还是不行的
             if (is_card_name_unusable(name)) {
-                // 无名卡片：肉鸽地图自带的可放置物（黑流树海的「工人」）没有名字文本。
-                // 保留在候选列表里并挂合成名，供 RoguelikeBattleTaskPlugin 用「工人」组匹配。
-                name = std::string(NamelessDeployablePrefix) + std::to_string(oper.index);
-                Log.warn("nameless deployable card, synthesized name", name);
-                set_oper_name(oper, name);
+                // Failed operator OCR is not evidence of a nameless summon.
+                if (oper.role == Role::Drone) {
+                    name = std::string(NamelessDeployablePrefix) + std::to_string(oper.index);
+                    LogWarn << "Nameless drone card, synthesized name" << name;
+                    set_oper_name(oper, name);
+                }
+                else {
+                    LogWarn << "Operator identity unresolved; defer deployment" << oper.index;
+                    oper.available = false;
+                }
                 m_cur_deployment_opers[oper.index] = oper;
             }
             else {
@@ -302,7 +307,9 @@ bool asst::BattleHelper::update_deployment(bool init, const cv::Mat& reusable, b
     // 位置和可用性检查。
     if (oper_result_opt->deployment.empty() && !old_deployment_opers.empty() && check_in_battle(image)) {
         m_cur_deployment_opers = old_deployment_opers;
-        Log.warn("BattlefieldMatcher deployment empty; retain previous deployment cards", m_cur_deployment_opers.size());
+        Log.warn(
+            "BattlefieldMatcher deployment empty; retain previous deployment cards",
+            m_cur_deployment_opers.size());
         return true;
     }
 
@@ -1066,7 +1073,7 @@ bool asst::BattleHelper::click_oper_on_deployment(const Rect& rect)
     LogTraceFunction;
 
     const auto use_oper_task_ptr = Task.get("BattleUseOper");
-    m_inst_helper.ctrler()->click(rect);
+    m_inst_helper.ctrler()->click(Point { rect.x + rect.width / 2, rect.y + rect.height / 2 });
     m_inst_helper.sleep(use_oper_task_ptr->pre_delay);
 
     return true;

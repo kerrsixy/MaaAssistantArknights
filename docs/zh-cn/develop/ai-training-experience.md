@@ -22,7 +22,7 @@ icon: mdi:brain
 每个条目建议使用下面的字段：
 
 | 字段 | 应记录的内容 |
-|---|---|
+| --- | --- |
 | 日期与模式 | 发现或验证日期、主题、难度、客户端、分队和账号条件 |
 | 目标 | 想提升的行为和成功判据 |
 | 现象 | 用户反馈、日志、截图、识别分数、失败阶段 |
@@ -159,7 +159,7 @@ icon: mdi:brain
 ### 当前证据索引
 
 | 经验 | 主要证据 |
-|---|---|
+| --- | --- |
 | B 服入口 | `日志/blackflow_live_bilibili_terminal_20261101` |
 | 未确认地块隔离 | `日志/blackflow_live_bilibili_survival_plan_20261101`、`blackflow_live_bilibili_strategy_risk_retry_20261101` |
 | 巨蕈机制与专用作业 | `resource/roguelike/BlackFlow/autopilot/无主地.json`、`文档/MAA2026-11-01版本同步与黑流树海适配.md` |
@@ -207,3 +207,12 @@ PRTS 可以作为互补来源：[黑流树海主题页](https://prts.wiki/w/%E6%
 - 证据根目录：`D:/dsh/明日方舟/日志/blackflow_official_device1_20261120`；编队见 `formation_restore_validation`，三组敌情与 1/1 见 `duel_prepare_validation_fix4`，失败及接管见 `n8_run08_post_duel_fix2` 和 `n8_run08_boss_resume`。
 
 账号入口衔接证据：`D:/dsh/明日方舟/日志/blackflow_official_device1_20261121/n8_run10_account_return_live`（00:08 开始 N8 探索）。
+
+### 2026-11-21 草地布局与异常退出修订
+
+- run10 在首层 ｢灌水贤者｣ 因技能误识别截图的中文后缀被当作 Windows 本地编码路径而异常退出；随后的实机截图确认失败，不能把开局成功当作流程跑通。
+- 调试图文件名统一经 UTF-8 路径转换；相对目录直接拼入用户目录，移除可能越界的目录迭代器比较。原生回归程序调用真实截图保存函数：修订前捕获字符转换异常、退出码 6；修订后五份中日文／ASCII、相对／绝对路径图像写入并读回一致，退出码 0。
+- 干员名称 OCR 失败不等于无名工人。仅 Drone 职业可使用无名放置物标识；其他未识别卡片延后部署，不把失败身份写入头像缓存。卡片点击改为中心点，避免点击卡片边缘。
+- 用户明确 ｢灌水贤者｣ 仅需维什戴尔在高台草地 `(3,3)` 朝上，重装在蓝门 `(7,3)` 上一格地面草地 `(7,2)` 朝左，其他干员不部署，召唤物可选。普通／紧急地图的两格类型均已核对。作业增加 `deploy_plan_only: true`，关闭通用与紧急补位追加；其他作业默认 `false`。run11 于 00:33:04、00:33:20 分别核验重装与 EW 部署；实机画面为 2X、生命 8、仅此两名干员及自带召唤物，00:34 进入胜利奖励与招募流程。只证明当前 N8 单关样本。
+- 失败首屏原识别区域在顶部，未覆盖中央的 ｢信息丢失｣ 标记。补充真实模板与区域后，`n8_run11_cleanup_fixed` 已通过 `MissionFailedFlag2` 自动完成结算并回到 N8 大厅；不复用 `GamePass`，避免把失败记成胜利。
+- 证据：`D:/dsh/明日方舟/日志/blackflow_official_device1_20261121` 的 run10、`n8_run11_cleanup_fixed`、`grass_and_path_build_final.log`、`n8_run11_grass_plan_live/grass_layout_live.png` 与 `grass_post_battle.png`。按用户要求，单关通过后已删除难图目录中的原图、识别图和放置思路图，仅保留验证状态。该新局仍在继续，无人工游戏干预，但尚无完整通关证据。

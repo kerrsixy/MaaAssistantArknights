@@ -639,6 +639,7 @@ struct CombatData
     std::unordered_map<Point, ForceDeployDirection> force_deploy_direction;
     std::array<Role, 9> role_order = {};
     bool use_dice_stage = true;
+    bool deploy_plan_only = false;
     int stop_deploy_blocking_num = INT_MAX;
     int force_deploy_air_defense_num = 0;
     bool force_ban_medic = false;
