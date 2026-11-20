@@ -504,6 +504,16 @@ bool BlackFlowSession::apply_observed_facts(const FactStore& facts, std::string*
 
 bool BlackFlowSession::apply_run_observation(const RunObservation& observation, std::string* error)
 {
+    const int capacity = observation.movement_capacity.value_or(m_run.resources.movement_capacity);
+    const int occupied = observation.movement_slots_used.value_or(m_run.resources.movement_slots_observed);
+    if (capacity < 0 || capacity > 64 || (observation.movement_capacity.has_value() && capacity == 0) ||
+        (observation.movement_slots_used.has_value() && occupied < 0) || occupied > 64 ||
+        (capacity > 0 && occupied > capacity)) {
+        if (error != nullptr) {
+            *error = "movement slot observation must satisfy 0 <= occupied <= capacity <= 64";
+        }
+        return false;
+    }
     const RunResources resources_before = m_run.resources;
     const auto cross_floor_expired_before = m_run.cross_floor_expired;
     auto assign_nonnegative = [&](const std::optional<int>& value, int& target, std::string_view name) {
@@ -536,13 +546,10 @@ bool BlackFlowSession::apply_run_observation(const RunObservation& observation, 
         return false;
     }
     if (observation.movement_capacity.has_value()) {
-        if (*observation.movement_capacity <= 0 || *observation.movement_capacity > 64) {
-            if (error != nullptr) {
-                *error = "movement capacity must be between 1 and 64";
-            }
-            return false;
-        }
-        m_run.resources.movement_capacity = *observation.movement_capacity;
+        m_run.resources.movement_capacity = capacity;
+    }
+    if (observation.movement_slots_used.has_value()) {
+        m_run.resources.movement_slots_observed = occupied;
     }
     if (observation.painted_liberi.has_value()) {
         m_run.resources.painted_liberi = *observation.painted_liberi;

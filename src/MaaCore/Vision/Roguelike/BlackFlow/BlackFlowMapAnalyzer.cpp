@@ -277,6 +277,13 @@ MapRecognitionResult BlackFlowMapAnalyzer::recognize(const cv::Mat& image, int f
                 grid.columns);
             if (!candidate.edge_detection.error.empty()) {
                 result.error = candidate.edge_detection.error;
+                // 连通检查失败也要保留同一帧的节点和边，供诊断定位比例或连线错误。
+                if (!recognized && result.node_detection.nodes.empty()) {
+                    result.rows = candidate.rows;
+                    result.columns = candidate.columns;
+                    result.node_detection = candidate.node_detection;
+                    result.edge_detection = candidate.edge_detection;
+                }
                 LogInfo << __FUNCTION__ << "Map grid" << grid.rows << grid.columns << "recognition failed"
                         << candidate.edge_detection.error;
                 continue;

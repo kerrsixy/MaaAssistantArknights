@@ -1018,10 +1018,10 @@
         "postDelay": 500
     },
     "BlackFlow@Roguelike@MapPrepare-FloorEnterZoom": {
-        "Doc": "只观察地图入口，不盲切比例尺。缩放状态由高阈值模板区分，放大状态交给 NextLevel-ZoomOut 处理。",
+        "Doc": "锚点确认处于地图页后点击一次缩放。进入新层时可能大比例却显示加号，点击后已缩小且仍是加号；不能要求必然切成减号。只有点击后仍为减号才补一次缩小。",
         "baseTask": "BlackFlow@Roguelike@MapPrepare-Ready",
         "template": ["BlackFlow@Roguelike@MapZoomIn.png", "BlackFlow@Roguelike@MapZoomOut.png"],
-        "action": "DoNothing",
+        "action": "ClickSelf",
         "templThreshold": 0.9,
         "preDelay": 500,
         "postDelay": 1000,
@@ -1736,14 +1736,14 @@
         "template": "Roguelike@ExitThenAbandon.png",
         "roi": [0, 0, 1280, 720],
         "maxTimes": 3,
-        "next": ["BlackFlow@Roguelike@RecoverMap-Continue", "#self"],
+        "next": ["BlackFlow@Roguelike@RecoverMap-Continue"],
         "onErrorNext": ["BlackFlow@Roguelike@RecoverMapFailed"],
         "exceededNext": ["BlackFlow@Roguelike@RecoverMapFailed"]
     },
     "BlackFlow@Roguelike@RecoverMap-OnMap": {
         "baseTask": "BlackFlow@Roguelike@MapPrepare-Ready",
         "template": ["BlackFlow@Roguelike@MapZoomIn.png", "BlackFlow@Roguelike@MapZoomOut.png"],
-        "templThreshold": 0.45,
+        "templThreshold": 0.9,
         "action": "DoNothing",
         "next": ["BlackFlow@Roguelike@RecoverMapCompleted"]
     },
@@ -1807,7 +1807,9 @@
     },
     "BlackFlow@Roguelike@CurrentMovementCapacity": {
         "algorithm": "OcrDetect",
-        "roi": [1080, 70, 200, 120],
+        "Doc": "地图底栏零件箱的已用/总槽位；不能读取右上角行动力。整行识别保留分隔斜杠。",
+        "roi": [738, 676, 73, 34],
+        "withoutDet": true,
         "text": [],
         "fullMatch": false,
         "action": "DoNothing"
@@ -2798,8 +2800,23 @@
             "BlackFlow@Roguelike@AbandonConfirm#next"
         ]
     },
+    "BlackFlow@Roguelike@MapViewportReset-Enter": {
+        "baseTask": "BlackFlow@Roguelike@MapPrepare-FloorEnterZoom",
+        "template": ["BlackFlow@Roguelike@MapZoomIn.png", "BlackFlow@Roguelike@MapZoomOut.png"],
+        "reduceOtherTimes": ["BlackFlow@Roguelike@MapViewportReset-ZoomOut"],
+        "next": ["BlackFlow@Roguelike@MapViewportReset-ZoomOut", "BlackFlow@Roguelike@MapPrepare-Ready"],
+        "onErrorNext": ["BlackFlow@Roguelike@RecoverMap-Enter"]
+    },
+    "BlackFlow@Roguelike@MapViewportReset-ZoomOut": {
+        "baseTask": "BlackFlow@Roguelike@MapPrepare-ZoomOut",
+        "template": "BlackFlow@Roguelike@MapZoomOut.png",
+        "maxTimes": 1,
+        "next": ["BlackFlow@Roguelike@MapPrepare"],
+        "onErrorNext": ["BlackFlow@Roguelike@RecoverMap-Enter"],
+        "exceededNext": ["BlackFlow@Roguelike@RecoverMap-Enter"]
+    },
     "BlackFlow@Roguelike@NextLevel-ZoomOut": {
-        "Doc": "MapPrepare-FloorEnterZoom 点完后仍显示减号，说明地图还是放大的，先缩小再识别层名。次数由 MapPrepare-FloorEnterZoom 清零。",
+        "Doc": "入口点击后仍为减号才补一次缩小；已是加号则直接识别层名。次数由 MapPrepare-FloorEnterZoom 清零。",
         "baseTask": "BlackFlow@Roguelike@MapPrepare-ZoomOut",
         "template": "BlackFlow@Roguelike@MapZoomOut.png",
         "next": ["BlackFlow@Roguelike@NextLevel-ZoomOut", "BlackFlow@Roguelike@NextLevel"]

@@ -285,7 +285,7 @@ bool BlackFlowMapObservationSource::recognize(
                 write_image_if_present(directory / "recognition.png", overlay, &image_error);
                 cv::putText(
                     overlay,
-                    "CURRENT POSITION UNVERIFIED - ROUTE PENDING",
+                    "MAP VALIDATION FAILED - ROUTE PENDING",
                     { 30, 100 },
                     cv::FONT_HERSHEY_SIMPLEX,
                     0.8,

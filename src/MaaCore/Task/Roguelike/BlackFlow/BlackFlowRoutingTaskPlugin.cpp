@@ -50,7 +50,7 @@ bool BlackFlowRoutingTaskPlugin::verify(AsstMsg msg, const json::value& details)
 void BlackFlowRoutingTaskPlugin::reset_in_run_variables()
 {
     m_pending = PendingWork::None;
-    m_page_recovery_attempted = false;
+    m_map_recovery_stage = MapRecoveryStage::None;
     m_replan_current_map = false;
     m_move_confirmation_dismiss_retries = 0;
 }
@@ -71,7 +71,8 @@ bool BlackFlowRoutingTaskPlugin::_run()
             swipe ? "BlackFlow@Roguelike@MapPrepare-Floor5Swipe" : "BlackFlow@Roguelike@Routing-Enter");
         return true;
     }
-    LogInfo << __FUNCTION__ << "BlackFlow routing entry" << "work" << static_cast<int>(work) << "session" << (m_session != nullptr) << "port" << (m_port != nullptr);
+    LogInfo << __FUNCTION__ << "BlackFlow routing entry" << "work" << static_cast<int>(work) << "session"
+            << (m_session != nullptr) << "port" << (m_port != nullptr);
     Task.set_task_base("BlackFlow@Roguelike@RoutingAction", "BlackFlow@Roguelike@RecoveryFailed");
 
     if (m_session == nullptr || m_port == nullptr) {
@@ -87,28 +88,27 @@ bool BlackFlowRoutingTaskPlugin::_run()
         work == PendingWork::ResumePendingMove ? execute_pending_routing_cycle(*m_session, *m_port)
         : work == PendingWork::ReplanCurrentMap || m_replan_current_map ? execute_replanning_cycle(*m_session, *m_port)
                                                                         : execute_routing_cycle(*m_session, *m_port);
-    LogInfo << __FUNCTION__ << "BlackFlow routing cycle outcome" << "status" << static_cast<int>(cycle.status) << "failure" << cycle.failure_code << "error" << cycle.error;
+    LogInfo << __FUNCTION__ << "BlackFlow routing cycle outcome" << "status" << static_cast<int>(cycle.status)
+            << "failure" << cycle.failure_code << "error" << cycle.error;
     if (cycle.status == RoutingCycleStatus::NeedsPageRecovery) {
-        const bool completed_page = m_session->page_context().has_value() &&
-                                    m_session->page_context()->stage == PageExecutionStage::Resolved &&
-                                    m_session->transaction() != nullptr &&
-                                    m_session->transaction()->stage() == MoveTransactionStage::PageResolved;
-        const bool marker_missing_after_page = cycle.error.find("did not locate the current marker") != std::string::npos;
-        // 战斗页返回地图的瞬间，页面事务可能已清理但界面仍停留在
-        // 预备/结算页；此时仍应先走 RecoverMap，而不是直接重开本局。
-        if ((completed_page || marker_missing_after_page) && !m_page_recovery_attempted) {
-            m_page_recovery_attempted = true;
+        // 返回地图时按钮状态和实际镜头比例可能不同步。先在地图内重置镜头，
+        // 仍失败才退出重进一次；每一阶段都有界，不能在相同失败帧上无限循环。
+        if (m_map_recovery_stage == MapRecoveryStage::None) {
+            m_map_recovery_stage = MapRecoveryStage::ViewportReset;
+            Task.set_task_base("BlackFlow@Roguelike@RoutingAction", "BlackFlow@Roguelike@MapViewportReset-Enter");
+        }
+        else if (m_map_recovery_stage == MapRecoveryStage::ViewportReset) {
+            m_map_recovery_stage = MapRecoveryStage::PageRecovery;
             Task.set_task_base("BlackFlow@Roguelike@RoutingAction", "BlackFlow@Roguelike@RecoverMap-Enter");
         }
         else {
-            m_page_recovery_attempted = false;
             m_session->fail("map_rebuild_failed", cycle.error, FailureDisposition::RestartRun);
             Task.set_task_base("BlackFlow@Roguelike@RoutingAction", "BlackFlow@Roguelike@StrategyTerminated-Enter");
         }
         report_outputs();
         return true;
     }
-    m_page_recovery_attempted = false;
+    m_map_recovery_stage = MapRecoveryStage::None;
     if (cycle.status == RoutingCycleStatus::MovementInventoryObservationRequired) {
         Task.set_task_base("BlackFlow@Roguelike@RoutingAction", "BlackFlow@Roguelike@MovementInventoryCheck");
         report_outputs();
@@ -192,6 +192,4 @@ bool BlackFlowRoutingTaskPlugin::_run()
     return true;
 }
 } // namespace asst::blackflow
-
-
 
