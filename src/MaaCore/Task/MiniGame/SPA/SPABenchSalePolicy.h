@@ -9,6 +9,7 @@
 #include "SPAStrategyCore.h"
 #include <algorithm>
 #include <optional>
+#include <set>
 
 namespace asst::spa
 {
@@ -205,21 +206,13 @@ inline std::optional<FundingPurchase> choose_funding_purchase(
             policy.disabled_pacts.end()) {
         return std::nullopt;
     }
-    int funded_budget = funds;
+    std::set<int> funding_budgets;
     for (const auto& offer : offers) {
-        if (offer.price >= 0 && offer.price <= 99) {
-            funded_budget = std::max(funded_budget, offer.price);
+        if (offer.price > funds && offer.price <= 99) {
+            funding_budgets.insert(offer.price);
         }
     }
-    const auto choice = choose_preparation(policy, funded_budget, offers, pacts);
-    if (choice.action != PreparationAction::Buy || choice.price <= funds ||
-        choice.selected_pact != policy.primary_pact) {
-        return std::nullopt;
-    }
-    const auto membership = pacts.find(choice.name);
-    if (membership == pacts.end() ||
-        std::find(membership->second.begin(), membership->second.end(), policy.primary_pact) ==
-            membership->second.end()) {
+    if (funding_budgets.empty()) {
         return std::nullopt;
     }
     int members = 0;
@@ -231,16 +224,28 @@ inline std::optional<FundingPurchase> choose_funding_purchase(
     const auto rules = pact_requirements();
     const auto rule =
         std::find_if(rules.begin(), rules.end(), [&](const auto& item) { return item.name == policy.primary_pact; });
-    const auto owned = policy.owned.find(choice.name);
-    const int copies = owned == policy.owned.end() ? 0 : owned->second.copies;
-    const bool activation =
-        copies == 0 && rule != rules.end() && members < rule->members && members + 1 == rule->members;
-    const bool role = is_primary_growth_engine(choice.name, policy.primary_pact) ||
-                      is_primary_output_candidate(choice.name, policy.primary_pact);
-    const bool promotion = role && ordinary_purchase_completes_promotion(policy, choice.name);
-    if (!activation && !promotion && !(policy.primary_locked_after_activation && role && copies == 0)) {
-        return std::nullopt;
+    // Evaluate the smallest visible shortfall first. At each budget, let
+    // the normal purchase planner compare the card with already affordable options.
+    for (const int budget : funding_budgets) {
+        const auto choice = choose_preparation(policy, budget, offers, pacts);
+        const auto membership = pacts.find(choice.name);
+        if (choice.action != PreparationAction::Buy || choice.price <= funds ||
+            (!choice.selected_pact.empty() && choice.selected_pact != policy.primary_pact) ||
+            membership == pacts.end() ||
+            std::find(membership->second.begin(), membership->second.end(), policy.primary_pact) ==
+                membership->second.end()) {
+            continue;
+        }
+        const auto owned = policy.owned.find(choice.name);
+        const int copies = owned == policy.owned.end() ? 0 : owned->second.copies;
+        const bool activation = copies == 0 && rule != rules.end() && members + 1 == rule->members;
+        const bool role = is_primary_growth_engine(choice.name, policy.primary_pact) ||
+                          is_primary_output_candidate(choice.name, policy.primary_pact);
+        const bool promotion = role && ordinary_purchase_completes_promotion(policy, choice.name);
+        if (activation || promotion || (policy.primary_locked_after_activation && role && copies == 0)) {
+            return FundingPurchase { { choice.name, choice.price, choice.right_slot }, choice.price - funds };
+        }
     }
-    return FundingPurchase { { choice.name, choice.price, choice.right_slot }, choice.price - funds };
+    return std::nullopt;
 }
 }

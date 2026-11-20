@@ -306,13 +306,35 @@ int asst::spa::stationary_boss_attack_weight(
     return weight;
 }
 
+int asst::spa::boss_movement_attack_weight(
+    const std::vector<DeploymentUnit>& units,
+    const std::vector<BoardCell>& waypoints)
+{
+    if (waypoints.empty()) {
+        return 0;
+    }
+    int weight = 0;
+    for (const auto& unit : units) {
+        if (!unit.damage_output || unit.healer || !unit.holds_position) {
+            continue;
+        }
+        weight += unit.boss_basic_attack_weight *
+                  static_cast<int>(std::count_if(waypoints.begin(), waypoints.end(), [&](const auto cell) {
+                      return boss_attack_overlaps_cell(unit, cell);
+                  }));
+    }
+    return weight;
+}
+
 asst::spa::DeploymentProposal asst::spa::propose_deployment(
     const std::vector<DeploymentUnit>& units,
     const std::vector<DeploymentLane>& lanes,
     const std::vector<BoardCell>& deployable_cells,
     int evaluation_budget,
     const std::function<int(const std::vector<DeploymentUnit>&)>& preference,
-    const std::vector<BoardCell>& stationary_boss_cells)
+    const std::vector<BoardCell>& opening_boss_cells,
+    const std::vector<BoardCell>& boss_movement_waypoints,
+    const std::function<int(const std::vector<DeploymentUnit>&)>& preparation_growth_preference)
 {
     DeploymentProposal result;
     const auto initial = review_deployment(units, lanes, deployable_cells);
@@ -334,29 +356,57 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
             return result;
         }
     }
+
+    struct CandidateScore
+    {
+        int unblocked_lanes = 0;
+        int exposed_support = 0;
+        int boss_movement_cost = 0;
+        int boss_opening_cost = 0;
+        int lane_problem_count = 0;
+        int lost_block_capacity = 0;
+        int preparation_growth_cost = 0;
+        int approach_penalty = 0;
+        int block_capacity_cost = 0;
+        int placement_preference_cost = 0;
+
+        auto operator<=>(const CandidateScore&) const = default;
+    };
+
+    const bool prioritize_growth =
+        preparation_growth_preference && opening_boss_cells.empty() && boss_movement_waypoints.empty();
     result.input_complete = true;
     result.units = units;
     const auto score = [&](const std::vector<DeploymentUnit>& candidate) {
         ++result.evaluations;
         const auto review = review_deployment(candidate, lanes, deployable_cells);
         if (!review.complete) {
-            return std::tuple { 1'000'000, 1'000'000, 1'000'000, 0, 0, 0 };
+            return CandidateScore { .unblocked_lanes = 1'000'000, .exposed_support = 1'000'000 };
         }
         int unblocked = 0;
-        int penalty = 0;
+        int lane_problems = 0;
+        int uncovered_approach = 0;
         for (const auto& lane : review.lanes) {
             unblocked += lane.blocker.empty() ? 1 : 0;
-            penalty += static_cast<int>(lane.problems.size()) * 1000;
-            penalty += (lane.required_approach_cells - lane.covered_approach_cells) * 100;
+            lane_problems += static_cast<int>(lane.problems.size());
+            uncovered_approach += lane.required_approach_cells - lane.covered_approach_cells;
         }
-        // Missing a blocker must not look cheaper than a blocked lane that
-        // still needs healing and damage support during early development.
-        return std::tuple { unblocked,
-                            review.exposed_support_units,
-                            -stationary_boss_attack_weight(candidate, stationary_boss_cells),
-                            penalty,
-                            -review.balanced_block_capacity,
-                            preference ? -preference(candidate) : 0 };
+        // Preparation-only growth can break a tie in survival coverage.
+        // Preserve the original coverage ordering when there is no growth
+        // objective. A pair cannot trade away a lane, a healing check or
+        // existing balanced block capacity.
+        return CandidateScore { unblocked,
+                                review.exposed_support_units,
+                                -boss_movement_attack_weight(candidate, boss_movement_waypoints),
+                                -stationary_boss_attack_weight(candidate, opening_boss_cells),
+                                prioritize_growth ? lane_problems : 0,
+                                prioritize_growth
+                                    ? std::max(0, initial.balanced_block_capacity - review.balanced_block_capacity)
+                                    : 0,
+                                prioritize_growth ? -preparation_growth_preference(candidate) : 0,
+                                lane_problems * 1000 + uncovered_approach * 100,
+                                -review.balanced_block_capacity,
+                                preference ? -preference(candidate) : 0 };
     };
     auto best_score = score(result.units);
     const auto initial_score = best_score;
@@ -406,12 +456,15 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         result.units = std::move(best);
     }
     result.found = review_deployment(result.units, lanes, deployable_cells).static_constraints_met;
-    result.unblocked_lanes_improvement = std::get<0>(initial_score) - std::get<0>(best_score);
-    result.score_improvement = (std::get<1>(initial_score) - std::get<1>(best_score)) * 10'000 +
-                               std::get<3>(initial_score) - std::get<3>(best_score);
-    result.blocking_capacity_improvement = std::get<4>(initial_score) - std::get<4>(best_score);
-    result.boss_coverage_improvement = std::get<2>(initial_score) - std::get<2>(best_score);
-    result.preference_improvement = std::get<5>(initial_score) - std::get<5>(best_score);
+    result.unblocked_lanes_improvement = initial_score.unblocked_lanes - best_score.unblocked_lanes;
+    result.score_improvement = (initial_score.exposed_support - best_score.exposed_support) * 10'000 +
+                               initial_score.approach_penalty - best_score.approach_penalty;
+    result.blocking_capacity_improvement = initial_score.block_capacity_cost - best_score.block_capacity_cost;
+    result.boss_movement_coverage_improvement = initial_score.boss_movement_cost - best_score.boss_movement_cost;
+    result.boss_coverage_improvement = initial_score.boss_opening_cost - best_score.boss_opening_cost;
+    result.preparation_growth_preference_improvement =
+        initial_score.preparation_growth_cost - best_score.preparation_growth_cost;
+    result.preference_improvement = initial_score.placement_preference_cost - best_score.placement_preference_cost;
     result.improved = best_score < initial_score;
     result.budget_exhausted = result.evaluations >= evaluation_budget;
     result.reason = result.found ? "Static coverage constraints satisfied; movement sequence and live pose unverified"
@@ -446,14 +499,16 @@ bool asst::spa::deployment_change_worth_input(const DeploymentProposal& proposal
         return false;
     }
     if (proposal.unblocked_lanes_improvement > 0 || proposal.score_improvement > 0 ||
-        proposal.blocking_capacity_improvement > 0 || proposal.boss_coverage_improvement > 0) {
+        proposal.blocking_capacity_improvement > 0 || proposal.boss_coverage_improvement > 0 ||
+        proposal.boss_movement_coverage_improvement > 0) {
         return true;
     }
     // One additional covered approach cell is worth 200 preference points;
     // it cannot alone justify a 250-point relocation. A new lane (2500),
     // actual growth relationship (600/1200), or meaningful frontline advance
     // (800 per tile) can still pay for the required physical changes.
-    return proposal.preference_improvement >= deployment_preference_input_cost(sequence);
+    return std::max(proposal.preference_improvement, proposal.preparation_growth_preference_improvement) >=
+           deployment_preference_input_cost(sequence);
 }
 
 asst::spa::DeploymentSequence asst::spa::sequence_deployment(

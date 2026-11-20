@@ -81,6 +81,18 @@ struct GrowthSource
     std::optional<int> eligible_population;
 };
 
+struct UrsusLayerCycle
+{
+    int opening_temporary_layers = 0;
+    int conversion_capacity = 0;
+    int converted_from_opening = 0;
+    bool conversion_population_unknown = false;
+};
+
+// One unchanged field from battle start through the next preparation.
+// Excludes kills, per-battle caps from other traits, and conditional buffs.
+UrsusLayerCycle assess_ursus_layer_cycle(const std::vector<GrowthSource>& sources);
+
 struct GrowthProjection
 {
     bool valid = false;
@@ -90,6 +102,8 @@ struct GrowthProjection
     int conditional_cap_additions = 0;
     int conditional_preparation_cap_additions = 0;
     int population_phase_additions_if_unchanged = 0;
+    UrsusLayerCycle ursus_cycle;
+    int ursus_converted_opening_layers_if_unchanged = 0;
     int conversion_sources = 0;
     int sale_price_sources = 0;
     int temporary_sources = 0;

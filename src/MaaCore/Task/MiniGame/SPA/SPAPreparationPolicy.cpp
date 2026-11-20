@@ -6,6 +6,7 @@
 #include "SPAStrategyCatalogue.h"
 #include <algorithm>
 #include <cmath>
+#include <tuple>
 
 std::optional<asst::spa::OperatorFormCounts> asst::spa::owned_form_counts(const OwnedOperator& owned)
 {
@@ -616,11 +617,12 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
         signal.pact = requirement.name;
         signal.required_members = requirement.members;
         signal.minimum_shop_level = conservative_minimum_shop_level(requirement.name);
-        std::set<std::string> distinct;
+        std::set<std::string> owned_members;
         std::set<std::string> deployed;
         std::set<std::string> shop;
         std::set<std::string> growth_names;
         std::set<std::string> output_names;
+        std::map<std::string, int> new_member_prices;
         int dual_role_owned = 0;
         int dual_role_offers = 0;
         for (const auto& [name, owned] : policy.owned) {
@@ -629,9 +631,7 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
                 !contains(found->second, requirement.name)) {
                 continue;
             }
-            if (owned.copies > 0 || owned.elite) {
-                distinct.insert(name);
-            }
+            owned_members.insert(name);
             if (owned.deployed) {
                 deployed.insert(name);
             }
@@ -650,17 +650,22 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
                 is_primary_growth_engine(name, requirement.name) && is_primary_output_candidate(name, requirement.name);
         }
         for (const auto& offer : offers) {
-            if (offer.price < 0) {
+            if (offer.price < 0 || (available_funds >= 0 && offer.price > available_funds)) {
                 continue;
             }
             const auto found = pacts.find(offer.name);
             if (found == pacts.end() || !contains(found->second, requirement.name)) {
                 continue;
             }
+            if (!owned_members.contains(offer.name)) {
+                const auto [quote, inserted] = new_member_prices.emplace(offer.name, offer.price);
+                if (!inserted) {
+                    quote->second = std::min(quote->second, offer.price);
+                }
+            }
             if (!shop.insert(offer.name).second) {
                 continue;
             }
-            distinct.insert(offer.name);
             const bool new_growth =
                 is_primary_growth_engine(offer.name, requirement.name) && growth_names.insert(offer.name).second;
             const bool new_output =
@@ -673,11 +678,30 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
             }
             dual_role_offers += new_growth && new_output;
         }
-        signal.distinct_members = static_cast<int>(distinct.size());
+        signal.distinct_members = static_cast<int>(owned_members.size() + new_member_prices.size());
+        signal.reachable_members = signal.distinct_members;
+        if (available_funds >= 0) {
+            std::vector<int> costs;
+            for (const auto& [name, price] : new_member_prices) {
+                costs.push_back(price);
+            }
+            std::sort(costs.begin(), costs.end());
+            int budget = available_funds;
+            int slots = policy.bench_occupied >= 0 ? std::max(0, 10 - policy.bench_occupied) : 0;
+            signal.reachable_members = static_cast<int>(owned_members.size());
+            for (int cost : costs) {
+                if (slots == 0 || cost > budget) {
+                    break;
+                }
+                ++signal.reachable_members;
+                --slots;
+                budget -= cost;
+            }
+        }
         signal.deployed_members = static_cast<int>(deployed.size());
         signal.native_growth_available = requirement.name == "阿戈尔" && signal.deployed_members >= requirement.members;
         signal.shop_members = static_cast<int>(shop.size());
-        signal.activation_ready = signal.distinct_members >= signal.required_members;
+        signal.activation_ready = signal.reachable_members >= signal.required_members;
         signal.book_window_met = policy.shop_level <= 0 || policy.shop_level >= signal.minimum_shop_level ||
                                  signal.deployed_members >= signal.required_members;
         signal.role_signal = signal.growth_engine_owned > 0 || signal.growth_engine_offers > 0 ||
@@ -694,7 +718,7 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
         // a random off-faction card.
         signal.score = signal.deployed_members * 500 + signal.growth_engine_offers * 1000 +
                        signal.growth_engine_owned * 400 + signal.output_offers * 900 + signal.output_owned * 300 +
-                       signal.shop_members * 200 + signal.distinct_members * 80 +
+                       signal.shop_members * 200 + signal.reachable_members * 80 +
                        (requirement.name == preferred ? 25 : 0);
         // One physical identity can fill both roles; it is still one live
         // card, not a two-card activation package. Count its stronger signal
@@ -726,8 +750,8 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
         if (lhs.score != rhs.score) {
             return lhs.score > rhs.score;
         }
-        if (lhs.distinct_members != rhs.distinct_members) {
-            return lhs.distinct_members > rhs.distinct_members;
+        if (lhs.reachable_members != rhs.reachable_members) {
+            return lhs.reachable_members > rhs.reachable_members;
         }
         if (lhs.growth_engine_offers != rhs.growth_engine_offers) {
             return lhs.growth_engine_offers > rhs.growth_engine_offers;
@@ -861,6 +885,20 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
             return signal.pact == preferred;
         });
         if (current != result.ranking.end() && current->distinct_members > 0) {
+            // Two fielded members with a ready engine are a real investment
+            // even before activation. Unbought engines receive a high score
+            // and lose it on purchase, so an incomplete speculative package
+            // can otherwise consume the round budget and immediately lose
+            // to the same installed formation.
+            const bool established_opening = !policy.primary_locked_after_activation && available_funds >= 0 &&
+                                             current->deployed_members >= std::max(2, current->required_members - 1) &&
+                                             current->growth_engine_eligible > 0;
+            if (established_opening && !result.ranking.front().activation_ready) {
+                result.primary_pact = preferred;
+                result.score = current->score;
+                result.reason = "Keep the fielded growth engine until the alternative can fund an activation";
+                return result;
+            }
             const int hysteresis = current->distinct_members >= 2 ? 450 : 300;
             if (result.score < current->score + hysteresis) {
                 result.primary_pact = preferred;
@@ -910,7 +948,8 @@ int asst::spa::dynamic_target_shop_level(
         // Egir can obtain Clementia from the book-V promotion reward, or
         // Urbian directly at V. Already owning an attack terminal is not a
         // reason to spend another round's budget opening VI by population.
-        const bool keep_egir_terminal_window = policy.primary_pact == "阿戈尔" && egir_terminal_owned;
+        const bool keep_egir_terminal_window =
+            policy.primary_pact == "阿戈尔" && egir_terminal_owned && policy.last_round_life_loss < 6;
         target = std::max(target, deployed >= 6 && !keep_egir_terminal_window ? 6 : 5);
     }
     else if (members >= 2 && deployed >= 4) {
@@ -984,13 +1023,237 @@ std::optional<asst::spa::FixedGrowthPurchaseReservation> asst::spa::fixed_growth
                                             funds - upgrade_price < choice.price };
 }
 
-bool asst::spa::should_upgrade_dynamic_shop(
+namespace asst::spa
+{
+struct SameShopPromotionPurchase
+{
+    const ShopOffer* first;
+    int total_cost;
+};
+
+static std::optional<SameShopPromotionPurchase> affordable_same_shop_promotion(
+    const PreparationPolicy& policy,
+    int funds,
+    const std::vector<ShopOffer>& offers,
+    const std::map<std::string, std::vector<std::string>>& pacts)
+{
+    if (!policy.dynamic_decision_mode || policy.tactical_elite_purchase_pending || policy.boss_preparation ||
+        policy.deployed_population < 4 || policy.bench_occupied < 0 || policy.bench_occupied > 8 ||
+        policy.primary_pact.empty() || policy.primary_pact == "auto" ||
+        contains(policy.disabled_pacts, policy.primary_pact)) {
+        return std::nullopt;
+    }
+    std::set<int> slots;
+    std::map<std::string, std::vector<const ShopOffer*>> by_name;
+    for (const auto& offer : offers) {
+        if (offer.right_slot < 0 || offer.right_slot > 5 || !slots.insert(offer.right_slot).second || offer.price < 0 ||
+            offer.price > 99) {
+            return std::nullopt;
+        }
+        const auto membership = pacts.find(offer.name);
+        if (offer.price <= funds && membership != pacts.end() && contains(membership->second, policy.primary_pact)) {
+            by_name[offer.name].push_back(&offer);
+        }
+    }
+    std::optional<SameShopPromotionPurchase> best;
+    for (auto& [name, quotes] : by_name) {
+        const auto owned = policy.owned.find(name);
+        const auto forms =
+            owned == policy.owned.end() ? std::optional(OperatorFormCounts {}) : owned_form_counts(owned->second);
+        if (!forms || forms->elite > 0) {
+            continue;
+        }
+        const auto override = policy.promotion_copies.find(name);
+        const int required =
+            override == policy.promotion_copies.end() ? promotion_copies_required(name) : override->second;
+        const int missing = required - forms->initial;
+        if (missing < 2 || missing > static_cast<int>(quotes.size()) || missing > 10 - policy.bench_occupied) {
+            continue;
+        }
+        std::sort(quotes.begin(), quotes.end(), [](const auto* lhs, const auto* rhs) {
+            return std::tie(lhs->price, lhs->right_slot) < std::tie(rhs->price, rhs->right_slot);
+        });
+        int cost = 0;
+        for (int index = 0; index < missing; ++index) {
+            cost += quotes[index]->price;
+        }
+        const bool primary_role = is_primary_growth_engine(name, policy.primary_pact) ||
+                                  is_primary_output_candidate(name, policy.primary_pact);
+        if (cost <= funds && (cost <= 3 || primary_role) && (!best || cost < best->total_cost)) {
+            best = SameShopPromotionPurchase { quotes.front(), cost };
+        }
+    }
+    return best;
+}
+
+static int known_primary_acquisition_layers(const PreparationPolicy& policy, const std::string& name)
+{
+    const auto observed = policy.observed_pact_layers.find(policy.primary_pact);
+    if (!policy.growth_primary_active_verified || observed == policy.observed_pact_layers.end() ||
+        observed->second < 0 || observed->second >= 500) {
+        return 0;
+    }
+    const auto effects = acquired_effects(name, policy.tactical_elite_purchase_pending, policy.shop_level);
+    int layers = 0;
+    if (effects) {
+        for (const auto& effect : *effects) {
+            if (effect.kind == AcquiredEffectKind::Layers && effect.target == policy.primary_pact &&
+                !effect.requires_observed_amount) {
+                layers += effect.amount;
+            }
+        }
+    }
+    return layers;
+}
+
+static bool first_fitting_growth_purchase(const PreparationPolicy& policy, const std::string& name, int layers)
+{
+    if (layers < 4 || policy.deployed_population < 0) {
+        return false;
+    }
+    const auto owned = policy.owned.find(name);
+    if (owned != policy.owned.end() && (owned->second.copies != 0 || owned->second.elite)) {
+        return false;
+    }
+    const auto fit = policy.full_field_offer_improvements.find(name);
+    return policy.deployed_population < 8 || (fit != policy.full_field_offer_improvements.end() && fit->second > 0);
+}
+
+static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
     const PreparationPolicy& policy,
     int funds,
     int upgrade_price,
     const std::vector<ShopOffer>& offers,
     const std::map<std::string, std::vector<std::string>>& pacts)
 {
+    const auto route = route_profiles().find(policy.primary_pact);
+    if (route == route_profiles().end() || contains(policy.disabled_pacts, policy.primary_pact) ||
+        policy.shop_level < std::max(3, route->second.minimum_shop_level)) {
+        return std::nullopt;
+    }
+    const bool accepts_recruits = policy.bench_occupied >= 0 && policy.bench_occupied < 10;
+    const bool can_refresh = policy.allow_refresh && !policy.shop_frozen_this_round;
+    const int refresh_cost = policy.free_refreshes > 0 ? 0 : 1;
+    const bool next_preparation =
+        !policy.boss_preparation && policy.round > 0 && policy.economy_scenario_horizon_round > policy.round;
+    const bool stable_board = policy.early_board_ready && policy.last_round_life_loss >= 0 &&
+                              policy.last_round_life_loss <= 2 && policy.current_life >= 8;
+    const bool book_five = policy.shop_level == 5;
+    const bool terminal_owned = std::any_of(policy.owned.begin(), policy.owned.end(), [&](const auto& entry) {
+        return (entry.second.copies > 0 || entry.second.elite) &&
+               is_terminal_output_candidate(entry.first, policy.primary_pact);
+    });
+    const bool engine_owned = std::any_of(policy.owned.begin(), policy.owned.end(), [&](const auto& entry) {
+        return (entry.second.copies > 0 || entry.second.elite) &&
+               is_primary_growth_engine(entry.first, policy.primary_pact);
+    });
+    int new_tier_recruit_price = 0;
+    for (const auto& card : OperatorCatalogue) {
+        if (card.tier != policy.shop_level + 1 || card.price <= 0) {
+            continue;
+        }
+        const std::string name(card.name);
+        const auto membership = pacts.find(name);
+        const auto owned = policy.owned.find(name);
+        if (membership == pacts.end() ||
+            (owned != policy.owned.end() && (owned->second.copies > 0 || owned->second.elite))) {
+            continue;
+        }
+        // The live controller also fills carries from the route's own output
+        // list. Those alternatives still need to fix a missing/weak role.
+        const bool explicit_carry =
+            contains(policy.carries, name) && !is_primary_output_candidate(name, policy.primary_pact);
+        if (!explicit_carry && !contains(membership->second, policy.primary_pact)) {
+            continue;
+        }
+        const bool direct_output = is_terminal_output_candidate(name, policy.primary_pact) &&
+                                   (!terminal_owned || policy.last_round_life_loss >= 6);
+        if (explicit_carry || direct_output || (!engine_owned && is_primary_growth_engine(name, policy.primary_pact))) {
+            new_tier_recruit_price =
+                new_tier_recruit_price > 0 ? std::min(new_tier_recruit_price, card.price) : card.price;
+        }
+    }
+
+    // A lower-tier pair can produce a capped tier-VI reward at book V.
+    // At other levels, hold only for an actionable plan whose budget or
+    // current-tier access benefits from waiting. The draw weights are unknown.
+    const OperatorCatalogueEntry* pair = nullptr;
+    if (accepts_recruits && can_refresh) {
+        for (const auto& card : OperatorCatalogue) {
+            if (card.tier > policy.shop_level || card.price <= 0 ||
+                !ordinary_purchase_completes_promotion(policy, std::string(card.name))) {
+                continue;
+            }
+            const std::string name(card.name);
+            if (!belongs_to_planned_lineup(name, policy, pacts) ||
+                (!book_five && card.tier != policy.shop_level &&
+                 !is_primary_growth_engine(name, policy.primary_pact))) {
+                continue;
+            }
+            if (!pair || card.price < pair->price || (card.price == pair->price && card.tier > pair->tier)) {
+                pair = &card;
+            }
+        }
+    }
+    const bool upgrade_grants_faction_refresh =
+        policy.selected_strategy_id == "band_pepe" && policy.primary_pact == "萨尔贡";
+    if (book_five && new_tier_recruit_price == 0 && !upgrade_grants_faction_refresh) {
+        return ShopUpgradeHold { "Book V already gives tier-VI promotion rewards; VI opens no missing route target",
+                                 pair ? std::string(pair->name) : std::string(),
+                                 pair ? pair->price + refresh_cost : 0 };
+    }
+    const bool can_roll_for_pair = pair && funds >= pair->price + refresh_cost;
+    const bool pair_competes_for_gold = can_roll_for_pair && funds - upgrade_price < pair->price + refresh_cost;
+    const bool preserve_book_five_pair = book_five && stable_board && (next_preparation || can_roll_for_pair);
+    if (pair &&
+        (preserve_book_five_pair ||
+         (pair_competes_for_gold && (book_five || (stable_board && next_preparation && !new_tier_recruit_price))))) {
+        return ShopUpgradeHold { "Use the current shop to complete an owned promotion before expanding the pool",
+                                 std::string(pair->name),
+                                 pair->price + refresh_cost };
+    }
+    if (!stable_board || !next_preparation || upgrade_price <= 0 || !accepts_recruits) {
+        return std::nullopt;
+    }
+    // Waiting pays off only if this round's gold can do something useful.
+    // During the next preparation, today's quote is replaced by actual OCR.
+    const auto purchase = choose_preparation(policy, funds, offers, pacts);
+    const bool current_purchase =
+        purchase.action == PreparationAction::Buy && purchase.price > 0 && purchase.price > funds - upgrade_price;
+    const bool can_open_and_recruit =
+        can_refresh && new_tier_recruit_price > 0 && funds - upgrade_price >= refresh_cost + new_tier_recruit_price;
+    if (!current_purchase || can_open_and_recruit) {
+        return std::nullopt;
+    }
+    if (!purchase.is_equipment && purchase.selected_pact == policy.primary_pact &&
+        first_fitting_growth_purchase(policy, purchase.name, known_primary_acquisition_layers(policy, purchase.name))) {
+        // This card improves the field and has a deterministic on-acquisition
+        // effect. It can justify buying before a paid upgrade independently
+        // of the one-round discount decision already taken at this book.
+        return ShopUpgradeHold { "Reserve " + purchase.name +
+                                 " for immediate main-pact growth and an improved lineup" };
+    }
+    if (policy.shop_discount_wait_level != policy.shop_level || policy.shop_discount_wait_round == policy.round) {
+        return ShopUpgradeHold { "Spend on the current board and review the one-gold cheaper upgrade next round",
+                                 {},
+                                 0,
+                                 std::max(0, upgrade_price - 1) };
+    }
+    return std::nullopt;
+}
+}
+
+bool asst::spa::should_upgrade_dynamic_shop(
+    const PreparationPolicy& policy,
+    int funds,
+    int upgrade_price,
+    const std::vector<ShopOffer>& offers,
+    const std::map<std::string, std::vector<std::string>>& pacts,
+    std::optional<ShopUpgradeHold>* hold)
+{
+    if (hold) {
+        hold->reset();
+    }
     if (!policy.dynamic_decision_mode || funds < 0 || upgrade_price < 0 || funds < upgrade_price ||
         policy.shop_level <= 0) {
         return false;
@@ -999,14 +1262,32 @@ bool asst::spa::should_upgrade_dynamic_shop(
     if (policy.shop_level >= target_level) {
         return false;
     }
-    if (upgrade_price == 0) {
-        return true;
-    }
     const bool promotion_offered = std::any_of(offers.begin(), offers.end(), [&](const auto& offer) {
         return offer.price >= 0 && offer.price <= funds && ordinary_purchase_completes_promotion(policy, offer.name);
     });
+    if (policy.shop_level < 5 && upgrade_price == 0) {
+        return true;
+    }
     if (promotion_offered) {
         return false;
+    }
+    if (const auto package = affordable_same_shop_promotion(policy, funds, offers, pacts);
+        package && funds - upgrade_price < package->total_cost) {
+        if (hold) {
+            *hold = ShopUpgradeHold { "Reserve the visible, affordable same-shop promotion before upgrading",
+                                      package->first->name,
+                                      package->total_cost };
+        }
+        return false;
+    }
+    if (auto timing = plan_shop_upgrade_hold(policy, funds, upgrade_price, offers, pacts)) {
+        if (hold) {
+            *hold = std::move(timing);
+        }
+        return false;
+    }
+    if (upgrade_price == 0) {
+        return true;
     }
     // A clean opening can still be too small for the next wave. Preserve at
     // least one immediately recruitable new body if the field and bench
@@ -1257,6 +1538,77 @@ std::vector<asst::spa::PromotionRewardRank> asst::spa::rank_promotion_rewards(
     return ranking;
 }
 
+namespace asst::spa
+{
+struct ScoredShopPurchase
+{
+    const ShopOffer* offer;
+    int score;
+    bool support = false;
+};
+
+static bool can_recruit_after_paid_refresh(
+    const PreparationPolicy& policy,
+    int funds,
+    const std::map<std::string, std::vector<std::string>>& pacts)
+{
+    const int after_refresh = funds - 1;
+    if (after_refresh < policy.minimum_recruit_price) {
+        return false;
+    }
+    if (after_refresh != 1 || !policy.dynamic_decision_mode) {
+        return true;
+    }
+    // A one-gold remainder is only a recruitment budget when the route
+    // still has a known one-price target in an accessible shop tier.
+    return std::any_of(OperatorCatalogue.begin(), OperatorCatalogue.end(), [&](const auto& card) {
+        if (card.price != 1 || card.tier > policy.shop_level) {
+            return false;
+        }
+        const std::string name(card.name);
+        const auto owned = policy.owned.find(name);
+        return (owned == policy.owned.end() || !owned->second.elite) && belongs_to_planned_lineup(name, policy, pacts);
+    });
+}
+
+static const ScoredShopPurchase& prefer_spending_last_coin(
+    const ScoredShopPurchase& best,
+    const std::vector<ScoredShopPurchase>& eligible,
+    const PreparationPolicy& policy,
+    int funds,
+    int score_tolerance)
+{
+    const auto retention = round_balance_retention(policy.selected_strategy_id, funds);
+    if (!policy.dynamic_decision_mode || !retention || retention->carries || funds - best.offer->price != 1) {
+        return best;
+    }
+    // Only use already scored, purchasable cards. Do not invent a refund,
+    // a future discount, or an extra physical slot to make the sums fit.
+    const auto spends_balance = [&](const auto& candidate) {
+        const int remaining = funds - candidate.offer->price;
+        const bool can_buy_companion = remaining > 0 && policy.bench_occupied >= 0 && policy.bench_occupied <= 8 &&
+                                       std::any_of(eligible.begin(), eligible.end(), [&](const auto& companion) {
+                                           return companion.offer->name != candidate.offer->name &&
+                                                  companion.offer->right_slot != candidate.offer->right_slot &&
+                                                  companion.offer->price == remaining;
+                                       });
+        return remaining == 0 || can_buy_companion;
+    };
+    if (spends_balance(best)) {
+        return best;
+    }
+    const auto alternative = std::find_if(eligible.begin(), eligible.end(), [&](const auto& candidate) {
+        return candidate.score >= best.score - score_tolerance && spends_balance(candidate);
+    });
+    return alternative == eligible.end() ? best : *alternative;
+}
+}
+
+bool asst::spa::is_one_coin_bank_offer(const ShopOffer& offer)
+{
+    return offer.price == 1 && (offer.name == "真理" || offer.name == "至简");
+}
+
 asst::spa::PreparationChoice asst::spa::choose_preparation(
     const PreparationPolicy& policy,
     int funds,
@@ -1275,6 +1627,14 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
     if (policy.bench_occupied >= 10) {
         result.reason = "Bench capacity is full; deploy, swap or sell before recruiting";
         return result;
+    }
+    if (const auto package = affordable_same_shop_promotion(policy, funds, offers, pacts)) {
+        return { PreparationAction::Buy,
+                 package->first->name,
+                 package->first->price,
+                 package->first->right_slot,
+                 "Start a main-pact promotion backed by the visible copies and current funds",
+                 policy.primary_pact };
     }
 
     // Phase one is a lifecycle smoke path, not the dynamic faction planner.
@@ -1323,6 +1683,7 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
         policy.deployed_population <= 8 && !policy.early_board_scores.empty()) {
         const ShopOffer* best_early = nullptr;
         int best_early_score = 0;
+        std::vector<ScoredShopPurchase> early_purchases;
         const ShopOffer* full_field_promotion = nullptr;
         int full_field_promotion_score = 0;
         for (const auto& offer : offers) {
@@ -1374,6 +1735,7 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
             if (copies > 0) {
                 score += copies + 1 >= required ? 1200 : 500;
             }
+            early_purchases.push_back({ &offer, score });
             if (!best_early || score > best_early_score) {
                 best_early = &offer;
                 best_early_score = score;
@@ -1383,6 +1745,18 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
             best_early = full_field_promotion;
         }
         if (best_early) {
+            if (best_early != full_field_promotion) {
+                const ScoredShopPurchase best_purchase { best_early, best_early_score };
+                const auto& budgeted = prefer_spending_last_coin(best_purchase, early_purchases, policy, funds, 20);
+                if (budgeted.offer != best_early) {
+                    return { PreparationAction::Buy,
+                             budgeted.offer->name,
+                             budgeted.offer->price,
+                             budgeted.offer->right_slot,
+                             "Fill the same opening role with visible purchases that use the final coin",
+                             {} };
+                }
+            }
             return { PreparationAction::Buy,
                      best_early->name,
                      best_early->price,
@@ -1405,7 +1779,7 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
                          {},
                          true };
             }
-            if (policy.allow_refresh && funds >= policy.minimum_recruit_price + 1) {
+            if (policy.allow_refresh && can_recruit_after_paid_refresh(policy, funds, pacts)) {
                 return { PreparationAction::Refresh,
                          "刷新",
                          1,
@@ -1441,10 +1815,8 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
     const ShopOffer* best = nullptr;
     int best_score = 0;
     bool best_is_support = false;
-    const auto primary_layers = resolved.observed_pact_layers.find(resolved.primary_pact);
-    const bool compare_yan_acquisition = resolved.primary_pact == "炎" && resolved.growth_primary_active_verified &&
-                                         primary_layers != resolved.observed_pact_layers.end() &&
-                                         primary_layers->second < 500;
+    std::vector<ScoredShopPurchase> eligible_purchases;
+
     std::vector<std::string> current_field;
     for (const auto& [name, unit] : resolved.owned) {
         if (unit.deployed && (unit.copies > 0 || unit.elite)) {
@@ -1597,28 +1969,20 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
         // must not silently replace phase-two role scoring with cheap-card
         // selection; the actual phase-one policy already returned above.
         const int promotion_bonus = completes_promotion ? 1400 : 0;
-        int acquisition_layers = 0;
-        if (primary && compare_yan_acquisition) {
-            const auto effects =
-                acquired_effects(offer.name, resolved.tactical_elite_purchase_pending, resolved.shop_level);
-            if (effects) {
-                for (const auto& effect : *effects) {
-                    if (effect.kind == AcquiredEffectKind::Layers && effect.target == resolved.primary_pact &&
-                        !effect.requires_observed_amount) {
-                        acquisition_layers += effect.amount;
-                    }
-                }
-            }
-        }
+        const int acquisition_layers = primary ? known_primary_acquisition_layers(resolved, offer.name) : 0;
+        const int first_growth_recruit_bonus =
+            first_fitting_growth_purchase(resolved, offer.name, acquisition_layers) ? 450 : 0;
         const bool enables_sale_growth =
             has_iberia_sale_engine && copies == 0 && has_iberia_sale_price_trait(offer.name);
         const int score =
-            promotion_bonus + std::min(acquisition_layers * 100, 1000) + (enables_sale_growth ? 1250 : 0) +
+            promotion_bonus + std::min(acquisition_layers * 100, 1000) + first_growth_recruit_bonus +
+            (enables_sale_growth ? 1250 : 0) +
             (primary
                  ? (carry ? (copies == 0 && (current_roles.output_owned == 0 || missing_terminal) ? 4000 : 500) : 0) +
                        (engine ? (copies == 0 && current_roles.growth_engine_owned == 0 ? 3000 : 1000) : 0) +
                        (copies == 0 ? new_member_priority : 20)
                  : std::max(growth_support, 1500 * completes_support) + (preferred_support ? 250 : 0));
+        eligible_purchases.push_back({ &offer, score, !primary });
         if (!best || score > best_score || (score == best_score && offer.price < best->price)) {
             best = &offer;
             best_score = score;
@@ -1626,11 +1990,14 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
         }
     }
     if (best) {
+        const ScoredShopPurchase best_purchase { best, best_score, best_is_support };
+        const auto& budgeted = prefer_spending_last_coin(best_purchase, eligible_purchases, resolved, funds, 0);
         return { PreparationAction::Buy,
-                 best->name,
-                 best->price,
-                 best->right_slot,
-                 best_is_support
+                 budgeted.offer->name,
+                 budgeted.offer->price,
+                 budgeted.offer->right_slot,
+                 budgeted.offer != best ? "Use the final ordinary coin on equally ranked, visible purchases"
+                 : budgeted.support
                      ? "Recruit a useful growth helper or a distinct configured support-pact member"
                      : "Prioritize primary-pact activation, a verified growth formula and the configured carry",
                  resolved.primary_pact };
@@ -1655,7 +2022,7 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
         // natural refresh; a missing terminal can justify that same cost.
         const int retention_value = best_unaffordable_score + useful_other_slots * 250;
         const int refresh_opportunity_cost =
-            400 + unused_slots * 450 + (funds >= resolved.minimum_recruit_price + 1 ? 600 : 0);
+            400 + unused_slots * 450 + (can_recruit_after_paid_refresh(resolved, funds, pacts) ? 600 : 0);
         if (retention_value > refresh_opportunity_cost) {
             return { PreparationAction::Freeze,
                      "冻结",
@@ -1687,7 +2054,8 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
         result.reason = round_balance_review_reason(resolved.selected_strategy_id, funds);
         return result;
     }
-    if (resolved.allow_refresh && funds >= resolved.minimum_recruit_price + 1 && !resolved.shop_frozen_this_round) {
+    if (resolved.allow_refresh && !resolved.shop_frozen_this_round &&
+        can_recruit_after_paid_refresh(resolved, funds, pacts)) {
         return { PreparationAction::Refresh, "刷新", 1, -1, "Refresh while retaining a recruitment budget",
                  resolved.primary_pact,      false };
     }
@@ -1696,7 +2064,7 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
     // sell it in this same preparation: that would restore expiring cash.
     // Keep this fallback behind useful cards, shop retention and free refreshes.
     if (funds == 1 && resolved.dynamic_decision_mode && resolved.one_coin_bank_allowed &&
-        !resolved.tactical_elite_purchase_pending && resolved.primary_locked_after_activation &&
+        !resolved.tactical_elite_purchase_pending && !resolved.primary_pact.empty() &&
         resolved.deployed_population == 8 && resolved.bench_occupied >= 0 && resolved.bench_occupied <= 8 &&
         resolved.free_refreshes == 0 && resolved.round > 0 &&
         resolved.economy_scenario_horizon_round > resolved.round &&
@@ -1716,9 +2084,8 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
             // Current-season truth/simplification traits explicitly buy for 1;
             // the ordinary initial-body sale quote is 1. Do not extrapolate
             // discounts, changing sale prices or acquisition rewards here.
-            if (offer.price != 1 || (offer.name != "真理" && offer.name != "至简") ||
-                resolved.owned.contains(offer.name) || contains(resolved.carries, offer.name) ||
-                belongs_to_planned_lineup(offer.name, resolved, pacts)) {
+            if (!is_one_coin_bank_offer(offer) || resolved.owned.contains(offer.name) ||
+                contains(resolved.carries, offer.name) || belongs_to_planned_lineup(offer.name, resolved, pacts)) {
                 continue;
             }
             const auto facts = std::find_if(OperatorCatalogue.begin(), OperatorCatalogue.end(), [&](const auto& item) {

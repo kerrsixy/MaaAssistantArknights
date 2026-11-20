@@ -319,11 +319,26 @@ bool asst::spa::ShopTaskPlugin::configure(std::string name, int price, int funds
     m_upgrade = false;
     m_refresh = false;
     m_strategy_refresh = false;
+    m_equipment_discount = false;
     m_freeze = false;
     m_supply = false;
     m_supply_confirmation_issued = false;
     m_bounty = false;
     m_tactical = false;
+    return true;
+}
+
+bool asst::spa::ShopTaskPlugin::configure_equipment_discount(
+    std::string name,
+    int base_price,
+    int funds,
+    int round,
+    int slot)
+{
+    if (base_price < 1 || slot < 0 || !configure(std::move(name), base_price - 1, funds, round, slot)) {
+        return false;
+    }
+    m_equipment_discount = true;
     return true;
 }
 
@@ -553,9 +568,96 @@ bool asst::spa::ShopTaskPlugin::run_strategy_refresh(const cv::Mat& initial)
     return verified;
 }
 
+std::optional<int> asst::spa::equipment_shop_price(const cv::Mat& image, int slot)
+{
+    if (slot < 0 || slot > 5) {
+        return std::nullopt;
+    }
+    if (const auto price = shop_number(image, Rect(1050 - slot * 162, 515, 24, 25))) {
+        return price;
+    }
+    const auto zero = shop_number(image, Rect(1038 - slot * 162, 515, 24, 25));
+    return zero == 0 ? zero : std::nullopt;
+}
+
+bool asst::spa::ShopTaskPlugin::run_equipment_discount(const cv::Mat& image)
+{
+    const auto quote = [&](const cv::Mat& frame, bool require_view) -> std::optional<int> {
+        OCRer ocr(frame);
+        const auto read = ocr.analyze();
+        if (!read || preparation_round_number(frame, m_round) != m_round ||
+            shop_number(frame, Rect(1180, 510, 45, 40)) != m_funds) {
+            return std::nullopt;
+        }
+        std::vector<TextObservation> texts;
+        int matches = 0;
+        bool view_visible = false;
+        for (const auto& text : *read) {
+            texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+            if (text.score < .85) {
+                continue;
+            }
+            matches += text.text == m_name && text.rect.y >= 630 && text.rect.y <= 690 &&
+                       shop_column_from_right(text.rect.x) == m_slot;
+            view_visible = view_visible || (text.text == "查看" && text.rect.x >= 1120 && text.rect.x <= 1190 &&
+                                            text.rect.y >= 195 && text.rect.y < 270);
+        }
+        if (matches != 1 || observe_page(texts, {}).page != Page::Preparation || (require_view && !view_visible)) {
+            return std::nullopt;
+        }
+        return equipment_shop_price(frame, m_slot);
+    };
+    const int base_price = m_price + 1;
+    const Point view(1155, 235);
+    if (!active_strategy_ready(image) || quote(image, true) != base_price || !ctrler()->click(view) || !sleep(400)) {
+        return false;
+    }
+    std::string description;
+    OCRer detail(ctrler()->get_image(), Rect(750, 145, 390, 180));
+    if (const auto items = detail.analyze()) {
+        for (const auto& item : *items) {
+            if (item.score >= .85) {
+                description += item.text;
+            }
+        }
+    }
+    const bool identity = description.find("天空盒") != std::string::npos &&
+                          description.find("内部货源") != std::string::npos;
+    if (!ctrler()->click(view) || !sleep(300)) {
+        return false;
+    }
+    const auto ready = ctrler()->get_image();
+    if (!identity || !active_strategy_ready(ready) || quote(ready, true) != base_price ||
+        !ctrler()->click(Point(1235, 235))) {
+        return false;
+    }
+    std::optional<int> after;
+    for (int attempt = 0; attempt < 2 && !need_exit(); ++attempt) {
+        if (!sleep(attempt == 0 ? 380 : 200)) {
+            break;
+        }
+        after = quote(ctrler()->get_image(), false);
+        if (after == m_price) {
+            break;
+        }
+    }
+    auto receipt = basic_info_with_what("SPAStrategyEquipmentDiscountOutcome");
+    receipt["details"] = json::object { { "strategy_id", "band_price" },
+                                         { "round", m_round },
+                                         { "name", m_name },
+                                         { "slot", m_slot },
+                                         { "base_price", base_price },
+                                         { "observed_price", after.value_or(-1) },
+                                         { "effect_verified", after == m_price },
+                                         { "purchase_committed", false } };
+    callback(AsstMsg::SubTaskExtraInfo, receipt);
+    return after == m_price;
+}
+
 bool asst::spa::ShopTaskPlugin::_run()
 {
     m_input_reconciliation_required = false;
+    m_bench_capacity_rejection_verified = false;
     if (m_name.empty()) {
         return false;
     }
@@ -565,6 +667,9 @@ bool asst::spa::ShopTaskPlugin::_run()
     }
     if (m_strategy_refresh) {
         return run_strategy_refresh(image);
+    }
+    if (m_equipment_discount) {
+        return run_equipment_discount(image);
     }
     if (!m_supply && !m_bounty && !m_tactical && !m_refresh && !m_freeze) {
         OCRer toggle(image, Rect(1100, 620, 180, 90));
@@ -650,6 +755,9 @@ bool asst::spa::ShopTaskPlugin::_run()
                 std::vector<TextObservation> texts;
                 for (const auto& text : *recognized) {
                     texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+                }
+                if (reconcile_bench_capacity_rejection(selected, texts, m_slot)) {
+                    return false;
                 }
                 if (const auto control = purchase_confirmation_control(texts, m_slot)) {
                     for (const auto& text : *recognized) {
@@ -1387,7 +1495,10 @@ bool asst::spa::ShopTaskPlugin::_run()
     const int slot = *shop_column_from_right(name_rect->x);
     // Free-promotion badges center the zero differently from paid gold-coin prices.
     const int price_x = (m_price == 0 ? 1038 : 1050) - slot * 162;
-    const auto price = shop_number(image, Rect(price_x, 515, 24, 25));
+    auto price = shop_number(image, Rect(price_x, 515, 24, 25));
+    if (!price && m_price == 0) {
+        price = equipment_shop_price(image, slot);
+    }
     if (!price || *price != m_price || !ctrler()->click(*name_rect) || !sleep(m_fast_mode ? 350 : 800)) {
         LogError << "SPA shop price or selection could not be verified";
         return false;
@@ -1409,6 +1520,9 @@ bool asst::spa::ShopTaskPlugin::_run()
         if (text.score >= 0.85 && text.text == m_name && text.rect.x < 350 && text.rect.y < 300) {
             identity = true;
         }
+    }
+    if (reconcile_bench_capacity_rejection(image, detail_texts, slot)) {
+        return false;
     }
     if (const auto control = purchase_confirmation_control(detail_texts, slot)) {
         for (const auto& text : *detail) {
@@ -1457,6 +1571,23 @@ bool asst::spa::ShopTaskPlugin::_run()
                 "Purchased slot is unreadable",
                 true);
         }
+        if (m_price == 0) {
+            std::vector<TextObservation> post_texts;
+            for (const auto& text : *post) {
+                post_texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+            }
+            if (observe_page(post_texts, {}).page != Page::Preparation ||
+                std::none_of(
+                    post_texts.begin(),
+                    post_texts.end(),
+                    [](const auto& text) { return observe_shop_toggle(text) == true; }) ||
+                purchase_confirmation_control(post_texts, slot)) {
+                return require_input_reconciliation(
+                    "SPAPurchaseReconciliationRequired",
+                    "A zero-price purchase requires the expanded preparation shop after confirmation",
+                    true);
+            }
+        }
         for (const auto& text : *post) {
             if (text.score >= 0.85 && text.text == m_name && text.rect.y >= 630 && text.rect.y <= 690 &&
                 shop_column_from_right(text.rect.x) == slot) {
@@ -1471,6 +1602,40 @@ bool asst::spa::ShopTaskPlugin::_run()
     auto info = basic_info_with_what("SPAShopPurchase");
     info["details"] = json::object { { "name", m_name },        { "price", m_price }, { "funds_before", m_funds },
                                      { "funds_after", *after }, { "round", m_round }, { "promotion_verified", false } };
+    callback(AsstMsg::SubTaskExtraInfo, info);
+    return true;
+}
+
+bool asst::spa::ShopTaskPlugin::reconcile_bench_capacity_rejection(
+    const cv::Mat& frame,
+    const std::vector<TextObservation>& detail,
+    int slot)
+{
+    if (m_price <= 0 || !selected_purchase_unavailable(detail, slot)) {
+        return false;
+    }
+    OCRer toast(frame, Rect(440, 472, 450, 47));
+    const auto recognized = toast.analyze();
+    if (!recognized ||
+        std::none_of(
+            recognized->begin(),
+            recognized->end(),
+            [](const auto& text) {
+                return bench_capacity_warning({ text.text, text.score, text.rect.x, text.rect.y });
+            }) ||
+        shop_number(frame, Rect(1180, 510, 45, 40)) != m_funds) {
+        return false;
+    }
+    if (!ctrler()->click(Point(1040, 80)) || !sleep(m_fast_mode ? 250 : 450)) {
+        return false;
+    }
+    m_bench_capacity_rejection_verified = true;
+    auto info = basic_info_with_what("SPAShopPurchaseRejectedByBenchCapacity");
+    info["details"] = json::object { { "name", m_name },
+                                     { "round", m_round },
+                                     { "funds", m_funds },
+                                     { "slot", slot },
+                                     { "purchase_confirmation_committed", false } };
     callback(AsstMsg::SubTaskExtraInfo, info);
     return true;
 }

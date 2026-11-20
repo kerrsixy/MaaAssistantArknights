@@ -1,4 +1,5 @@
 #include "SPAPlanner.h"
+#include "SPAStrategyUnlockCatalogue.h"
 
 #include <algorithm>
 #include <cmath>
@@ -116,12 +117,26 @@ bool asst::spa::ProgressLedger::next_report_confirms_win(
            *before.wins >= 0 && *before.wins < 3 && *after.wins == *before.wins + 1;
 }
 
+bool asst::spa::ProgressLedger::can_schedule_solo(const StrategyProgress& progress)
+{
+    if (progress.band_id.empty() || !progress.unlocked || !progress.solo_eligible_verified || complete(progress)) {
+        return false;
+    }
+    if (progress.wins) {
+        return *progress.wins >= 0 && *progress.wins < 3;
+    }
+    return !progress.badge_verified &&
+           std::any_of(StrategyUnlockCatalogue.begin(), StrategyUnlockCatalogue.end(), [&](const auto& rule) {
+               return rule.id == progress.band_id && rule.kind == StrategyUnlockKind::Default &&
+                      rule.independent_available;
+           });
+}
+
 std::optional<std::string> asst::spa::ProgressLedger::next_solo(const std::vector<StrategyProgress>& progress)
 {
     const StrategyProgress* best = nullptr;
     for (const auto& item : progress) {
-        if (item.band_id.empty() || !item.unlocked || !item.solo_eligible_verified || !item.wins || *item.wins < 0 ||
-            complete(item) || *item.wins >= 3) {
+        if (!can_schedule_solo(item)) {
             continue;
         }
         // Badge collection is the current solo objective.  A strategy with
@@ -131,7 +146,7 @@ std::optional<std::string> asst::spa::ProgressLedger::next_solo(const std::vecto
         // avoids repeatedly farming one already-claimed route while other
         // strategies never get a clear run.
         if (!best || (!item.badge_verified && best->badge_verified) ||
-            (item.badge_verified == best->badge_verified && *item.wins < *best->wins)) {
+            (item.badge_verified == best->badge_verified && item.wins.value_or(3) < best->wins.value_or(3))) {
             best = &item;
         }
     }

@@ -989,6 +989,21 @@ int main()
     assert(
         std::find(transferred_surtr.active_pacts.begin(), transferred_surtr.active_pacts.end(), "阿戈尔") !=
         transferred_surtr.active_pacts.end());
+    const std::vector<TextObservation> settling_bench_title { { "至简", .821679, 13, 182 },
+                                                              { "X", .919717, 63, 218 },
+                                                              { "LV1", .931393, 93, 216 } };
+    assert(bench_replacement_title_needs_settle(settling_bench_title, "至简"));
+    assert(!bench_replacement_title_needs_settle(settling_bench_title, "折桠"));
+    assert(!bench_replacement_title_needs_settle({ { "至简", .821679, 13, 700 } }, "至简"));
+    assert(!operator_panel_identity(settling_bench_title, { "至简" }));
+    assert(operator_panel_identity({ { "至简", .938272, 13, 183 } }, { "至简" }) == "至简");
+    const TextObservation full_bench_toast { "整备区已达上限，无法完成购买", .98, 495, 490 };
+    assert(bench_capacity_warning(full_bench_toast));
+    assert(!bench_capacity_warning({ full_bench_toast.text, .98, 495, 654 }));
+    assert(!bench_capacity_warning({ "装备区已达上限，无法完成购买", .98, 495, 490 }));
+    assert(selected_purchase_unavailable({ { "无法购买", .97, 330, 655 } }, 4));
+    assert(!selected_purchase_unavailable({ { "无法购买", .97, 330, 655 } }, 3));
+    assert(!selected_purchase_unavailable({ { "无法购买", .97, 330, 655 }, { "确认购买", .98, 334, 655 } }, 4));
     assert(!purchase_confirmation_control({}, 2));
     assert(purchase_confirmation_control({ { "确认购买", .99, 640, 655 } }, 2));
     assert(!purchase_confirmation_control({ { "确认购买", .99, 960, 655 } }, 2));
@@ -1938,6 +1953,48 @@ int main()
     assert(!same_row_growth_populations({}));
     assert(spatial_growth_preferences("罗比菈塔", spatial_cells, growth_receiver, {}, "萨尔贡").empty());
     assert(spatial_growth_target("空弦", "空弦", "精准"));
+    std::vector<GridPlacementMember> iberia_pair { { 8, 2, PlacementRole::Ranged, "旅骨", 'E' },
+                                                   { 7, 2, PlacementRole::Ranged, "深靛", 'E' } };
+    assert(primary_preparation_adjacency_value(iberia_pair, "伊比利亚") == 0);
+    iberia_pair.front().facing = 'W';
+    assert(primary_preparation_adjacency_value(iberia_pair, "伊比利亚") == 1200);
+    iberia_pair.back().name = "温蒂";
+    assert(primary_preparation_adjacency_value(iberia_pair, "伊比利亚") == 1800);
+    iberia_pair.back().col = 6;
+    assert(primary_preparation_adjacency_value(iberia_pair, "伊比利亚") == 0);
+    const std::set<std::string> cold_sources { "灵知", "耶拉" };
+    const std::set<std::string> stackers { "初雪" };
+    const std::vector<DeploymentLane> freeze_lanes { { "north", { { 8, 1 }, { 7, 1 }, { 6, 1 }, { 5, 1 } } },
+                                                     { "shared", { { 8, 1 }, { 7, 1 }, { 6, 1 }, { 5, 1 } } } };
+    std::vector<DeploymentUnit> freeze_field {
+        { .id = "角峰", .cell = { 6, 1 }, .block_count = 3, .frontline = true },
+        { .id = "初雪",
+          .cell = { 6, 2 },
+          .facing = 'N',
+          .range_known = true,
+          .local_range = { { 1, 0 }, { 1, -1 }, { 1, -2 } } },
+        { .id = "灵知",
+          .cell = { 5, 1 },
+          .damage_output = true,
+          .range_known = true,
+          .local_range = { { 1, 0 }, { 2, 0 }, { 3, 0 } } },
+        { .id = "耶拉",
+          .cell = { 7, 2 },
+          .facing = 'N',
+          .damage_output = true,
+          .range_known = true,
+          .local_range = { { 1, 0 } } },
+    };
+    assert(freeze_growth_coverage(freeze_field, freeze_lanes, cold_sources, stackers) == 3);
+    freeze_field[2].facing = 'W';
+    assert(freeze_growth_coverage(freeze_field, freeze_lanes, cold_sources, stackers) == 1);
+    assert(freeze_growth_coverage(freeze_field, freeze_lanes, { "初雪" }, stackers) == 0);
+    freeze_field[3].range_known = false;
+    assert(freeze_growth_coverage(freeze_field, freeze_lanes, cold_sources, stackers) == 0);
+    freeze_field[2].facing = 'E';
+    freeze_field[0].holds_position = false;
+    assert(freeze_growth_coverage(freeze_field, freeze_lanes, cold_sources, stackers) == 0);
+    assert(!has_preparation_adjacency_growth("Mon3tr"));
     assert(!spatial_growth_target("凛御银灰", "角峰", "谢拉格"));
     assert(spatial_growth_target("凛御银灰", "圣聆初雪", "谢拉格"));
     assert(spatial_growth_target("Mon3tr", "冻河", "乌萨斯"));
@@ -2476,6 +2533,10 @@ int main()
         { { "OPERATION", .99983, 550, 281 }, { "AC-MP-2", .999562, 394, 329 }, { "险境模拟", .998439, 512, 443 } }));
     assert(verified_loading_page({ { "OPERATION", .999, 550, 281 }, { "Loading.", .999, 1100, 650 } }));
     assert(strategy_confirmation_enabled(cv::imread("spa-strategy-confirm-enabled.png")));
+    assert(opening_strategy_inspection_seconds(opening_strategy_countdown_seconds("20")) == 12);
+    assert(opening_strategy_inspection_seconds(opening_strategy_countdown_seconds("07")) == 0);
+    assert(!opening_strategy_countdown_seconds("2/3"));
+    assert(opening_strategy_inspection_seconds(std::nullopt) == 16);
     assert(strategy_unavailable_label("已被选择"));
     assert(strategy_unavailable_label("该策略已被选择"));
     assert(strategy_unavailable_label("未解锁"));
@@ -2816,6 +2877,15 @@ int main()
     StrategyProgress joint_only { "band-3", 2, true, false, false };
     StrategyProgress partial { "band-4", 1, true, false, true };
     assert(ProgressLedger::next_solo({ unknown, joint_only, progress, partial }) == "band-4");
+    const StrategyProgress default_without_count { "band_qalaisa", std::nullopt, true, false, true };
+    const StrategyProgress conditional_without_count { "band_gain", std::nullopt, true, false, true };
+    assert(ProgressLedger::next_solo({ conditional_without_count, default_without_count }) == "band_qalaisa");
+    assert(ProgressLedger::next_solo({ default_without_count, partial }) == "band-4");
+    assert(!ProgressLedger::complete(default_without_count));
+    auto default_first_victory = default_without_count;
+    default_first_victory.wins = 1;
+    assert(
+        !ProgressLedger::next_report_confirms_win(default_without_count, default_first_victory, "band_qalaisa", true));
     StrategyProgress claimed_partial { "band-claimed", 2, true, true, true };
     StrategyProgress unclaimed_new { "band-unclaimed", 0, true, false, true };
     assert(ProgressLedger::next_solo({ claimed_partial, unclaimed_new }) == "band-unclaimed");
@@ -3056,6 +3126,12 @@ int main()
                                                        { "已通过模拟3次", .999938, 237, 156 } };
     const StrategyIdentity amiya { "band_amiya", "众志合一", "阿米娅" };
     assert(strategy_badge_report_text_verified(badge_capture, amiya, 3));
+    auto report_without_counter = badge_capture;
+    report_without_counter.pop_back();
+    assert(strategy_report_identity_text_verified(report_without_counter, amiya));
+    assert(!strategy_report_progress_text_verified(report_without_counter, amiya, 0));
+    report_without_counter[3].text = "【食腐之蝶】";
+    assert(!strategy_report_identity_text_verified(report_without_counter, amiya));
     auto wrong_badge = badge_capture;
     wrong_badge.back().x = 585;
     assert(!strategy_badge_report_text_verified(wrong_badge, amiya, 3));
@@ -3732,6 +3808,32 @@ int main()
     assert(transition_argo != transition_pivot.ranking.end());
     assert(transition_argo->growth_engine_offers == 1 && transition_argo->output_offers == 1);
     assert(transition_argo->score > transition_victoria->score);
+    const auto unaffordable_pivot =
+        choose_dynamic_primary_pact(transition_pivot_policy, { { "幽灵鲨", 2, 0 } }, catalog, 1);
+    assert(unaffordable_pivot.valid && unaffordable_pivot.primary_pact == "维多利亚");
+    assert(std::none_of(unaffordable_pivot.ranking.begin(), unaffordable_pivot.ranking.end(), [](const auto& signal) {
+        return signal.pact == "阿戈尔";
+    }));
+    // The round-six shop had two Victoria engines and an installed Iberia
+    // pair. Paying five funds for the two could still activate neither pact.
+    auto installed_iberia = dynamic_policy;
+    installed_iberia.primary_pact = "伊比利亚";
+    installed_iberia.enabled_core_pacts = { "伊比利亚", "维多利亚" };
+    installed_iberia.round = 6;
+    installed_iberia.shop_level = 3;
+    installed_iberia.bench_occupied = 1;
+    installed_iberia.owned = { { "深靛", { 1, true, true } }, { "蓝毒", { 1, false, true } } };
+    std::vector<ShopOffer> victoria_pivot { { "慕斯", 2, 0 }, { "Miss.Christine", 3, 1 } };
+    assert(choose_dynamic_primary_pact(installed_iberia, victoria_pivot, catalog, 9).primary_pact == "伊比利亚");
+    victoria_pivot.push_back({ "凯瑟琳", 3, 2 });
+    assert(choose_dynamic_primary_pact(installed_iberia, victoria_pivot, catalog, 7).primary_pact == "伊比利亚");
+    assert(choose_dynamic_primary_pact(installed_iberia, victoria_pivot, catalog, 9).primary_pact == "维多利亚");
+    installed_iberia.bench_occupied = 8;
+    assert(choose_dynamic_primary_pact(installed_iberia, victoria_pivot, catalog, 9).primary_pact == "伊比利亚");
+    installed_iberia.bench_occupied = 1;
+    installed_iberia.disabled_pacts = { "伊比利亚" };
+    assert(choose_dynamic_primary_pact(installed_iberia, victoria_pivot, catalog, 9).primary_pact == "维多利亚");
+
     auto live_ursus_transition = transition_pivot_policy;
     live_ursus_transition.primary_pact = "乌萨斯";
     live_ursus_transition.enabled_core_pacts = { "乌萨斯", "阿戈尔" };
@@ -3770,6 +3872,20 @@ int main()
         });
     assert(density_signal != density_only_choice.ranking.end() && density_signal->distinct_members >= 3);
     assert(density_signal->activation_ready && density_signal->role_signal);
+    auto budgeted_formation = dynamic_policy;
+    budgeted_formation.enabled_core_pacts = { "维多利亚" };
+    const std::vector<ShopOffer> activation_quotes { { "慕斯", 3, 0 },
+                                                     { "涤火杰西卡", 2, 1 },
+                                                     { "白铁", 2, 2 },
+                                                     { "慕斯", 2, 3 } };
+    auto activation = choose_dynamic_primary_pact(budgeted_formation, activation_quotes, catalog, 3);
+    assert(activation.valid && activation.ranking.front().distinct_members == 3);
+    assert(activation.ranking.front().reachable_members == 1 && !activation.ranking.front().activation_ready);
+    activation = choose_dynamic_primary_pact(budgeted_formation, activation_quotes, catalog, 6);
+    assert(activation.ranking.front().reachable_members == 3 && activation.ranking.front().activation_ready);
+    budgeted_formation.bench_occupied = 8;
+    activation = choose_dynamic_primary_pact(budgeted_formation, activation_quotes, catalog, 6);
+    assert(activation.ranking.front().reachable_members == 2 && !activation.ranking.front().activation_ready);
     auto below_victoria_window = dynamic_policy;
     below_victoria_window.enabled_core_pacts = { "维多利亚" };
     below_victoria_window.shop_level = 2;
@@ -3885,6 +4001,94 @@ int main()
                                    { "深巡", { 1, false, true } },   { "水月", { 1, false, true } },
                                    { "灰喉", { 1, false, true } },   { "纯烬艾雅法拉", { 1, false, true } } };
     assert(dynamic_target_shop_level(egir_terminal_window, catalog) == 6);
+    auto egir_pair_window = egir_terminal_window;
+    egir_pair_window.dynamic_decision_mode = true;
+    egir_pair_window.owned["斯卡蒂"] = { 2, false, true };
+    egir_pair_window.early_board_ready = true;
+    egir_pair_window.current_life = 18;
+    egir_pair_window.last_round_life_loss = 0;
+    egir_pair_window.round = 9;
+    egir_pair_window.economy_scenario_horizon_round = 14;
+    std::optional<ShopUpgradeHold> upgrade_hold;
+    assert(!should_upgrade_dynamic_shop(egir_pair_window, 10, 6, {}, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->promotion_target == "斯卡蒂" && upgrade_hold->promotion_recruit_budget == 4);
+    assert(!should_upgrade_dynamic_shop(egir_pair_window, 3, 0, { { "斯卡蒂", 3, 0 } }, catalog, &upgrade_hold));
+    assert(!upgrade_hold);
+    egir_pair_window.last_round_life_loss = 6;
+    assert(should_upgrade_dynamic_shop(egir_pair_window, 10, 6, {}, catalog, &upgrade_hold));
+    assert(!upgrade_hold);
+    egir_pair_window.owned.erase("斯卡蒂");
+    assert(should_upgrade_dynamic_shop(egir_pair_window, 10, 6, {}, catalog, &upgrade_hold));
+    auto victoria_pair_window = full_upgrade_window;
+    victoria_pair_window.shop_level = 5;
+    victoria_pair_window.carries = { "水灯心", "涤火杰西卡", "烛煌" };
+    assert(dynamic_target_shop_level(victoria_pair_window, catalog) == 6);
+    assert(!should_upgrade_dynamic_shop(victoria_pair_window, 10, 6, {}, catalog, &upgrade_hold));
+    assert(upgrade_hold && !upgrade_hold->next_round_upgrade_price);
+
+    auto discount_window = upgrade_window;
+    discount_window.shop_level = 3;
+    discount_window.early_board_ready = true;
+    discount_window.current_life = 21;
+    discount_window.last_round_life_loss = 0;
+    discount_window.deployed_population = 5;
+    discount_window.round = 8;
+    discount_window.economy_scenario_horizon_round = 14;
+    discount_window.early_board_scores = { { "褐果", 900 } };
+    const std::vector<ShopOffer> available_healer { { "褐果", 2, 0 } };
+    assert(!should_upgrade_dynamic_shop(discount_window, 7, 6, available_healer, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->next_round_upgrade_price == 5);
+    discount_window.boss_preparation = true;
+    assert(should_upgrade_dynamic_shop(discount_window, 7, 6, available_healer, catalog, &upgrade_hold));
+    discount_window.boss_preparation = false;
+    discount_window.shop_discount_wait_level = 3;
+    discount_window.shop_discount_wait_round = 8;
+    discount_window.round = 9;
+    assert(should_upgrade_dynamic_shop(discount_window, 6, 5, available_healer, catalog, &upgrade_hold));
+
+    // Recorded regulation-3 round-7 shop and roster. The positive and zero
+    // outcomes isolate the live replacement review input to the policy.
+    auto kjerag_market = discount_window;
+    kjerag_market.primary_pact = "谢拉格";
+    kjerag_market.primary_locked_after_activation = true;
+    kjerag_market.growth_primary_active_verified = true;
+    kjerag_market.current_life = 26;
+    kjerag_market.round = 7;
+    kjerag_market.shop_discount_wait_round = 6;
+    kjerag_market.deployed_population = 8;
+    kjerag_market.bench_occupied = 0;
+    kjerag_market.observed_pact_layers = { { "谢拉格", 4 } };
+    kjerag_market.owned = {};
+    for (const auto* name : { "初雪", "哈洛德", "摆渡人", "极光", "波登可", "空弦", "角峰", "陨星" }) {
+        kjerag_market.owned[name] = { 1, std::string_view(name) == "陨星", true };
+    }
+    kjerag_market.full_field_offer_improvements = { { "雪猎", 2800 }, { "初雪", 0 }, { "风絮", 0 } };
+    const std::vector<ShopOffer> kjerag_quotes { { "雪猎", 3, 2 }, { "初雪", 3, 0 }, { "风絮", 3, 3 } };
+    assert(choose_preparation(kjerag_market, 10, kjerag_quotes, catalog).name == "雪猎");
+    assert(!should_upgrade_dynamic_shop(kjerag_market, 10, 8, kjerag_quotes, catalog, &upgrade_hold));
+    assert(
+        upgrade_hold && upgrade_hold->reason.find("雪猎") != std::string::npos &&
+        !upgrade_hold->next_round_upgrade_price);
+    assert(should_upgrade_dynamic_shop(kjerag_market, 11, 8, kjerag_quotes, catalog, &upgrade_hold));
+    kjerag_market.full_field_offer_improvements["雪猎"] = 0;
+    assert(should_upgrade_dynamic_shop(kjerag_market, 10, 8, kjerag_quotes, catalog, &upgrade_hold));
+    kjerag_market.full_field_offer_improvements["雪猎"] = 2800;
+    kjerag_market.growth_primary_active_verified = false;
+    assert(should_upgrade_dynamic_shop(kjerag_market, 10, 8, kjerag_quotes, catalog, &upgrade_hold));
+
+    auto ordinary_budget = dynamic_decision;
+    ordinary_budget.selected_strategy_id = "band_siracusa";
+    ordinary_budget.deployed_population = 3;
+    ordinary_budget.early_board_scores = { { "褐果", 900 }, { "赫默", 900 } };
+    const auto healer_catalog = std::map<std::string, std::vector<std::string>> { { "褐果", {} }, { "赫默", {} } };
+    const std::vector<ShopOffer> healer_quotes { { "褐果", 2, 0 }, { "赫默", 3, 1 } };
+    assert(choose_preparation(ordinary_budget, 3, healer_quotes, healer_catalog).name == "赫默");
+    ordinary_budget.selected_strategy_id = "band_cannot";
+    assert(choose_preparation(ordinary_budget, 3, healer_quotes, healer_catalog).name == "褐果");
+    ordinary_budget.selected_strategy_id = "band_siracusa";
+    ordinary_budget.early_board_scores["褐果"] = 1100;
+    assert(choose_preparation(ordinary_budget, 3, healer_quotes, healer_catalog).name == "褐果");
+
     egir_terminal_window.owned["乌尔比安"] = { 1, false, false };
     assert(dynamic_target_shop_level(egir_terminal_window, catalog) == 5);
     egir_terminal_window.owned.erase("乌尔比安");
@@ -3913,6 +4117,30 @@ int main()
     assert(!should_upgrade_dynamic_shop(upgrade_window, 3, 4, {}, catalog));
     upgrade_window.last_round_life_loss = 6;
     assert(!should_upgrade_dynamic_shop(upgrade_window, 5, 4, {}, catalog));
+    auto same_shop_window = dynamic_decision;
+    same_shop_window.primary_pact = "乌萨斯";
+    same_shop_window.shop_level = 2;
+    same_shop_window.round = 4;
+    same_shop_window.deployed_population = 4;
+    same_shop_window.early_board_ready = true;
+    same_shop_window.last_round_life_loss = 0;
+    same_shop_window.owned = { { "烈夏", { 1, false, true } } };
+    const std::vector<ShopOffer> ursus_triple { { "真理", 1, 0 },
+                                                { "真理", 1, 1 },
+                                                { "摆渡人", 2, 2 },
+                                                { "真理", 1, 3 } };
+    assert(!should_upgrade_dynamic_shop(same_shop_window, 7, 7, ursus_triple, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->promotion_target == "真理" && upgrade_hold->promotion_recruit_budget == 3);
+    assert(should_upgrade_dynamic_shop(same_shop_window, 10, 7, ursus_triple, catalog, &upgrade_hold));
+    auto promotion_purchase = choose_preparation(same_shop_window, 7, ursus_triple, catalog);
+    assert(promotion_purchase.action == PreparationAction::Buy && promotion_purchase.name == "真理");
+    assert(promotion_purchase.reason.find("visible copies") != std::string::npos);
+    same_shop_window.bench_occupied = 8;
+    assert(should_upgrade_dynamic_shop(same_shop_window, 7, 7, ursus_triple, catalog, &upgrade_hold));
+    same_shop_window.bench_occupied = 0;
+    assert(should_upgrade_dynamic_shop(same_shop_window, 2, 2, ursus_triple, catalog, &upgrade_hold));
+    same_shop_window.tactical_elite_purchase_pending = true;
+    assert(should_upgrade_dynamic_shop(same_shop_window, 7, 7, ursus_triple, catalog, &upgrade_hold));
     auto leave_first_shop = dynamic_decision;
     leave_first_shop.shop_level = 1;
     leave_first_shop.deployed_population = 2;
@@ -4451,6 +4679,16 @@ int main()
     assert(equipment_fact("多功能补剂").role == EquipmentRole::Growth);
     assert(equipment_fact("多功能补剂").normal_effect.find("临时层数") != std::string::npos);
     assert(equipment_cash_gain("盟约之币", "装备时销毁，并获得1资金") == 1);
+    const auto& identity_tag = equipment_fact("随身身份牌");
+    assert(identity_tag_growth_quote(identity_tag.normal_effect) == 3);
+    assert(identity_tag_growth_quote(identity_tag.advanced_effect) == 6);
+    assert(!identity_tag_growth_quote("装备时销毁，并使携带者所属盟约层数+30（无需激活盟约）"));
+    assert(!identity_tag_growth_quote("装备时销毁，并使携带者所属盟约层数+3"));
+    assert(!identity_tag_growth_quote(identity_tag.normal_effect + identity_tag.advanced_effect));
+    assert(safe_identity_tag_recipient("烈夏", "乌萨斯", false, { "维式重锤" }));
+    assert(!safe_identity_tag_recipient("烈夏", "炎", false, {}));
+    assert(!safe_identity_tag_recipient("烈夏", "乌萨斯", false, { "维式重锤", "坚守盾牌" }));
+    assert(!safe_identity_tag_recipient("烈夏", "乌萨斯", false, { "变形同构体" }));
     const std::string mech_recipient = "“暴躁铁皮”";
     const std::vector<TextObservation> empty_mech_panel { { mech_recipient, .99, 15, 190 } };
     const auto empty_mech_items = equipment_panel_items(empty_mech_panel, mech_recipient);
@@ -4585,6 +4823,19 @@ int main()
     no_window.round = 14;
     assert(choose_equipment(no_window, { { "维式重锤", 1, EquipmentRole::Damage, false, false, 30 } }).buy);
     assert(!choose_equipment(no_window, { { "定期存折", 2, EquipmentRole::Economy, true, false, 20 } }).buy);
+    // The reviewed round-9 shop offered this two-gold passbook before
+    // the old runner paid to refresh down to one gold.
+    auto passbook_window = equipment_context;
+    passbook_window.round = 9;
+    passbook_window.boss_round = 14;
+    passbook_window.shop_level = 5;
+    passbook_window.funds = 2;
+    const std::vector<EquipmentProfile> passbook_offer {
+        { "定期存折", 2, EquipmentRole::Economy, true, false, 20, 3 }
+    };
+    assert(choose_equipment(passbook_window, passbook_offer).buy);
+    passbook_window.round = 12;
+    assert(!choose_equipment(passbook_window, passbook_offer).buy);
     auto bank_before_boss = equipment_context;
     bank_before_boss.round = 13;
     bank_before_boss.funds = 1;
@@ -4742,6 +4993,28 @@ int main()
     assert(
         conversion_growth.fixed_phase_additions == 0 && conversion_growth.conversion_sources == 1 &&
         conversion_growth.temporary_sources == 1);
+    assert(conversion_growth.ursus_cycle.opening_temporary_layers == 8);
+    assert(conversion_growth.ursus_cycle.conversion_capacity == 4);
+    assert(conversion_growth.ursus_converted_opening_layers_if_unchanged == 28);
+    const auto combined_conversion = project_primary_growth(
+        "乌萨斯",
+        13,
+        14,
+        true,
+        { { "折桠", false }, { "烈夏", true }, { "乌啾", true, true, 4 } });
+    assert(combined_conversion.ursus_cycle.conversion_capacity == 10);
+    assert(combined_conversion.ursus_converted_opening_layers_if_unchanged == 8);
+    const std::vector<GrowthSource> unknown_conversion { { "烈夏", false }, { "乌啾", true } };
+    const auto unknown_ursus = project_primary_growth("乌萨斯", 13, 14, true, unknown_conversion);
+    assert(
+        unknown_ursus.ursus_cycle.conversion_population_unknown &&
+        unknown_ursus.ursus_converted_opening_layers_if_unchanged == 0);
+    assert(
+        project_primary_growth("乌萨斯", 13, 14, false, unknown_conversion).ursus_cycle.opening_temporary_layers == 0);
+    assert(
+        project_primary_growth("乌萨斯", 14, 14, true, { { "烈夏", false }, { "折桠", false } })
+            .ursus_converted_opening_layers_if_unchanged == 0);
+    assert(assess_ursus_layer_cycle({ { "烈夏", true }, { "折桠", true, false } }).converted_from_opening == 0);
     assert(!project_primary_growth("谢拉格", 15, 14, true, {}).valid);
     assert(!project_primary_growth("谢拉格", 7, 14, true, { { "圣聆初雪", false }, { "圣聆初雪", true } }).valid);
     auto search_layout = layout_case;
@@ -4805,6 +5078,39 @@ int main()
         trait_only.preference_improvement == 600);
     const auto trait_sequence = sequence_deployment(trait_only_layout, trait_only.units);
     assert(deployment_change_worth_input(trait_only, trait_sequence));
+    const auto engagement_only = [](const auto& units) {
+        return units.back().facing == 'E' ? 3000 : 0;
+    };
+    const auto rest_pair = [](const auto& units) {
+        return units.back().facing == 'N' ? 1200 : 0;
+    };
+    const auto preparation_pair =
+        propose_deployment(trait_only_layout, route_cases, legal_cells, 4000, engagement_only, {}, {}, rest_pair);
+    assert(preparation_pair.found && preparation_pair.improved && preparation_pair.units.back().facing == 'N');
+    assert(preparation_pair.preparation_growth_preference_improvement == 1200);
+    assert(deployment_change_worth_input(
+        preparation_pair,
+        sequence_deployment(trait_only_layout, preparation_pair.units)));
+    const auto boss_instead = propose_deployment(
+        trait_only_layout,
+        route_cases,
+        legal_cells,
+        4000,
+        engagement_only,
+        { { 3, 1 } },
+        {},
+        rest_pair);
+    assert(boss_instead.preparation_growth_preference_improvement == 0);
+    const auto retain_route = propose_deployment(
+        early_blocker.units,
+        { route_cases.front() },
+        legal_cells,
+        4000,
+        {},
+        {},
+        {},
+        [](const auto& units) { return units.front().cell == BoardCell(4, 1) ? 1'000'000 : 0; });
+    assert(!retain_route.improved && retain_route.units.front().cell == BoardCell(4, 0));
     DeploymentSequence marginal_move;
     marginal_move.complete = true;
     marginal_move.steps = { { DeploymentStepKind::Move, "ranged", "", { 3, 1 }, { 4, 2 }, 'S' },

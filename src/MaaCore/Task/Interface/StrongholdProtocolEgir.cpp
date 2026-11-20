@@ -195,6 +195,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
         }
         request.boss_opening_only = !boss.known && !request.boss_cells.empty();
         request.stationary_boss = boss.stationary_route;
+        request.boss_movement_waypoints = boss.movement_waypoints;
         if (request.boss_cells.empty() && boss.known && !boss.possible_cells.empty()) {
             request.boss_cells = boss.possible_cells;
             request.boss_cells_are_alternatives = !boss.variant_known;
@@ -446,6 +447,8 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
                            { "core", proposal.core },
                            { "boss_priority_attackers", proposal.boss_priority_attackers },
                            { "boss_chain_attack_priority", proposal.boss_chain_attack_priority },
+                           { "boss_movement_waypoints_known", request.boss_movement_waypoints.size() },
+                           { "boss_core_movement_waypoints_covered", proposal.boss_core_movement_waypoints },
                            { "attacking_core_separate_from_chain", proposal.attacking_core_separate_from_chain },
                            { "input_complete", proposal.input_complete },
                            { "found", proposal.found },

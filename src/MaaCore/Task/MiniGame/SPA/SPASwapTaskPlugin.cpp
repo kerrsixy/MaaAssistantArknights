@@ -119,8 +119,13 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
     m_population_consumed = false;
     m_sale_committed = false;
     m_equipment_committed = false;
+    m_identity_tag_pact = options.get("identity_tag_pact", std::string());
     m_equipment_contact_attempted = false;
     m_equipment_cash_credit = 0;
+    m_minimum_cash_credit = options.get("minimum_cash_credit", 1);
+    if (m_minimum_cash_credit < 1 || m_minimum_cash_credit > 999) {
+        return false;
+    }
     m_equipment_next_round_credit_quote = 0;
     m_equipment_consumption_verified = false;
     m_direct_projection = options.get("direct_projection", false);
@@ -155,6 +160,7 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
     }
     m_sell_only = options.get("sell_only", false);
     m_sale_credit = options.get("sale_credit", -1);
+    m_minimum_sale_credit = options.get("minimum_sale_credit", 1);
     m_equip_only = options.get("equip_only", false);
     m_find_equipment_source = options.get("find_equipment_source", false);
     m_preferred_equipment_x = options.get("preferred_equipment_x", -1);
@@ -377,7 +383,7 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
         if (!m_equip_only || m_replaced.empty()) {
             return false;
         }
-        if (m_name != "盟约之币") {
+        if (!is_immediate_cash_equipment(m_name)) {
             const auto profile =
                 std::find_if(equipment_profiles().begin(), equipment_profiles().end(), [&](const auto& item) {
                     return item.name == m_name;
@@ -386,7 +392,8 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
             const bool pact_recruitment = m_name == "寻呼模块" && !m_pact_recruitment_pact.empty();
             const bool next_round_cash = is_deferred_cash_equipment(m_name);
             if (profile == equipment_profiles().end() ||
-                (profile->consumable && !pact_recruitment && !next_round_cash && !m_promotion_consumable) ||
+                (profile->consumable && !pact_recruitment && !next_round_cash && m_identity_tag_pact.empty() &&
+                 !m_promotion_consumable) ||
                 !expected || expected->size() >= static_cast<size_t>(equipment_capacity(m_replaced, m_target_elite)) ||
                 (pact_recruitment && !expected->empty()) || !options.get("target_equipment_known", false)) {
                 return false;
@@ -401,6 +408,11 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
                 m_expected_equipment.push_back(item.as_string());
             }
         }
+    }
+    if (!m_identity_tag_pact.empty() &&
+        (m_name != "随身身份牌" || !m_find_equipment_source || !m_equip_only ||
+         !safe_identity_tag_recipient(m_replaced, m_identity_tag_pact, m_target_elite, m_expected_equipment))) {
+        return false;
     }
     m_round = options.get("round", -1);
     m_funds = options.get("funds", -1);
@@ -466,7 +478,7 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
         return false;
     }
     if (m_sell_only && ((!m_find_bench_source && m_source.y < 420) || m_sale_credit < 0 || m_sale_credit > 99 ||
-                        m_funds > 999 - m_sale_credit)) {
+                        m_funds > 999 - m_sale_credit || m_minimum_sale_credit < 1 || m_minimum_sale_credit > 99)) {
         return false;
     }
     const bool destination_valid =
@@ -493,6 +505,61 @@ bool asst::spa::SwapTaskPlugin::verify(AsstMsg msg, const json::value& details) 
 {
     return msg == AsstMsg::SubTaskStart && details.get("subtask", std::string()) == "ProcessTask" &&
            details.get("details", "task", std::string()) == "MiniGame@SPA@SwapOperator";
+}
+
+std::optional<int> asst::spa::SwapTaskPlugin::read_selected_cash_equipment_credit(const cv::Mat& frame) const
+{
+    const bool passbook = m_name == "定期存折";
+    OCRer effect(frame, passbook ? Rect(0, 164, 450, 536) : Rect(0, 350, 450, 350));
+    const auto texts = effect.analyze();
+    if (!texts) {
+        return std::nullopt;
+    }
+    std::string description;
+    std::vector<TextObservation> observations;
+    for (const auto& text : *texts) {
+        if (text.score < .85) {
+            continue;
+        }
+        if (passbook) {
+            observations.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+        }
+        else {
+            description += text.text;
+        }
+    }
+    if (!passbook) {
+        return equipment_cash_gain(m_name, description);
+    }
+    if (operator_panel_identity(observations, { m_name }) != m_name) {
+        return std::nullopt;
+    }
+    std::erase_if(observations, [](const auto& text) { return text.y < 350; });
+    std::sort(observations.begin(), observations.end(), [](const auto& left, const auto& right) {
+        return std::tie(left.y, left.x) < std::tie(right.y, right.x);
+    });
+    for (const auto& text : observations) {
+        description += text.text;
+    }
+    std::erase_if(description, [](char ch) { return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n'; });
+    constexpr std::string_view destruction = "装备时销毁";
+    const auto start = description.find(destruction);
+    const auto suffix = description.find("持有时每回合+1", start);
+    const auto end = description.find(')', suffix);
+    const auto full_width_end = description.find("）", suffix);
+    if (start == std::string::npos || suffix == std::string::npos ||
+        (end == std::string::npos && full_width_end == std::string::npos) ||
+        description.find(destruction, start + destruction.size()) != std::string::npos) {
+        return std::nullopt;
+    }
+    const auto after_end = full_width_end < end ? full_width_end + std::string_view("）").size() : end + 1;
+    // The title and complete effect above were read from this one capture.
+    constexpr std::uint64_t selected_panel_frame = 1;
+    const auto quote = cash_equipment_redemption_quote(
+        { m_name, m_name, description.substr(start, after_end - start), m_round, selected_panel_frame, true, true },
+        m_round,
+        selected_panel_frame);
+    return quote ? std::optional(quote->amount) : std::nullopt;
 }
 
 bool asst::spa::SwapTaskPlugin::reacquire_cash_equipment_source(const Point& verified_source)
@@ -529,16 +596,7 @@ bool asst::spa::SwapTaskPlugin::reacquire_cash_equipment_source(const Point& ver
         close_selection();
         return reject("The reacquired cash source title did not match", candidates);
     }
-    OCRer effect(ctrler()->get_image(), Rect(0, 350, 450, 350));
-    std::string description;
-    if (const auto texts = effect.analyze()) {
-        for (const auto& text : *texts) {
-            if (text.score >= .85) {
-                description += text.text;
-            }
-        }
-    }
-    const auto credit = equipment_cash_gain(m_name, description);
+    const auto credit = read_selected_cash_equipment_credit(ctrler()->get_image());
     if (!credit || *credit != m_equipment_cash_credit) {
         close_selection();
         return reject("The reacquired cash source effect did not match its quote", candidates);
@@ -668,7 +726,10 @@ bool asst::spa::SwapTaskPlugin::restore_preparation()
     return false;
 }
 
-std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(const Point& point, bool allow_sale_head_retry)
+std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(
+    const Point& point,
+    bool allow_sale_head_retry,
+    const std::string& replacement_bench_name)
 {
     m_selected_panel_evidence.clear();
     Point target = point;
@@ -692,25 +753,32 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(const Point
             retry_reference.release();
         }
     }
-    std::vector<std::string> known_names;
-    for (const auto& [name, pacts] : operator_pacts()) {
-        known_names.push_back(name);
-    }
-    for (const auto& profile : equipment_profiles()) {
-        known_names.push_back(profile.name);
-    }
-    for (const auto& summon : SummonRules) {
-        known_names.emplace_back(summon.name);
-    }
+    static const auto known_names = [] {
+        std::vector<std::string> names;
+        for (const auto& [name, pacts] : operator_pacts()) {
+            names.push_back(name);
+        }
+        for (const auto& profile : equipment_profiles()) {
+            names.push_back(profile.name);
+            if (!profile.advanced_effect.empty()) {
+                names.push_back("进阶" + profile.name);
+            }
+        }
+        for (const auto& summon : SummonRules) {
+            names.emplace_back(summon.name);
+        }
+        return names;
+    }();
     for (int attempt = 0; attempt < 2; ++attempt) {
         if (!ctrler()->click(target) || !sleep(180)) {
             return std::nullopt;
         }
         cv::Mat image;
         bool readable_title_seen = false;
-        for (int frame = 0; frame < 2; ++frame) {
+        int frame_limit = 2;
+        for (int frame = 0; frame < frame_limit; ++frame) {
             image = ctrler()->get_image();
-            OCRer name(image, Rect(0, 170, 340, 65));
+            OCRer name(image, frame == 2 ? Rect(0, 165, 350, 75) : Rect(0, 170, 340, 65));
             if (const auto texts = name.analyze()) {
                 std::vector<TextObservation> observations;
                 for (const auto& text : *texts) {
@@ -718,8 +786,9 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(const Point
                     readable_title_seen = readable_title_seen || text.score >= .8;
                 }
                 auto identity = operator_panel_identity(observations, known_names);
-                if (!identity && reread_single_operator_title(image, observations, m_name)) {
-                    identity = m_name;
+                const auto& expected = replacement_bench_name.empty() ? m_name : replacement_bench_name;
+                if (!identity && reread_single_operator_title(image, observations, expected)) {
+                    identity = expected;
                 }
                 if (identity) {
                     m_selected_panel_evidence.remember_recognized_title(image);
@@ -727,10 +796,24 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(const Point
                         return std::nullopt;
                     }
                     LogInfo << "SPA bench identity" << *identity << target.x << target.y;
+                    if (frame == 2) {
+                        auto evidence = basic_info_with_what("SPAReplacementBenchTitleSettled");
+                        evidence["details"] =
+                            json::object { { "round", m_round },           { "expected_name", expected },
+                                           { "observed_name", *identity }, { "source_x", target.x },
+                                           { "source_y", target.y },       { "selection_repeated", false } };
+                        callback(AsstMsg::SubTaskExtraInfo, evidence);
+                    }
                     return identity;
                 }
+                // A partial title grants one more fresh read of this same
+                // selected panel. Verification still requires the normal
+                // confidence threshold and no competing recognized identity.
+                if (bench_replacement_title_needs_settle(observations, replacement_bench_name)) {
+                    frame_limit = 3;
+                }
             }
-            if (frame == 0 && !sleep(120)) {
+            if (frame + 1 < frame_limit && !sleep(frame == 0 ? 120 : 220)) {
                 return std::nullopt;
             }
         }
@@ -957,7 +1040,8 @@ bool asst::spa::SwapTaskPlugin::observe_grid_snapshot(
     // The collapsed-field ledger must remain aligned with this reference.
     // Large camera changes need explicit identity/pose reconstruction, not
     // a guessed assignment of newly observed survivors to old logical cells.
-    const auto projected = registered_field_points(reference, current, points);
+    const auto camera_fit = estimate_camera_projection(reference, current, true);
+    const auto projected = registered_field_points(camera_fit, points);
     if (!projected || projected->size() != members.size()) {
         return false;
     }
@@ -983,7 +1067,7 @@ bool asst::spa::SwapTaskPlugin::observe_grid_snapshot(
             }
         }
     }
-    const auto projection = registered_grid_projection(reference, current, grid_to_reference);
+    const auto projection = registered_grid_projection(camera_fit, grid_to_reference);
     const auto mapped = projection ? registered_grid_members(*projection, aligned) : std::nullopt;
     if (!mapped) {
         save_evidence(current, utils::path("debug/SPA/grid_snapshot_unverified"), false);
@@ -1476,7 +1560,7 @@ bool asst::spa::SwapTaskPlugin::verify_replacement_bench_identity(const std::str
             return false;
         }
         ++probes;
-        const bool matched = bench_identity(candidate) == name;
+        const bool matched = bench_identity(candidate, false, name) == name;
         if (!close_selection()) {
             return false;
         }
@@ -3225,8 +3309,17 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
         modal_visible = direction_modal_visible(placement);
     }
     save_evidence(placement, utils::path("debug/SPA/spatial_direction_preview"), false);
-    if (modal_visible) {
-        if (const auto projected = registered_grid_projection(map, placement, board.grid_to_screen)) {
+    std::optional<cv::Mat> placement_grid;
+    bool placement_registration_attempted = false;
+    const auto project_placement_grid = [&]() -> const std::optional<cv::Mat>& {
+        if (!placement_registration_attempted) {
+            placement_registration_attempted = true;
+            placement_grid = registered_grid_projection(map, placement, board.grid_to_screen);
+        }
+        return placement_grid;
+    };
+    if (modal_visible && preparation_boss_health_bar(placement)) {
+        if (const auto& projected = project_placement_grid()) {
             observe_boss_attackable_region(placement, *projected);
         }
     }
@@ -3239,13 +3332,12 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
         // The UI diamond's center is an approximate hint, not a floor feature.
         // Snap only after the complete camera fit maps that hint back to the
         // exact legal, vacant, actually-green destination already checked above.
-        const auto placement_grid = registered_grid_projection(map, placement, board.grid_to_screen);
-        if (placement_grid) {
+        if (const auto& grid_to_placement = project_placement_grid()) {
             std::vector<cv::Point2f> cell;
             cv::perspectiveTransform(
                 std::vector<cv::Point2f> { { static_cast<float>(center->x), static_cast<float>(center->y + 20) } },
                 cell,
-                placement_grid->inv());
+                grid_to_placement->inv());
             if (cell.size() == 1 && std::isfinite(cell.front().x) && std::isfinite(cell.front().y) &&
                 std::abs(cell.front().x - m_reorient_col) <= .35 && std::abs(cell.front().y - m_reorient_row) <= .35) {
                 foot =
@@ -3737,7 +3829,16 @@ bool asst::spa::SwapTaskPlugin::_run()
             }
             const auto identity = bench_identity(Point(candidates[index].x, candidates[index].y));
             if (identity && equipment_title_matches(m_name, *identity)) {
-                if (m_name == "盟约之币" || is_deferred_cash_equipment(m_name)) {
+                if (is_immediate_cash_equipment(m_name)) {
+                    const auto credit = read_selected_cash_equipment_credit(ctrler()->get_image());
+                    if (!credit || *credit < m_minimum_cash_credit || m_funds > 999 - *credit) {
+                        m_equipment_stage = "cash_quote_unusable";
+                        close_selection();
+                        return false;
+                    }
+                    m_equipment_cash_credit = *credit;
+                }
+                else if (is_deferred_cash_equipment(m_name)) {
                     OCRer effect(ctrler()->get_image(), Rect(0, 350, 450, 350));
                     std::string description;
                     if (const auto texts = effect.analyze()) {
@@ -3747,22 +3848,16 @@ bool asst::spa::SwapTaskPlugin::_run()
                             }
                         }
                     }
-                    const auto amount = m_name == "盟约之币" ? equipment_cash_gain(m_name, description)
-                                                             : equipment_next_round_cash_gain(m_name, description);
+                    const auto amount = equipment_next_round_cash_gain(m_name, description);
                     if (!amount) {
                         return false;
                     }
-                    if (m_name == "盟约之币") {
-                        m_equipment_cash_credit = *amount;
-                    }
-                    else {
-                        m_equipment_next_round_credit_quote = *amount;
-                    }
+                    m_equipment_next_round_credit_quote = *amount;
                 }
                 if (!close_selection() || !ensure_expanded_shop()) {
                     return false;
                 }
-                if (m_name == "盟约之币") {
+                if (is_immediate_cash_equipment(m_name)) {
                     if (!reacquire_cash_equipment_source(Point(candidates[index].x, candidates[index].y))) {
                         return false;
                     }
@@ -3852,7 +3947,8 @@ bool asst::spa::SwapTaskPlugin::_run()
         // Derive occupied slot centres from the visible tier badges.  Do not
         // probe a geometric grid: empty slots and map props can open the same
         // operator panel and were the cause of the old click/cancel loop.
-        const bool find_christine = m_deploy_only && m_name == "Miss.Christine";
+        // The compact sprite needs the same bench hitbox for deployment and sale.
+        const bool find_christine = m_name == "Miss.Christine";
         const auto christine_sprite = [find_christine](const cv::Mat& frame, const Point& point) {
             return find_christine && bench_christine_sprite_visible(frame, cv::Point(point.x, point.y));
         };
@@ -4133,8 +4229,8 @@ bool asst::spa::SwapTaskPlugin::_run()
                 callback(AsstMsg::SubTaskExtraInfo, quoted);
             }
         }
-        if (!quote || (m_sale_credit > 0 && m_sale_credit != *quote) || m_funds > 999 - *quote ||
-            !current_identity(m_name) || !selected_form_matches(sale_image, m_name)) {
+        if (!quote || *quote < m_minimum_sale_credit || (m_sale_credit > 0 && m_sale_credit != *quote) ||
+            m_funds > 999 - *quote || !current_identity(m_name) || !selected_form_matches(sale_image, m_name)) {
             save_evidence(sale_image, utils::path("debug/SPA/sale_quote_unverified"), false);
             return false;
         }
@@ -4667,7 +4763,7 @@ bool asst::spa::SwapTaskPlugin::_run()
             return false;
         }
     }
-    if (m_find_equipment_source && m_name != "盟约之币") {
+    if (m_find_equipment_source && !is_immediate_cash_equipment(m_name)) {
         m_equipment_stage = "existing_equipment";
         // More than the base capacity requires live form evidence. A stale
         // elite flag must not make an ordinary prototype lose existing gear.
@@ -4699,7 +4795,7 @@ bool asst::spa::SwapTaskPlugin::_run()
             if (!ensure_expanded_shop() || !m_equipment_source_index) {
                 return false;
             }
-            if (m_name == "盟约之币") {
+            if (is_immediate_cash_equipment(m_name)) {
                 if (!reacquire_cash_equipment_source(m_source)) {
                     return false;
                 }
@@ -4815,7 +4911,43 @@ bool asst::spa::SwapTaskPlugin::_run()
         }
         std::optional<int> defense_before;
         std::optional<int> unyielding_before;
-        if (id_tag) {
+        std::optional<int> pact_before;
+        std::optional<int> tag_quote;
+        std::vector<cv::Point> tag_inventory;
+        if (id_tag && !m_identity_tag_pact.empty()) {
+            m_equipment_stage = "identity_tag_source_recheck";
+            const auto title = bench_identity(m_source);
+            if (!title || !equipment_title_matches(m_name, *title)) {
+                return false;
+            }
+            std::string description;
+            OCRer effects(ctrler()->get_image(), Rect(0, 350, 450, 350));
+            if (const auto texts = effects.analyze()) {
+                for (const auto& text : *texts) {
+                    if (text.score >= .85) {
+                        description += text.text;
+                    }
+                }
+            }
+            tag_quote = identity_tag_growth_quote(description);
+            if (!tag_quote || !close_selection() || !ensure_expanded_shop()) {
+                return false;
+            }
+            const auto before = ctrler()->get_image();
+            tag_inventory = equipment_inventory_candidates(before);
+            const auto source_matches = [&](const auto& point) {
+                return cv::norm(point - cv::Point(m_source.x, m_source.y)) < 15;
+            };
+            const auto slot = std::find_if(tag_inventory.begin(), tag_inventory.end(), source_matches);
+            pact_before = pact_layers(before, m_identity_tag_pact);
+            if (slot == tag_inventory.end() ||
+                std::count_if(tag_inventory.begin(), tag_inventory.end(), source_matches) != 1 || !pact_before ||
+                *pact_before < 0 || *pact_before + *tag_quote > 999) {
+                return false;
+            }
+            m_source = Point(slot->x, slot->y);
+        }
+        else if (id_tag) {
             // This first consumable verification covers the reviewed dual-pact target.
             if (m_replaced != "摆渡人") {
                 return false;
@@ -4829,7 +4961,7 @@ bool asst::spa::SwapTaskPlugin::_run()
         if (m_find_equipment_source) {
             m_equipment_stage = "held_target";
         }
-        if (m_find_equipment_source && m_name == "盟约之币") {
+        if (m_find_equipment_source && is_immediate_cash_equipment(m_name)) {
             // The source title/effect and recipient identity were rechecked
             // above. Only this one subsequent contact may explain the quote.
             m_cash_input_chain_verified = true;
@@ -4978,7 +5110,7 @@ bool asst::spa::SwapTaskPlugin::_run()
             save_evidence(ctrler()->get_image(), utils::path("debug/SPA/pact_recruitment_unverified"), false);
             return false;
         }
-        if (m_find_equipment_source && m_name == "盟约之币") {
+        if (m_find_equipment_source && is_immediate_cash_equipment(m_name)) {
             // Cash changes the HUD funds, so the old preparation snapshot
             // cannot be matched until the new wallet has been verified.
             if (!ensure_expanded_shop()) {
@@ -5002,7 +5134,8 @@ bool asst::spa::SwapTaskPlugin::_run()
                     *observed_round,
                     m_funds,
                     m_equipment_cash_credit,
-                    *after)) {
+                    *after,
+                    m_name)) {
                 save_evidence(ctrler()->get_image(), utils::path("debug/SPA/cash_equipment_unreconciled"), false);
                 return false;
             }
@@ -5036,6 +5169,35 @@ bool asst::spa::SwapTaskPlugin::_run()
             callback(AsstMsg::SubTaskExtraInfo, info);
             if (!restore_preparation()) {
                 return false;
+            }
+            if (pact_before && tag_quote) {
+                if (!ensure_expanded_shop()) {
+                    return false;
+                }
+                const auto after = ctrler()->get_image();
+                const auto layers = pact_layers(after, m_identity_tag_pact);
+                m_equipment_consumption_verified = inventory_slot_removal_observed(
+                    tag_inventory,
+                    equipment_inventory_candidates(after),
+                    { m_source.x, m_source.y });
+                const bool verified = layers && *layers == *pact_before + *tag_quote;
+                info =
+                    basic_info_with_what(verified ? "SPAConsumableEffectVerified" : "SPAConsumableEffectUnconfirmed");
+                info["details"] = json::object { { "equipment", m_name },
+                                                 { "operator", m_replaced },
+                                                 { "round", m_round },
+                                                 { "pact", m_identity_tag_pact },
+                                                 { "layers_before", *pact_before },
+                                                 { "layers_after", layers.value_or(-1) },
+                                                 { "quoted_gain", *tag_quote },
+                                                 { "inventory_consumption_verified", m_equipment_consumption_verified },
+                                                 { "effect_verified", verified } };
+                callback(AsstMsg::SubTaskExtraInfo, info);
+                m_equipment_stage = verified ? "verified" : "layer_delta_unverified";
+                if (!verified) {
+                    save_evidence(after, utils::path("debug/SPA/consumable_effect_unverified"), false);
+                }
+                return verified;
             }
             const auto defense_after = pact_layers(ctrler()->get_image(), "坚守");
             const auto unyielding_after = pact_layers(ctrler()->get_image(), "不屈");

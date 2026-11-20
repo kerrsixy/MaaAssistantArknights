@@ -1,6 +1,7 @@
 #pragma once
 
 #include <meojson/json.hpp>
+#include <string_view>
 
 namespace asst::spa
 {
@@ -16,6 +17,26 @@ inline bool settled_run_returned(const json::value& receipt)
     return receipt.get("return_home_verified", false) && receipt.get("result_text_verified", false) &&
            !receipt.get("contradictory", true) &&
            (receipt.get("result_completed", false) != receipt.get("result_interrupted", false));
+}
+
+// A solo victory requires a completed, captured result for this mode and a
+// preceding battle in the same lifecycle. Acceptance can impose more gates.
+inline bool verified_solo_victory(const json::value& receipt, std::string_view mode, int difficulty)
+{
+    if (!settled_run_returned(receipt) || !receipt.get("result_completed", false) ||
+        !receipt.get("result_frame_saved", false) || !receipt.get("battle_seen", false) ||
+        receipt.get("result_joint", true) || !receipt.get("passed_rounds_known", false)) {
+        return false;
+    }
+    const int passed_rounds = receipt.get("passed_rounds", -1);
+    const bool difficulty_known = receipt.get("result_difficulty_known", false);
+    if (mode == "quick") {
+        return !difficulty_known && passed_rounds == 9 &&
+               receipt.get("result_difficulty_name", std::string()) == "极速模拟";
+    }
+    return mode == "independent" && difficulty >= 1 && difficulty <= 20 && difficulty_known &&
+           receipt.get("result_difficulty", -1) == difficulty &&
+           (passed_rounds == 14 || (difficulty >= 5 && passed_rounds == 15));
 }
 
 inline bool round_settlement_can_be_retained(const json::value& receipt)

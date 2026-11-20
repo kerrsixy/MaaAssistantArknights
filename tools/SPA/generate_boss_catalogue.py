@@ -65,24 +65,47 @@ def build_catalogue(activity, handbook, enemies, levels):
                              'Advertised family alone does not identify its hidden variant.'])
 
 
+def movement_waypoints(record):
+    route = record['route']
+    if record['stationary_route']:
+        return []
+    patrol = [step['position'] for step in route['checkpoints'] if step['type'] == 'PATROL_MOVE']
+    if patrol:
+        return patrol
+    points = [step['position'] for step in route['checkpoints'] if step['type'] == 'MOVE']
+    end = route['endPosition']
+    if end != record['template_home'] and (not points or points[-1] != end):
+        points.append(end)
+    return points
+
+
 def cpp_header(data):
+    routes = [movement_waypoints(record) for record in data['bosses']]
+    max_waypoints = max((len(route) for route in routes), default=0)
     lines = ['#pragma once', '', '#include <array>', '#include <string_view>', '', 'namespace asst::spa', '{',
              '// Generated from pinned solo battle templates and season bossInfoDict.',
+             'struct SeasonBossWaypoint { int col, row; };',
              'struct SeasonBossRecord {',
              'std::string_view id, enemy_id, family_name;',
              'bool hidden, stationary_route;',
              'int template_home_col, template_home_row, spawn_col, spawn_row;',
              'double spawn_offset_x, spawn_offset_y, time_limit_seconds;',
-             'std::array<int, 20> hp_by_difficulty;', '};',
+             'std::array<int, 20> hp_by_difficulty;',
+             f'std::array<SeasonBossWaypoint, {max_waypoints}> movement_waypoints;',
+             'int waypoint_count;', '};',
              f'inline constexpr std::array<SeasonBossRecord, {len(data["bosses"])}> SeasonBossCatalogue {{{{']
-    for row in data['bosses']:
+    for row, waypoints in zip(data['bosses'], routes, strict=True):
         home, start, offset = row['template_home'], row['route']['startPosition'], row['route']['spawnOffset']
         hp = [row['hp_by_mode'].get(f'mode_single_{d}', 0) for d in range(1, 21)]
         values = [json.dumps(row[k], ensure_ascii=False) for k in ['boss_id', 'enemy_id', 'family_name']]
         values += [str(row[k]).lower() for k in ['hidden', 'stationary_route']]
         values += [str(x) for x in [home['col'], home['row'], start['col'], start['row'],
                                    offset['x'], offset['y'], row['time_limit_seconds']]]
-        lines.append('    { ' + ', '.join(values) + ', {{ ' + ', '.join(map(str, hp)) + ' }} },')
+        hp_values = [f'{value:_}'.replace('_', "'") if value >= 10000 else str(value) for value in hp]
+        points = ', '.join(f'{{ {point["col"]}, {point["row"]} }}' for point in waypoints)
+        points_array = '{{ ' + points + ' }}' if points else '{}'
+        lines.append('    { ' + ', '.join(values) + ', {{ ' + ', '.join(hp_values) + ' }}, '
+                     + points_array + ', ' + str(len(waypoints)) + ' },')
     lines += ['}};', '}', '']
     return '\n'.join(lines)
 

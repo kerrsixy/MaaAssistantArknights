@@ -719,6 +719,12 @@ int main()
         (cv::Mat_<double>(3, 3) << 80, 0, gear_preview.target.x - 160, 0, 60, gear_preview.target.y - 60, 0, 0, 1);
     const auto collapsed_grid = registered_grid_projection(gear_held, gear_normal, held_grid);
     assert(collapsed_grid);
+    const auto reusable_fit = estimate_camera_projection(gear_held, gear_normal, true);
+    assert(registered_field_points(reusable_fit, { gear_preview.target }) == mapped_field);
+    const auto reused_grid = registered_grid_projection(reusable_fit, held_grid);
+    assert(reused_grid && cv::norm(*reused_grid, *collapsed_grid) < 1e-6);
+    assert(!registered_field_points(CameraProjection {}, { gear_preview.target }));
+    assert(!registered_grid_projection(CameraProjection {}, held_grid));
     std::vector<cv::Point2f> known_cell;
     cv::perspectiveTransform(std::vector<cv::Point2f> { { 2, 1 } }, known_cell, *collapsed_grid);
     assert(known_cell.size() == 1 && cv::norm(known_cell.front() - cv::Point2f(800, 185)) < 4);

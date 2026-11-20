@@ -1,8 +1,11 @@
 #pragma once
 
+#include "SPADeploymentReview.h"
 #include "SPAFormation.h"
 #include "SPAGrowth.h"
 #include "SPAPlacementPolicy.h"
+#include <cstddef>
+#include <set>
 
 namespace asst::spa
 {
@@ -91,6 +94,87 @@ inline int spatial_growth_pair_value(
     }
     const bool improved_sale_quote = source == "旅骨" && pact == "伊比利亚" && has_iberia_sale_price_trait(target);
     return (pact == primary ? 1200 : 600) + (improved_sale_quote ? 600 : 0);
+}
+
+inline bool has_preparation_adjacency_growth(const std::string& name)
+{
+    const auto formula = growth_profiles().find(name);
+    if (formula == growth_profiles().end() || !formula->second.dynamic_recipients ||
+        growth_recipient_offset(name) == 0) {
+        return false;
+    }
+    const auto& profile = formula->second;
+    return (profile.phase == GrowthPhase::PreparationEnd || profile.phase == GrowthPhase::PreparationStart) &&
+           (profile.kind == GrowthKind::FixedPhase || profile.kind == GrowthKind::SalePriceDependent);
+}
+
+// Relative priority for the eligible recipient; this is neither a sale
+// quote nor a measurement of layers or the next battle's damage.
+inline int
+    primary_preparation_adjacency_value(const std::vector<GridPlacementMember>& members, const std::string& primary)
+{
+    if (primary.empty() || !same_row_growth_populations(members)) {
+        return 0;
+    }
+    int result = 0;
+    for (const auto& source : members) {
+        const auto [dx, dy] = growth_facing_step(source.facing);
+        if ((!dx && !dy) || !has_preparation_adjacency_growth(source.name)) {
+            continue;
+        }
+        const int offset = growth_recipient_offset(source.name);
+        const auto target = std::find_if(members.begin(), members.end(), [&](const auto& member) {
+            return member.col == source.col + offset * dx && member.row == source.row + offset * dy;
+        });
+        if (target != members.end()) {
+            result += spatial_growth_pair_value(source.name, target->name, primary, primary);
+        }
+    }
+    return result;
+}
+
+// Count the contact and immediate approach cells monitored by a freeze
+// stacker and covered by a different cold source. This is range geometry,
+// not a prediction of skill casts, status immunity or actual stack gain.
+inline int freeze_growth_coverage(
+    const std::vector<DeploymentUnit>& units,
+    const std::vector<DeploymentLane>& lanes,
+    const std::set<std::string>& cold_sources,
+    const std::set<std::string>& stackers)
+{
+    if (cold_sources.empty() || stackers.empty()) {
+        return 0;
+    }
+    std::set<BoardCell> engagement;
+    for (const auto& lane : lanes) {
+        const auto contact = std::find_if(lane.path.begin(), lane.path.end(), [&](BoardCell cell) {
+            return std::any_of(units.begin(), units.end(), [&](const auto& unit) {
+                return unit.cell == cell && unit.frontline && unit.holds_position && !unit.healer &&
+                       unit.block_count > 0;
+            });
+        });
+        if (contact == lane.path.end()) {
+            continue;
+        }
+        const auto preceding = std::min<std::ptrdiff_t>(lane.precontact_cells, contact - lane.path.begin());
+        engagement.insert(contact - preceding, contact + 1);
+    }
+    int coverage = 0;
+    for (const auto& stacker : units) {
+        if (!stackers.contains(stacker.id)) {
+            continue;
+        }
+        for (const auto cell : engagement) {
+            if (range_covers(stacker, cell) &&
+                std::any_of(units.begin(), units.end(), [&](const auto& source) {
+                    return source.id != stacker.id && cold_sources.contains(source.id) && source.damage_output &&
+                           range_covers(source, cell);
+                })) {
+                ++coverage;
+            }
+        }
+    }
+    return coverage;
 }
 
 // Directed giver/recipient relationships are counted once, including

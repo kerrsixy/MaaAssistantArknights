@@ -125,6 +125,7 @@ struct EgirFormationContext
     // while the planner still has an opportunity to examine alternatives.
     std::function<bool(const std::vector<DeploymentUnit>&)> target_admissible;
     bool boss_opening_only = false;
+    std::vector<BoardCell> boss_movement_waypoints;
 };
 
 // Append a preferred physical member only when it can occupy the next
@@ -153,6 +154,7 @@ struct EgirFormationPlan
     bool attacking_core_separate_from_chain = false;
     int boss_priority_attackers = 0;
     int boss_chain_attack_priority = 0;
+    int boss_core_movement_waypoints = 0;
     std::vector<std::string> chain;
     std::vector<DeploymentUnit> units;
     EgirConsumptionProjection conditional_consumption;

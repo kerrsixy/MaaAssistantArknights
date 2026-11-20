@@ -1,11 +1,33 @@
 #pragma once
 
+#include <algorithm>
+#include <optional>
 #include <string_view>
 
 #include "MaaUtils/NoWarningCV.hpp"
 
 namespace asst::spa
 {
+inline std::optional<int> opening_strategy_countdown_seconds(std::string_view text)
+{
+    if (text.empty() || text.size() > 2) {
+        return std::nullopt;
+    }
+    int seconds = 0;
+    for (const char digit : text) {
+        if (digit < '0' || digit > '9') {
+            return std::nullopt;
+        }
+        seconds = seconds * 10 + (digit - '0');
+    }
+    return seconds;
+}
+
+inline int opening_strategy_inspection_seconds(std::optional<int> countdown)
+{
+    return std::clamp(countdown.value_or(24) - 8, 0, 38);
+}
+
 inline bool strategy_unavailable_label(std::string_view compact_text)
 {
     return compact_text.find("未解锁") != std::string_view::npos ||

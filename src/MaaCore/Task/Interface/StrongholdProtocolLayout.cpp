@@ -266,9 +266,19 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
                 spa::estimate_boss_opening_footprint(m_spatial_grid_reference, *bar, m_spatial_grid_projection);
         }
     }
+    std::vector<spa::BoardCell> movement_waypoints;
+    if (boss_round && m_mode == "independent" && boss_mobility.known && !boss_mobility.stationary_route &&
+        !m_layout_lanes.empty() && !m_layout_lanes.front().path.empty()) {
+        movement_waypoints =
+            spa::boss_objective(m_advertised_boss_family, m_layout_lanes.front().path.back(), m_difficulty)
+                .movement_waypoints;
+    }
     std::string boss_context;
     for (const auto& [col, row] : boss_cells) {
         boss_context += "#boss-cell:" + std::to_string(col) + "." + std::to_string(row);
+    }
+    for (const auto& [col, row] : movement_waypoints) {
+        boss_context += "#boss-waypoint:" + std::to_string(col) + "." + std::to_string(row);
     }
     std::string pact_context;
     for (const auto& pact : std::set<std::string>(active_pacts.begin(), active_pacts.end())) {
@@ -355,7 +365,8 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         }
         return std::nullopt;
     };
-    const auto healing_action = boss_cells.empty() ? healing_repair() : std::nullopt;
+    const bool boss_attack_planned = !boss_cells.empty() || !movement_waypoints.empty();
+    const auto healing_action = boss_attack_planned ? std::nullopt : healing_repair();
     if (healing_action) {
         m_dynamic_layout_target.clear();
         m_dynamic_layout_expected_cells.clear();
@@ -422,8 +433,40 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     for (const auto& lane : m_layout_lanes) {
         active_paths.push_back(lane.path);
     }
-    const auto trait_preference = [&](const std::vector<spa::DeploymentUnit>& candidate) {
+    const auto layout_grid = [&](const std::vector<spa::DeploymentUnit>& candidate) {
         std::vector<spa::GridPlacementMember> grid;
+        grid.reserve(candidate.size());
+        for (const auto& unit : candidate) {
+            grid.push_back(
+                { unit.cell.first,
+                  unit.cell.second,
+                  roles.at(unit.id),
+                  names.at(unit.id),
+                  directions_known.contains(unit.id) ? unit.facing : '\0' });
+        }
+        return grid;
+    };
+    std::set<std::string> cold_sources;
+    std::set<std::string> freeze_stackers;
+    if (!boss_round && round < m_expected_boss_round && m_policy.primary_pact == "谢拉格" &&
+        std::find(active_pacts.begin(), active_pacts.end(), "谢拉格") != active_pacts.end()) {
+        for (const auto& [id, name] : names) {
+            if (name == "初雪" || name == "圣聆初雪") {
+                freeze_stackers.insert(id);
+            }
+            const auto equipped = m_equipped_items.find(name);
+            const bool carries_ice =
+                m_auto_deploy_positions.count(name) == 1 && equipped != m_equipped_items.end() &&
+                std::any_of(equipped->second.begin(), equipped->second.end(), [](const auto& item) {
+                    return item == "谢拉格不融冰" || item == "进阶谢拉格不融冰";
+                });
+            if (carries_ice || name == "灵知" || name == "极光" || name == "耶拉") {
+                cold_sources.insert(id);
+            }
+        }
+    }
+    const auto trait_preference = [&](const std::vector<spa::DeploymentUnit>& candidate) {
+        const auto grid = layout_grid(candidate);
         int engagement = 0;
         for (const auto& unit : candidate) {
             engagement += spa::engagement_position_value(
@@ -432,14 +475,6 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
                 directions_known.contains(unit.id) ? unit.facing : '\0',
                 unit.local_range,
                 terrain->lanes);
-            grid.push_back(
-                { unit.cell.first,
-                  unit.cell.second,
-                  roles.at(unit.id),
-                  names.at(unit.id),
-                  directions_known.contains(unit.id) ? unit.facing : '\0' });
-        }
-        for (const auto& unit : candidate) {
             const auto& name = names.at(unit.id);
             if (spa::needs_screened_position(name) &&
                 spa::support_precedes_frontline(unit.cell, grid, active_paths, true)) {
@@ -458,15 +493,35 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
                 unit.frontline && unit.holds_position);
         }
         const int uncovered = static_cast<int>(spa::uncovered_healable_allies(candidate).size());
-        return engagement - uncovered * 550 + spa::spatial_formation_value(grid, active_pacts, m_policy.primary_pact);
+        const int freeze_coverage =
+            spa::freeze_growth_coverage(candidate, m_layout_lanes, cold_sources, freeze_stackers);
+        return engagement - uncovered * 550 + spa::spatial_formation_value(grid, active_pacts, m_policy.primary_pact) +
+               freeze_coverage * 900;
     };
+    std::function<int(const std::vector<spa::DeploymentUnit>&)> preparation_growth;
+    if (!boss_round && round < m_expected_boss_round && m_policy.last_round_life_loss == 0 &&
+        std::find(active_pacts.begin(), active_pacts.end(), m_policy.primary_pact) != active_pacts.end() &&
+        std::any_of(
+            members.begin(),
+            members.end(),
+            [](const auto& member) { return spa::has_preparation_adjacency_growth(member.name); })) {
+        preparation_growth = [&](const auto& candidate) {
+            return spa::primary_preparation_adjacency_value(layout_grid(candidate), m_policy.primary_pact);
+        };
+    }
     const auto proposal = spa::propose_deployment(
         current,
         m_layout_lanes,
         terrain->buildable,
         layout_action_budget == 8 ? 4000 : 1200,
         trait_preference,
-        boss_cells);
+        boss_cells,
+        movement_waypoints,
+        preparation_growth);
+    json::array movement_targets;
+    for (const auto& [col, row] : movement_waypoints) {
+        movement_targets.emplace_back(json::object { { "col", col }, { "row", row } });
+    }
     auto evidence = basic_info_with_what("SPADynamicLayoutPlanned");
     evidence["details"] = json::object {
         { "round", round },
@@ -488,10 +543,18 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         { "boss_basic_attackers_before", spa::stationary_boss_attackers(current, boss_cells) },
         { "boss_basic_attackers_after", spa::stationary_boss_attackers(proposal.units, boss_cells) },
         { "boss_coverage_improvement", proposal.boss_coverage_improvement },
+        { "boss_movement_waypoints", std::move(movement_targets) },
+        { "boss_movement_coverage_improvement", proposal.boss_movement_coverage_improvement },
         { "boss_basic_attack_weight_before", spa::stationary_boss_attack_weight(current, boss_cells) },
         { "boss_basic_attack_weight_after", spa::stationary_boss_attack_weight(proposal.units, boss_cells) },
         { "boss_damage_verified", false },
         { "spatial_preference_improvement", proposal.preference_improvement },
+        { "freeze_growth_coverage_before",
+          spa::freeze_growth_coverage(current, m_layout_lanes, cold_sources, freeze_stackers) },
+        { "freeze_growth_coverage_after",
+          spa::freeze_growth_coverage(proposal.units, m_layout_lanes, cold_sources, freeze_stackers) },
+        { "preparation_growth_priority", static_cast<bool>(preparation_growth) },
+        { "preparation_growth_preference_improvement", proposal.preparation_growth_preference_improvement },
         { "evaluations", proposal.evaluations },
         { "planning_ms",
           std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - planning_started)
@@ -504,7 +567,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     };
     callback(AsstMsg::SubTaskExtraInfo, evidence);
     if (!proposal.input_complete || !proposal.improved) {
-        return boss_cells.empty() ? std::nullopt : healing_repair();
+        return boss_attack_planned ? healing_repair() : std::nullopt;
     }
     const auto sequence = spa::sequence_deployment(current, proposal.units, 1500);
     if (!sequence.complete || sequence.steps.empty()) {

@@ -57,6 +57,10 @@ int main()
     assert(fixed.known && fixed.stationary_route);
     assert(mobile.known && !mobile.stationary_route);
     assert(!boss_family_mobility("unknown").known);
+    const auto moving_objective = boss_objective("假想敌：鳍", { 2, 4 }, 14);
+    assert(moving_objective.known && !moving_objective.stationary_route && !moving_objective.variant_known);
+    assert((moving_objective.movement_waypoints == std::vector<BoardCell> { { 9, 1 }, { 3, 4 }, { 9, 3 } }));
+    assert(boss_objective("假想敌：管", { 2, 4 }, 14).movement_waypoints.empty());
     const std::vector<BoardCell> cells { { 10, 3 } };
     const auto region = [&](const BossFamilyMobility& mobility,
                             bool phase,
@@ -218,5 +222,11 @@ int main()
         propose_deployment({ guard, medic, main_output }, one_lane, separate_cells, 96, {}, { { 5, 3 } });
     assert(weighted_boss.boss_coverage_improvement == 700);
     assert(stationary_boss_attackers(weighted_boss.units, { { 5, 3 } }) == 1);
+    const std::vector<BoardCell> patrol { { 5, 2 }, { 5, 1 } };
+    const std::vector<DeploymentUnit> patrol_start { guard, medic, main_output };
+    const auto moving_boss = propose_deployment(patrol_start, one_lane, separate_cells, 96, {}, { { 4, 1 } }, patrol);
+    assert(moving_boss.units.front().cell == guard.cell && moving_boss.units.back().facing == 'E');
+    assert(moving_boss.boss_coverage_improvement == -700 && moving_boss.boss_movement_coverage_improvement == 1400);
+    assert(deployment_change_worth_input(moving_boss, sequence_deployment(patrol_start, moving_boss.units)));
     std::cout << "fixed-boss coverage, fallback, guard and cached continuation checks passed\n";
 }

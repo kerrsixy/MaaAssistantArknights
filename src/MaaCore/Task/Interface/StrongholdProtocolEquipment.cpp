@@ -90,6 +90,9 @@ bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value
             // cached candidates or the operator visual hints skipped above.
             m_cash_equipment_source_verified_round = round;
         }
+        else if (name == "定期存折") {
+            m_passbook_source_verified_round = round;
+        }
     }
     m_observed_bench_summons.clear();
     for (const auto& [name, point] : inspect.inspected_summons()) {
@@ -753,10 +756,23 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
             candidates.push_back(name);
         }
     }
-    const auto assignment = spa::choose_equipment_assignment(context, candidates, recipients);
+    auto assignment = spa::choose_equipment_assignment(context, candidates, recipients);
+    const auto layers = m_policy.observed_pact_layers.find(m_policy.primary_pact);
+    if (std::find(candidates.begin(), candidates.end(), "随身身份牌") != candidates.end() &&
+        layers != m_policy.observed_pact_layers.end() && layers->second >= 0 && layers->second <= 996 &&
+        (m_mode != "joint" || state.get("preparation_seconds_remaining", 0) >= 25)) {
+        const auto tag_recipient = std::find_if(recipients.begin(), recipients.end(), [&](const auto& unit) {
+            return unit.slots_known &&
+                   spa::safe_identity_tag_recipient(unit.name, m_policy.primary_pact, unit.elite, unit.equipped);
+        });
+        if (tag_recipient != recipients.end()) {
+            assignment = { true, "随身身份牌", tag_recipient->name, 42 };
+        }
+    }
     if (!assignment.found) {
         return false;
     }
+    const bool identity_tag = assignment.equipment == "随身身份牌";
     m_persistent_equipment_attempts.emplace(round, assignment.equipment);
     const auto target = m_auto_deploy_positions.find(assignment.recipient)->second;
     json::array field;
@@ -783,6 +799,7 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
                                  { "target_equipment_known", true },
                                  { "target_elite", m_policy.owned.at(assignment.recipient).elite },
                                  { "expected_equipment", m_equipped_items.at(assignment.recipient) },
+                                 { "identity_tag_pact", identity_tag ? m_policy.primary_pact : std::string() },
                                  { "target_x", target.first },
                                  { "target_y", target.second },
                                  { "drag_target_x", target.first },
@@ -797,7 +814,15 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
         m_equipment_source_hints[assignment.equipment] = *source_x;
     }
     if (verified) {
-        m_equipped_items.at(assignment.recipient).push_back(assignment.equipment);
+        if (!identity_tag) {
+            m_equipped_items.at(assignment.recipient).push_back(assignment.equipment);
+        }
+        m_equipment_candidates.erase(assignment.equipment);
+        m_equipment_inventory_dirty = true;
+    }
+    else if (identity_tag && equip.equipment_contact_attempted()) {
+        // Reinspect the actual source on another preparation after an
+        // unconfirmed effect. Retain the last known persistent equipment.
         m_equipment_candidates.erase(assignment.equipment);
         m_equipment_inventory_dirty = true;
     }
@@ -817,7 +842,8 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
                                         { "score", assignment.score },
                                         { "input_committed", equip.equipment_committed() },
                                         { "verification_stage", equip.equipment_stage() },
-                                        { "equipped_verified", verified },
+                                        { "equipped_verified", verified && !identity_tag },
+                                        { "consumable_effect_verified", verified && identity_tag },
                                         { "equipment_candidates", equipment_candidates_snapshot() },
                                         { "equipment_slots", equipment_slots_snapshot() },
                                         { "roster", roster_snapshot() },
@@ -974,6 +1000,7 @@ bool asst::StrongholdProtocolTask::reconcile_pending_cash_equipment(const json::
     const int round = state.get("round", -1);
     if (m_pending_cash_equipment) {
         auto& pending = *m_pending_cash_equipment;
+        const auto equipment = pending.get("equipment", std::string("盟约之币"));
         const auto decision = spa::pending_cash_observation(pending, state, need_exit());
         if (decision == spa::CashReconciliation::AlreadyClosed) {
             // An incomplete restored record may not identify its old round.
@@ -995,7 +1022,7 @@ bool asst::StrongholdProtocolTask::reconcile_pending_cash_equipment(const json::
             auto receipt = basic_info_with_what("SPACashEquipmentDeferred");
             receipt["details"] = json::object { { "run_id", m_run_id },
                                                 { "round", round },
-                                                { "equipment", "盟约之币" },
+                                                { "equipment", equipment },
                                                 { "effect_verified", false },
                                                 { "verification_stage", "post_contact_unverified" },
                                                 { "cash_equipment_pending", pending },
@@ -1006,7 +1033,7 @@ bool asst::StrongholdProtocolTask::reconcile_pending_cash_equipment(const json::
         auto receipt = basic_info_with_what("SPAAutomationEquipmentReconciled");
         receipt["details"] = json::object { { "run_id", m_run_id },
                                             { "round", round },
-                                            { "equipment", "盟约之币" },
+                                            { "equipment", equipment },
                                             { "operator", pending.get("operator", std::string()) },
                                             { "funds", state.get("funds", -1) },
                                             { "effect_verified", true },
@@ -1019,7 +1046,7 @@ bool asst::StrongholdProtocolTask::reconcile_pending_cash_equipment(const json::
                                             { "cash_equipment_pending", nullptr },
                                             { "roster", roster_snapshot() } };
         m_pending_cash_equipment.reset();
-        m_equipment_candidates.erase("盟约之币");
+        m_equipment_candidates.erase(equipment);
         receipt["details"]["equipment_candidates"] = equipment_candidates_snapshot();
         m_equipment_inventory_dirty = true;
         m_shopping_complete = false;
@@ -1031,22 +1058,31 @@ bool asst::StrongholdProtocolTask::reconcile_pending_cash_equipment(const json::
     return false;
 }
 
-bool asst::StrongholdProtocolTask::handle_cash_equipment(const json::value& state)
+bool asst::StrongholdProtocolTask::handle_cash_equipment(const json::value& state, int funding_deficit)
 {
     // Pending contacts are reconciled before every other preparation action.
     // Never attribute a later sale/shop balance to an old equipment contact.
     const int round = state.get("round", -1);
+    const bool boss = state.get("preparation_boss_bar_visible", false) ||
+                      (m_spatial_boss_phase && m_spatial_boss_phase_round == round);
+    const bool coin = funding_deficit == 0 && m_equipment_candidates.contains("盟约之币") &&
+                      m_cash_equipment_acquired_round != round && !m_cash_equipment_attempted_rounds.contains(round);
+    const bool passbook = !coin && (boss || funding_deficit > 0) && m_equipment_candidates.contains("定期存折") &&
+                          !m_passbook_attempted_rounds.contains(round);
+    if (!m_policy.dynamic_decision_mode || m_decision_only || !(coin || passbook) || round < 1 || round > 20 ||
+        m_pending_field_replacement || !state.get("funds_known", false) ||
+        !state.get("remaining_deployment_known", false) || m_auto_deploy_positions.empty()) {
+        return false;
+    }
+    const std::string equipment = coin ? "盟约之币" : "定期存折";
+    auto& attempted_rounds = coin ? m_cash_equipment_attempted_rounds : m_passbook_attempted_rounds;
+    const char* attempt_key = coin ? "cash_equipment_attempted_round" : "passbook_attempted_round";
+    const int source_verified_round = coin ? m_cash_equipment_source_verified_round : m_passbook_source_verified_round;
     if (m_pending_cash_equipment && !spa::cash_new_source_allowed(
                                         *m_pending_cash_equipment,
                                         round,
-                                        m_cash_equipment_source_verified_round,
-                                        m_cash_equipment_attempted_rounds.contains(round))) {
-        return false;
-    }
-    if (!m_policy.dynamic_decision_mode || m_decision_only || !m_equipment_candidates.contains("盟约之币") ||
-        m_cash_equipment_acquired_round == round || m_cash_equipment_attempted_rounds.contains(round) ||
-        m_pending_field_replacement || !state.get("funds_known", false) ||
-        !state.get("remaining_deployment_known", false) || m_auto_deploy_positions.empty()) {
+                                        source_verified_round,
+                                        attempted_rounds.contains(round))) {
         return false;
     }
     auto target = m_auto_deploy_positions.end();
@@ -1061,7 +1097,7 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(const json::value& stat
     if (target == m_auto_deploy_positions.end()) {
         return false;
     }
-    m_cash_equipment_attempted_rounds.insert(round);
+    attempted_rounds.insert(round);
     spa::SwapTaskPlugin use(m_callback, m_inst, TaskType);
     use.set_retry_times(0);
     use.set_task_id(m_task_id);
@@ -1074,7 +1110,8 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(const json::value& stat
                            { "y", point.second },
                            { "field_pose_verified", m_verified_field_pose_points.contains(point) } });
     }
-    const json::object options { { "name", "盟约之币" },
+    const json::object options { { "name", equipment },
+                                 { "minimum_cash_credit", std::max(1, funding_deficit) },
                                  { "replaced", target->first },
                                  { "equip_only", true },
                                  { "find_equipment_source", true },
@@ -1090,7 +1127,7 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(const json::value& stat
     // Persist an unknown contact before execution, so a host interruption
     // between release and its receipt cannot silently clear the replay guard.
     const auto closed_contact = m_pending_cash_equipment;
-    m_pending_cash_equipment = json::object { { "equipment", "盟约之币" },
+    m_pending_cash_equipment = json::object { { "equipment", equipment },
                                               { "operator", target->first },
                                               { "source_round", round },
                                               { "funds_before", state.get("funds", -1) },
@@ -1103,10 +1140,10 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(const json::value& stat
     pending_receipt["details"] =
         json::object { { "run_id", m_run_id },
                        { "round", round },
-                       { "equipment", "盟约之币" },
+                       { "equipment", equipment },
                        { "effect_verified", false },
                        { "verification_stage", "execution_pending" },
-                       { "cash_equipment_attempted_round", round },
+                       { attempt_key, round },
                        { "cash_equipment_closed_contact",
                          closed_contact ? json::value(*closed_contact) : json::value(nullptr) },
                        { "closed_contact_effect_verified", false },
@@ -1143,13 +1180,15 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(const json::value& stat
         (*m_pending_cash_equipment)["cash_gain_quote"] = use.equipment_cash_credit();
     }
     else {
-        m_pending_cash_equipment.reset();
+        m_pending_cash_equipment = verified ? std::nullopt : closed_contact;
     }
     if (verified || contact_attempted) {
         // A candidate hint is not a physical inventory count. In particular,
         // same-name equipment may have merged into one advanced item.
-        m_equipment_candidates.erase("盟约之币");
-        m_cash_equipment_acquired_round = -1;
+        m_equipment_candidates.erase(equipment);
+        if (coin) {
+            m_cash_equipment_acquired_round = -1;
+        }
         m_equipment_inventory_dirty = true;
     }
     if (verified) {
@@ -1161,7 +1200,7 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(const json::value& stat
     receipt["details"] =
         json::object { { "run_id", m_run_id },
                        { "round", round },
-                       { "equipment", "盟约之币" },
+                       { "equipment", equipment },
                        { "operator", target->first },
                        { "input_committed", use.equipment_committed() },
                        { "contact_release_attempted", contact_attempted },
@@ -1169,7 +1208,7 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(const json::value& stat
                        { "inventory_removal_observed", use.equipment_consumption_verified() },
                        { "cash_effect_verified", verified },
                        { "attempts", attempts },
-                       { "cash_equipment_attempted_round", round },
+                       { attempt_key, round },
                        { "cash_equipment_pending",
                          m_pending_cash_equipment ? json::value(*m_pending_cash_equipment) : json::value(nullptr) },
                        { "verification_stage", use.equipment_stage() },

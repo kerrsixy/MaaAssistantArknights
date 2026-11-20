@@ -83,8 +83,11 @@ bool opening_strategy_cell_selected(const cv::Mat& image, const asst::Rect& card
         cv::inRange(image(area), cv::Scalar(110, 160, 0), cv::Scalar(255, 255, 105), cyan);
         return cv::countNonZero(cyan) >= area.area() * proportion;
     };
-    return cyan_border(cv::Rect(card.x, card.y + 18, 7, 70), .35) &&
-           cyan_border(cv::Rect(card.x + 7, card.y, 30, 8), .32);
+    const bool left = cyan_border(cv::Rect(card.x, card.y + 18, 7, 70), .35);
+    const bool top_strip = cyan_border(cv::Rect(card.x + 7, card.y, 30, 8), .32);
+    const bool top_corners = cyan_border(cv::Rect(card.x + 1, card.y, 20, 8), .32) &&
+                             cyan_border(cv::Rect(card.x + card.width - 19, card.y, 18, 8), .32);
+    return left && (top_strip || top_corners);
 }
 }
 
@@ -213,6 +216,19 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         return false;
     }
     save_evidence(image, utils::path("debug/SPA/strategy_opening"), false);
+    std::optional<int> countdown_seconds;
+    for (const auto& text : *recognized) {
+        if (text.score >= .9 && text.rect.x >= 1100 && text.rect.x < 1235 && text.rect.y < 72 &&
+            text.rect.height >= 28) {
+            if (const auto seconds = opening_strategy_countdown_seconds(compact(text.text))) {
+                countdown_seconds = std::min(countdown_seconds.value_or(*seconds), *seconds);
+            }
+        }
+    }
+    // Use the conservative capture start and leave time to come back to the
+    // winning viewport, read its details and confirm before the game assigns a card.
+    const auto inspection_deadline =
+        selection_started + std::chrono::seconds(opening_strategy_inspection_seconds(countdown_seconds));
     bool details_open = std::any_of(recognized->begin(), recognized->end(), [](const auto& text) {
         return text.score >= 0.8 && text.text.find("确认选择") != std::string::npos && text.rect.x >= 970;
     });
@@ -278,7 +294,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         int requested_scrolls = 0;
         // Search only by the observed right-hand title/leader. Slot indices
         // cannot identify a strategy across account pools and scrolling.
-        const auto deadline = selection_started + std::chrono::seconds(24);
+        const auto deadline = std::min(inspection_deadline, selection_started + std::chrono::seconds(24));
         cv::Mat last_marker;
         bool requested_unavailable = false;
         for (int page = 0; wanted != identities.end() && requested_mode_available && page < 7 && !need_exit() &&
@@ -399,7 +415,31 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         const auto& silver_badge = templates.get_templ("MiniGame@SPA@StrategySilverMark.png");
         const auto identities = strategy_identities();
         const auto inspection_started = std::chrono::steady_clock::now();
-        const auto deadline = selection_started + std::chrono::seconds(38);
+        const auto deadline = inspection_deadline;
+        std::optional<StrategyIdentity> initially_highlighted;
+        bool initial_identity_conflict = false;
+        bool initial_unavailable = false;
+        for (const auto& text : *recognized) {
+            if (text.score < .85 || text.rect.x < 970) {
+                continue;
+            }
+            const auto value = compact(text.text);
+            initial_unavailable = initial_unavailable || strategy_unavailable_label(value);
+            if (text.rect.y < 345 || text.rect.y >= 455) {
+                continue;
+            }
+            for (const auto& identity : identities) {
+                if (value == identity.name || value == identity.leader) {
+                    initial_identity_conflict =
+                        initial_identity_conflict ||
+                        (initially_highlighted && initially_highlighted->band_id != identity.band_id);
+                    initially_highlighted = identity;
+                }
+            }
+        }
+        const bool use_initial_highlight = details_open && initially_highlighted && !initial_identity_conflict &&
+                                           !initial_unavailable && strategy_confirmation_enabled_on_frame(image) &&
+                                           first_page_observations.empty();
         std::vector<OpeningStrategyCard> candidates;
         std::map<int, std::string> identified;
         std::vector<std::vector<int>> viewport_rows;
@@ -420,9 +460,13 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
             }
             viewport_rows.push_back(rows);
             const int slots = rows.empty() ? 16 : static_cast<int>(rows.size()) * 4;
+            int initially_selected = -1;
             std::vector<OpeningStrategyCard> visible;
             for (int index = 0; index < slots; ++index) {
                 const auto slot = slot_at(index, rows, details_open);
+                if (page == 0 && use_initial_highlight && opening_strategy_cell_selected(image, slot)) {
+                    initially_selected = initially_selected == -1 ? index : -2;
+                }
                 const auto has_badge = [&](const cv::Mat& badge_template) {
                     if (badge_template.empty()) {
                         return false;
@@ -437,19 +481,24 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                     { index, false, completed || (!orange_badge.empty() && !silver_badge.empty()), completed, 0 });
             }
             std::stable_sort(visible.begin(), visible.end(), [&](const auto& a, const auto& b) {
-                return (m_prefer_unclaimed && a.badge_known && !a.completed) >
-                       (m_prefer_unclaimed && b.badge_known && !b.completed);
+                return std::pair(a.index == initially_selected, m_prefer_unclaimed && a.badge_known && !a.completed) >
+                       std::pair(b.index == initially_selected, m_prefer_unclaimed && b.badge_known && !b.completed);
             });
             // Reserve an inspection budget per viewport so a slow first page does not consume the entire search.
             const auto page_deadline = std::min(deadline, std::chrono::steady_clock::now() + std::chrono::seconds(7));
             for (auto& candidate : visible) {
-                if (need_exit() || std::chrono::steady_clock::now() >= page_deadline) {
+                const bool reuse_highlight = page == 0 && candidate.index == initially_selected;
+                if (need_exit() || (!reuse_highlight && std::chrono::steady_clock::now() >= page_deadline)) {
                     break;
                 }
                 std::string id;
                 bool selectable = false;
                 const auto cached = first_page_observations.find(candidate.index);
-                if (page == 0 && cached != first_page_observations.end()) {
+                if (reuse_highlight) {
+                    id = initially_highlighted->band_id;
+                    selectable = true;
+                }
+                else if (page == 0 && cached != first_page_observations.end()) {
                     std::tie(id, selectable) = cached->second;
                 }
                 else {
@@ -506,7 +555,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                                    { "support_score", candidate.support_score },
                                    { "reason", assessment.reason } });
             }
-            if (page == 3 || std::chrono::steady_clock::now() >= deadline) {
+            if (page == 3 || std::chrono::steady_clock::now() + std::chrono::seconds(5) >= deadline) {
                 break;
             }
             last_marker = viewport_marker(ctrler()->get_image());
@@ -572,6 +621,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                              std::chrono::duration_cast<std::chrono::milliseconds>(
                                  std::chrono::steady_clock::now() - inspection_started)
                                  .count() },
+                           { "countdown_seconds_at_opening", countdown_seconds.value_or(-1) },
                            { "identified_cards", identified.size() },
                            { "reused_requested_search_cards", first_page_observations.size() },
                            { "identified_slots", candidates.size() },

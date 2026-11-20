@@ -172,6 +172,7 @@ class ProgressLedger
 public:
     bool apply(const Settlement& settlement, StrategyProgress& progress);
     static bool complete(const StrategyProgress& progress);
+    static bool can_schedule_solo(const StrategyProgress& progress);
     static std::optional<std::string> next_solo(const std::vector<StrategyProgress>& progress);
     static bool next_report_confirms_win(
         const StrategyProgress& before,

@@ -23,6 +23,19 @@ class CashEquipmentCheckpointTests(unittest.TestCase):
         self.assertEqual(checkpoint["cash_equipment_pending"], pending)
         self.assertEqual(checkpoint["cash_equipment_attempted_round"], 8)
 
+    def test_passbook_attempt_preserves_the_same_round_coin_guard(self):
+        checkpoint = merge_receipt(
+            {"run_id": "run-a", "cash_equipment_attempted_round": 8},
+            {
+                "run_id": "run-a",
+                "passbook_attempted_round": 8,
+                "cash_equipment_pending": {"equipment": "定期存折", "source_round": 8},
+            },
+        )
+        self.assertEqual(checkpoint["cash_equipment_attempted_round"], 8)
+        self.assertEqual(checkpoint["passbook_attempted_round"], 8)
+        self.assertEqual(checkpoint["cash_equipment_pending"]["equipment"], "定期存折")
+
     def test_only_explicit_reconciliation_clears_same_run_pending(self):
         previous = {"run_id": "run-a", "cash_equipment_pending": {"unknown": True}}
         resolved = merge_receipt(

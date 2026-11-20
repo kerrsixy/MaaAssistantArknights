@@ -1,5 +1,6 @@
 #pragma once
 
+#include "SPACashEquipmentPolicy.h"
 #include "SPAProjection.h"
 #include <meojson/json.hpp>
 #include <optional>
@@ -46,10 +47,13 @@ inline bool cash_effect_verified(
     int observed_round,
     int funds_before,
     int credit,
-    int funds_after)
+    int funds_after,
+    std::string_view equipment = "盟约之币")
 {
+    const bool valid_credit =
+        equipment == "盟约之币" ? credit == 1 || credit == 2 : equipment == "定期存折" && credit >= 1 && credit <= 999;
     return contact_attempted && source_and_target_verified && source_round >= 1 && source_round <= 20 &&
-           observed_round == source_round && funds_before >= 0 && funds_before <= 999 && (credit == 1 || credit == 2) &&
+           observed_round == source_round && funds_before >= 0 && funds_before <= 999 && valid_credit &&
            funds_after <= 999 && funds_after == funds_before + credit;
 }
 
@@ -99,7 +103,6 @@ inline CashReconciliation pending_cash_observation(const json::object& pending, 
         state.get("round_known", false) && source_round >= 1 && source_round <= 20 && source_round == round;
     const bool known_page = state.get("page", std::string()) == "preparation" && !state.get("contradictory", true);
     if (known_page && known_round && state.get("funds_known", false) &&
-        pending.get("equipment", std::string()) == "盟约之币" &&
         cash_effect_verified(
             contact,
             identities,
@@ -107,7 +110,8 @@ inline CashReconciliation pending_cash_observation(const json::object& pending, 
             round,
             pending.find<int>("funds_before").value_or(-1),
             pending.find<int>("cash_gain_quote").value_or(0),
-            state.get("funds", -1))) {
+            state.get("funds", -1),
+            pending.get("equipment", std::string()))) {
         return CashReconciliation::Verified;
     }
     return known_page && known_round && contact && identities && !stopping &&

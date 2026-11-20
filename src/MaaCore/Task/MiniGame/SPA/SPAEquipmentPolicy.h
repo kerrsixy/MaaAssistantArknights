@@ -73,6 +73,12 @@ EquipmentDecision choose_equipment(const EquipmentContext&, const std::vector<Eq
 // Only a selected coin's explicit destruction/cash description is accepted;
 // a currency icon or an unrelated number is not an amount quote.
 std::optional<int> equipment_cash_gain(const std::string& name, const std::string& description);
+std::optional<int> identity_tag_growth_quote(std::string_view description);
+bool safe_identity_tag_recipient(
+    const std::string& name,
+    const std::string& primary,
+    bool elite,
+    const std::vector<std::string>& equipped);
 bool is_deferred_cash_equipment(std::string_view name);
 bool is_recurring_cash_equipment(std::string_view name);
 std::optional<int> equipment_next_round_cash_gain(const std::string& name, const std::string& description);

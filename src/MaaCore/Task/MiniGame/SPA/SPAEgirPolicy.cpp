@@ -329,7 +329,7 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
         !aim_at_boss &&
         ((!context.defended_chain_prefix.empty() && result.core == context.defended_chain_prefix.front()) ||
          (!context.defended_chain_names.empty() && units[*core].entity.name == context.defended_chain_names.front()));
-    using Score = std::tuple<int, int, double, int, int, double, int, int, int, int, int>;
+    using Score = std::tuple<int, int, int, double, int, int, double, int, int, int, int, int>;
     std::optional<Score> best;
     std::vector<size_t> chain { *core };
     std::vector<BoardCell> chain_cells;
@@ -546,6 +546,10 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
         for (const auto& cell : context.boss_cells) {
             boss_covered += boss_attack_overlaps_cell(candidate[*core], cell);
         }
+        const auto movement_coverage = static_cast<int>(std::count_if(
+            context.boss_movement_waypoints.begin(),
+            context.boss_movement_waypoints.end(),
+            [&](auto cell) { return boss_attack_overlaps_cell(candidate[*core], cell); }));
         if (aim_at_boss
                 ? (context.boss_cells_are_alternatives ? boss_covered != context.boss_cells.size() : !boss_covered)
                 : guarded != context.lanes.size()) {
@@ -585,6 +589,7 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
             }
         }
         const Score score { aim_at_boss ? priority_attackers : guarded,
+                            movement_coverage,
                             aim_at_boss ? static_cast<int>(boss_covered > 0) : boss_covered,
                             aim_at_boss ? source->inherited_base_attack.value_or(0)
                                         : static_cast<double>(projection.conditional_unique_target_layers.value_or(0)),
@@ -605,6 +610,7 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
             result.found = true;
             result.boss_priority_attackers = priority_attackers;
             result.boss_chain_attack_priority = chain_attack_priority;
+            result.boss_core_movement_waypoints = movement_coverage;
             result.units = std::move(candidate);
             result.conditional_consumption = std::move(projection);
             result.changed_units = 0;

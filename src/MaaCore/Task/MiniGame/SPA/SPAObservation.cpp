@@ -265,6 +265,33 @@ bool asst::spa::operator_title_contains_rank_artifact(
     return matching == 1;
 }
 
+bool asst::spa::bench_replacement_title_needs_settle(
+    const std::vector<TextObservation>& texts,
+    const std::string& expected_name)
+{
+    return !expected_name.empty() && std::any_of(texts.begin(), texts.end(), [&](const auto& text) {
+        return text.text == expected_name && std::isfinite(text.score) && text.score >= .80 && text.score < .90 &&
+               text.x >= 0 && text.x < 40 && text.y >= 175 && text.y <= 215;
+    });
+}
+
+bool asst::spa::bench_capacity_warning(const TextObservation& text)
+{
+    return std::isfinite(text.score) && text.score >= .85 && text.x >= 440 && text.x <= 850 && text.y >= 475 &&
+           text.y <= 515 &&
+           (text.text.find("整备区已达上限") != std::string::npos || text.text.find("干员已满") != std::string::npos ||
+            text.text.find("无法继续调度干员") != std::string::npos);
+}
+
+bool asst::spa::selected_purchase_unavailable(const std::vector<TextObservation>& texts, int slot)
+{
+    return slot >= 0 && slot <= 5 && !purchase_confirmation_control(texts, slot) &&
+           std::count_if(texts.begin(), texts.end(), [slot](const auto& text) {
+               return text.text == "无法购买" && std::isfinite(text.score) && text.score >= .85 && text.y >= 620 &&
+                      text.y <= 710 && std::abs(text.x - (1010 - slot * 162)) <= 80;
+           }) == 1;
+}
+
 std::optional<asst::spa::TextObservation>
     asst::spa::purchase_confirmation_control(const std::vector<TextObservation>& texts, int slot)
 {
@@ -328,16 +355,14 @@ std::optional<asst::spa::TextObservation> asst::spa::promotion_short_title_confi
     return titles == 1 && range ? purchase_confirmation_control(texts, slot) : std::nullopt;
 }
 
-bool asst::spa::strategy_report_progress_text_verified(
+bool asst::spa::strategy_report_identity_text_verified(
     const std::vector<TextObservation>& texts,
-    const StrategyIdentity& selected,
-    int wins)
+    const StrategyIdentity& selected)
 {
-    if (wins < 0 || wins > 6 || selected.band_id.empty() || selected.leader.empty() || selected.name.empty()) {
+    if (selected.band_id.empty() || selected.leader.empty() || selected.name.empty()) {
         return false;
     }
-    const auto completed = "已通过模拟" + std::to_string(wins) + "次";
-    int headers = 0, leaders = 0, strategy_names = 0, win_counters = 0;
+    int headers = 0, leaders = 0, strategy_names = 0;
     for (const auto& text : texts) {
         if (!std::isfinite(text.score) || text.score < .90) {
             continue;
@@ -346,6 +371,24 @@ bool asst::spa::strategy_report_progress_text_verified(
         leaders += text.x >= 120 && text.x < 390 && text.y >= 350 && text.y < 418 && text.text == selected.leader;
         strategy_names += text.x >= 20 && text.x < 300 && text.y >= 455 && text.y < 499 &&
                           (text.text == "【" + selected.name + "】" || text.text == selected.name);
+    }
+    return headers == 1 && leaders == 1 && strategy_names == 1;
+}
+
+bool asst::spa::strategy_report_progress_text_verified(
+    const std::vector<TextObservation>& texts,
+    const StrategyIdentity& selected,
+    int wins)
+{
+    if (wins < 0 || wins > 6 || !strategy_report_identity_text_verified(texts, selected)) {
+        return false;
+    }
+    const auto completed = "已通过模拟" + std::to_string(wins) + "次";
+    int win_counters = 0;
+    for (const auto& text : texts) {
+        if (!std::isfinite(text.score) || text.score < .90) {
+            continue;
+        }
         if (text.x >= 220 && text.x < 355 && text.y >= 135 && text.y < 195 && text.text.starts_with("已通过模拟")) {
             if (text.text != completed) {
                 return false;
@@ -353,7 +396,7 @@ bool asst::spa::strategy_report_progress_text_verified(
             ++win_counters;
         }
     }
-    return headers == 1 && leaders == 1 && strategy_names == 1 && win_counters == 1;
+    return win_counters == 1;
 }
 
 bool asst::spa::strategy_badge_report_text_verified(

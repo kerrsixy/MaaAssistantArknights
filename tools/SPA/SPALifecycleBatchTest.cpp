@@ -54,6 +54,31 @@ int main()
     watched_settlement["result_frame_saved"] = true;
     watched_settlement["result_joint"] = true;
     assert(!round_settlement_can_be_retained(watched_settlement));
+    auto victory = watched_settlement;
+    victory["result_joint"] = false;
+    victory["result_interrupted"] = false;
+    victory["result_completed"] = true;
+    victory["return_home_verified"] = true;
+    victory["passed_rounds"] = 14;
+    victory["result_difficulty"] = 3;
+    victory["result_difficulty_known"] = true;
+    assert(verified_solo_victory(victory, "independent", 3));
+    assert(!verified_solo_victory(victory, "independent", 4));
+    assert(!verified_solo_victory(victory, "joint", 3));
+    for (const auto* flag : { "battle_seen", "return_home_verified", "result_frame_saved", "passed_rounds_known" }) {
+        auto incomplete = victory;
+        incomplete[flag] = false;
+        assert(!verified_solo_victory(incomplete, "independent", 3));
+    }
+    victory["passed_rounds"] = 15;
+    assert(!verified_solo_victory(victory, "independent", 3));
+    victory["result_difficulty"] = 20;
+    assert(verified_solo_victory(victory, "independent", 20));
+    victory["result_difficulty_known"] = false;
+    victory["result_difficulty_name"] = "极速模拟";
+    victory["passed_rounds"] = 9;
+    assert(verified_solo_victory(victory, "quick", 0));
+
     assert(!lifecycle_login_start_game_enabled("joint"));
     assert(lifecycle_login_start_game_enabled("quick"));
     assert(lifecycle_login_start_game_enabled("independent"));

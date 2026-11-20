@@ -62,6 +62,9 @@ std::optional<bool> observe_shop_toggle(const TextObservation& text);
 std::optional<TextObservation> shop_expansion_control(const std::vector<TextObservation>& texts, int expected_round);
 // A unique, readable confirmation in the selected card column is required.
 std::optional<TextObservation> purchase_confirmation_control(const std::vector<TextObservation>& texts, int slot);
+bool bench_capacity_warning(const TextObservation& text);
+bool bench_replacement_title_needs_settle(const std::vector<TextObservation>& texts, const std::string& expected_name);
+bool selected_purchase_unavailable(const std::vector<TextObservation>& texts, int slot);
 // A reward-card selection opens its operator panel; it is not a purchase.
 // Confirm only the expected panel identity and the matching card column.
 std::optional<TextObservation> promotion_confirmation_control(
@@ -114,6 +117,8 @@ struct StrategyIdentity
 
 // Text prerequisites for the selected strategy's completion mark. The
 // caller must match the actual mark on this same frame before crediting it.
+bool
+    strategy_report_identity_text_verified(const std::vector<TextObservation>& texts, const StrategyIdentity& selected);
 bool strategy_report_progress_text_verified(
     const std::vector<TextObservation>& texts,
     const StrategyIdentity& selected,

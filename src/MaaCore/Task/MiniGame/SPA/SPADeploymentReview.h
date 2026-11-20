@@ -83,6 +83,8 @@ struct DeploymentProposal
     std::vector<DeploymentUnit> units;
     std::string reason;
     int boss_coverage_improvement = 0;
+    int boss_movement_coverage_improvement = 0;
+    int preparation_growth_preference_improvement = 0;
 };
 
 // Distinct friendly patients covered by a different healer's measured range.
@@ -92,6 +94,9 @@ std::vector<std::string> uncovered_healable_allies(const std::vector<DeploymentU
 // attackable cells from the same boss count at most once for each attacker.
 int stationary_boss_attackers(const std::vector<DeploymentUnit>& units, const std::vector<BoardCell>& boss_cells);
 int stationary_boss_attack_weight(const std::vector<DeploymentUnit>& units, const std::vector<BoardCell>& boss_cells);
+// Sum basic-attack weights over authored movement waypoints. Each waypoint
+// is a hypothetical position at a different time, with equal planning weight.
+int boss_movement_attack_weight(const std::vector<DeploymentUnit>& units, const std::vector<BoardCell>& waypoints);
 
 // Bounded local search; a proposal is not an executable movement sequence or a proof of optimality.
 DeploymentProposal propose_deployment(
@@ -100,7 +105,9 @@ DeploymentProposal propose_deployment(
     const std::vector<BoardCell>& deployable_cells,
     int evaluation_budget = 20'000,
     const std::function<int(const std::vector<DeploymentUnit>&)>& preference = {},
-    const std::vector<BoardCell>& stationary_boss_cells = {});
+    const std::vector<BoardCell>& opening_boss_cells = {},
+    const std::vector<BoardCell>& boss_movement_waypoints = {},
+    const std::function<int(const std::vector<DeploymentUnit>&)>& preparation_growth_preference = {});
 
 enum class DeploymentStepKind
 {

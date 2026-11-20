@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import unittest
 
-from generate_boss_catalogue import route_record
+from generate_boss_catalogue import movement_waypoints, route_record
 
 
 class BossCatalogueTests(unittest.TestCase):
@@ -48,6 +48,14 @@ class BossCatalogueTests(unittest.TestCase):
         short['routes'][0]['spawnRandomRange']['x'] = 1
         with self.assertRaises(ValueError):
             route_record(short, 'boss')
+
+    def test_patrol_uses_ordered_checkpoints_excluding_the_default_home_endpoint(self):
+        mobile = self.bosses['boss_13']
+        self.assertEqual(mobile['route']['endPosition'], mobile['template_home'])
+        self.assertEqual(movement_waypoints(mobile), [
+            {'col': 7, 'row': 4}, {'col': 1, 'row': 1}, {'col': 7, 'row': 2},
+        ])
+        self.assertEqual(movement_waypoints(self.bosses['boss_3']), [])
 
 
 if __name__ == '__main__':

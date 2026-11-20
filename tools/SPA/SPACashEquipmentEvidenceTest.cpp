@@ -46,6 +46,10 @@ int main()
     assert(!cash_effect_verified(true, true, 8, 9, 1, 1, 2));
     assert(!cash_effect_verified(true, true, 8, 8, 1, 0, 1));
     assert(!cash_effect_verified(true, true, 8, 8, 1, 1, 3));
+    assert(cash_effect_verified(true, true, 8, 8, 2, 5, 7, "定期存折"));
+    assert(!cash_effect_verified(true, true, 8, 8, 2, 5, 6, "定期存折"));
+    assert(!cash_effect_verified(true, true, 8, 8, 2, 5, 7, "盟约之币"));
+    assert(!cash_effect_verified(true, true, 8, 8, 2, 5, 7, "见钱眼开玩偶"));
     json::object pending { { "equipment", "盟约之币" },
                            { "source_round", 8 },
                            { "funds_before", 1 },
@@ -62,6 +66,14 @@ int main()
     assert(pending_cash_observation(pending, state, false) == CashReconciliation::AlreadyClosed);
     pending["observation_checked"] = false;
     assert(pending_cash_observation(pending, state, false) == CashReconciliation::Verified);
+    auto passbook_pending = pending;
+    passbook_pending["equipment"] = "定期存折";
+    passbook_pending["cash_gain_quote"] = 5;
+    auto passbook_state = state;
+    passbook_state["funds"] = 6;
+    assert(pending_cash_observation(passbook_pending, passbook_state, false) == CashReconciliation::Verified);
+    passbook_state["round"] = 9;
+    assert(pending_cash_observation(passbook_pending, passbook_state, false) == CashReconciliation::CloseUnknown);
     const auto restored = restored_cash_pending(pending);
     assert(restored.get("observation_checked", false));
     assert(restored.get("attribution_closed_reason", std::string()) == "restored_contact_unknown");

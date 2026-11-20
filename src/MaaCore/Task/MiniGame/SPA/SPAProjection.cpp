@@ -1210,6 +1210,13 @@ std::optional<cv::Point> asst::spa::registered_green_grid_cell_pose(
     return cv::Point(cvRound(target.x), cvRound(target.y));
 }
 
+static bool valid_field_camera_projection(const asst::spa::CameraProjection& fit)
+{
+    return fit.estimated && fit.inliers >= 30 && fit.inliers >= .65 * fit.matches && fit.median_error <= 2 &&
+           fit.source_hull.size() >= 3 && cv::contourArea(fit.source_hull) >= 30'000 && fit.matrix.type() == CV_64FC1 &&
+           fit.matrix.rows == 3 && fit.matrix.cols == 3 && cv::checkRange(fit.matrix);
+}
+
 std::optional<std::vector<cv::Point>> asst::spa::registered_field_points(
     const cv::Mat& before,
     const cv::Mat& after,
@@ -1219,9 +1226,15 @@ std::optional<std::vector<cv::Point>> asst::spa::registered_field_points(
     if (points.empty() || points.size() > 8) {
         return std::nullopt;
     }
-    const auto fit = estimate_camera_projection(before, after, true);
-    if (!fit.estimated || fit.inliers < 30 || fit.inliers < .65 * fit.matches || fit.median_error > 2 ||
-        cv::contourArea(fit.source_hull) < 30'000) {
+    return registered_field_points(estimate_camera_projection(before, after, true), points, view);
+}
+
+std::optional<std::vector<cv::Point>> asst::spa::registered_field_points(
+    const CameraProjection& fit,
+    const std::vector<cv::Point>& points,
+    FieldView view)
+{
+    if (points.empty() || points.size() > 8 || !valid_field_camera_projection(fit)) {
         return std::nullopt;
     }
     std::vector<cv::Point> result;
@@ -1239,16 +1252,11 @@ std::optional<std::vector<cv::Point>> asst::spa::registered_field_points(
     return result;
 }
 
-std::optional<cv::Mat>
-    asst::spa::registered_grid_projection(const cv::Mat& before, const cv::Mat& after, const cv::Mat& grid_to_before)
+std::optional<cv::Mat> asst::spa::registered_grid_projection(const CameraProjection& fit, const cv::Mat& grid_to_before)
 {
     if (grid_to_before.type() != CV_64FC1 || grid_to_before.rows != 3 || grid_to_before.cols != 3 ||
-        !cv::checkRange(grid_to_before) || std::abs(cv::determinant(grid_to_before)) < 1e-8) {
-        return std::nullopt;
-    }
-    const auto fit = estimate_camera_projection(before, after, true);
-    if (!fit.estimated || fit.inliers < 30 || fit.inliers < .65 * fit.matches || fit.median_error > 2 ||
-        cv::contourArea(fit.source_hull) < 30'000) {
+        !cv::checkRange(grid_to_before) || std::abs(cv::determinant(grid_to_before)) < 1e-8 ||
+        !valid_field_camera_projection(fit)) {
         return std::nullopt;
     }
     cv::Mat result = fit.matrix * grid_to_before;
@@ -1256,6 +1264,12 @@ std::optional<cv::Mat>
         return std::nullopt;
     }
     return result;
+}
+
+std::optional<cv::Mat>
+    asst::spa::registered_grid_projection(const cv::Mat& before, const cv::Mat& after, const cv::Mat& grid_to_before)
+{
+    return registered_grid_projection(estimate_camera_projection(before, after, true), grid_to_before);
 }
 
 std::optional<std::vector<cv::Point>> asst::spa::registered_held_field_points(
@@ -1270,7 +1284,8 @@ std::optional<std::vector<cv::Point>> asst::spa::registered_held_field_points(
         source_cell.first > 10 || source_cell.second < 0 || source_cell.second > 4) {
         return std::nullopt;
     }
-    const auto held_grid = registered_grid_projection(before, held, grid_to_before);
+    const auto fit = estimate_camera_projection(before, held, true);
+    const auto held_grid = registered_grid_projection(fit, grid_to_before);
     if (!held_grid) {
         return std::nullopt;
     }
@@ -1286,7 +1301,7 @@ std::optional<std::vector<cv::Point>> asst::spa::registered_held_field_points(
     }
     auto peers = points;
     peers.erase(peers.begin() + static_cast<std::ptrdiff_t>(held_source));
-    const auto projected = registered_field_points(before, held, peers, FieldView::Held);
+    const auto projected = registered_field_points(fit, peers, FieldView::Held);
     if (!projected) {
         return std::nullopt;
     }

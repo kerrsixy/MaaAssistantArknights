@@ -1,4 +1,5 @@
 #include "SPAEquipmentPolicy.h"
+#include "SPACashEquipmentPolicy.h"
 #include "SPACombatStats.h"
 #include "SPAConsumablePolicy.h"
 #include "SPAEquipmentCatalogue.h"
@@ -199,6 +200,42 @@ std::optional<int> asst::spa::equipment_cash_gain(const std::string& name, const
     return normal != advanced ? std::optional<int>(normal ? 1 : 2) : std::nullopt;
 }
 
+std::optional<int> asst::spa::identity_tag_growth_quote(std::string_view description)
+{
+    if (description.find("装备时销毁") == std::string_view::npos ||
+        description.find("无需激活盟约") == std::string_view::npos) {
+        return std::nullopt;
+    }
+    const auto grant = [&](std::string_view token) {
+        const auto start = description.find(token);
+        if (start == std::string_view::npos) {
+            return false;
+        }
+        const auto end = start + token.size();
+        return end == description.size() || description[end] < '0' || description[end] > '9';
+    };
+    const bool normal = grant("所属盟约层数+3");
+    const bool advanced = grant("所属盟约层数+6");
+    return normal != advanced ? std::optional(normal ? 3 : 6) : std::nullopt;
+}
+
+bool asst::spa::safe_identity_tag_recipient(
+    const std::string& name,
+    const std::string& primary,
+    bool elite,
+    const std::vector<std::string>& equipped)
+{
+    static const auto catalog = operator_pacts();
+    const auto found = catalog.find(name);
+    return found != catalog.end() &&
+           std::find(found->second.begin(), found->second.end(), primary) != found->second.end() &&
+           equipped.size() < static_cast<size_t>(equipment_capacity(name, elite)) &&
+           std::none_of(
+               equipped.begin(),
+               equipped.end(),
+               [](const auto& item) { return equipment_title_matches("变形同构体", item); });
+}
+
 bool asst::spa::is_recurring_cash_equipment(std::string_view name)
 {
     return name == "精打细算玩偶";
@@ -369,6 +406,10 @@ asst::spa::EquipmentDecision
             continue;
         }
         if (!context.free_supply && context.shop_level > 0 && offer.tier > 0 && offer.tier > context.shop_level) {
+            continue;
+        }
+        if (offer.name == "定期存折" && !context.free_supply &&
+            !profitable_passbook_purchase(context.round, context.boss_round, offer.price)) {
             continue;
         }
         const bool profitable_toy = profitable_next_round_cash_offer(context, offer);

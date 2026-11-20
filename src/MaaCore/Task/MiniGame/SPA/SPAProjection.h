@@ -193,6 +193,10 @@ std::optional<std::vector<cv::Point>> registered_field_points(
     const cv::Mat& after,
     const std::vector<cv::Point>& points,
     FieldView view = FieldView::Collapsed);
+std::optional<std::vector<cv::Point>> registered_field_points(
+    const CameraProjection& fit,
+    const std::vector<cv::Point>& points,
+    FieldView view = FieldView::Collapsed);
 // Only the actor already identified before being held may use its certified
 // source grid cell when lifting it removes the source slot's visual features.
 // Every other field point retains the ordinary supported-feature requirement.
@@ -205,6 +209,7 @@ std::optional<std::vector<cv::Point>> registered_held_field_points(
     std::pair<int, int> source_cell);
 std::optional<cv::Mat>
     registered_grid_projection(const cv::Mat& before, const cv::Mat& after, const cv::Mat& grid_to_before);
+std::optional<cv::Mat> registered_grid_projection(const CameraProjection& fit, const cv::Mat& grid_to_before);
 // Map previously verified field coordinates to logical cells. Identity and
 // population completeness remain obligations of the caller.
 std::optional<std::vector<GridPlacementMember>> registered_grid_members(

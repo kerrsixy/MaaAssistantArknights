@@ -8,6 +8,16 @@
 
 namespace asst::spa
 {
+inline constexpr bool is_immediate_cash_equipment(std::string_view name)
+{
+    return name == "盟约之币" || name == "定期存折";
+}
+
+inline constexpr bool profitable_passbook_purchase(int round, int boss_round, int price)
+{
+    return round >= 1 && boss_round <= 20 && price >= 0 && boss_round - round > price;
+}
+
 // Both strings must come from the selected inventory item's same screenshot.
 // The caller owns page/title verification; catalogue text is never live proof.
 struct CashEquipmentPanelEvidence
@@ -39,7 +49,7 @@ inline std::optional<CashEquipmentRedemptionQuote> cash_equipment_redemption_quo
 {
     if (!panel.title_verified || !panel.effect_complete || current_round < 1 || current_round > 20 ||
         panel.round != current_round || current_frame_id == 0 || panel.frame_id != current_frame_id ||
-        panel.selected_title != panel.equipment || (panel.equipment != "盟约之币" && panel.equipment != "定期存折")) {
+        panel.selected_title != panel.equipment || !is_immediate_cash_equipment(panel.equipment)) {
         return std::nullopt;
     }
     std::string text;

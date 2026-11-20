@@ -137,22 +137,26 @@ bool StrategyReportTaskPlugin::_run()
                 }
                 const auto& observation = observer.last_observation();
                 const auto id = observation.get("band_id", std::string());
-                if (observation.get("page", std::string()) != "strategy_report" || !strategy_unlock_rule(id) ||
-                    observation.get("contradictory", true)) {
+                const auto rule = strategy_unlock_rule(id);
+                if (observation.get("page", std::string()) != "strategy_report" || !rule ||
+                    observation.get("contradictory", true) ||
+                    !observation.get("strategy_report_identity_verified", false)) {
                     continue;
                 }
-                if (!observation.get("strategy_progress_text_verified", false)) {
-                    // A selected tile plus generic page OCR is insufficient proof of the exact identity.
+                const auto wins = observation.get("strategy_progress_text_verified", false)
+                                      ? observation.find<int>("wins")
+                                      : std::nullopt;
+                // A default strategy is unlocked by the season catalogue.
+                // Its report can identify the leader and strategy even when
+                // no win counter is readable. Missing counts stay unknown.
+                if (!wins && rule->kind != StrategyUnlockKind::Default) {
                     continue;
                 }
-                const bool badge_verified = observation.get("badge_verified", false) &&
+                const bool badge_verified = wins && observation.get("badge_verified", false) &&
                                             observation.get("strategy_report_evidence_saved", false);
-                StrategyProgress result { id,
-                                          observation.get("wins", 0),
-                                          true,
-                                          badge_verified,
-                                          strategy_available_in_mode(id, "independent") };
-                if (!progress.contains(id) || badge_verified || !progress.at(id).badge_verified) {
+                StrategyProgress result { id, wins, true, badge_verified, rule->independent_available };
+                const auto previous = progress.find(id);
+                if (previous == progress.end() || badge_verified || (wins && !previous->second.badge_verified)) {
                     progress.insert_or_assign(id, std::move(result));
                 }
                 if (!m_target.empty() && progress.contains(m_target)) {

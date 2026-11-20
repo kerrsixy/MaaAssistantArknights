@@ -5,6 +5,10 @@
 int main()
 {
     using namespace asst::spa;
+    static_assert(profitable_passbook_purchase(9, 14, 2));
+    static_assert(!profitable_passbook_purchase(12, 14, 2));
+    static_assert(!profitable_passbook_purchase(14, 14, 1));
+    static_assert(!profitable_passbook_purchase(0, 14, 2));
     // These are synthetic panel transcriptions. No archived selected-book
     // screenshot was found, so this test does not establish live OCR/use.
     CashEquipmentPanelEvidence panel { "定期存折", "定期存折", "装备时销毁，获得5资金（持有时每回合+1）", 8, 42,

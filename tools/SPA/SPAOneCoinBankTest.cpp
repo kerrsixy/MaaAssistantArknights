@@ -60,7 +60,21 @@ int main()
     };
     reject([](auto& c) { c.one_coin_bank_allowed = false; }, "native evidence opt-in required");
     reject([](auto& c) { c.dynamic_decision_mode = false; }, "no legacy/basic-path change");
-    reject([](auto& c) { c.primary_locked_after_activation = false; }, "unsettled route is not banked");
+    reject([](auto& c) { c.primary_pact.clear(); }, "a current planned route is required");
+    auto early = p;
+    early.primary_pact = "伊比利亚";
+    early.primary_locked_after_activation = false;
+    early.round = 6;
+    early.shop_level = 4;
+    early.deployed_population = 7;
+    const std::vector<ShopOffer> round_six { { "至简", 1, 0 }, { "罗比菈塔", 3, 2 }, { "凯瑟琳", 3, 3 } };
+    check(
+        !choose_preparation(early, 1, round_six, pacts).banked_value_purchase,
+        "the final bench deployment precedes storing the coin");
+    early.deployed_population = 8;
+    check(
+        choose_preparation(early, 1, round_six, pacts).banked_value_purchase,
+        "a reconciled full early board can store the final coin while its pact is still developing");
     reject([](auto& c) { c.economy_scenario_horizon_round = 0; }, "unknown horizon is not a future payout");
     reject([](auto& c) { c.economy_scenario_horizon_round = c.round; }, "no later preparation to redeem");
     reject([](auto& c) { c.round = 0; }, "unknown round rejected");
@@ -130,6 +144,26 @@ int main()
     check(
         funding && funding->offer.name == "克莱门莎" && funding->deficit == 1,
         "next preparation's actual carry shortage requests one coin");
+    held.owned["幽灵鲨"].copies = 2;
+    const auto nearer_funding = choose_funding_purchase(held, 2, { { "幽灵鲨", 3, 0 }, { "克莱门莎", 4, 1 } }, pacts);
+    check(
+        nearer_funding && nearer_funding->offer.name == "幽灵鲨" && nearer_funding->deficit == 1,
+        "compare the cheaper actionable promotion before quoting a more expensive core");
+    auto refresh = full_egir();
+    refresh.allow_refresh = true;
+    refresh.minimum_recruit_price = 1;
+    check(
+        choose_preparation(refresh, 2, { { "米格鲁", 2, 0 } }, pacts).action == PreparationAction::Review,
+        "do not pay a gold to leave one when the route has no one-price recruit");
+    refresh.primary_pact = "乌萨斯";
+    refresh.owned = { { "乌啾", { 1, false, true } }, { "烈夏", { 1, false, true } } };
+    check(
+        choose_preparation(refresh, 2, { { "米格鲁", 2, 0 } }, pacts).action == PreparationAction::Refresh,
+        "a one-price main-pact recruit can justify the refresh");
+    refresh.owned["真理"] = { 1, true, true };
+    check(
+        choose_preparation(refresh, 2, { { "米格鲁", 2, 0 } }, pacts).action == PreparationAction::Review,
+        "an already elite one-price recruit does not justify the refresh");
     const auto sale = choose_full_bench_sale(held, {}, 1);
     check(sale && *sale == "真理", "existing funding seller accepts the retained initial body");
     held.owned.erase("真理");

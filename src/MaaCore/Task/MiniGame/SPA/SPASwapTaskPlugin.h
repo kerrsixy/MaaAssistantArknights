@@ -216,7 +216,10 @@ private:
     bool current_equipment(const std::string& name);
     std::optional<std::vector<std::string>> selected_equipment_names(size_t expected_count);
     bool selected_identity(const Point& point, const std::string& name);
-    std::optional<std::string> bench_identity(const Point& point, bool allow_sale_head_retry = false);
+    std::optional<std::string> bench_identity(
+        const Point& point,
+        bool allow_sale_head_retry = false,
+        const std::string& replacement_bench_name = {});
     bool reconcile_deployed_target();
     bool observe_deployed_pose();
     bool close_selection();
@@ -224,6 +227,7 @@ private:
     bool ensure_collapsed_shop();
     bool ensure_shop_visibility(bool expanded);
     bool reacquire_cash_equipment_source(const Point& verified_source);
+    std::optional<int> read_selected_cash_equipment_credit(const cv::Mat& frame) const;
     bool held_drag();
     bool select_direction(const Point& center);
     bool drag_direction_only(const Point& center);
@@ -302,8 +306,10 @@ private:
     bool m_equip_only = false;
     bool m_find_equipment_source = false;
     bool m_equipment_committed = false;
+    std::string m_identity_tag_pact;
     bool m_equipment_contact_attempted = false;
     int m_equipment_cash_credit = 0;
+    int m_minimum_cash_credit = 1;
     int m_equipment_next_round_credit_quote = 0;
     bool m_equipment_consumption_verified = false;
     std::optional<size_t> m_equipment_source_index;
@@ -334,6 +340,7 @@ private:
     bool selected_form_matches(const cv::Mat& image, const std::string& name);
     std::map<std::string, int> m_pact_baselines;
     int m_sale_credit = 0;
+    int m_minimum_sale_credit = 1;
     Point m_direction = Point(120, 0);
     int m_round = 0;
     int m_funds = 0;

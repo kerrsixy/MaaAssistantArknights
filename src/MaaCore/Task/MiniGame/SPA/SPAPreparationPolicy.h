@@ -39,6 +39,8 @@ struct ShopOffer
     int right_slot = -1;
 };
 
+bool is_one_coin_bank_offer(const ShopOffer& offer);
+
 struct PreparationPolicy
 {
     std::string primary_pact;
@@ -88,6 +90,10 @@ struct PreparationPolicy
     int early_frontline_count = 0;
     int deployed_population = -1;
     int last_round_life_loss = -1;
+    int current_life = -1;
+    bool boss_preparation = false;
+    int shop_discount_wait_level = 0;
+    int shop_discount_wait_round = 0;
     // Immediate board value from observed roles; pair bonuses are applied
     // only to cards actually offered, never by paying to force a pair.
     std::map<std::string, int> early_board_scores;
@@ -149,6 +155,7 @@ struct DynamicPactSignal
     std::string pact;
     int required_members = 0;
     int distinct_members = 0;
+    int reachable_members = 0;
     int deployed_members = 0;
     int shop_members = 0;
     int minimum_shop_level = 0;
@@ -227,15 +234,21 @@ DynamicPactChoice choose_dynamic_primary_pact(
     const std::map<std::string, std::vector<std::string>>& pacts,
     int available_funds = -1);
 
-// Returns true when dynamic mode should spend the verified upgrade price to
-// open the route's next useful card window.  This is a pure decision helper;
-// the native controller still performs and reconciles the actual click.
+struct ShopUpgradeHold
+{
+    std::string reason;
+    std::string promotion_target;
+    int promotion_recruit_budget = 0;
+    std::optional<int> next_round_upgrade_price;
+};
+
 bool should_upgrade_dynamic_shop(
     const PreparationPolicy& policy,
     int funds,
     int upgrade_price,
     const std::vector<ShopOffer>& offers,
-    const std::map<std::string, std::vector<std::string>>& pacts);
+    const std::map<std::string, std::vector<std::string>>& pacts,
+    std::optional<ShopUpgradeHold>* hold = nullptr);
 
 struct FixedGrowthPurchaseReservation
 {

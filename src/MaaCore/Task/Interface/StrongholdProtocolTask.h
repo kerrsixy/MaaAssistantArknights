@@ -44,6 +44,7 @@ private:
     bool m_manage_lifecycle = false;
     bool m_require_fresh_independent = false;
     bool m_lifecycle_battle_seen = false;
+    bool m_run_victory_verified = false;
     std::optional<json::object> m_lifecycle_solo_result;
     bool m_prefer_unclaimed = true;
     bool m_schedule_strategy_badges = false;
@@ -52,6 +53,7 @@ private:
     std::string m_requested_strategy_id;
     bool m_current_strategy_inspected = false;
     std::set<int> m_preparation_instruction_attempts;
+    int m_equipment_discount_round = -1;
     bool identify_current_strategy(const json::value& state);
     bool handle_temporary_elite_instruction(const json::value& state);
     std::vector<std::string> m_configured_core_pacts;
@@ -59,6 +61,7 @@ private:
     std::vector<std::string> m_observed_disabled_pacts;
     void refresh_mode_pact_restrictions();
     bool m_shopping_complete = false;
+    int m_last_coin_review_after_deployment_round = -1;
     int m_last_economy_round = -1;
     spa::PreparationDeadline m_joint_preparation_deadline;
     int m_supply_confirmation_after_round = -1;
@@ -85,11 +88,11 @@ private:
         const json::value& state,
         int funding_deficit = 0,
         const spa::BenchCapacityTrade* capacity_trade = nullptr);
-    std::optional<std::pair<int, spa::ShopOffer>> m_capacity_purchase_after_sale;
+    std::optional<std::pair<int, spa::ShopOffer>> m_purchase_reserved_after_sale;
     std::set<std::pair<int, std::string>> m_failed_bench_sales;
     std::string m_unreconciled_sale;
     bool reconcile_pending_cash_equipment(const json::value& state);
-    bool handle_cash_equipment(const json::value& state);
+    bool handle_cash_equipment(const json::value& state, int funding_deficit = 0);
     bool handle_delayed_cash_equipment(const json::value& state);
     void observe_delayed_cash_equipment(const json::value& state);
     bool handle_pact_recruitment_equipment(const json::value& state);
@@ -157,6 +160,8 @@ private:
     std::set<int> m_cash_equipment_attempted_rounds;
     std::optional<json::object> m_pending_cash_equipment;
     int m_cash_equipment_source_verified_round = -1;
+    std::set<int> m_passbook_attempted_rounds;
+    int m_passbook_source_verified_round = -1;
     std::set<int> m_delayed_cash_equipment_attempted_rounds;
     std::optional<json::object> m_pending_delayed_cash_equipment;
     std::set<int> m_pact_recruitment_attempted_rounds;

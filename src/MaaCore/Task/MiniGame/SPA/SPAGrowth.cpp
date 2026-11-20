@@ -71,6 +71,42 @@ bool asst::spa::is_primary_growth_engine(const std::string& name, const std::str
            std::find(found->second.pacts.begin(), found->second.pacts.end(), pact) != found->second.pacts.end();
 }
 
+asst::spa::UrsusLayerCycle asst::spa::assess_ursus_layer_cycle(const std::vector<GrowthSource>& sources)
+{
+    UrsusLayerCycle cycle;
+    std::set<std::string> modeled;
+    for (const auto& unit : sources) {
+        if (!unit.deployed || !modeled.insert(unit.name).second) {
+            continue;
+        }
+        const auto found = growth_profiles().find(unit.name);
+        if (found == growth_profiles().end()) {
+            continue;
+        }
+        const auto& profile = found->second;
+        if (std::find(profile.pacts.begin(), profile.pacts.end(), "乌萨斯") == profile.pacts.end()) {
+            continue;
+        }
+        const int gain = unit.elite ? profile.elite_gain : profile.normal_gain;
+        if (profile.kind == GrowthKind::TemporaryInjection && profile.phase == GrowthPhase::BattleStart) {
+            cycle.opening_temporary_layers += gain;
+        }
+        if (profile.kind == GrowthKind::Conversion && profile.phase == GrowthPhase::PreparationStart) {
+            if (unit.name != "乌啾") {
+                cycle.conversion_capacity += gain;
+            }
+            else if (unit.eligible_population && *unit.eligible_population >= 1 && *unit.eligible_population <= 8) {
+                cycle.conversion_capacity += gain * *unit.eligible_population;
+            }
+            else {
+                cycle.conversion_population_unknown = true;
+            }
+        }
+    }
+    cycle.converted_from_opening = std::min(cycle.opening_temporary_layers, cycle.conversion_capacity);
+    return cycle;
+}
+
 asst::spa::GrowthProjection asst::spa::project_primary_growth(
     const std::string& pact,
     int round,
@@ -92,6 +128,11 @@ asst::spa::GrowthProjection asst::spa::project_primary_growth(
     result.valid = true;
     result.preparation_ends = boss_round - round + 1;
     result.completed_battles_before_boss = boss_round - round;
+    if (pact == "乌萨斯" && active) {
+        result.ursus_cycle = assess_ursus_layer_cycle(deployed);
+        result.ursus_converted_opening_layers_if_unchanged =
+            result.ursus_cycle.converted_from_opening * result.completed_battles_before_boss;
+    }
     for (const auto& unit : deployed) {
         const auto found = growth_profiles().find(unit.name);
         if (found == growth_profiles().end()) {

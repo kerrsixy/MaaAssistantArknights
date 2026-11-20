@@ -27,6 +27,7 @@ std::optional<std::pair<int, double>> pact_hud_number(const cv::Mat& image, int 
 // low-confidence tokens are never inferred as the usual one-fund price.
 std::optional<std::pair<int, double>> sale_credit_number(const cv::Mat& image, int button_x, int button_y);
 std::optional<int> shop_number(const cv::Mat& image, const Rect& roi, double minimum_confidence = .40);
+std::optional<int> equipment_shop_price(const cv::Mat& image, int slot);
 std::optional<TextObservation> match_hidden_round_badge(const cv::Mat& image);
 std::optional<int> preparation_round_number(const cv::Mat& image, int expected_round, double confidence = .40);
 std::optional<int> defence_life_number(const cv::Mat& image);

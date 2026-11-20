@@ -58,6 +58,7 @@ struct BossObjective
     std::vector<std::string> possible_enemy_ids;
     int maximum_declared_hp = 0;
     double time_limit_seconds = 0;
+    std::vector<BoardCell> movement_waypoints;
 };
 
 struct BossFamilyMobility
@@ -143,6 +144,7 @@ inline BossObjective boss_objective(
     }
     std::set<BoardCell> cells;
     bool all_stationary = true;
+    std::optional<std::vector<BoardCell>> shared_waypoints;
     for (const auto& boss : SeasonBossCatalogue) {
         if (boss.family_name != family || (hidden_variant && boss.hidden != *hidden_variant) ||
             boss.hp_by_difficulty[difficulty - 1] <= 0) {
@@ -152,9 +154,26 @@ inline BossObjective boss_objective(
         all_stationary = all_stationary && boss.stationary_route;
         // Both are client coordinates with rows increasing upwards. The
         // registered deployment grid instead increases rows downwards.
-        cells.emplace(
-            registered_home.first + boss.spawn_col - boss.template_home_col,
-            registered_home.second + boss.template_home_row - boss.spawn_row);
+        const auto translate = [&](int col, int row) {
+            return BoardCell { registered_home.first + col - boss.template_home_col,
+                               registered_home.second + boss.template_home_row - row };
+        };
+        cells.insert(translate(boss.spawn_col, boss.spawn_row));
+        std::vector<BoardCell> waypoints;
+        for (int index = 0; index < boss.waypoint_count; ++index) {
+            const auto& point = boss.movement_waypoints[index];
+            const auto cell = translate(point.col, point.row);
+            if (cell != registered_home && cell.first >= 0 && cell.first <= 12 && cell.second >= 0 &&
+                cell.second <= 4 && std::find(waypoints.begin(), waypoints.end(), cell) == waypoints.end()) {
+                waypoints.push_back(cell);
+            }
+        }
+        if (!shared_waypoints) {
+            shared_waypoints = std::move(waypoints);
+        }
+        else if (*shared_waypoints != waypoints) {
+            shared_waypoints->clear();
+        }
         result.maximum_declared_hp = std::max(result.maximum_declared_hp, boss.hp_by_difficulty[difficulty - 1]);
         result.time_limit_seconds = std::max(result.time_limit_seconds, boss.time_limit_seconds);
     }
@@ -162,6 +181,9 @@ inline BossObjective boss_objective(
     result.stationary_route = result.known && all_stationary;
     result.variant_known = result.possible_enemy_ids.size() == 1;
     result.possible_cells.assign(cells.begin(), cells.end());
+    if (!result.stationary_route && shared_waypoints) {
+        result.movement_waypoints = std::move(*shared_waypoints);
+    }
     return result;
 }
 

@@ -232,15 +232,18 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
     const std::string boss_id;
     bool badge_verified = false;
     bool badge_text_verified = false;
+    bool strategy_report_identity_verified = false;
     bool strategy_progress_text_verified = false;
     bool strategy_report_evidence_saved = false;
     std::string strategy_badge_tier;
-    if (observed.page == Page::StrategyReport && !observed.contradictory && observed.band_id && observed.wins) {
+    if (observed.page == Page::StrategyReport && !observed.contradictory && observed.band_id) {
         const auto selected = std::find_if(identities.begin(), identities.end(), [&](const auto& strategy) {
             return strategy.band_id == *observed.band_id;
         });
-        strategy_progress_text_verified =
-            selected != identities.end() && strategy_report_progress_text_verified(texts, *selected, *observed.wins);
+        strategy_report_identity_verified =
+            selected != identities.end() && strategy_report_identity_text_verified(texts, *selected);
+        strategy_progress_text_verified = strategy_report_identity_verified && observed.wins &&
+                                          strategy_report_progress_text_verified(texts, *selected, *observed.wins);
         badge_text_verified = strategy_progress_text_verified && *observed.wins >= 3;
         if (badge_text_verified) {
             const bool silver = *observed.wins == 6;
@@ -400,6 +403,7 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
                        { "badge_verified", badge_verified },
                        { "strategy_badge_tier", strategy_badge_tier },
                        { "badge_text_verified", badge_text_verified },
+                       { "strategy_report_identity_verified", strategy_report_identity_verified },
                        { "strategy_progress_text_verified", strategy_progress_text_verified },
                        { "strategy_report_evidence_saved", strategy_report_evidence_saved },
                        { "result_text_verified", result_text_verified },
