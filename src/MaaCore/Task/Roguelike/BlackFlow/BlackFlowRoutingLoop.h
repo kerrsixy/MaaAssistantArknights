@@ -219,8 +219,14 @@ RoutingCycleOutcome execute_replanning_cycle(Session& session, IBlackFlowTaskPor
     }
     BlackFlowPlan plan = session.plan(&error);
     if (!plan) {
-        Log.error("BlackFlow planning failed", "error", error, "current node", session.run().current_node,
-            "floor", session.run().floor);
+        Log.error(
+            "BlackFlow planning failed",
+            "error",
+            error,
+            "current node",
+            session.run().current_node,
+            "floor",
+            session.run().floor);
         return { RoutingCycleStatus::Failed, "planning_failed", std::move(error) };
     }
     const MoveCandidate candidate = *plan.decision.selected;
@@ -246,8 +252,8 @@ RoutingCycleOutcome execute_replanning_cycle(Session& session, IBlackFlowTaskPor
             const NodeId current_node_after = session.run().current_node;
             const std::uint64_t resources_revision_after = session.run().resources_revision;
             const std::uint64_t cost_revision_after = session.run().costs.revision;
-            if (current_node_after != current_node_before ||
-                resources_revision_after != resources_revision_before || cost_revision_after != cost_revision_before) {
+            if (current_node_after != current_node_before || resources_revision_after != resources_revision_before ||
+                cost_revision_after != cost_revision_before) {
                 Log.info(
                     "BlackFlow combat preflight changed routing state; replanning",
                     "before",
@@ -307,9 +313,21 @@ RoutingCycleOutcome execute_routing_cycle(Session& session, IBlackFlowTaskPort& 
         return { RoutingCycleStatus::ReplanRequired, {}, {} };
     }
 
+    if constexpr (requires {
+                      session.pending_candidate();
+                      session.refresh_pending_candidate(&error);
+                  }) {
+        if (session.pending_candidate().has_value()) {
+            if (!session.refresh_pending_candidate(&error)) {
+                session.clear_pending_candidate();
+                Log.info("BlackFlow selected movement intention invalidated", error);
+                return { RoutingCycleStatus::ReplanRequired, "pending_movement_invalidated", std::move(error) };
+            }
+            return execute_pending_routing_cycle(session, port);
+        }
+    }
+
     return execute_replanning_cycle(session, port);
 }
 } // namespace asst::blackflow
-
-
 

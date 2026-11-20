@@ -219,6 +219,12 @@ class LiveDriver:
         while time.monotonic() < deadline:
             if self._done.is_set() or not self.running():
                 return True
+            # Cooperative diagnostic stops retain the normal final screenshot,
+            # callback save and handle cleanup instead of killing Python.
+            if (self.out_dir / "stop.request").is_file():
+                print("Stop requested; stopping native task in place", flush=True)
+                self.stop()
+                return False
             if self._done.wait(timeout=2.0):
                 return True
         return False

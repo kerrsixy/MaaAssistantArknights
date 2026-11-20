@@ -4,6 +4,7 @@ import contextlib
 import io
 import json
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -18,6 +19,18 @@ import blackflow_state_check as state
 
 
 class RuntimeBindingTests(unittest.TestCase):
+    def test_requested_live_stop_exits_wait_without_destroying_driver(self):
+        driver = object.__new__(live.LiveDriver)
+        driver.out_dir = self.root
+        driver._done = threading.Event()
+        driver.running = Mock(return_value=True)
+        driver.stop = Mock(return_value=True)
+        (self.root / "stop.request").touch()
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertFalse(driver.wait(60))
+        driver.stop.assert_called_once()
+        self.assertFalse(driver._done.is_set())
+
     def test_squad_selection_is_not_overridden_by_fixed_candidates(self):
         tasks = json.loads(
             (live.REPO_ROOT / "resource/tasks/Roguelike/BlackFlow.json").read_text(

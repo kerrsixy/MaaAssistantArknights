@@ -150,6 +150,7 @@ public:
     bool report_movement_unavailable(MovementKind target, std::string* error = nullptr);
     [[nodiscard]] BlackFlowPlan plan(std::string* error = nullptr);
     bool save_pending_candidate(const MoveCandidate& candidate, std::string* error = nullptr);
+    bool refresh_pending_candidate(std::string* error = nullptr);
     [[nodiscard]] bool validate_pending_candidate(std::string* error = nullptr) const;
     bool begin_pending_transaction(std::string* error = nullptr);
 

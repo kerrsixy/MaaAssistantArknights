@@ -807,7 +807,13 @@ void BlackFlowSession::queue_decision()
     const int cost = m_transaction->authoritative_cost();
     const int expected_after =
         action_points_after(m_run.resources.action_points, cost, move.predicted_action_point_gain);
-    const int requirement = move.action_point_requirement;
+    const int requirement =
+        m_verified_move_arc.has_value() && m_verified_move_arc->action_id == move.action_id
+            ? std::max(
+                  1,
+                  cost +
+                      std::max(0, m_verified_move_arc->required_action_points_after - move.predicted_action_point_gain))
+            : move.action_point_requirement;
     const int margin = requirement >= UnreachableActionPointRequirement ? -UnreachableActionPointRequirement
                                                                         : m_run.resources.action_points - requirement;
     m_decision_id = "BF-D" + std::to_string(m_run_revision) + "-" + std::to_string(++m_decision_sequence);
@@ -1530,6 +1536,50 @@ bool BlackFlowSession::save_pending_candidate(const MoveCandidate& candidate, st
         m_map_version.coordinates.viewport_revision(),
     };
     return true;
+}
+
+bool BlackFlowSession::refresh_pending_candidate(std::string* error)
+{
+    const auto reject = [error](const char* reason) {
+        if (error != nullptr) {
+            *error = reason;
+        }
+        return false;
+    };
+    if (!m_pending_candidate.has_value()) {
+        return reject("no pending movement candidate is saved");
+    }
+    const PendingMoveCandidate pending = *m_pending_candidate;
+    if (pending.run_revision != m_run_revision || pending.candidate.source != m_run.current_node) {
+        return reject("pending movement source changed while selecting movement");
+    }
+    if (!m_run.active_movement.has_value() || *m_run.active_movement != pending.candidate.movement) {
+        return reject("selected movement does not match the pending intention");
+    }
+    if (m_unreachable_actions.contains(pending.candidate.action_id)) {
+        return reject("pending movement was rejected by a previous preview");
+    }
+
+    // 只重新生成这一步的合法动作，不重新比较整条路线，避免切换代步后排序振荡。
+    const auto actions = enumerate_move_actions(m_map_version.map.snapshot(), m_run, pending.candidate.graph_layer);
+    const auto found = std::ranges::find_if(actions, [&pending](const MoveAction& action) {
+        return action.candidate.action_id == pending.candidate.action_id &&
+               action.candidate.movement == pending.candidate.movement &&
+               action.candidate.source == pending.candidate.source &&
+               action.candidate.target == pending.candidate.target &&
+               action.candidate.landing == pending.candidate.landing;
+    });
+    if (found == actions.end()) {
+        return reject("pending movement is no longer available on the observed map");
+    }
+    MoveCandidate refreshed = found->candidate;
+    if (refreshed.predicted_action_point_cost > m_run.resources.action_points) {
+        return reject("pending movement exceeds the observed action points");
+    }
+    // 地图、次数或费用可能已更新；按当前状态重新做预览安全证明，不能复用旧证明。
+    refreshed.action_point_requirement = pending.candidate.action_point_requirement;
+    refreshed.requires_preview_verification = true;
+    return save_pending_candidate(refreshed, error);
 }
 
 bool BlackFlowSession::validate_pending_candidate(std::string* error) const

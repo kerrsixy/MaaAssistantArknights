@@ -271,3 +271,12 @@ PRTS 可以作为互补来源：[黑流树海主题页](https://prts.wiki/w/%E6%
 - 本次跨日后出现 ｢数据已更新，即将进行同步｣；原 StartAction 重试 20 次后直接以 TaskChainCompleted 结束，没有策略结果。战后候选新增同步提示，Begin 将同步、配给和公告置于背景主页导航前；公告以模板命中后的小范围点击避免落在圆形按钮边缘。StartActionReCheck 的 `exceededNext` 进入既有 RecoveryFailed，明确上报失败并保留画面，不再静默结束。
 - 原生实际截图管线命中同步提示，实际重试资源有失败出口，首领 EW 专位／费用及 Mon3tr 上路约束通过；见 `work/recovery_regression.log`。三个原生恢复任务依次处理同步、配给、公告，并在 04:27:43 读到 N8 331 分、`game_pass:false`、生命游戏 +1，最后返回大厅。由于分段调试，仍不计完整无人样本；生命游戏累计应再现场核对，自动加点未实现。
 - run16 已从大厅以新资源开始一局完整 N8，目录 `n8_run16_boss_workflow_live`，仍使用官服第二设备、远程分队与 EW。N8 通关、N9/N10、完整账号练度模组刷新／缓存消费和随机稳定性均待验收；阶段推送前同步五语文档。
+
+#### run16：切换代步后保留单步意图
+
+- 新局无人操作通过 ｢猎犬病原｣、草地双人 ｢灌水贤者｣、二层 ｢虫虫游戏厅｣；二层首次 4×5 建图成功。04:48:30–04:50:24 六次交替选择 M03／M11，HUD 模板分别约 0.97／0.999，识别无误；切换后回 MapPrepare 又全局选路，导致改选。04:50:44 最终完成移动，04:51:08 到新节点，04:51:10 为修复停止进程，故不是永久死循环，也不计完整无人样本。恢复的 1,735 条回调单独标记 `recovered_from_native_log`。
+- 切换后仍重新观测完整地图，但已有 pending candidate 时仅按当前图重建同一 action ID、代步、起终点；用新坐标与资源版本重新绑定。移动来源、实际代步、剩余次数或可达性变更则取消意图。重建动作强制走当前预览安全证明；不复用旧屏幕坐标或旧安全结论，也不因相同状态下的路线排序变化而反复换代步。
+- Debug 构建通过。原生同图回归：旧路由 `plan_calls=1 / previews=0`，新路由 `global_replans=0 / fresh_coordinates=1 / preview_proof_required=1`，并拒绝错代步、次数耗尽和已被预览拒绝的动作。见 `work/movement_intent_before.log`、`work/movement_intent_regression.log`。实机已加载继续 `n8_run16_resume_intent_fix`；尚待后续移动与胜负验证。测试驱动新增 `stop.request` 正常停止入口以保存末帧和回调，现有流程与新增停止检查共 10 项通过。
+- 额外核对 [铁腕迷思原始关卡](https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/levels/obt/roguelike/ro6/level_rogue6_b-1.json) 的 88 格／23 路线与 [光荣远征原始关卡](https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/levels/obt/roguelike/ro6/level_rogue6_b-2.json) 的 96 格／21 路线，均和本地地形一致；仅完成数据校验，不表示已实机验证这些路线。生命游戏自动加点、完整模组扫描缓存闭环和 N8→N10 仍未完成。
+
+- 续跑实证：05:07:45 选步行后 05:07:59 完成移动；05:10:08 只选一次 M11，05:10:27 完成出口移动，05:10:52 进入三层，05:11:03 首次建成 5×7，未再交替换代步。重建候选的安全需求默认值曾使日志余量显示异常，最终修订保留计划需求并按本次预览证明回算记录；最终原生回归 `finite_committed_requirement=1`，日志为 `work/movement_intent_final_regression.log`。该记录修订在 BlackFlowNext，当前实机仍是先前已验证的 BlackFlowCandidate 意图修复版，不为换日志中断本局。

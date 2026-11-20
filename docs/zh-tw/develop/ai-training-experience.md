@@ -123,3 +123,12 @@ icon: mdi:brain
 - 跨日後出現資料同步提示，舊 StartAction 空等 20 次後以 TaskChainCompleted 結束且無策略結果。戰後候選新增同步提示；Begin 優先處理同步、配給和公告，公告採模板命中後的小範圍點擊。StartActionReCheck 的 `exceededNext` 進入既有 RecoveryFailed，回報失敗並保留畫面。
 - 實際截圖管線、重試失敗出口與首領職責限制通過原生檢查，見 `work/recovery_regression.log`。原生分段恢復處理同步、配給、公告，04:27:43 讀到 N8 331 分、`game_pass:false`、生命遊戲 +1，返回大廳；不計完整無人樣本，自動加點仍未實作。
 - run16 已從大廳啟動新的完整 N8，目錄 `n8_run16_boss_workflow_live`，官服第二設備、遠程分隊與 EW。N8 通關、N9/N10、完整練度模組刷新／快取消費與隨機穩定性均待驗收；每階段先同步五語文件再推送。
+
+#### run16：切換代步後保留單步意圖
+
+- 新局無人操作通過 ｢猎犬病原｣、草地雙人 ｢灌水贤者｣、二層 ｢虫虫游戏厅｣，首次二層 4×5 建圖成功。04:48:30–04:50:24 交替選擇 M03／M11 六次，圖示分數約 0.97／0.999，識別無誤；切換後全局重選路線造成反覆改選。04:50:44 最終移動成功，04:51:08 到新節點，04:51:10 為修復停止進程，不是永久循環，也不算完整無人樣本。1,735 條回調由原生日誌恢復並標記來源。
+- 切換後重新觀測全圖，已有 pending candidate 時只重建相同行動、代步和起終點，重新綁定當前座標與資源版本。來源、代步、次數或可達性改變則取消；必須重新完成預覽安全證明，不使用舊座標或舊安全結論。
+- Debug 與原生同圖回歸通過：舊路由 `plan_calls=1 / previews=0`，新路由 `global_replans=0 / fresh_coordinates=1 / preview_proof_required=1`，錯代步、耗盡與預覽已拒絕的動作均拒絕。見 `work/movement_intent_before.log`／`work/movement_intent_regression.log`。實機續跑 `n8_run16_resume_intent_fix` 尚待驗證；測試驅動新增 `stop.request` 保留正常停止、末幀與回調，10 項流程檢查通過。
+- 另核對鐵腕迷思 88 格／23 路線、光榮遠征 96 格／21 路線，與本地地形一致，尚非實機路線驗證。生命遊戲自動加點、完整模組快取閉環及 N8→N10 未完成。
+
+- 續跑證據：05:07:45 選步行、05:07:59 完成移動；05:10:08 僅選一次 M11、05:10:27 移向出口，05:10:52 進三層，05:11:03 初次建成 5×7，未再交替切換。候選安全需求的預設值曾令日誌餘量異常，最終保留原計畫需求並按新預覽證明回算；`work/movement_intent_final_regression.log` 有 `finite_committed_requirement=1`。日誌修訂在 BlackFlowNext，實機仍跑已驗證的 BlackFlowCandidate 意圖修復版，未中斷本局換核。
