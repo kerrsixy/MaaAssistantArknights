@@ -10,11 +10,16 @@
 
 bool asst::RoguelikeSettlementTaskPlugin::verify(AsstMsg msg, const json::value& details) const
 {
-    if (msg != AsstMsg::SubTaskStart || details.get("subtask", std::string()) != "ProcessTask") {
+    if (details.get("subtask", std::string()) != "ProcessTask") {
         return false;
     }
 
     const auto task_name = details.get("details", "task", "");
+    const bool blackflow_failure =
+        m_config->get_theme() == RoguelikeTheme::BlackFlow && task_name.ends_with("Roguelike@MissionFailedFlag2");
+    if (msg != (blackflow_failure ? AsstMsg::SubTaskCompleted : AsstMsg::SubTaskStart)) {
+        return false;
+    }
     const RoguelikeMode mode = m_config->get_mode();
     const bool report_settlement = mode == RoguelikeMode::Exp || mode == RoguelikeMode::BlackFlowBabyAnimal ||
                                    mode == RoguelikeMode::BlackFlowStartRun;
@@ -43,14 +48,17 @@ bool asst::RoguelikeSettlementTaskPlugin::_run()
         save_img(ctrler()->get_image(), utils::path("achievement") / utils::path("roguelike"), "Page1");
     }
 
-    const auto& rect = Task.get("Roguelike@ClickToStartPoint")->specific_rect;
-    ctrler()->click(rect);
-    sleep(task->pre_delay);
+    // BlackFlow failure navigation is a resource sub-chain completed before this callback.
+    if (m_config->get_theme() != RoguelikeTheme::BlackFlow || m_game_pass) {
+        const auto& rect = Task.get("Roguelike@ClickToStartPoint")->specific_rect;
+        ctrler()->click(rect);
+        sleep(task->pre_delay);
+    }
 
     if (!wait_for_whole_page()) {
         Log.error(__FUNCTION__, "wait for whole page failed");
         save_img(ctrler()->get_image(), utils::path("debug") / utils::path("roguelike"), "Page2_Error");
-        return true;
+        return m_config->get_theme() != RoguelikeTheme::BlackFlow;
     }
     sleep(task->post_delay);
     auto image = ctrler()->get_image();
@@ -143,7 +151,7 @@ bool asst::RoguelikeSettlementTaskPlugin::wait_for_whole_page()
         if (matcher.analyze()) {
             return true;
         }
-        Log.error(__FUNCTION__, "RoguelikeSettlementConfirm match failed, retry:", retry);
+        Log.debug(__FUNCTION__, "RoguelikeSettlementConfirm is not ready, retry:", retry);
         ++retry;
         sleep(Config.get_options().task_delay);
     } while (!need_exit() && retry < 20);

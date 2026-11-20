@@ -1070,7 +1070,12 @@
     "BlackFlow@Roguelike@MissionFailedFlag2": {
         "Doc": "失败结算首屏在信息丢失页中央显示标记；不能沿用其他主题顶部 ROI，也不能当作 GamePass 记录胜利。",
         "template": ["BlackFlow@Roguelike@MissionFailedFlag2.png", "BlackFlow@Roguelike@DefeatSplash.png"],
-        "roi": [440, 0, 420, 430]
+        "roi": [440, 0, 420, 430],
+        "sub": ["BlackFlow@Roguelike@SettlementStatistics-Enter"],
+        "reduceOtherTimes": [
+            "BlackFlow@Roguelike@SettlementStatistics-Next*3",
+            "BlackFlow@Roguelike@SettlementStatistics-Splash*3"
+        ]
     },
     "BlackFlow@Roguelike@MovePreviewCannotEnter": {
         "template": "BlackFlow@Roguelike@MovePreviewCannotEnter.png",
@@ -2525,6 +2530,45 @@
         "preDelay": 6000,
         "roi": [580, 500, 130, 200],
         "postDelay": 3000
+    },
+    "BlackFlow@Roguelike@SettlementStatistics-Enter": {
+        "algorithm": "JustReturn",
+        "next": [
+            "BlackFlow@Roguelike@SettlementStatistics-Ready",
+            "BlackFlow@Roguelike@SettlementStatistics-Next",
+            "BlackFlow@Roguelike@SettlementStatistics-Splash"
+        ]
+    },
+    "BlackFlow@Roguelike@SettlementStatistics-Ready": {
+        "baseTask": "BlackFlow@RoguelikeSettlementConfirm",
+        "template": "BlackFlow@Roguelike@GamePassTheEndConfirm.png",
+        "action": "DoNothing",
+        "preDelay": 0,
+        "postDelay": 0,
+        "next": []
+    },
+    "BlackFlow@Roguelike@SettlementStatistics-Next": {
+        "baseTask": "BlackFlow@Roguelike@BeginRecovery_Settlement",
+        "template": "BlackFlow@Roguelike@SettlementNext.png",
+        "action": "ClickSelf",
+        "postDelay": 1000,
+        "maxTimes": 3,
+        "next": ["BlackFlow@Roguelike@SettlementStatistics-Ready", "#self"],
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
+    },
+    "BlackFlow@Roguelike@SettlementStatistics-Splash": {
+        "template": "BlackFlow@Roguelike@DefeatSplash.png",
+        "roi": [440, 0, 420, 430],
+        "action": "ClickRect",
+        "specificRect": [261, 640, 31, 32],
+        "postDelay": 1000,
+        "maxTimes": 3,
+        "next": [
+            "BlackFlow@Roguelike@SettlementStatistics-Ready",
+            "BlackFlow@Roguelike@SettlementStatistics-Next",
+            "#self"
+        ],
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
     },
     "BlackFlow@Roguelike@BeginRecovery_DataSync": {
         "Doc": "启动时卡在「数据已更新，即将进行同步」弹窗：点勾选后回到 Begin",
