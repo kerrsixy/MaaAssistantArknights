@@ -32,6 +32,18 @@ int main()
                                                unit("慕斯", { 8, 3 }),     unit("折光", { 7, 2 }),
                                                unit("拉普兰德", { 9, 4 }), unit("深靛", { 6, 1 }),
                                                unit("褐果", { 7, 3 }),     unit("霍尔海雅", { 8, 4 }) };
+    auto single_move = before;
+    single_move[0].cell = { 8, 1 };
+    single_move[0].facing = 'N';
+    const auto move_plan = sequence_deployment(before, single_move);
+    assert(move_plan.complete && move_plan.steps.size() == 1);
+    assert(move_plan.steps.front().kind == DeploymentStepKind::Move && move_plan.steps.front().facing == 'N');
+    auto single_swap = before;
+    std::swap(single_swap[0].cell, single_swap[2].cell);
+    const auto swap_plan = sequence_deployment(before, single_swap);
+    assert(swap_plan.complete && swap_plan.steps.size() == 2);
+    assert(swap_plan.steps[0].kind == DeploymentStepKind::Swap && swap_plan.steps[1].kind == DeploymentStepKind::Face);
+    assert(swap_plan.steps[1].unit == swap_plan.steps[0].displaced);
     auto target = before;
     target[0].cell = { 8, 3 };
     target[2].cell = { 8, 1 };

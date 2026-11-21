@@ -554,21 +554,9 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
 
 int asst::spa::deployment_preference_input_cost(const DeploymentSequence& sequence)
 {
-    std::set<std::string> moved;
     int cost = 0;
     for (const auto& step : sequence.steps) {
-        if (step.kind != DeploymentStepKind::Face) {
-            cost += 250;
-            moved.insert(step.unit);
-        }
-    }
-    for (const auto& step : sequence.steps) {
-        // The movement executor already commits the incoming unit's facing.
-        // Its synthetic final Face step is removed by fresh sequencing after
-        // that move, whereas a displaced unit can still need reorientation.
-        if (step.kind == DeploymentStepKind::Face && !moved.contains(step.unit)) {
-            cost += 100;
-        }
+        cost += step.kind == DeploymentStepKind::Face ? 100 : 250;
     }
     return cost;
 }
@@ -700,12 +688,16 @@ asst::spa::DeploymentSequence asst::spa::sequence_deployment(
         result.steps.push_back(nodes[node].step);
     }
     std::reverse(result.steps.begin(), result.steps.end());
-    // Movement can change either participant's facing. Explicitly restore every moved unit's final facing.
+    // Each move commits the actor's planned facing. A unit displaced by
+    // its last swap can still need a facing action at its new cell.
     for (size_t index = 0; index < current.size(); ++index) {
-        const bool moved = std::any_of(result.steps.begin(), result.steps.end(), [&](const DeploymentStep& step) {
-            return step.unit == current[index].id || step.displaced == current[index].id;
-        });
-        if (moved || current[index].facing != facings[index]) {
+        const auto last_move =
+            std::find_if(result.steps.rbegin(), result.steps.rend(), [&](const DeploymentStep& step) {
+                return step.unit == current[index].id || step.displaced == current[index].id;
+            });
+        const bool needs_facing = last_move != result.steps.rend() ? last_move->displaced == current[index].id
+                                                                   : current[index].facing != facings[index];
+        if (needs_facing) {
             result.steps.push_back(
                 { DeploymentStepKind::Face, current[index].id, {}, goal[index], goal[index], facings[index] });
         }

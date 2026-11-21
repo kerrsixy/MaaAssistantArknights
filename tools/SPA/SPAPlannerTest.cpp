@@ -5477,8 +5477,7 @@ int main()
     assert(frontline_first.input_complete && frontline_first.units.front().cell == BoardCell(4, 0));
     DeploymentSequence marginal_move;
     marginal_move.complete = true;
-    marginal_move.steps = { { DeploymentStepKind::Move, "ranged", "", { 3, 1 }, { 4, 2 }, 'S' },
-                            { DeploymentStepKind::Face, "ranged", "", { 4, 2 }, { 4, 2 }, 'S' } };
+    marginal_move.steps = { { DeploymentStepKind::Move, "ranged", "", { 3, 1 }, { 4, 2 }, 'S' } };
     assert(deployment_preference_input_cost(marginal_move) == 250);
     auto marginal_proposal = trait_only;
     marginal_proposal.preference_improvement = 200;
@@ -5537,9 +5536,7 @@ int main()
             other->cell = step.from;
         }
         unit->cell = step.to;
-        if (step.kind == DeploymentStepKind::Face) {
-            unit->facing = step.facing;
-        }
+        unit->facing = step.facing;
         for (const auto& item : simulated) {
             assert(
                 std::find(item.placement_cells.begin(), item.placement_cells.end(), item.cell) !=
