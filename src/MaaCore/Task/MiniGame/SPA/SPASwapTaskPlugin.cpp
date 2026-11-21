@@ -1467,22 +1467,33 @@ bool asst::spa::SwapTaskPlugin::close_selection()
     return restore_preparation();
 }
 
-bool asst::spa::SwapTaskPlugin::ensure_expanded_shop()
+bool asst::spa::SwapTaskPlugin::ensure_expanded_shop(cv::Mat* already_visible_frame)
 {
-    return ensure_shop_visibility(true);
+    return ensure_shop_visibility(true, already_visible_frame);
 }
 
-bool asst::spa::SwapTaskPlugin::ensure_collapsed_shop()
+bool asst::spa::SwapTaskPlugin::ensure_collapsed_shop(cv::Mat* already_visible_frame)
 {
-    return ensure_shop_visibility(false);
+    return ensure_shop_visibility(false, already_visible_frame);
 }
 
-bool asst::spa::SwapTaskPlugin::ensure_shop_visibility(bool expanded)
+bool asst::spa::SwapTaskPlugin::ensure_shop_visibility(bool expanded, cv::Mat* already_visible_frame)
 {
+    if (already_visible_frame) {
+        already_visible_frame->release();
+    }
     bool input_issued = false;
     for (int attempt = 0; attempt < 4; ++attempt) {
         const auto image = ctrler()->get_image();
+        const auto publish_frame = [&] {
+            // After a toggle, the layout label can settle ahead of the
+            // camera. Geometry callers keep their existing follow-up frame.
+            if (already_visible_frame && attempt == 0) {
+                *already_visible_frame = image;
+            }
+        };
         if (m_shop_toggle_evidence.observe_unchanged(image) == expanded) {
+            publish_frame();
             return true;
         }
         m_shop_toggle_evidence.clear();
@@ -1500,6 +1511,7 @@ bool asst::spa::SwapTaskPlugin::ensure_shop_visibility(bool expanded)
         }
         if (control && control->first == expanded) {
             m_shop_toggle_evidence.remember(image, expanded);
+            publish_frame();
             return true;
         }
         if (control && !input_issued) {
@@ -1534,12 +1546,12 @@ bool asst::spa::SwapTaskPlugin::reconcile_replacement()
     // input. Those inputs already produced an identified incoming operator
     // and a reconciled unchanged field population in this transaction.
     if (!m_replace_only || !m_replacement_committed || !m_replacement_postconditions_ready || !close_selection() ||
-        !restore_preparation() || !ensure_expanded_shop()) {
+        !restore_preparation()) {
         return false;
     }
     if (!m_field_pose_verified) {
         if (!ensure_collapsed_shop() || !selected_identity(m_target, m_name) || !close_selection() ||
-            !preparation_matches() || !ensure_expanded_shop()) {
+            !preparation_matches()) {
             return false;
         }
         m_field_pose_verified = true;
@@ -1571,10 +1583,13 @@ bool asst::spa::SwapTaskPlugin::reconcile_replacement()
 
 bool asst::spa::SwapTaskPlugin::verify_replacement_bench_identity(const std::string& name, int& probes)
 {
-    if (!ensure_expanded_shop()) {
+    cv::Mat bench;
+    if (!ensure_expanded_shop(&bench)) {
         return false;
     }
-    const auto bench = ctrler()->get_image();
+    if (bench.empty()) {
+        bench = ctrler()->get_image();
+    }
     const bool find_christine = name == "Miss.Christine";
     const auto candidates = detect_bench_centres(bench, find_christine);
     std::vector<int> candidate_x;
@@ -1588,7 +1603,9 @@ bool asst::spa::SwapTaskPlugin::verify_replacement_bench_identity(const std::str
         if (!compact_sprite && !bench_sprite_visible(bench, candidate)) {
             continue;
         }
-        if (!ensure_expanded_shop()) {
+        // The initial observation already verified the expanded layout.
+        // A previous identity probe may have collapsed it.
+        if (probes > 0 && !ensure_expanded_shop()) {
             return false;
         }
         ++probes;
@@ -3812,10 +3829,11 @@ bool asst::spa::SwapTaskPlugin::_run()
         return false;
     }
     if (m_deploy_only && !m_replace_only) {
-        if (!close_selection() || !ensure_collapsed_shop()) {
+        cv::Mat reference;
+        if (!close_selection() || !ensure_collapsed_shop(&reference)) {
             return false;
         }
-        m_equipment_reference = ctrler()->get_image().clone();
+        m_equipment_reference = (reference.empty() ? ctrler()->get_image() : reference).clone();
         if (!ensure_expanded_shop()) {
             return false;
         }
@@ -3824,10 +3842,11 @@ bool asst::spa::SwapTaskPlugin::_run()
         // Establish the outgoing identity in a fresh clean field frame before
         // opening any bench panel. Source discovery below restores its own
         // camera and verifies the incoming identity independently.
-        if (!close_selection() || !ensure_collapsed_shop()) {
+        cv::Mat reference;
+        if (!close_selection() || !ensure_collapsed_shop(&reference)) {
             return false;
         }
-        m_equipment_reference = ctrler()->get_image().clone();
+        m_equipment_reference = (reference.empty() ? ctrler()->get_image() : reference).clone();
         save_evidence(m_equipment_reference, utils::path("debug/SPA/replacement_reference"), false);
         if (!selected_identity(m_target, m_replaced) || !close_selection() || !ensure_expanded_shop()) {
             return false;
@@ -3852,10 +3871,13 @@ bool asst::spa::SwapTaskPlugin::_run()
     }
     if (m_find_equipment_source) {
         m_equipment_stage = "source_identity";
-        if (!ensure_expanded_shop()) {
+        cv::Mat inventory_image;
+        if (!ensure_expanded_shop(&inventory_image)) {
             return false;
         }
-        const auto inventory_image = ctrler()->get_image();
+        if (inventory_image.empty()) {
+            inventory_image = ctrler()->get_image();
+        }
         const auto candidates = equipment_inventory_candidates(inventory_image);
         json::array inventory_points;
         for (const auto& point : candidates) {
@@ -4151,10 +4173,12 @@ bool asst::spa::SwapTaskPlugin::_run()
             // Opening an identity panel collapses the shop and shifts the
             // bench. Restore its original layout before reusing any grab
             // position. No roster mutation occurred, so slot order is stable.
-            if (!ensure_expanded_shop()) {
+            if (!ensure_expanded_shop(&bench_image)) {
                 return false;
             }
-            bench_image = ctrler()->get_image();
+            if (bench_image.empty()) {
+                bench_image = ctrler()->get_image();
+            }
             const auto refreshed = detect_bench_centres(bench_image, find_christine);
             const auto expected = bench_candidates[*named_source_index];
             std::vector<std::pair<int, int>> fresh_centres;
