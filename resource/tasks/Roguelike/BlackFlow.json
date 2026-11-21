@@ -3069,7 +3069,7 @@
         "action": "ClickRect",
         "specificRect": [20, 15, 50, 45],
         "postDelay": 400,
-        "next": ["BlackFlow@Roguelike@StartExplore-EnterCheck"]
+        "next": ["BlackFlow@Roguelike@LifeGameLobbyVerified"]
     },
     "BlackFlow@Roguelike@LifeGameSelect": {
         "algorithm": "JustReturn",
@@ -3124,5 +3124,12 @@
         "specialParams": [700],
         "postDelay": 500,
         "next": ["BlackFlow@Roguelike@LifeGamePageLabel"]
+    },
+    "BlackFlow@Roguelike@LifeGameLobbyVerified": {
+        "algorithm": "MatchTemplate",
+        "template": "BlackFlow@Roguelike@StartExplore.png",
+        "roi": [958, 530, 322, 189],
+        "action": "DoNothing",
+        "next": []
     }
 }
