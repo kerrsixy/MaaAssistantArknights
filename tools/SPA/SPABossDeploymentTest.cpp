@@ -272,11 +272,26 @@ int main()
     assert(weighted_boss.boss_coverage_improvement == 700);
     assert(stationary_boss_attackers(weighted_boss.units, { { 5, 3 } }) == 1);
     const std::vector<BoardCell> patrol { { 5, 2 }, { 5, 1 } };
-    const std::vector<DeploymentUnit> patrol_start { guard, medic, main_output };
+    auto patrol_guard = guard;
+    patrol_guard.damage_output = false;
+    const std::vector<DeploymentUnit> patrol_start { patrol_guard, medic, main_output };
     const auto moving_boss = propose_deployment(patrol_start, one_lane, separate_cells, 96, {}, { { 4, 1 } }, patrol);
-    assert(moving_boss.units.front().cell == guard.cell && moving_boss.units.back().facing == 'E');
-    assert(moving_boss.boss_coverage_improvement == -700 && moving_boss.boss_movement_coverage_improvement == 1400);
-    assert(deployment_change_worth_input(moving_boss, sequence_deployment(patrol_start, moving_boss.units)));
+    assert(moving_boss.units.front().cell == guard.cell && moving_boss.units.back().facing == 'N');
+    assert(moving_boss.boss_coverage_improvement == 0 && moving_boss.boss_movement_coverage_improvement == 0);
+    const auto route_only = propose_deployment(patrol_start, one_lane, separate_cells, 96, {}, {}, patrol);
+    assert(route_only.units.back().facing == 'E' && route_only.boss_movement_coverage_improvement == 1400);
+    assert(deployment_change_worth_input(route_only, sequence_deployment(patrol_start, route_only.units)));
+
+    // A boss may reach the first checkpoint and stay there. North covers
+    // both early positions, even though east covers more later checkpoints.
+    const std::vector<BoardCell> first_contact_then_patrol { { 3, 1 }, { 5, 2 }, { 5, 1 } };
+    const auto early_contact = propose_deployment(
+        route_only.units, one_lane, separate_cells, 96, {}, { { 4, 1 } }, first_contact_then_patrol);
+    assert(early_contact.units.front().cell == guard.cell && early_contact.units.back().facing == 'N');
+    assert(early_contact.boss_early_contact_floor_improvement > 0 &&
+           early_contact.boss_early_contact_sum_improvement > 0);
+    assert(early_contact.boss_movement_coverage_improvement == -700);
+    assert(deployment_change_worth_input(early_contact, sequence_deployment(route_only.units, early_contact.units)));
     // The supported attacker shares the only useful firing tile with a
     // stronger attacker who cannot be healed by this medic.
     auto covered_attacker = main_output;
