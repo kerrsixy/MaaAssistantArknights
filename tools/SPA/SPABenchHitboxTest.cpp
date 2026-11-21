@@ -57,6 +57,30 @@ int main()
     assert(!bench_head_retry_target(cv::Mat(), failed, source, false));
     assert(!bench_head_retry_target(failed, cv::Mat(720, 1280, CV_8UC1), source, false));
 
+    // D4 R14. The old head probe left the panel closed and the normal foot
+    // coordinate falls inside the freeze button. The exposed shoulder is
+    // eligible for inspection, but no fixture certifies input or identity.
+    const auto elite = cv::imread("bench_elite_rightmost_occluded_live.png");
+    assert(elite.size() == failed.size());
+    const cv::Point elite_slot(963, 450);
+    const cv::Point shoulder(947, 446);
+    assert(exposed_bench_head(elite, elite_slot) == cv::Point(963, 420));
+    assert(exposed_bench_shoulder(elite, elite_slot) == shoulder);
+    assert(!overlaps_expanded_shop_controls(shoulder + cv::Point(2, 0)));
+    assert(bench_shoulder_retry_target(elite, elite, elite_slot, false) == shoulder);
+    assert(!bench_shoulder_retry_target(elite, elite, elite_slot, true));
+    assert(!bench_shoulder_retry_target(elite, selected, elite_slot, false));
+    assert(!bench_shoulder_retry_target(elite, failed, elite_slot, false));
+    assert(!bench_shoulder_retry_target(failed, failed, source, false));
+    assert(!verified_bench_grab_point(elite, elite_slot, elite_slot, {}));
+    assert(!verified_bench_grab_point(elite, elite_slot, elite_slot, cv::Point(963, 480)));
+    assert(verified_bench_grab_point(elite, elite_slot, elite_slot, shoulder) == shoulder);
+    assert(verified_bench_grab_point(elite, cv::Point(883, 450), elite_slot, shoulder) == cv::Point(883, 480));
+    auto shoulder_hidden = elite.clone();
+    elite(cv::Rect(982, 447, 7, 15)).copyTo(shoulder_hidden(cv::Rect(943, 441, 7, 15)));
+    assert(!bench_shoulder_retry_target(elite, shoulder_hidden, elite_slot, false));
+    assert(!verified_bench_grab_point(shoulder_hidden, elite_slot, elite_slot, shoulder));
+
     // Christine is a purchasable operator with a low model. The genuine
     // R5/R6 frames reproduce source discovery with and without other units.
     const cv::Point christine(761, 450);

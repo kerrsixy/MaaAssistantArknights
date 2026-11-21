@@ -735,10 +735,13 @@ bool asst::spa::SwapTaskPlugin::restore_preparation()
 std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(
     const Point& point,
     bool allow_sale_head_retry,
-    const std::string& replacement_bench_name)
+    const std::string& replacement_bench_name,
+    Point* verified_contact)
 {
     m_selected_panel_evidence.clear();
     Point target = point;
+    cv::Mat retry_reference;
+    bool probe_shoulder_on_miss = false;
     if (overlaps_expanded_shop_controls(cv::Point(point.x, point.y))) {
         const auto frame = ctrler()->get_image();
         const auto head = exposed_bench_head(frame, cv::Point(point.x, point.y));
@@ -746,11 +749,14 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(
             return std::nullopt;
         }
         target = Point(head->x, head->y);
+        if (verified_contact || !replacement_bench_name.empty()) {
+            retry_reference = frame;
+            probe_shoulder_on_miss = true;
+        }
     }
     // Badge detection has already found an occupied bench hitbox. A different
     // readable name is a conclusive miss; probing that same card three times
     // with full preparation OCR only delays the exchange and shifts the shop.
-    cv::Mat retry_reference;
     if (target == point && allow_sale_head_retry && m_sell_only && m_find_bench_source && point.y == 450 &&
         point.x >= 940 && point.x <= 975) {
         retry_reference = ctrler()->get_image();
@@ -809,6 +815,9 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(
                     if (*identity == m_name && !selected_form_matches(image, *identity)) {
                         return std::nullopt;
                     }
+                    if (*identity == m_name && verified_contact) {
+                        *verified_contact = target;
+                    }
                     LogInfo << "SPA bench identity" << *identity << target.x << target.y;
                     if (frame == 2) {
                         auto evidence = basic_info_with_what("SPAReplacementBenchTitleSettled");
@@ -832,17 +841,21 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(
             }
         }
         // A recognised different name/form above is conclusive. Only a first
-        // click that left the panel absent permits one current-frame, same-slot
-        // upper-body inspection. Cash, equipment and deployment never opt in.
-        const auto retry =
-            attempt == 0
-                ? bench_head_retry_target(retry_reference, image, cv::Point(point.x, point.y), readable_title_seen)
-                : std::nullopt;
-        if (!retry) {
+        // click that left the panel absent permits one current-frame probe of
+        // the same slot. Equipment selection never opts in.
+        const cv::Point source(point.x, point.y);
+        if (attempt != 0) {
+            return std::nullopt;
+        }
+        const auto retry = probe_shoulder_on_miss
+                               ? bench_shoulder_retry_target(retry_reference, image, source, readable_title_seen)
+                               : bench_head_retry_target(retry_reference, image, source, readable_title_seen);
+        if (!retry || (probe_shoulder_on_miss && !preparation_matches(image))) {
             return std::nullopt;
         }
         target = Point(retry->x, retry->y);
-        auto info = basic_info_with_what("SPABenchSaleHeadInspectionRetry");
+        auto info = basic_info_with_what(
+            probe_shoulder_on_miss ? "SPABenchShoulderInspectionRetry" : "SPABenchSaleHeadInspectionRetry");
         info["details"] = json::object { { "name", m_name },
                                          { "round", m_round },
                                          { "source_x", point.x },
@@ -4116,6 +4129,7 @@ bool asst::spa::SwapTaskPlugin::_run()
         int source_probes = 0;
         json::array observed_sources;
         std::optional<size_t> named_source_index;
+        Point verified_bench_contact;
         for (const auto index : probe_order) {
             const auto& candidate = bench_candidates[index];
             if (++source_probes > 12) {
@@ -4136,6 +4150,8 @@ bool asst::spa::SwapTaskPlugin::_run()
             if (!compact_sprite && !bench_sprite_visible(bench_image, candidate)) {
                 continue;
             }
+            const auto foot =
+                verified_bench_grab_point(bench_image, { candidate.x, candidate.y }, { candidate.x, candidate.y }, {});
             if (wildcard_bench_scan) {
                 // The phase-one route does not need to identify a particular
                 // operator: the observer has already established that a
@@ -4143,21 +4159,27 @@ bool asst::spa::SwapTaskPlugin::_run()
                 // this is an occupied bench slot.  Avoid opening/closing a
                 // detail panel just to match "*"; the held drag and live
                 // remaining-deployment counter are the authoritative checks.
-                m_source = Point(candidate.x, std::min(candidate.y + 30, 495));
+                if (!foot) {
+                    continue;
+                }
+                m_source = Point(foot->x, foot->y);
                 found = true;
                 break;
             }
-            if (m_fast_mode && m_deploy_only && bench_candidates.size() == 1 && !m_verify_source_form) {
+            if (m_fast_mode && m_deploy_only && bench_candidates.size() == 1 && !m_verify_source_form && foot) {
                 // With one detected occupied card, opening and closing its
                 // panel only changes the camera. The named held-drag path
                 // still verifies the actual title before any field drop.
-                m_source = Point(candidate.x, std::min(candidate.y + 30, 495));
+                m_source = Point(foot->x, foot->y);
                 source_identity_deferred_to_hold = true;
                 found = true;
                 break;
             }
-            const auto identity =
-                bench_identity(compact_sprite ? Point(candidate.x, candidate.y + 27) : candidate, m_sell_only);
+            const auto identity = bench_identity(
+                compact_sprite ? Point(candidate.x, candidate.y + 27) : candidate,
+                m_sell_only,
+                {},
+                m_deploy_only ? &verified_bench_contact : nullptr);
             if (identity && m_bench_identity_hints && operator_pacts().contains(*identity)) {
                 remember_inventory_operator_title(
                     *m_bench_identity_hints,
@@ -4177,13 +4199,7 @@ bool asst::spa::SwapTaskPlugin::_run()
                     found = true;
                     break;
                 }
-                // The identity probe is intentionally centered on the upper
-                // body/panel hitbox.  Dragging from that same point misses the
-                // lower bench sprite on the B-server layout; the actual grab
-                // point is near the operator's feet.  Keep the identity probe
-                // point for evidence, but use a bounded lower offset for the
-                // subsequent held drag.
-                m_source = Point(candidate.x, std::min(candidate.y + 30, 495));
+                // Recheck the grab point after restoring the expanded layout.
                 named_source_index = index;
                 found = true;
                 break;
@@ -4254,9 +4270,17 @@ bool asst::spa::SwapTaskPlugin::_run()
                 callback(AsstMsg::SubTaskExtraInfo, rejected);
                 return false;
             }
-            bench_candidates = refreshed;
             const auto& point = refreshed[*reacquired];
-            m_source = Point(point.x, std::min(point.y + 30, 495));
+            const auto grab = verified_bench_grab_point(
+                bench_image,
+                { point.x, point.y },
+                { expected.x, expected.y },
+                cv::Point(verified_bench_contact.x, verified_bench_contact.y));
+            if (!grab) {
+                return false;
+            }
+            m_source = Point(grab->x, grab->y);
+            bench_candidates = refreshed;
         }
         auto source = basic_info_with_what("SPABenchSourceVerified");
         json::array candidate_centres;

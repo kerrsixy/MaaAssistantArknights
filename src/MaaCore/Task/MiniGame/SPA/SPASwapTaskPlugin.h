@@ -223,7 +223,8 @@ private:
     std::optional<std::string> bench_identity(
         const Point& point,
         bool allow_sale_head_retry = false,
-        const std::string& replacement_bench_name = {});
+        const std::string& replacement_bench_name = {},
+        Point* verified_contact = nullptr);
     bool reconcile_deployed_target();
     bool observe_deployed_pose();
     bool close_selection(cv::Mat* clean_frame = nullptr, const cv::Mat& initial_frame = {});

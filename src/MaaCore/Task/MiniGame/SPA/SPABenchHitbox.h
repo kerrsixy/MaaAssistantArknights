@@ -64,10 +64,47 @@ inline bool bench_inspection_panel_absent(const cv::Mat& image)
            cv::countNonZero(edges) / area <= .001;
 }
 
+inline std::optional<cv::Point> exposed_bench_shoulder(const cv::Mat& image, cv::Point source)
+{
+    // A tall model can have its hair above the button and its left shoulder
+    // beside it. Use only the visible part of this badge-backed final slot.
+    const cv::Point shoulder(source.x - 16, 446);
+    if (!overlaps_expanded_shop_controls(source) || overlaps_expanded_shop_controls(shoulder + cv::Point(2, 0)) ||
+        !exposed_bench_head(image, source)) {
+        return std::nullopt;
+    }
+    const cv::Rect patch(shoulder.x - 4, shoulder.y - 5, 7, 15);
+    cv::Mat gray, hsv, edges;
+    cv::cvtColor(image(patch), gray, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(image(patch), hsv, cv::COLOR_BGR2HSV);
+    cv::Canny(gray, edges, 60, 120);
+    cv::Mat neutral;
+    cv::inRange(hsv, cv::Scalar(0, 0, 85), cv::Scalar(180, 60, 255), neutral);
+    if (neutral.at<uchar>(5, 4) == 0 || cv::countNonZero(neutral) < patch.area() / 3 ||
+        cv::countNonZero(edges) < patch.area() / 4) {
+        return std::nullopt;
+    }
+    return shoulder;
+}
+
+inline bool unchanged_blank_bench_inspection(const cv::Mat& before, const cv::Mat& after)
+{
+    if (!bench_inspection_panel_absent(before) || !bench_inspection_panel_absent(after)) {
+        return false;
+    }
+    // A new camera/page/panel is not a failed hitbox. Require the same blank
+    // left margin across the click, while tolerating only capture noise.
+    const cv::Rect margin(0, 170, 180, 180);
+    cv::Mat difference;
+    cv::absdiff(before(margin), after(margin), difference);
+    const auto error = cv::mean(difference);
+    return std::max({ error[0], error[1], error[2] }) <= 1.0;
+}
+
 inline std::optional<cv::Point>
     bench_head_retry_target(const cv::Mat& before, const cv::Mat& after, cv::Point source, bool readable_title_seen)
 {
-    if (readable_title_seen || !bench_inspection_panel_absent(before) || !bench_inspection_panel_absent(after)) {
+    if (readable_title_seen || !unchanged_blank_bench_inspection(before, after)) {
         return std::nullopt;
     }
     const auto initial = exposed_bench_head(before, source);
@@ -75,14 +112,41 @@ inline std::optional<cv::Point>
     if (!initial || current != initial) {
         return std::nullopt;
     }
-    // A new camera/page/panel is not a failed hitbox. Require the same blank
-    // left margin across the click, while tolerating only capture noise.
-    cv::Mat difference;
-    cv::absdiff(before(cv::Rect(0, 170, 180, 180)), after(cv::Rect(0, 170, 180, 180)), difference);
-    const auto error = cv::mean(difference);
-    if (std::max({ error[0], error[1], error[2] }) > 1.0) {
+    return current;
+}
+
+inline std::optional<cv::Point>
+    bench_shoulder_retry_target(const cv::Mat& before, const cv::Mat& after, cv::Point source, bool readable_title_seen)
+{
+    if (readable_title_seen || !unchanged_blank_bench_inspection(before, after)) {
         return std::nullopt;
     }
-    return current;
+    const auto initial = exposed_bench_shoulder(before, source);
+    return initial && initial == exposed_bench_shoulder(after, source) ? initial : std::nullopt;
+}
+
+inline std::optional<cv::Point> verified_bench_grab_point(
+    const cv::Mat& image,
+    cv::Point live_slot,
+    cv::Point inspected_slot,
+    std::optional<cv::Point> verified_contact)
+{
+    const cv::Point foot(live_slot.x, std::min(live_slot.y + 30, 495));
+    if (!overlaps_expanded_shop_controls(foot)) {
+        return foot;
+    }
+    // Opening a panel changes the camera. Recheck the same exposed part on
+    // the reacquired slot before starting a drag from the verified hitbox.
+    if (!verified_contact) {
+        return std::nullopt;
+    }
+    const auto contact = live_slot + (*verified_contact - inspected_slot);
+    if (overlaps_expanded_shop_controls(contact)) {
+        return std::nullopt;
+    }
+    if (contact == exposed_bench_head(image, live_slot) || contact == exposed_bench_shoulder(image, live_slot)) {
+        return contact;
+    }
+    return std::nullopt;
 }
 }

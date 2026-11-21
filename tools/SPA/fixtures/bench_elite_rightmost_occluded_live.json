@@ -1,0 +1,13 @@
+{
+  "source": "dev-v2-nymph-d4-release-three-win-batch-20261122/debug/SPA/bench_source_unresolved/2026.11.22-06.51.17.447_raw.png",
+  "sha256": "426a56668ca2cffac84853142246012fd3c0203e699946174b9f10f843a05c59",
+  "run_execution_id": "dfd98fdd-e955-4ffd-b0b3-c66ef8fc914b",
+  "round": 14,
+  "mode": "independent",
+  "difficulty": 4,
+  "slot": [963, 450],
+  "head_click": [963, 420],
+  "observed_title": "",
+  "candidate_shoulder": [947, 446],
+  "status": "Saved unmodified failure frame for the optional image test. The native log records the missed head click. The shoulder is a replayed candidate, without live identity, drag, or swap evidence."
+}
