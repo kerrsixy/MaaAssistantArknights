@@ -3,6 +3,7 @@
 #include "Common/AsstBattleDef.h"
 #include "Config/Roguelike/RoguelikeRecruitConfig.h"
 #include "RoguelikeRecruitPolicy.h"
+#include "Vision/Roguelike/BlackFlow/BlackFlowVoucherStash.h"
 
 namespace asst
 {
@@ -40,6 +41,9 @@ private:
     bool recruit_own_char(const std::string& name);
     // 直接招募第一个干员
     bool lazy_recruit();
+    // Preserve an unused BlackFlow voucher only with capacity, enabled-button and completion evidence.
+    bool finish_without_recruitment();
+    bool verify_voucher_stash();
     // 招募指定干员
     //
     // 输入参数:
@@ -65,5 +69,7 @@ private:
     std::unordered_set<battle::Role> m_opening_roles;
     // 指定的黑流策略；刷等级为空时 Core 推断为会飞三层的 burn 系策略
     std::string m_blackflow_strategy;
+    blackflow::VoucherStashAttempt m_voucher_stash;
+    mutable std::string m_stash_resume_source;
 };
 }

@@ -138,8 +138,18 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
     auto image = ctrler()->get_image();
     const bool paged_shelf = theme == RoguelikeTheme::BlackFlow;
     const blackflow::BlackFlowShopShelf::Observe observe_shelf = [&]() {
-        image = ctrler()->get_image();
-        return blackflow::BlackFlowShopShelf::recognize(image);
+        std::optional<blackflow::ShopShelfPage> page;
+        for (int attempt = 0; attempt < 3 && !need_exit(); ++attempt) {
+            image = ctrler()->get_image();
+            page = blackflow::BlackFlowShopShelf::recognize(image);
+            if (page) {
+                return page;
+            }
+            if (attempt < 2) {
+                sleep(250);
+            }
+        }
+        return page;
     };
     const blackflow::BlackFlowShopShelf::Scroll scroll_shelf = [&](bool down) {
         return !need_exit() &&

@@ -1659,7 +1659,9 @@ FactStore on_demand_candidate_facts(
     facts.set("candidate.node_type", std::string(target == nullptr ? "unclassified" : to_string(target->type)));
     facts.set("candidate.node_name", target == nullptr ? std::string() : target->name);
     facts.set("candidate.badged", target != nullptr && target->badged);
-    facts.set("candidate.in_floor_buff_scope", target != nullptr && target->buff_scope);
+    if (target != nullptr && target->buff_scope_known) {
+        facts.set("candidate.in_floor_buff_scope", target->buff_scope);
+    }
     facts.set("candidate.ideal_source_known", target != nullptr && target->ideal_source_known);
     facts.set(
         "candidate.ideal_source_present",
@@ -2108,7 +2110,11 @@ BlackFlowPlan BlackFlowPlanner::plan_impl(const BlackFlowPlanRequest& request) c
                                            : 1;
         candidate.risk_score = target == nullptr || !target->identity_revealed
                                    ? 5
-                                   : (target->type == NodeType::BattleSavage ? 200 : target->type == NodeType::BattleBoss ? 30 : target->type == NodeType::BattleElite ? 120 : candidate.battle_count ? 100 : 0);
+                                   : (target->type == NodeType::BattleSavage  ? 200
+                                      : target->type == NodeType::BattleBoss  ? 30
+                                      : target->type == NodeType::BattleElite ? 120
+                                      : candidate.battle_count                ? 100
+                                                                              : 0);
 
         if (!candidate.safe) {
             policy_candidates.emplace_back(std::move(candidate));
@@ -2294,6 +2300,4 @@ BlackFlowPlan BlackFlowPlanner::plan_impl(const BlackFlowPlanRequest& request) c
     return result;
 }
 } // namespace asst::blackflow
-
-
 

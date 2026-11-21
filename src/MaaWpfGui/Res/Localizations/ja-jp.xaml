@@ -1521,6 +1521,9 @@ DEBUGディレクトリに保存される画像には数量制限があり、超
     <system:String x:Key="Roguelike.BlackFlow.FastFlight.Lock.Tip">｢{key=Roguelike.BlackFlow.FastFlight}｣ にチェックを入れている間はこの項目は変更できません。チェックを外すと編集できます</system:String>
     <system:String x:Key="Roguelike.BlackFlow.Flight.Tip" xml:space="preserve">常に特別行動分隊・攻守一体・自分の機械師で開局し、機械師のみを招集して、第2層で初期所持の構造性原理を使い第3層へ直接飛び、到達後にリスタートします。&#10;チェック中は一般設定の分隊・職業・最初のオペレーターは変更できません。チェックを外すと編集でき、目標エンディングに向けて進行します。開局構成がこの組み合わせでも飛びません。&#10;機械師の素質を全解放していないと飛べないため、チェックしないでください。</system:String>
     <system:String x:Key="Roguelike.BlackFlow.FlightRequirement">素質を全解放した機械師が必要</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Allocate">生命游戏のポイント配分</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Auto">探索終了後に自動配分</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Auto.Tip">黒流のホームに戻った後、次の探索に役立つ強化を優先します。前提条件、費用、強化結果を確認し、認識が不確かな場合は配分を停止します。</system:String>
     <system:String x:Key="Roguelike.BlackFlow.PrepFlight.Tip" xml:space="preserve">準備用探索は常に特別行動分隊・攻守一体・自分の機械師で開局し、機械師のみを招集して、第2層で初期所持の構造性原理を使い第3層へ直接飛びます。&#10;チェックすると ｢{key=Roguelike.CollectibleMode.Squad}｣ は特別行動分隊と表示されて変更できなくなり、チェックを外すと元の設定に戻ります。一般設定の職業と最初のオペレーターには影響しません。&#10;機械師の素質を全解放していないと飛べないため、チェックしないでください。</system:String>
     <system:String x:Key="Roguelike.BlackFlow.RewardBaiZe">襁褓の白沢（仮）</system:String>
     <system:String x:Key="Roguelike.BlackFlow.RewardBaiZe.Tip">臨時招集オペレーターの出現確率が上昇。</system:String>
@@ -1598,6 +1601,8 @@ DEBUGディレクトリに保存される画像には数量制限があり、超
     <system:String x:Key="Roguelike.Sami.FirstFloorFoldartal.Tip">予見啓示板の名前を入力し、複数は半角セミコロン;で区切ります</system:String>
     <system:String x:Key="Roguelike.Sami.NewSquad2Foldartal">生活重視分隊で開始、指定された啓示板を取得する</system:String>
     <system:String x:Key="Roguelike.Sami.NewSquad2Foldartal.Tip">最大3つ書き込み、半角セミコロン;で区切る</system:String>
+    <system:String x:Key="Roguelike.ScanAccountModules">開始前にオペレーターとモジュールを認識</system:String>
+    <system:String x:Key="Roguelike.ScanAccountModules.Tip">同じタスクの最初の探索前に一度だけ認識し、結果を現在のアカウントに紐付けます。</system:String>
     <system:String x:Key="Roguelike.SeedFormatError">形式が正しくありません</system:String>
     <system:String x:Key="Roguelike.Squad.FirstClass">高規格分隊</system:String>
     <system:String x:Key="Roguelike.Squad.Gathering">集団分隊</system:String>

@@ -115,6 +115,8 @@ struct Node
     std::string marker_display_name;
     double marker_score = 0.0;
     bool badged = false;
+    // False is meaningful only after the scope has been observed.
+    bool buff_scope_known = false;
     bool buff_scope = false;
     // 战斗节点预览中 OCR 读到的理想源。只有在普通作战节点的预览
     // 画面明确出现“理想源”或“希望的沃土”时才置 known；险路恶敌不扫描。

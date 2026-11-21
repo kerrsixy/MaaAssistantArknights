@@ -422,6 +422,7 @@ bool NormalizedMap::merge(const MapObservationBatch& batch, std::string* error)
             node.badged = *observed.badged;
         }
         if (observed.buff_scope.has_value()) {
+            node.buff_scope_known = true;
             node.buff_scope = *observed.buff_scope;
         }
         if (observed.transfer_target.has_value() && observed.transfer_target->has_value()) {
@@ -588,7 +589,7 @@ bool NormalizedMap::accept_preview(NodeId target, const MovePreview& preview, bo
     node.identity_state = NodeIdentityState::Classified;
     node.identity_revealed = true;
     node.identity_from_template = false;
-    if (preview.ideal_source_known && preview.displayed_type == NodeType::BattleNormal && current->buff_scope) {
+    if (preview.ideal_source_known && preview.displayed_type == NodeType::BattleNormal) {
         node.ideal_source_known = true;
         node.ideal_source = preview.ideal_source;
     }

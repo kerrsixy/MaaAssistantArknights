@@ -321,10 +321,45 @@
             "scope": "candidate"
         },
         {
+            "name": "floor.buff_identity_known",
+            "type": "bool",
+            "scope": "floor"
+        },
+        {
+            "name": "floor.buff_positive_known",
+            "type": "bool",
+            "scope": "floor"
+        },
+        {
+            "name": "floor.buff_positive",
+            "type": "bool",
+            "scope": "floor"
+        },
+        {
+            "name": "floor.buff_id",
+            "type": "string",
+            "scope": "floor"
+        },
+        {
+            "name": "floor.buff_type",
+            "type": "string",
+            "scope": "floor"
+        },
+        {
+            "name": "floor.buff_name",
+            "type": "string",
+            "scope": "floor"
+        },
+        {
+            "name": "floor.buff_effect",
+            "type": "string",
+            "scope": "floor"
+        },
+        {
             "name": "candidate.in_floor_buff_scope",
             "type": "bool",
             "scope": "candidate",
-            "description": "候选节点是否落在当前楼层 Buff 的可见作用范围内"
+            "description": "范围已获证时，候选节点是否落在当前楼层 Buff 的作用范围内；缺值表示未知"
         },
         {
             "name": "candidate.combat",
@@ -476,15 +511,44 @@
                     }
                 },
                 {
-                    "id": "prefer_floor_buff_scope",
-                    "description": "当前楼层 Buff 作用域内的战斗节点可获得额外加成与随机零件，优先选择",
+                    "id": "prefer_confirmed_fertile_battle",
+                    "description": "仅已确认希望的沃土及其范围时，软偏好范围内战斗的已知加成；仍服从路线安全、通达与资源约束",
                     "kind": "prefer",
                     "tier": "development",
                     "rank": 18,
                     "candidate_if": {
-                        "fact": "candidate.in_floor_buff_scope",
-                        "op": "eq",
-                        "value": true
+                        "all": [
+                            {
+                                "fact": "floor.buff_identity_known",
+                                "op": "eq",
+                                "value": true
+                            },
+                            {
+                                "fact": "floor.buff_positive_known",
+                                "op": "eq",
+                                "value": true
+                            },
+                            {
+                                "fact": "floor.buff_positive",
+                                "op": "eq",
+                                "value": true
+                            },
+                            {
+                                "fact": "floor.buff_type",
+                                "op": "eq",
+                                "value": "rogue_6_weather_8"
+                            },
+                            {
+                                "fact": "candidate.in_floor_buff_scope",
+                                "op": "eq",
+                                "value": true
+                            },
+                            {
+                                "fact": "candidate.combat",
+                                "op": "eq",
+                                "value": true
+                            }
+                        ]
                     }
                 },
                 {
@@ -541,9 +605,7 @@
                     "tier": "resource_reserve",
                     "rank": 0,
                     "when": {
-                        "all": [
-                            { "fact": "action_points", "op": "gt", "value": 0 }
-                        ]
+                        "all": [{ "fact": "action_points", "op": "gt", "value": 0 }]
                     },
                     "candidate_if": {
                         "fact": "candidate.boss",
@@ -825,10 +887,22 @@
                     "weight": 1,
                     "selector": {
                         "node_types": [
-                            "battle_elite", "battle_normal", "battle_savage", "duel",
-                            "employ", "expedition", "hide_battle", "hide_invisible",
-                            "incident", "light", "portal", "rest", "sacrifice",
-                            "scrap_shop", "shop", "wish"
+                            "battle_elite",
+                            "battle_normal",
+                            "battle_savage",
+                            "duel",
+                            "employ",
+                            "expedition",
+                            "hide_battle",
+                            "hide_invisible",
+                            "incident",
+                            "light",
+                            "portal",
+                            "rest",
+                            "sacrifice",
+                            "scrap_shop",
+                            "shop",
+                            "wish"
                         ]
                     }
                 },

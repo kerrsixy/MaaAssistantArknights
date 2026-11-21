@@ -76,6 +76,22 @@ public class RoguelikeTask : BaseTask, IJsonOnDeserialized
     public int StartCount { get; set; } = 999999;
 
     /// <summary>
+    /// Gets or sets a value indicating whether scan account modules before the first exploration of this task.
+    /// </summary>
+    public bool ScanAccountModules { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether Life Game points are allocated between BlackFlow explorations.
+    /// </summary>
+    public bool BlackFlowLifeGameEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this temporary task only allocates Life Game points.
+    /// </summary>
+    [JsonIgnore]
+    public bool BlackFlowLifeGameOnly { get; set; }
+
+    /// <summary>
     /// Gets or sets 开局干员顺位列表，按顺序招募，最多 3 位
     /// </summary>
     public List<RoguelikeStartingOper> StartingOpers { get; set; } = [];

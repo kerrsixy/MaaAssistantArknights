@@ -1519,6 +1519,9 @@ OF-1 스테이지가 개방되지 않은 경우에는 선택하지 마세요.</s
     <system:String x:Key="Roguelike.BlackFlow.FastFlight.Lock.Tip">｢{key=Roguelike.BlackFlow.FastFlight}｣ 을 선택한 동안에는 변경할 수 없으며, 선택을 해제하면 수정할 수 있습니다</system:String>
     <system:String x:Key="Roguelike.BlackFlow.Flight.Tip" xml:space="preserve">항상 특근 분대, 차근차근, 본인의 메커니스트로 시작하며 메커니스트만 모집하고, 2층에서 기본 지참한 구조적 원리로 3층까지 바로 비행한 뒤 도착하면 재시작합니다.&#10;체크하는 동안 일반 설정의 분대, 직업 그룹, 시작 오퍼레이터는 변경할 수 없으며 체크를 해제하면 다시 수정할 수 있습니다. 체크하지 않으면 목표 엔딩을 향해 진행하며, 시작 구성이 이 조합이어도 비행하지 않습니다.&#10;메커니스트의 재능을 모두 해금하지 않으면 비행할 수 없으니 체크하지 마세요.</system:String>
     <system:String x:Key="Roguelike.BlackFlow.FlightRequirement">재능을 모두 해금한 메커니스트 필요</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Allocate">生命游戏 포인트 배분</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Auto">탐험 종료 후 자동 배분</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Auto.Tip">블랙플로 홈으로 돌아온 후 다음 탐험에 도움이 되는 강화를 우선합니다. 선행 조건, 비용, 강화 결과를 확인하며 인식이 불확실하면 배분을 중단합니다.</system:String>
     <system:String x:Key="Roguelike.BlackFlow.PrepFlight.Tip" xml:space="preserve">준비 탐험은 항상 특근 분대, 차근차근, 본인의 메커니스트로 시작하며 메커니스트만 모집하고, 2층에서 기본 지참한 구조적 원리로 3층까지 바로 비행합니다.&#10;체크하면 ｢{key=Roguelike.CollectibleMode.Squad}｣ 가 특근 분대로 표시되며 변경할 수 없고, 체크를 해제하면 원래 설정으로 돌아갑니다. 일반 설정의 직업 그룹과 시작 오퍼레이터는 영향을 받지 않습니다.&#10;메커니스트의 재능을 모두 해금하지 않으면 비행할 수 없으니 체크하지 마세요.</system:String>
     <system:String x:Key="Roguelike.BlackFlow.RewardBaiZe">포대기의 백택 (襁褓白泽)</system:String>
     <system:String x:Key="Roguelike.BlackFlow.RewardBaiZe.Tip">임시 모집 오퍼레이터의 등장 확률이 증가합니다.</system:String>
@@ -1596,6 +1599,8 @@ OF-1 스테이지가 개방되지 않은 경우에는 선택하지 마세요.</s
     <system:String x:Key="Roguelike.Sami.FirstFloorFoldartal.Tip">암호판 이름을 입력하고, 여러 개는 ｢;｣ 로 구분합니다</system:String>
     <system:String x:Key="Roguelike.Sami.NewSquad2Foldartal">생존지상 분대 목표 암호판 설정</system:String>
     <system:String x:Key="Roguelike.Sami.NewSquad2Foldartal.Tip">최대 3개까지 지원하며 ｢;｣ 로 구분합니다</system:String>
+    <system:String x:Key="Roguelike.ScanAccountModules">시작 전 오퍼레이터 및 모듈 인식</system:String>
+    <system:String x:Key="Roguelike.ScanAccountModules.Tip">같은 작업의 첫 탐사 전에 한 번만 인식하고 결과를 현재 계정에 연결합니다.</system:String>
     <system:String x:Key="Roguelike.SeedFormatError">형식이 올바르지 않습니다</system:String>
     <system:String x:Key="Roguelike.Squad.FirstClass">고급화 분대</system:String>
     <system:String x:Key="Roguelike.Squad.Gathering">집합 분대</system:String>

@@ -1,4 +1,19 @@
 {
+    "BlackFlowAccount@ModulePanelTitle": {
+        "Doc": "Exact requested module title in the management panel; the caller supplies the title filter.",
+        "algorithm": "OcrDetect",
+        "roi": [780, 80, 500, 640],
+        "text": [],
+        "fullMatch": true
+    },
+    "BlackFlowAccount@ModulePanelState": {
+        "Doc": "Account-panel states in order: maximum level, locked. rectMove is relative to the matched title, never the whole page.",
+        "algorithm": "OcrDetect",
+        "roi": [815, 510, 200, 80],
+        "rectMove": [-190, 65, 190, 65],
+        "text": ["MAX", "解锁"],
+        "fullMatch": true
+    },
     "BlackFlow@StartExplore@Roguelike@ChooseOper": {
         "next": [
             "BlackFlow@StartExplore@Roguelike@ChooseOperConfirm",
@@ -79,7 +94,7 @@
             "BlackFlow@Roguelike@InitialCollectible",
             "BlackFlow@Roguelike@ChooseDifficulty",
             "BlackFlow@Roguelike@ScrapTradePageFallback",
-            "BlackFlow@Roguelike@StartExplore",
+            "BlackFlow@Roguelike@LifeGameLobby",
             "BlackFlow@Roguelike@EnterAfterRecruit",
             "BlackFlow@Roguelike@MapPrepare-FloorEnterZoom",
             "BlackFlow@Roguelike@Stages#next",
@@ -135,16 +150,16 @@
     "BlackFlow@Roguelike@ShopShelfUp": {
         "algorithm": "JustReturn",
         "action": "Swipe",
-        "specificRect": [1130, 230, 20, 20],
-        "rectMove": [1130, 570, 20, 20],
+        "specificRect": [750, 220, 20, 20],
+        "rectMove": [750, 540, 20, 20],
         "specialParams": [400],
         "postDelay": 300
     },
     "BlackFlow@Roguelike@ShopShelfDown": {
         "algorithm": "JustReturn",
         "action": "Swipe",
-        "specificRect": [1130, 570, 20, 20],
-        "rectMove": [1130, 230, 20, 20],
+        "specificRect": [750, 540, 20, 20],
+        "rectMove": [750, 220, 20, 20],
         "specialParams": [400],
         "postDelay": 300
     },
@@ -1833,7 +1848,22 @@
         ]
     },
     "BlackFlow@Roguelike@ReserveRecruitmentVoucher": {
-        "template": "BlackFlow@Roguelike@ReserveRecruitmentVoucher.png"
+        "Doc": "Only a blue enabled stash button; capacity and post-click proof are checked by the recruitment plugin.",
+        "template": "BlackFlow@Roguelike@ReserveRecruitmentVoucher.png",
+        "method": "HSVCount",
+        "roi": [930, 0, 260, 78],
+        "colorScales": [
+            [
+                [80, 40, 130],
+                [110, 255, 255]
+            ]
+        ],
+        "action": "ClickSelf",
+        "postDelay": 650,
+        "maxTimes": 1,
+        "next": ["BlackFlow@Roguelike@VoucherStashConfirm", "BlackFlow@Roguelike@VoucherStashWait"],
+        "exceededNext": ["BlackFlow@Roguelike@VoucherStashWait"],
+        "onErrorNext": ["BlackFlow@Roguelike@VoucherStashWait"]
     },
     "BlackFlow@Roguelike@RolesConfirm": {
         "template": "BlackFlow@Roguelike@LastRewardConfirm.png"
@@ -2917,5 +2947,182 @@
             "BlackFlow@Roguelike@StageTraderLeave",
             "BlackFlow@Roguelike@StageTraderLeaveConfirm"
         ]
+    },
+    "BlackFlow@Roguelike@VoucherStashRecruitmentPage": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [1030, 630, 250, 90],
+        "text": ["确认招募"],
+        "fullMatch": false
+    },
+    "BlackFlow@Roguelike@VoucherStashCount": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [1030, 27, 150, 31],
+        "text": [],
+        "withoutDet": true,
+        "useRaw": true
+    },
+    "BlackFlow@Roguelike@VoucherStashConfirm": {
+        "algorithm": "OcrDetect",
+        "action": "ClickSelf",
+        "roi": [600, 350, 600, 330],
+        "text": ["确认留存", "确认暂存"],
+        "fullMatch": true,
+        "maxTimes": 1,
+        "postDelay": 650,
+        "next": ["BlackFlow@Roguelike@VoucherStashWait"],
+        "exceededNext": ["BlackFlow@Roguelike@VoucherStashWait"],
+        "onErrorNext": ["BlackFlow@Roguelike@VoucherStashWait"]
+    },
+    "BlackFlow@Roguelike@VoucherStashWait": {
+        "algorithm": "JustReturn",
+        "action": "DoNothing"
+    },
+    "BlackFlow@Roguelike@VoucherStashResume": {
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@RecruitWithoutButton"]
+    },
+    "BlackFlow@Roguelike@LifeGameLobby": {
+        "baseTask": "BlackFlow@Roguelike@StartExplore",
+        "template": "BlackFlow@Roguelike@StartExplore.png",
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@StartExplore"],
+        "postDelay": 0
+    },
+    "BlackFlow@Roguelike@LifeGameRun": {
+        "algorithm": "JustReturn",
+        "action": "DoNothing"
+    },
+    "BlackFlow@Roguelike@LifeGamePageLabel": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [1110, 5, 170, 85],
+        "text": ["演化算子", "采集完成"],
+        "fullMatch": true
+    },
+    "BlackFlow@Roguelike@LifeGamePoints": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [1135, 5, 95, 55],
+        "text": [],
+        "fullMatch": true,
+        "withoutDet": true,
+        "useRaw": true
+    },
+    "BlackFlow@Roguelike@LifeGameCollected": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [20, 510, 160, 145],
+        "text": [],
+        "fullMatch": true
+    },
+    "BlackFlow@Roguelike@LifeGameSelectedName": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [160, 630, 240, 45],
+        "text": [],
+        "fullMatch": true
+    },
+    "BlackFlow@Roguelike@LifeGameSelectedEffect": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [160, 667, 740, 50],
+        "text": [],
+        "fullMatch": true
+    },
+    "BlackFlow@Roguelike@LifeGameActiveState": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [970, 650, 290, 65],
+        "text": ["生效中"],
+        "fullMatch": true
+    },
+    "BlackFlow@Roguelike@LifeGameUnpurchasedState": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [960, 650, 180, 65],
+        "text": ["确认升级"],
+        "fullMatch": true
+    },
+    "BlackFlow@Roguelike@LifeGameCost": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [1140, 652, 100, 56],
+        "text": [],
+        "fullMatch": true,
+        "withoutDet": false,
+        "useRaw": true
+    },
+    "BlackFlow@Roguelike@LifeGameOpen": {
+        "algorithm": "OcrDetect",
+        "action": "ClickSelf",
+        "roi": [130, 440, 220, 150],
+        "text": ["生命游戏"],
+        "fullMatch": true,
+        "postDelay": 500,
+        "next": ["BlackFlow@Roguelike@LifeGamePageLabel"]
+    },
+    "BlackFlow@Roguelike@LifeGameClose": {
+        "algorithm": "JustReturn",
+        "action": "ClickRect",
+        "specificRect": [20, 15, 50, 45],
+        "postDelay": 400,
+        "next": ["BlackFlow@Roguelike@StartExplore-EnterCheck"]
+    },
+    "BlackFlow@Roguelike@LifeGameSelect": {
+        "algorithm": "JustReturn",
+        "action": "ClickRect",
+        "specificRect": [0, 0, 0, 0],
+        "postDelay": 220
+    },
+    "BlackFlow@Roguelike@LifeGameObserve": {
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "postDelay": 120
+    },
+    "BlackFlow@Roguelike@LifeGameNodeArea": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [110, 90, 1070, 580],
+        "text": []
+    },
+    "BlackFlow@Roguelike@LifeGameUpgrade": {
+        "algorithm": "OcrDetect",
+        "action": "ClickSelf",
+        "roi": [960, 650, 180, 65],
+        "text": ["确认升级"],
+        "fullMatch": true,
+        "postDelay": 500,
+        "next": ["BlackFlow@Roguelike@LifeGamePageLabel"]
+    },
+    "BlackFlow@Roguelike@LifeGamePanForward": {
+        "baseTask": "BlackFlow@Roguelike@LifeGamePageLabel",
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@LifeGamePanForwardAction"]
+    },
+    "BlackFlow@Roguelike@LifeGamePanForwardAction": {
+        "algorithm": "JustReturn",
+        "action": "Swipe",
+        "specificRect": [1000, 400, 12, 12],
+        "rectMove": [300, 400, 12, 12],
+        "specialParams": [700],
+        "postDelay": 500,
+        "next": ["BlackFlow@Roguelike@LifeGamePageLabel"]
+    },
+    "BlackFlow@Roguelike@LifeGamePanBackward": {
+        "baseTask": "BlackFlow@Roguelike@LifeGamePageLabel",
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@LifeGamePanBackwardAction"]
+    },
+    "BlackFlow@Roguelike@LifeGamePanBackwardAction": {
+        "algorithm": "JustReturn",
+        "action": "Swipe",
+        "specificRect": [300, 400, 12, 12],
+        "rectMove": [1000, 400, 12, 12],
+        "specialParams": [700],
+        "postDelay": 500,
+        "next": ["BlackFlow@Roguelike@LifeGamePageLabel"]
     }
 }

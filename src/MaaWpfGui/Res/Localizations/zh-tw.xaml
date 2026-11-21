@@ -1519,6 +1519,9 @@ DEBUG 目錄下儲存的圖片有數量限制，超出後會自動清理舊圖�
     <system:String x:Key="Roguelike.BlackFlow.FastFlight.Lock.Tip">勾選 ｢{key=Roguelike.BlackFlow.FastFlight}｣ 後此項不能修改，取消勾選後恢復</system:String>
     <system:String x:Key="Roguelike.BlackFlow.Flight.Tip" xml:space="preserve">固定用特勤分隊、穩紮穩打和自己的機械師開局，只招機械師，第二層用自帶的結構性原理直接飛到第三層，到達後重開。&#10;勾選後一般設定裡的分隊、職業組和開局幹員不能修改，取消勾選後恢復。不勾選時按目標結局打，開局配置是這套組合也不會飛。&#10;機械師天賦沒點滿會飛不起來，請不要勾選。</system:String>
     <system:String x:Key="Roguelike.BlackFlow.FlightRequirement">需滿天賦機械師</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Allocate">生命遊戲加點</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Auto">每輪結束自動加點</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Auto.Tip">返回黑流首頁後使用演化算子，優先提升下一輪收益。逐項確認前置、費用及升級結果；辨識不確定時停止加點。</system:String>
     <system:String x:Key="Roguelike.BlackFlow.PrepFlight.Tip" xml:space="preserve">準備局固定用特勤分隊、穩紮穩打和自己的機械師開局，只招機械師，第二層用自帶的結構性原理直接飛到第三層。&#10;勾選後 ｢{key=Roguelike.CollectibleMode.Squad}｣ 顯示為特勤分隊且不能修改，取消勾選後恢復原來的設定；一般設定裡的職業組和開局幹員不受影響。&#10;機械師天賦沒點滿會飛不起來，請不要勾選。</system:String>
     <system:String x:Key="Roguelike.BlackFlow.RewardBaiZe">襁褓白澤</system:String>
     <system:String x:Key="Roguelike.BlackFlow.RewardBaiZe.Tip">臨時招募幹員的出現機率提升。</system:String>
@@ -1596,6 +1599,8 @@ DEBUG 目錄下儲存的圖片有數量限制，超出後會自動清理舊圖�
     <system:String x:Key="Roguelike.Sami.FirstFloorFoldartal.Tip">填寫遠見密文板名稱，多個用英文分號 ｢;｣ 隔開</system:String>
     <system:String x:Key="Roguelike.Sami.NewSquad2Foldartal">生活隊凹開局密文板</system:String>
     <system:String x:Key="Roguelike.Sami.NewSquad2Foldartal.Tip">最多填寫三個，並用英文分號 ｢;｣ 隔開</system:String>
+    <system:String x:Key="Roguelike.ScanAccountModules">開始前辨識幹員與模組</system:String>
+    <system:String x:Key="Roguelike.ScanAccountModules.Tip">同次連續探索只在首輪前辨識一次，結果綁定目前帳號。</system:String>
     <system:String x:Key="Roguelike.SeedFormatError">格式不正確</system:String>
     <system:String x:Key="Roguelike.Squad.FirstClass">高規格分隊</system:String>
     <system:String x:Key="Roguelike.Squad.Gathering">集群分隊</system:String>

@@ -31,27 +31,52 @@ std::optional<asst::blackflow::ShopShelfPage> asst::blackflow::BlackFlowShopShel
         return std::nullopt;
     }
     ShopShelfPage page;
+    // The fixed footer and leave button cover shelf pixels even though they are inside the screenshot.
+    const int viewport_bottom = std::min(630, image.rows);
+    const Rect leave = anchor.get_result().rect;
     for (const auto& name : *result) {
-        Matcher coin(image);
-        coin.set_task_info("RoguelikeTraderShopping");
-        const Rect price_area = name.rect.move({ -20, 130, 200, 80 });
-        // A clipped price row is not evidence that a product is absent or sold out.
-        if (price_area.y < 0 || price_area.y + price_area.height > image.rows) {
-            continue;
-        }
-        coin.set_roi(price_area);
-        if (!coin.analyze()) {
+        // Product titles start at the left edge of one of the four cards. This excludes price labels,
+        // investment balances, and the fixed shop controls from clipped-product evidence.
+        const int column = (name.rect.x - 410 + 20) / 207;
+        const int card_left = 410 + column * 207;
+        const int card_right = std::min(card_left + 195, image.cols);
+        if (column < 0 || column > 3 || std::abs(name.rect.x - card_left) > 32 || name.rect.y < 160 ||
+            name.rect.height < 18 || name.rect.width < 40 || name.score < 0.85 || name.text == "前瞻性投资系统" ||
+            std::ranges::none_of(name.text, [](unsigned char ch) { return ch >= 0x80; })) {
             continue;
         }
         ShopShelfOffer offer { .name = name.text, .rect = name.rect };
-        const auto& icon = coin.get_result().rect;
-        RegionOCRer price(image);
-        price.set_task_info("NumberOcrReplace");
-        price.set_roi({ icon.x + icon.width, icon.y - 8, 90, icon.height + 16 });
-        int amount = 0;
-        if (const auto value = price.analyze();
-            value && utils::chars_to_number(value->text, amount) && amount > 0 && amount < 1000) {
-            offer.price = amount;
+        const Rect price_area { card_left, name.rect.y + 130, card_right - card_left, 80 };
+        if (price_area.y + price_area.height > viewport_bottom) {
+            page.clipped_content = true;
+            page.offers.emplace_back(std::move(offer));
+            continue;
+        }
+        Matcher coin(image);
+        coin.set_task_info("RoguelikeTraderShopping");
+        coin.set_roi(price_area);
+        if (coin.analyze()) {
+            const auto& icon = coin.get_result().rect;
+            const Rect field { icon.x + icon.width, icon.y - 8, card_right - icon.x - icon.width, icon.height + 16 };
+            const bool covered = field.x < leave.x + leave.width && field.x + field.width > leave.x &&
+                                 field.y < leave.y + leave.height && field.y + field.height > leave.y;
+            if (!covered && field.width >= 24 && field.y >= 0 && field.y + field.height <= viewport_bottom) {
+                RegionOCRer price(image);
+                price.set_task_info("NumberOcrReplace");
+                price.set_replace({});
+                // Thresholding unaffordable grey digits previously left a 6x5 border fragment;
+                // the I->1 replacement then turned that fragment into a plausible low price.
+                // Recognize the complete card-bounded field without threshold-based cropping.
+                price.set_bin_threshold(0, 255);
+                price.set_roi(field);
+                int amount = 0;
+                if (const auto value = price.analyze();
+                    value && value->score >= 0.90 && value->rect.height >= 24 && !value->text.empty() &&
+                    std::ranges::all_of(value->text, [](char ch) { return ch >= '0' && ch <= '9'; }) &&
+                    utils::chars_to_number(value->text, amount) && amount >= 0 && amount < 1000) {
+                    offer.price = amount;
+                }
+            }
         }
         page.offers.emplace_back(std::move(offer));
     }
@@ -63,7 +88,7 @@ std::optional<asst::blackflow::ShopShelfPage> asst::blackflow::BlackFlowShopShel
 
 bool asst::blackflow::BlackFlowShopShelf::same_view(const ShopShelfPage& lhs, const ShopShelfPage& rhs)
 {
-    if (lhs.offers.size() != rhs.offers.size()) {
+    if (lhs.offers.size() != rhs.offers.size() || lhs.clipped_content != rhs.clipped_content) {
         return false;
     }
     for (std::size_t i = 0; i < lhs.offers.size(); ++i) {
@@ -131,6 +156,10 @@ std::optional<asst::blackflow::ShopShelfInventory>
         stable = same_view(*previous, *current) ? stable + 1 : 0;
         previous = std::move(current);
         if (stable >= 2) {
+            if (previous->clipped_content) {
+                LogWarn << __FUNCTION__ << "Shop shelf stopped with clipped products; tail remains unverified";
+                return std::nullopt;
+            }
             return inventory;
         }
     }

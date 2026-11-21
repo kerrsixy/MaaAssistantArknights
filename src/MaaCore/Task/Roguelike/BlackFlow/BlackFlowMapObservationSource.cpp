@@ -321,8 +321,9 @@ bool BlackFlowMapObservationSource::recognize(
         next.current_marker_score = result.node_detection.current_marker_score;
         const auto buff_scope = detect_temporal_buff_scope(image, m_temporal_gray_frames, result.node_detection.nodes);
         if (buff_scope.has_value()) {
-            next.floor_buff_id = "temporal_buff_scope";
-            next.floor_buff_scope_confirmed = true;
+            // Temporal motion supplies a diagnostic candidate, not a verified
+            // weather boundary or evidence that nodes outside it are unaffected.
+            next.floor_buff_id = "temporal_buff_scope_candidate";
         }
 
         next.nodes.reserve(result.node_detection.nodes.size());
@@ -361,6 +362,7 @@ bool BlackFlowMapObservationSource::recognize(
                 });
         }
 
+        observed_facts = observed_floor_buff_facts(next);
         observation = std::move(next);
         m_last_accepted_observation_id = observation.observation_id;
         m_last_result = std::move(result);

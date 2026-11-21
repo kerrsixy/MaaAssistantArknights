@@ -63,6 +63,10 @@ protected:
     bool deploy_oper(const std::string& name, const Point& loc, battle::DeployDirection direction);
     bool deploy_oper(battle::Role role, const std::string& name, const Point& loc, battle::DeployDirection direction);
 
+    static bool is_terrain_roadblock(const battle::DeploymentOper& oper);
+    static battle::DeployDirection
+        deployment_direction_for(const battle::DeploymentOper& oper, battle::DeployDirection requested);
+
     virtual bool verify_deployment_enabled() const { return false; }
 
     virtual bool deployment_target_allowed(const battle::DeploymentOper&, const Point&) const { return true; }
@@ -79,10 +83,7 @@ protected:
     // 普通战斗里不会出现这个前缀，因此不影响既有流程。
     static constexpr std::string_view NamelessDeployablePrefix = "__nameless_deployable_";
 
-    static bool is_nameless_deployable(const std::string& name)
-    {
-        return name.starts_with(NamelessDeployablePrefix);
-    }
+    static bool is_nameless_deployable(const std::string& name) { return name.starts_with(NamelessDeployablePrefix); }
 
     // 部署栏上「没有真实名字」的卡片：OCR 结果为空，或只读到数字/符号（例如角落里的 ×2）。
     static bool is_card_name_unusable(const std::string& name)
@@ -100,7 +101,6 @@ protected:
     }
 
 protected:
-
     battle::DeploymentOutcome
         verify_deployment(const battle::DeploymentOper& oper, const Point& loc, bool input_accepted);
     bool deployment_retry_allowed(const battle::DeploymentOper& oper, const Point& loc) const;

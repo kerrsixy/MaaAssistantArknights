@@ -28,6 +28,14 @@ bool asst::RoguelikeRecruitTaskPlugin::verify(AsstMsg msg, const json::value& de
     }
     const std::string roguelike_name = m_config->get_theme() + "@";
     const std::string& task = details.get("details", "task", "");
+    if ((task.ends_with("Roguelike@VoucherStashResume") || task == "VoucherStashResume") &&
+        !m_stash_resume_source.empty()) {
+        if (auto process = dynamic_cast<ProcessTask*>(m_task_ptr)) {
+            process->remove_override_next(m_stash_resume_source);
+        }
+        m_stash_resume_source.clear();
+        return false;
+    }
     std::string_view task_view = task;
     if (task_view.starts_with(roguelike_name)) {
         task_view.remove_prefix(roguelike_name.length());
@@ -68,6 +76,11 @@ std::unordered_set<std::string> asst::RoguelikeRecruitTaskPlugin::calculate_cond
 bool asst::RoguelikeRecruitTaskPlugin::_run()
 {
     LogTraceFunction;
+
+    if (m_voucher_stash.pending()) {
+        // A retry may verify the previous click, but must never click a second voucher.
+        return verify_voucher_stash();
+    }
 
     ++m_recruit_count;
 
@@ -570,8 +583,7 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
 
     // 没有候选干员，进入后备逻辑
     if (recruit_list.empty()) {
-        LogInfo << __FUNCTION__ << "No suitable recruitment candidate; continue voucher flow normally";
-        return true;
+        return finish_without_recruitment();
     }
 
     // 候选已通过适用性筛选，统一排序；固定希望阈值不能阻断免费券或有效晋升。
@@ -673,12 +685,109 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
     return recruit_appointed_char(char_name, is_rtl);
 }
 
+bool asst::RoguelikeRecruitTaskPlugin::finish_without_recruitment()
+{
+    LogInfo << __FUNCTION__ << "No suitable recruitment candidate";
+    if (m_config->get_theme() != RoguelikeTheme::BlackFlow || m_initail_recruit) {
+        return true;
+    }
+
+    const auto before = blackflow::BlackFlowVoucherStash(ctrler()->get_image()).observe();
+    if (!before.can_store()) {
+        auto info = basic_info_with_what("BlackFlowVoucherStashDecision");
+        info["details"] = json::object {
+            { "status", "unavailable" },
+            { "reason", "no_suitable_candidate" },
+            { "recruitment_page", before.recruitment_page },
+            { "enabled_button", before.enabled_button },
+            { "stored", before.count ? before.count->used : -1 },
+            { "capacity", before.count ? before.count->capacity : -1 },
+        };
+        callback(AsstMsg::SubTaskExtraInfo, info);
+        return true;
+    }
+
+    if (!m_voucher_stash.begin(before)) {
+        return verify_voucher_stash();
+    }
+    // The resource chain owns the one button click and optional confirmation.
+    // Completion is established below, never from ProcessTask returning true.
+    ProcessTask request(*this, { "BlackFlow@Roguelike@ReserveRecruitmentVoucher" });
+    request.set_retry_times(0);
+    const bool action_completed = request.run();
+    LogInfo << __FUNCTION__ << "Voucher storage action finished" << action_completed;
+    return verify_voucher_stash();
+}
+
+bool asst::RoguelikeRecruitTaskPlugin::verify_voucher_stash()
+{
+    if (!m_voucher_stash.pending()) {
+        return false;
+    }
+    constexpr int VerificationFrames = 5;
+    for (int i = 0; i < VerificationFrames && !need_exit(); ++i) {
+        const auto after = blackflow::BlackFlowVoucherStash(ctrler()->get_image()).observe();
+        const auto proof = blackflow::BlackFlowVoucherStash::verify(*m_voucher_stash.before(), after);
+        if (proof != blackflow::VoucherStashProof::Pending) {
+            auto process = dynamic_cast<ProcessTask*>(m_task_ptr);
+            const auto source = process && process->get_last_hit() ? process->get_last_hit()->task_ptr : nullptr;
+            const bool queued =
+                source && process->override_next(source->name, { "BlackFlow@Roguelike@VoucherStashResume" });
+            if (queued) {
+                m_stash_resume_source = source->name;
+            }
+            auto info = basic_info_with_what("BlackFlowVoucherStashDecision");
+            info["details"] = json::object {
+                { "status", "confirmed" },
+                { "reason", "no_suitable_candidate" },
+                { "proof",
+                  proof == blackflow::VoucherStashProof::CounterIncreased ? "counter_increased" : "successor_page" },
+                { "stored_before", m_voucher_stash.before()->count->used },
+                { "stored_after", after.count ? after.count->used : -1 },
+                { "capacity", m_voucher_stash.before()->count->capacity },
+                { "successor_page", after.successor_page },
+                { "continuation_queued", queued },
+            };
+            callback(AsstMsg::SubTaskExtraInfo, info);
+            m_voucher_stash.reset();
+            if (!queued) {
+                LogError << __FUNCTION__ << "Stored voucher but cannot queue safe continuation";
+                if (m_task_ptr != nullptr) {
+                    m_task_ptr->set_enable(false);
+                }
+            }
+            return queued;
+        }
+        sleep(250);
+    }
+
+    auto info = basic_info_with_what("BlackFlowVoucherStashDecision");
+    info["details"] = json::object {
+        { "status", "unconfirmed" },
+        { "reason", "no_suitable_candidate" },
+        { "stored_before", m_voucher_stash.before()->count->used },
+        { "capacity", m_voucher_stash.before()->count->capacity },
+        { "repeat_click_permitted", false },
+    };
+    callback(AsstMsg::SubTaskExtraInfo, info);
+    LogWarn << __FUNCTION__ << "Voucher storage outcome remains unverified; stop without discarding another voucher";
+    if (m_task_ptr != nullptr) {
+        m_task_ptr->set_enable(false);
+    }
+    return false;
+}
+
 void asst::RoguelikeRecruitTaskPlugin::reset_in_run_variables()
 {
+    if (auto process = dynamic_cast<ProcessTask*>(m_task_ptr); process && !m_stash_resume_source.empty()) {
+        process->remove_override_next(m_stash_resume_source);
+    }
     m_recruit_count = 0;
     m_starts_complete = false;
     m_team_complete = false;
     m_opening_roles.clear();
+    m_voucher_stash.reset();
+    m_stash_resume_source.clear();
     m_config->reset_start_oper_index();
 }
 

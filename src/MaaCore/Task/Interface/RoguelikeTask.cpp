@@ -51,6 +51,7 @@
 #include "Task/Roguelike/BlackFlow/BlackFlowAccountTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowCultivationTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowDuelTaskPlugin.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowLifeGameTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowLifecycleTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowMapObservationSource.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowMovementTaskPlugin.h"
@@ -138,6 +139,8 @@ asst::RoguelikeTask::RoguelikeTask(const AsstCallback& callback, Assistant* inst
     shopping_plugin->set_blackflow_session(m_blackflow_session_ptr);
     m_roguelike_task_ptr->register_plugin<blackflow::BlackFlowAccountTaskPlugin>(m_config_ptr, m_control_ptr)
         ->set_retry_times(0);
+    m_roguelike_task_ptr->register_plugin<blackflow::BlackFlowLifeGameTaskPlugin>(m_config_ptr, m_control_ptr)
+        ->set_retry_times(0);
     m_roguelike_task_ptr
         ->register_plugin<blackflow::BlackFlowDuelTaskPlugin>(m_config_ptr, m_control_ptr, m_blackflow_session_ptr)
         ->set_retry_times(0);
@@ -184,7 +187,8 @@ bool asst::RoguelikeTask::run()
             return false;
         }
         m_run_started = true;
-        use_blackflow_map = get_enable() && m_config_ptr->get_theme() == RoguelikeTheme::BlackFlow &&
+        use_blackflow_map = get_enable() && !m_blackflow_life_game_only &&
+                            m_config_ptr->get_theme() == RoguelikeTheme::BlackFlow &&
                             m_blackflow_map_source_ptr != nullptr;
     }
 
@@ -256,10 +260,18 @@ bool asst::RoguelikeTask::set_params(const json::value& params)
 
     const auto& theme = m_config_ptr->get_theme();
     const auto& mode = m_config_ptr->get_mode();
+    m_blackflow_life_game_only = params.get("blackflow_life_game_only", false);
+    if (m_blackflow_life_game_only && theme != RoguelikeTheme::BlackFlow) {
+        LogError << __FUNCTION__ << "Life Game allocation requires BlackFlow";
+        return false;
+    }
 
     m_roguelike_task_ptr->set_tasks({ theme + "@Roguelike@Begin" });
     if (theme == RoguelikeTheme::BlackFlow && params.get("starts_count", INT_MAX) > 0) {
         m_roguelike_task_ptr->set_tasks({ "BlackFlow@Roguelike@AccountBegin" });
+    }
+    if (m_blackflow_life_game_only) {
+        m_roguelike_task_ptr->set_tasks({ "BlackFlow@Roguelike@LifeGameRun" });
     }
 #ifdef ASST_DEBUG
     if (!params.get("battle_resume_stage", std::string()).empty()) {

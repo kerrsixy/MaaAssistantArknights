@@ -46,5 +46,6 @@ private:
     std::shared_ptr<blackflow::IBlackFlowTaskPort> m_blackflow_port_ptr = nullptr;
     std::mutex m_run_state_mutex;
     bool m_run_started = false;
+    bool m_blackflow_life_game_only = false;
 };
 }

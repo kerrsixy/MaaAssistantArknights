@@ -648,7 +648,8 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
             // 但也不能一味等：场上人数不足 3 时先把人放下，否则前期就漏怪。
             if ((m_reserve_deploy_cost ||
                  (!is_nameless_deployable(deploy_plan.oper_name) && !early_phase && m_used_tiles.size() >= 3)) &&
-                deploy_plan.rank > best_waiting_rank && !(need_medic && deploy_plan.role == battle::Role::Medic)) {
+                deploy_plan.rank > best_waiting_rank &&
+                !(!m_reserve_deploy_cost && need_medic && deploy_plan.role == battle::Role::Medic)) {
                 Log.info(
                     "reserve slot: skip",
                     deploy_plan.oper_name,

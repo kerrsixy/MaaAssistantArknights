@@ -1518,6 +1518,9 @@ Recruitment permits are consumed faster than acquired; normally the timer expire
     <system:String x:Key="Roguelike.BlackFlow.FastFlight.Lock.Tip">This option can only be edited when ｢{key=Roguelike.BlackFlow.FastFlight}｣ is unchecked</system:String>
     <system:String x:Key="Roguelike.BlackFlow.Flight.Tip" xml:space="preserve">Always starts with Special Squad, Slow and Steady Wins the Race and your own Mechanic, recruits only the Mechanic, flies straight from Floor 2 to Floor 3 with the built-in Structural Principle, and restarts on arrival.&#10;The squad, roles and starting operator in General settings cannot be edited while this is checked; unchecking it makes them editable again. When unchecked, the run plays toward the target ending and does not fly even if the starting setup matches this combination.&#10;Do not check this if your Mechanic's talent is not fully unlocked, as the flight will fail.</system:String>
     <system:String x:Key="Roguelike.BlackFlow.FlightRequirement">Requires a Mechanic with talent fully unlocked</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Allocate">Allocate Life Game points</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Auto">Allocate points after each exploration</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Auto.Tip">Spend evolution points after returning to the BlackFlow lobby, prioritizing the next exploration. Verify prerequisites, cost and the upgrade result; stop allocation when recognition is uncertain.</system:String>
     <system:String x:Key="Roguelike.BlackFlow.PrepFlight.Tip" xml:space="preserve">The preparation run always starts with Special Squad, Slow and Steady Wins the Race and your own Mechanic, recruits only the Mechanic, and flies straight from Floor 2 to Floor 3 with the built-in Structural Principle.&#10;When checked, ｢{key=Roguelike.CollectibleMode.Squad}｣ shows Special Squad and cannot be changed; unchecking restores the previous setting. The roles and starting operator in General settings are not affected.&#10;Do not check this if your Mechanic's talent is not fully unlocked, as the flight will fail.</system:String>
     <system:String x:Key="Roguelike.BlackFlow.RewardBaiZe">襁褓白泽 (Swaddled Bai Ze)</system:String>
     <system:String x:Key="Roguelike.BlackFlow.RewardBaiZe.Tip">Increases the chance of temporary recruitment operators appearing.</system:String>
@@ -1595,6 +1598,8 @@ To enable this mechanism, make sure the selected difficulty is N3 or higher (exc
     <system:String x:Key="Roguelike.Sami.FirstFloorFoldartal.Tip">Enter the foldartal names, separated by ｢;｣</system:String>
     <system:String x:Key="Roguelike.Sami.NewSquad2Foldartal">Start with ｢Life Prioritizing Squad｣ and acquire the cypherboard</system:String>
     <system:String x:Key="Roguelike.Sami.NewSquad2Foldartal.Tip">Write up to three and separate with ｢;｣</system:String>
+    <system:String x:Key="Roguelike.ScanAccountModules">Scan operators and modules before starting</system:String>
+    <system:String x:Key="Roguelike.ScanAccountModules.Tip">Scan once before the first exploration of this task and bind results to the current account.</system:String>
     <system:String x:Key="Roguelike.SeedFormatError">Invalid format</system:String>
     <system:String x:Key="Roguelike.Squad.FirstClass">First-Class Squad</system:String>
     <system:String x:Key="Roguelike.Squad.Gathering">Gathering Squad</system:String>

@@ -831,6 +831,45 @@ public class RoguelikeTaskUserControlModel : TaskSettingsViewModel, RoguelikeTas
     }
 
     /// <summary>
+    /// Gets or sets a value indicating whether account modules are scanned before the first exploration.
+    /// </summary>
+    public bool RoguelikeScanAccountModules
+    {
+        get => GetTaskConfig<RoguelikeTask>().ScanAccountModules;
+        set => SetTaskConfig<RoguelikeTask>(t => t.ScanAccountModules == value, t => t.ScanAccountModules = value);
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to allocate Life Game points between explorations.
+    /// </summary>
+    public bool RoguelikeBlackFlowLifeGameEnabled
+    {
+        get => GetTaskConfig<RoguelikeTask>().BlackFlowLifeGameEnabled;
+        set => SetTaskConfig<RoguelikeTask>(t => t.BlackFlowLifeGameEnabled == value, t => t.BlackFlowLifeGameEnabled = value);
+    }
+
+    /// <summary>
+    /// Allocates Life Game points without starting an exploration or changing the saved task.
+    /// </summary>
+    /// <returns>The temporary task launch operation.</returns>
+    public async System.Threading.Tasks.Task AllocateBlackFlowLifeGame()
+    {
+        if (RoguelikeTheme != Theme.BlackFlow)
+        {
+            return;
+        }
+
+        await Instances.TaskQueueViewModel.LinkStartWithTasks([new RoguelikeTask {
+            Name = LocalizationHelper.GetString("Roguelike.BlackFlow.LifeGame.Allocate"),
+            Theme = Theme.BlackFlow,
+            StartCount = 0,
+            ScanAccountModules = false,
+            BlackFlowLifeGameEnabled = true,
+            BlackFlowLifeGameOnly = true,
+        }]);
+    }
+
+    /// <summary>
     /// Gets or sets a value indicating whether investment is enabled.
     /// </summary>
     public bool RoguelikeInvestmentEnabled
@@ -1742,6 +1781,9 @@ public class RoguelikeTaskUserControlModel : TaskSettingsViewModel, RoguelikeTas
                 Theme = roguelike.Theme,
                 Mode = roguelike.Mode,
                 Starts = roguelike.StartCount,
+                ScanAccountModules = roguelike.ScanAccountModules,
+                BlackFlowLifeGameEnabled = roguelike.BlackFlowLifeGameEnabled,
+                BlackFlowLifeGameOnly = roguelike.BlackFlowLifeGameOnly,
                 Difficulty = roguelike.Difficulty,
                 Squad = roguelike.Squad,
                 Roles = roguelike.Roles,

@@ -11,6 +11,8 @@
 
 namespace asst::blackflow
 {
+class FactStore;
+
 // A prediction is not a substitute for a current observation. Missing or
 // conflicting readings must be reacquired before committing routing state.
 [[nodiscard]] constexpr std::optional<int>
@@ -80,8 +82,14 @@ struct BlackFlowMapObservation
     std::string floor_buff_id;
     std::string floor_buff_name;
     std::string floor_buff_effect;
+    std::string floor_buff_type;
+    std::optional<bool> floor_buff_positive;
     bool floor_buff_scope_confirmed = false;
 };
+
+// Only explicit identity and effect readings may produce semantic floor facts.
+// An animated map contour alone cannot identify weather or its polarity.
+[[nodiscard]] FactStore observed_floor_buff_facts(const BlackFlowMapObservation& source);
 
 struct PerceptionSummary
 {

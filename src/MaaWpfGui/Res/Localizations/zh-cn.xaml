@@ -1519,6 +1519,9 @@ DEBUG 目录下保存的图片有数量限制，超出后会自动清理旧图�
     <system:String x:Key="Roguelike.BlackFlow.FastFlight.Lock.Tip">勾选 ｢{key=Roguelike.BlackFlow.FastFlight}｣ 后此项不能修改，取消勾选后恢复</system:String>
     <system:String x:Key="Roguelike.BlackFlow.Flight.Tip" xml:space="preserve">固定用特勤分队、稳扎稳打和自己的机械师开局，只招机械师，第二层用自带的结构性原理直接飞到第三层，到达后重开。&#10;勾选后常规设置里的分队、职业组和开局干员不能修改，取消勾选后恢复。不勾选时按目标结局打，开局配置是这套组合也不会飞。&#10;机械师天赋没点满会飞不起来，请不要勾选。</system:String>
     <system:String x:Key="Roguelike.BlackFlow.FlightRequirement">需满天赋机械师</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Allocate">生命游戏加点</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Auto">每轮结束自动加点</system:String>
+    <system:String x:Key="Roguelike.BlackFlow.LifeGame.Auto.Tip">返回黑流主页后使用演化算子，优先提升下一轮收益。逐项确认前置、费用及升级结果；识别不确定时停止加点。</system:String>
     <system:String x:Key="Roguelike.BlackFlow.PrepFlight.Tip" xml:space="preserve">准备局固定用特勤分队、稳扎稳打和自己的机械师开局，只招机械师，第二层用自带的结构性原理直接飞到第三层。&#10;勾选后 ｢{key=Roguelike.CollectibleMode.Squad}｣ 显示为特勤分队且不能修改，取消勾选后恢复原来的设置；常规设置里的职业组和开局干员不受影响。&#10;机械师天赋没点满会飞不起来，请不要勾选。</system:String>
     <system:String x:Key="Roguelike.BlackFlow.RewardBaiZe">襁褓白泽</system:String>
     <system:String x:Key="Roguelike.BlackFlow.RewardBaiZe.Tip">临时招募干员的出现概率提升。</system:String>
@@ -1596,6 +1599,8 @@ DEBUG 目录下保存的图片有数量限制，超出后会自动清理旧图�
     <system:String x:Key="Roguelike.Sami.FirstFloorFoldartal.Tip">填写远见密文板名称，多个用英文分号 ｢;｣ 隔开</system:String>
     <system:String x:Key="Roguelike.Sami.NewSquad2Foldartal">生活队凹开局密文板</system:String>
     <system:String x:Key="Roguelike.Sami.NewSquad2Foldartal.Tip">最多写三个，并用英文分号 ｢;｣ 隔开</system:String>
+    <system:String x:Key="Roguelike.ScanAccountModules">启动前识别干员与模组</system:String>
+    <system:String x:Key="Roguelike.ScanAccountModules.Tip">同次连续探索只在首轮前识别一次，结果绑定当前账号。</system:String>
     <system:String x:Key="Roguelike.SeedFormatError">格式不正确</system:String>
     <system:String x:Key="Roguelike.Squad.FirstClass">高规格分队</system:String>
     <system:String x:Key="Roguelike.Squad.Gathering">集群分队</system:String>

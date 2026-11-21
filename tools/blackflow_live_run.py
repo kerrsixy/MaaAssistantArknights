@@ -297,6 +297,12 @@ def main():
     )
     parser.add_argument("--account-cache-file", default=None)
     parser.add_argument(
+        "--life-game",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="探索间分配生命游戏点数；--no-life-game 用于独立验证尚未通过时的流程回归",
+    )
+    parser.add_argument(
         "--diagnostics", choices=("normal", "full", "detailed"), default="full"
     )
     parser.add_argument(
@@ -363,6 +369,7 @@ def main():
             "use_nonfriend_support": False,
             "refresh_trader_with_dice": False,
             "scan_account_modules": args.scan_account_modules,
+            "blackflow_life_game_enabled": args.life_game,
         }
         if args.account_cache_file:
             params["account_cache_file"] = args.account_cache_file

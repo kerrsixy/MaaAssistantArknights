@@ -66,6 +66,21 @@ public class AsstRoguelikeTask : AsstBaseTask
     public int Starts { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether scan account modules once before this task starts exploring.
+    /// </summary>
+    public bool ScanAccountModules { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to allocate Life Game points between explorations.
+    /// </summary>
+    public bool BlackFlowLifeGameEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to run only Life Game allocation.
+    /// </summary>
+    public bool BlackFlowLifeGameOnly { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether 是否投资源石锭
     /// </summary>
     public bool InvestmentEnabled { get; set; }
@@ -250,8 +265,15 @@ public class AsstRoguelikeTask : AsstBaseTask
             ["theme"] = Theme.ToString(),
             ["difficulty"] = Difficulty,
             ["starts_count"] = Starts,
+            ["scan_account_modules"] = ScanAccountModules,
             ["investment_enabled"] = InvestmentEnabled,
         };
+
+        if (Theme == RoguelikeTheme.BlackFlow)
+        {
+            taskParams["blackflow_life_game_enabled"] = BlackFlowLifeGameEnabled;
+            taskParams["blackflow_life_game_only"] = BlackFlowLifeGameOnly;
+        }
 
         // 快速飞三层：分队、职业组和开局干员换成满天赋机械师的固定开局，沿用 Core 刷等级的默认策略。
         // 不勾选就按目标结局打，开局配置即使是这套组合也不飞。

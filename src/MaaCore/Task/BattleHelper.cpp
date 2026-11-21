@@ -18,6 +18,7 @@
 #include "Vision/MultiMatcher.h"
 #include "Vision/Oper/OperNameAnalyzer.h"
 #include "Vision/RegionOCRer.h"
+#include <array>
 #include <ranges>
 
 #include "Arknights-Tile-Pos/TileCalc2.hpp"
@@ -430,6 +431,33 @@ bool asst::BattleHelper::deploy_oper(const std::string& name, const Point& loc, 
     return deploy_oper(battle::Role::Unknown, name, loc, direction);
 }
 
+bool asst::BattleHelper::is_terrain_roadblock(const battle::DeploymentOper& oper)
+{
+    if (oper.role != Role::Drone) {
+        return false;
+    }
+    // Terrain roadblocks use single-step placement. Do not infer this from a zero
+    // attack range: Mechanist's similarly shaped token can have a directional charge.
+    static constexpr std::array<std::string_view, 3> RoadblockIds {
+        "trap_001_crate",
+        "trap_163_foolcrate",
+        "trap_1640_akbtst",
+    };
+    const auto candidates = BattleData.find_opers(oper.role, oper.name);
+    // BattleData normalizes the source NONE placement type to All.
+    return !candidates.empty() && std::ranges::all_of(candidates, [](const auto& candidate) {
+        return candidate && candidate->location_type == LocationType::All &&
+               std::ranges::find(RoadblockIds, candidate->id) != RoadblockIds.end() &&
+               std::ranges::all_of(candidate->ranges, [](const auto& range) { return range == "0-1"; });
+    });
+}
+
+asst::battle::DeployDirection
+    asst::BattleHelper::deployment_direction_for(const battle::DeploymentOper& oper, battle::DeployDirection requested)
+{
+    return is_terrain_roadblock(oper) ? DeployDirection::None : requested;
+}
+
 bool asst::BattleHelper::deploy_oper(
     battle::Role role,
     const std::string& name,
@@ -460,6 +488,10 @@ bool asst::BattleHelper::deploy_oper(
     const auto& oper_role = oper.role;
     const auto& oper_name = oper.name;
     const Rect& oper_rect = oper.rect;
+    const auto deployment_direction = deployment_direction_for(oper, direction);
+    if (deployment_direction != direction) {
+        LogInfo << __FUNCTION__ << "Skipping facing swipe for verified terrain roadblock" << oper_name;
+    }
 
     auto target_iter = m_side_tile_info.find(loc);
     if (target_iter == m_side_tile_info.cend()) {
@@ -492,7 +524,7 @@ bool asst::BattleHelper::deploy_oper(
         swipe_oper_task_ptr->special_params.at(3) / 10.0);
 
     // 拖动干员朝向
-    if (direction != DeployDirection::None && input_accepted) {
+    if (deployment_direction != DeployDirection::None && input_accepted) {
         static const std::unordered_map<DeployDirection, Point> DirectionMap = {
             { DeployDirection::Right, Point::right() }, { DeployDirection::Down, Point::down() },
             { DeployDirection::Left, Point::left() },   { DeployDirection::Up, Point::up() },
@@ -500,7 +532,7 @@ bool asst::BattleHelper::deploy_oper(
         };
 
         // 计算往哪边拖动
-        const Point& direction_target = DirectionMap.at(direction);
+        const Point& direction_target = DirectionMap.at(deployment_direction);
 
         // 将方向转换为实际的 swipe end 坐标点，并对滑动距离进行缩放
         const auto scale_size = m_inst_helper.ctrler()->get_scale_size();

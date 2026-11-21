@@ -5,6 +5,8 @@
 
 #include "Vision/Roguelike/BlackFlow/BlackFlowFloor.h"
 
+#include "BlackFlowPolicy.h"
+
 namespace asst::blackflow
 {
 namespace
@@ -50,6 +52,23 @@ const PerceptionNodeObservation* infer_first_floor_shop(const BlackFlowMapObserv
     return result;
 }
 } // namespace
+
+FactStore observed_floor_buff_facts(const BlackFlowMapObservation& source)
+{
+    FactStore facts;
+    if (source.floor_buff_id.empty() || source.floor_buff_type.empty() || source.floor_buff_name.empty() ||
+        source.floor_buff_effect.empty() || !source.floor_buff_positive.has_value()) {
+        return facts;
+    }
+    facts.set("floor.buff_identity_known", true);
+    facts.set("floor.buff_positive_known", true);
+    facts.set("floor.buff_positive", *source.floor_buff_positive);
+    facts.set("floor.buff_id", source.floor_buff_id);
+    facts.set("floor.buff_type", source.floor_buff_type);
+    facts.set("floor.buff_name", source.floor_buff_name);
+    facts.set("floor.buff_effect", source.floor_buff_effect);
+    return facts;
+}
 
 std::optional<NodeType> BlackFlowObservationAdapter::map_node_type(std::string_view type) noexcept
 {
@@ -157,7 +176,9 @@ std::optional<NormalizedPerceptionObservation>
         node.marker_display_name = source_node.marker_display_name;
         node.marker_score = source_node.marker_score;
         node.badged = source_node.badged;
-        node.buff_scope = source_node.buff_scope;
+        if (source.floor_buff_scope_confirmed) {
+            node.buff_scope = source_node.buff_scope;
+        }
         if (source_node.transfer_target.has_value()) {
             node.transfer_target = source_node.transfer_target;
         }

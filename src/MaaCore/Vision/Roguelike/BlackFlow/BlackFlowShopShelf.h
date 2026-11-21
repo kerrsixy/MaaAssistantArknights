@@ -20,6 +20,8 @@ struct ShopShelfOffer
 struct ShopShelfPage
 {
     std::vector<ShopShelfOffer> offers;
+    // A visible product title whose price row extends under the fixed footer.
+    bool clipped_content = false;
 };
 
 struct ShopShelfInventory
