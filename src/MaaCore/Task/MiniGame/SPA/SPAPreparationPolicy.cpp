@@ -1,5 +1,6 @@
 #include "SPAPreparationPolicy.h"
 #include "SPAEconomyPolicy.h"
+#include "SPAGrowth.h"
 #include "SPAGuideRoutes.h"
 #include "SPAOperatorCatalogue.h"
 #include "SPAPlanner.h"
@@ -438,6 +439,56 @@ bool asst::spa::is_terminal_output_candidate(const std::string& name, const std:
         return name == "克莱门莎" || name == "乌尔比安";
     }
     return is_primary_output_candidate(name, pact);
+}
+
+namespace
+{
+std::pair<bool, bool> kjerag_freeze_roles(const asst::spa::PreparationPolicy& policy, bool deployed_only)
+{
+    bool stacker = false;
+    bool provider = false;
+    for (const auto& [name, unit] : policy.owned) {
+        if ((unit.copies <= 0 && !unit.elite) || (deployed_only && !unit.deployed)) {
+            continue;
+        }
+        stacker = stacker || asst::spa::is_kjerag_freeze_stacker(name);
+        provider = provider || asst::spa::is_kjerag_freeze_provider(name) ||
+                   (unit.deployed && policy.kjerag_ice_carriers.contains(name));
+    }
+    return { stacker, provider };
+}
+
+bool kjerag_has_growth_window(const asst::spa::PreparationPolicy& policy)
+{
+    return policy.primary_pact == "谢拉格" && !contains(policy.disabled_pacts, "谢拉格") && !policy.boss_preparation &&
+           (policy.growth_scenario_horizon_round <= 0 || policy.round < policy.growth_scenario_horizon_round);
+}
+}
+
+bool asst::spa::kjerag_freeze_pair_available(const PreparationPolicy& policy, bool deployed_only)
+{
+    if (!kjerag_has_growth_window(policy)) {
+        return false;
+    }
+    const auto [stacker, provider] = kjerag_freeze_roles(policy, deployed_only);
+    return stacker && provider;
+}
+
+bool asst::spa::kjerag_recruit_completes_freeze_pair(
+    const PreparationPolicy& policy,
+    const std::string& name,
+    bool deployed_only)
+{
+    if (!kjerag_has_growth_window(policy)) {
+        return false;
+    }
+    const auto own = policy.owned.find(name);
+    if (own != policy.owned.end() && (own->second.copies > 0 || own->second.elite)) {
+        return false;
+    }
+    const auto [stacker, provider] = kjerag_freeze_roles(policy, deployed_only);
+    return !(stacker && provider) && (stacker || is_kjerag_freeze_stacker(name)) &&
+           (provider || is_kjerag_freeze_provider(name));
 }
 
 int asst::spa::primary_growth_support_value(
@@ -2117,6 +2168,7 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
                                (owned != resolved.owned.end() && owned->second.deployed && completes_promotion);
         const auto profile = growth_profiles().find(offer.name);
         const bool can_contribute = fieldable || (profile != growth_profiles().end() && profile->second.works_on_bench);
+        const bool completes_freeze_pair = fieldable && kjerag_recruit_completes_freeze_pair(resolved, offer.name);
         // Positional or enemy-event recipients still matter, but their
         // application is less certain than a self-contained layer source.
         const int engine_relevance = engine && can_contribute && (copies == 0 || completes_promotion)
@@ -2134,7 +2186,7 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
         const int growth_score = growth_weight * growth_relevance / 100;
         const int score =
             growth_score + promotion_bonus + std::min(acquisition_layers * 100, 1000) + first_growth_recruit_bonus +
-            (enables_sale_growth ? 1250 : 0) +
+            (enables_sale_growth ? 1250 : 0) + (completes_freeze_pair ? 1800 : 0) +
             (primary
                  ? (carry ? (copies == 0 && (current_roles.output_owned == 0 || missing_terminal) ? 4000 : 500) : 0) +
                        (engine ? (copies == 0 && current_roles.growth_engine_owned == 0 ? 3000 : 1000) : 0) +

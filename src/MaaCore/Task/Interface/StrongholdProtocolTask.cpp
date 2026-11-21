@@ -1416,14 +1416,22 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
     }
     // Selling returns attached gear to the inventory. Preserve names as
     // discovery hints, not verified item counts: identical gear may merge.
-    if (const auto slots = m_equipped_items.find(*selected); slots != m_equipped_items.end()) {
-        m_equipment_candidates.insert(slots->second.begin(), slots->second.end());
-        if (!slots->second.empty()) {
-            m_equipment_inventory_dirty = true;
-            m_equipment_inventory_scan_rounds.erase(round);
-        }
+    if (remaining_copies) {
+        // The sale was for a bench-only initial copy. The field body and
+        // its registered equipment did not leave the board.
+        m_equipment_inventory_dirty = true;
+        m_equipment_inventory_scan_rounds.erase(round);
     }
-    m_equipped_items.erase(*selected);
+    else {
+        if (const auto slots = m_equipped_items.find(*selected); slots != m_equipped_items.end()) {
+            m_equipment_candidates.insert(slots->second.begin(), slots->second.end());
+            if (!slots->second.empty()) {
+                m_equipment_inventory_dirty = true;
+                m_equipment_inventory_scan_rounds.erase(round);
+            }
+        }
+        m_equipped_items.erase(*selected);
+    }
     --m_policy.bench_occupied;
     m_shopping_complete = false;
     m_spending_reviewed = false;
@@ -1521,6 +1529,9 @@ int asst::StrongholdProtocolTask::replacement_lineup_context_value(
     }
     int value = spa::replacement_lineup_value(scored, context.primary_pact) +
                 spa::replacement_support_pact_value(scored, context.support_pacts, context.disabled_pacts);
+    if (spa::kjerag_freeze_pair_available(context, true)) {
+        value += 1800;
+    }
     if (context.primary_pact == "乌萨斯" && context.round < m_expected_boss_round &&
         spa::replacement_primary_members(scored, context.primary_pact) >= 3) {
         const int population = static_cast<int>(std::count_if(scored.begin(), scored.end(), [&](const auto& unit) {
@@ -3617,6 +3628,15 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 if (value.is_number() && value.as_integer() >= 0 && value.as_integer() <= 9999) {
                     m_policy.observed_pact_layers.emplace(pact, value.as_integer());
                 }
+            }
+        }
+        m_policy.kjerag_ice_carriers.clear();
+        for (const auto& [name, items] : m_equipped_items) {
+            const auto pose = m_auto_deploy_positions.find(name);
+            if (!m_field_checkpoint_loaded && pose != m_auto_deploy_positions.end() &&
+                m_auto_deploy_positions.count(name) == 1 && m_verified_field_pose_points.contains(pose->second) &&
+                std::ranges::any_of(items, spa::is_kjerag_freeze_equipment)) {
+                m_policy.kjerag_ice_carriers.insert(name);
             }
         }
         // Keep the shop stable during purchases. Field discovery and lineup
@@ -5814,7 +5834,25 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         if (equipment_funding && handle_cash_equipment(state, equipment_funding->deficit)) {
             continue;
         }
-        if (funding && handle_full_bench_sale(state, funding->deficit)) {
+        bool funding_sale_handled = funding && handle_full_bench_sale(state, funding->deficit);
+        if (!funding_sale_handled && funding && ordinary_balance_rule_known && field_poses_complete &&
+            !m_field_checkpoint_loaded && !m_pending_field_replacement && !m_pending_spatial_orientation &&
+            (m_mode != "joint" || state.get("preparation_seconds_remaining", 0) >= 45)) {
+            std::map<std::string, int> field_copies;
+            for (const auto& [name, pose] : m_auto_deploy_positions) {
+                ++field_copies[name];
+            }
+            std::vector<std::string> reserved;
+            for (const auto& [failed_round, name] : m_failed_bench_sales) {
+                if (failed_round == round) {
+                    reserved.push_back(name);
+                }
+            }
+            const auto trade =
+                spa::choose_kjerag_freeze_funding_trade(m_policy, funds, *funding, field_copies, reserved);
+            funding_sale_handled = trade && handle_full_bench_sale(state, funding->deficit, &*trade);
+        }
+        if (funding_sale_handled) {
             const bool sale_verified = m_policy.bench_occupied == bench_before_funding - 1;
             if (sale_verified) {
                 m_purchase_reserved_after_sale = std::pair(round, funding->offer);

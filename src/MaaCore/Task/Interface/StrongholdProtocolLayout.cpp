@@ -572,19 +572,17 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     if (!boss_round && round < m_expected_boss_round && m_policy.primary_pact == "谢拉格" &&
         std::find(active_pacts.begin(), active_pacts.end(), "谢拉格") != active_pacts.end()) {
         for (const auto& [id, name] : names) {
-            if (name == "初雪" || name == "圣聆初雪") {
+            if (spa::is_kjerag_freeze_stacker(name)) {
                 freeze_stackers.insert(id);
             }
             const auto equipped = m_equipped_items.find(name);
-            const bool carries_ice =
-                m_auto_deploy_positions.count(name) == 1 && equipped != m_equipped_items.end() &&
-                std::any_of(equipped->second.begin(), equipped->second.end(), [](const auto& item) {
-                    return item == "谢拉格不融冰" || item == "进阶谢拉格不融冰";
-                });
-            if (carries_ice || name == "灵知" || name == "极光" || name == "耶拉") {
+            const bool carries_ice = m_auto_deploy_positions.count(name) == 1 && equipped != m_equipped_items.end() &&
+                                     std::ranges::any_of(equipped->second, spa::is_kjerag_freeze_equipment);
+            const bool has_distinct_skill_range = name == "圣聆初雪" || name == "凛御银灰";
+            if (carries_ice || (spa::is_kjerag_freeze_provider(name) && !has_distinct_skill_range)) {
                 cold_sources.insert(id);
             }
-            if (name == "圣聆初雪" || name == "凛御银灰") {
+            if (has_distinct_skill_range) {
                 const auto owned = m_policy.owned.find(name);
                 const auto skill =
                     spa::season_default_skill(name, owned != m_policy.owned.end() && owned->second.elite);

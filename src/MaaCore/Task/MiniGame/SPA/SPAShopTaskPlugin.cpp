@@ -18,6 +18,7 @@
 #include "MaaUtils/NoWarningCV.hpp"
 #include "Vision/Matcher.h"
 #include "Vision/OCRer.h"
+#include "Vision/RegionOCRer.h"
 
 namespace asst::spa
 {
@@ -113,7 +114,7 @@ std::optional<std::pair<int, double>> pact_hud_number(const cv::Mat& image, int 
     if (image.empty() || image.size() != cv::Size(1280, 720) || center_x <= 300 || center_x >= 1050) {
         return std::nullopt;
     }
-    const auto read = [&](const Rect& roi) -> std::optional<std::pair<int, double>> {
+    const auto read = [&](const Rect& roi, double confidence = .95) -> std::optional<std::pair<int, double>> {
         OCRer number(image, roi);
         number.set_without_det(true);
         number.set_use_char_model(true);
@@ -122,7 +123,7 @@ std::optional<std::pair<int, double>> pact_hud_number(const cv::Mat& image, int 
             return std::nullopt;
         }
         const auto& token = recognized->front();
-        if (!std::isfinite(token.score) || token.score < .95 || token.text.empty() || token.text.size() > 3 ||
+        if (!std::isfinite(token.score) || token.score < confidence || token.text.empty() || token.text.size() > 3 ||
             !std::all_of(token.text.begin(), token.text.end(), [](unsigned char c) { return c >= '0' && c <= '9'; })) {
             return std::nullopt;
         }
@@ -132,8 +133,26 @@ std::optional<std::pair<int, double>> pact_hud_number(const cv::Mat& image, int 
         }
         return std::pair { value, static_cast<double>(token.score) };
     };
-    if (const auto primary = read(Rect(center_x - 23, 98, 46, 18))) {
+    const auto primary = read(Rect(center_x - 23, 98, 46, 18), .55);
+    if (primary && primary->second >= .95) {
         return primary;
+    }
+    // The ring around a lit pact can obscure a single zero in the wide
+    // crop. Only an already recognized zero may use the tighter crops:
+    // cropping an unreadable multi-digit number must not create a zero.
+    if (primary && primary->first == 0) {
+        const auto zero_in_region = [&](const Rect& roi) -> std::optional<double> {
+            RegionOCRer digit(image, roi);
+            digit.set_use_char_model(true);
+            const auto token = digit.analyze();
+            return token && token->text == "0" && token->score >= .95 ? std::optional<double>(token->score)
+                                                                      : std::nullopt;
+        };
+        const auto inner = zero_in_region(Rect(center_x - 15, 98, 30, 18));
+        const auto centered = zero_in_region(Rect(center_x - 14, 100, 28, 14));
+        if (inner && centered) {
+            return std::pair { 0, std::min(*inner, *centered) };
+        }
     }
     // The blue ring's lower-left arc can become a spurious slash in the
     // wide crop (real Victoria "6" was read as "/6"). Keep the confidence

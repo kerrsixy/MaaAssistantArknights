@@ -319,7 +319,7 @@ std::pair<asst::spa::EquipmentAssignmentContext, std::vector<asst::spa::Equipmen
         std::find(formation.active_pacts.begin(), formation.active_pacts.end(), "谢拉格") !=
             formation.active_pacts.end() &&
         std::any_of(roster.begin(), roster.end(), [](const auto& unit) {
-            return unit.deployed && (unit.name == "初雪" || unit.name == "圣聆初雪");
+            return unit.deployed && spa::is_kjerag_freeze_stacker(unit.name);
         });
     std::vector<spa::EquipmentRecipient> recipients;
     std::set<std::string> special_hammers;

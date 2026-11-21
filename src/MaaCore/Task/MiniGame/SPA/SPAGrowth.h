@@ -2,10 +2,26 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace asst::spa
 {
+inline bool is_kjerag_freeze_stacker(std::string_view name)
+{
+    return name == "初雪" || name == "圣聆初雪";
+}
+
+inline bool is_kjerag_freeze_provider(std::string_view name)
+{
+    return name == "灵知" || name == "极光" || name == "耶拉" || name == "圣聆初雪" || name == "凛御银灰";
+}
+
+inline bool is_kjerag_freeze_equipment(std::string_view name)
+{
+    return name == "谢拉格不融冰" || name == "进阶谢拉格不融冰";
+}
+
 enum class GrowthKind
 {
     FixedPhase,

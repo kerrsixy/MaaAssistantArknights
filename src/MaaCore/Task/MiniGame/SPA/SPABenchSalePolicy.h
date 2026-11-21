@@ -1,5 +1,6 @@
 #pragma once
 
+#include "SPAEconomyPolicy.h"
 #include "SPAFormation.h"
 #include "SPAGrowth.h"
 #include "SPAObservation.h"
@@ -118,6 +119,52 @@ struct BenchCapacityTrade
     std::string spare_initial;
     ShopOffer purchase;
 };
+
+// When ordinary funds would expire one coin short of the first freeze pair,
+// a low-tier spare can pay for the missing role. Keep the fielded body and
+// only plan this sale if the funded recruit has a place in the lineup.
+inline std::optional<BenchCapacityTrade> choose_kjerag_freeze_funding_trade(
+    const PreparationPolicy& policy,
+    int funds,
+    const FundingPurchase& funding,
+    const std::map<std::string, int>& verified_field_counts,
+    const std::vector<std::string>& reserved_names)
+{
+    const auto retention = round_balance_retention(policy.selected_strategy_id, funds);
+    const auto fit = policy.full_field_offer_improvements.find(funding.offer.name);
+    if (!retention || retention->carries || funds <= 0 || funding.deficit != 1 || funding.offer.price != funds + 1 ||
+        policy.bench_occupied <= 0 || policy.deployed_population < 1 || policy.deployed_population > 8 ||
+        !policy.primary_locked_after_activation ||
+        !kjerag_recruit_completes_freeze_pair(policy, funding.offer.name, true) ||
+        (policy.deployed_population == 8 && (fit == policy.full_field_offer_improvements.end() || fit->second <= 0))) {
+        return std::nullopt;
+    }
+    const auto& growth = growth_profiles();
+    const OperatorCatalogueEntry* lowest = nullptr;
+    for (const auto& facts : OperatorCatalogue) {
+        const std::string name(facts.name);
+        const auto owned = policy.owned.find(name);
+        const auto field = verified_field_counts.find(name);
+        if (facts.tier > 2 || facts.price <= 0 || facts.sale_has_side_effect || facts.trait_mentions_bench ||
+            owned == policy.owned.end() || !owned->second.deployed || field == verified_field_counts.end() ||
+            field->second != 1 || is_strategy_core(policy.selected_strategy_id, name) ||
+            is_primary_growth_engine(name, policy.primary_pact) ||
+            is_primary_output_candidate(name, policy.primary_pact) ||
+            std::ranges::find(reserved_names, name) != reserved_names.end()) {
+            continue;
+        }
+        const auto forms = owned_form_counts(owned->second);
+        const auto source = growth.find(name);
+        if (!forms || forms->initial != 2 || forms->elite != 0 ||
+            (source != growth.end() && source->second.works_on_bench)) {
+            continue;
+        }
+        if (!lowest || facts.tier < lowest->tier) {
+            lowest = &facts;
+        }
+    }
+    return lowest ? std::optional(BenchCapacityTrade { std::string(lowest->name), funding.offer }) : std::nullopt;
+}
 
 inline std::optional<BenchCapacityTrade> choose_bench_capacity_trade(
     const PreparationPolicy& policy,

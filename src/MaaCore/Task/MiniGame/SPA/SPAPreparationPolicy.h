@@ -106,6 +106,9 @@ struct PreparationPolicy
     std::map<std::string, int> full_field_offer_improvements;
     // Same-frame HUD readings only. Missing pacts remain unknown, never zero.
     std::map<std::string, int> observed_pact_layers;
+    // Verified equipment on an individually located operator. A virtual
+    // lineup only inherits the source while that recipient stays deployed.
+    std::set<std::string> kjerag_ice_carriers;
     // Set from the same preparation's verified formation. A historical
     // activation lock or a positive layer counter alone is insufficient.
     bool growth_primary_active_verified = false;
@@ -212,6 +215,11 @@ bool is_terminal_output_candidate(const std::string& name, const std::string& pa
 
 // Tactical value of a nonmember growth helper with actual eligible recipients.
 // This does not establish its position, trigger count or projected layer gain.
+bool kjerag_freeze_pair_available(const PreparationPolicy& policy, bool deployed_only);
+bool kjerag_recruit_completes_freeze_pair(
+    const PreparationPolicy& policy,
+    const std::string& name,
+    bool deployed_only = false);
 int primary_growth_support_value(
     const std::string& name,
     const PreparationPolicy& policy,

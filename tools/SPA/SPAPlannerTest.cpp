@@ -1525,6 +1525,46 @@ int main()
     const auto coin_pair = choose_funding_purchase(ursus_funding, 1, ursus_shop, activation_catalog, 2);
     assert(coin_pair && coin_pair->offer.name == "乌啾" && coin_pair->deficit == 2);
     assert(choose_preparation(ursus_funding, 3, ursus_shop, activation_catalog).name == "乌啾");
+    // Regulation 4, round 6: a fielded Pramanix and a spare Matterhorn,
+    // with only two coins left when Aurora appeared.
+    PreparationPolicy kjerag_funding;
+    kjerag_funding.primary_pact = "谢拉格";
+    kjerag_funding.selected_strategy_id = "band_dance";
+    kjerag_funding.primary_locked_after_activation = true;
+    kjerag_funding.dynamic_decision_mode = true;
+    kjerag_funding.allow_refresh = false;
+    kjerag_funding.round = 6;
+    kjerag_funding.shop_level = 3;
+    kjerag_funding.growth_scenario_horizon_round = 14;
+    kjerag_funding.deployed_population = 8;
+    kjerag_funding.bench_occupied = 1;
+    kjerag_funding.owned = { { "初雪", { 1, false, true } }, { "角峰", { 2, false, true } },
+                             { "灰喉", { 1, false, true } }, { "哈洛德", { 1, false, true } },
+                             { "夏栎", { 1, false, true } }, { "慕斯", { 1, false, true } },
+                             { "伺夜", { 1, false, true } }, { "摆渡人", { 1, false, true } } };
+    kjerag_funding.full_field_offer_improvements["极光"] = 1800;
+    assert(!kjerag_freeze_pair_available(kjerag_funding, true));
+    assert(kjerag_recruit_completes_freeze_pair(kjerag_funding, "极光", true));
+    const auto freeze_purchase = choose_funding_purchase(kjerag_funding, 2, { { "极光", 3, 0 } }, operator_pacts());
+    assert(freeze_purchase && freeze_purchase->offer.name == "极光" && freeze_purchase->deficit == 1);
+    assert(!choose_full_bench_sale(kjerag_funding, {}, 1));
+    const auto freeze_trade =
+        choose_kjerag_freeze_funding_trade(kjerag_funding, 2, *freeze_purchase, { { "角峰", 1 } }, {});
+    assert(freeze_trade && freeze_trade->spare_initial == "角峰");
+    assert(!choose_kjerag_freeze_funding_trade(kjerag_funding, 2, *freeze_purchase, { { "角峰", 2 } }, {}));
+    assert(!choose_kjerag_freeze_funding_trade(kjerag_funding, 2, *freeze_purchase, { { "角峰", 1 } }, { "角峰" }));
+    auto saving_strategy = kjerag_funding;
+    saving_strategy.selected_strategy_id = "band_cannot";
+    assert(!choose_kjerag_freeze_funding_trade(saving_strategy, 2, *freeze_purchase, { { "角峰", 1 } }, {}));
+    kjerag_funding.full_field_offer_improvements["极光"] = 0;
+    assert(!choose_kjerag_freeze_funding_trade(kjerag_funding, 2, *freeze_purchase, { { "角峰", 1 } }, {}));
+    kjerag_funding.kjerag_ice_carriers.insert("夏栎");
+    assert(kjerag_freeze_pair_available(kjerag_funding, true));
+    assert(!kjerag_recruit_completes_freeze_pair(kjerag_funding, "极光", true));
+    kjerag_funding.owned["夏栎"].deployed = false;
+    assert(kjerag_recruit_completes_freeze_pair(kjerag_funding, "极光", true));
+    kjerag_funding.round = 14;
+    assert(!kjerag_recruit_completes_freeze_pair(kjerag_funding, "极光", true));
     auto full_bench_funding = activation_funding;
     full_bench_funding.bench_occupied = 10;
     const auto funded_slot = choose_funding_purchase(full_bench_funding, 2, activation_shop, activation_catalog);
