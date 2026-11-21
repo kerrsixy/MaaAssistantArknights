@@ -4368,6 +4368,43 @@ int main()
     missing_ranged.early_board_scores = { { "卡达", 1600 }, { "野鬃", 500 } };
     const auto ranged_repair = choose_preparation(missing_ranged, 4, { { "野鬃", 2, 0 }, { "卡达", 2, 1 } }, catalog);
     assert(ranged_repair.action == PreparationAction::Buy && ranged_repair.name == "卡达");
+    auto vacant_opening = missing_ranged;
+    vacant_opening.primary_pact = "莱塔尼亚";
+    vacant_opening.dynamic_primary_pact = false;
+    vacant_opening.round = 5;
+    vacant_opening.bench_occupied = 0;
+    vacant_opening.selected_strategy_id = "band_amiya";
+    vacant_opening.owned = { { "卡达", { 1, false, true } },
+                             { "宴", { 1, false, true } },
+                             { "折光", { 1, false, true } },
+                             { "拉普兰德", { 1, false, true } },
+                             { "灰喉", { 1, true, true } },
+                             { "矩", { 1, false, true } } };
+    vacant_opening.early_board_scores = { { "夏栎", 250 }, { "摆渡人", 600 }, { "拉普兰德", 500 } };
+    const std::vector<ShopOffer> surplus_recruit_shop { { "夏栎", 2, 3 },
+                                                        { "摆渡人", 2, 1 },
+                                                        { "拉普兰德", 2, 0 },
+                                                        { "紧急调度券", 2, 4 },
+                                                        { "宴", 3, 2 } };
+    const auto spend_surplus = [&] {
+        return choose_preparation(vacant_opening, 2, surplus_recruit_shop, catalog);
+    };
+    const auto bridge = spend_surplus();
+    assert(bridge.action == PreparationAction::Buy && bridge.name == "摆渡人" && bridge.price == 2);
+    vacant_opening.allow_refresh = true;
+    vacant_opening.free_refreshes = 1;
+    const auto refresh_before_bridge = spend_surplus();
+    assert(refresh_before_bridge.action == PreparationAction::Refresh && refresh_before_bridge.free_refresh);
+    vacant_opening.allow_refresh = false;
+    vacant_opening.free_refreshes = 0;
+    vacant_opening.bench_occupied = 2;
+    assert(spend_surplus().action == PreparationAction::Review);
+    vacant_opening.bench_occupied = 0;
+    vacant_opening.deployed_population = 8;
+    assert(spend_surplus().action == PreparationAction::Review);
+    vacant_opening.deployed_population = 6;
+    vacant_opening.selected_strategy_id = "band_cannot";
+    assert(spend_surplus().action == PreparationAction::Review);
     missing_ranged.owned["野鬃"] = { 2, false, true };
     const auto off_faction_promotion = choose_preparation(missing_ranged, 2, { { "野鬃", 2, 0 } }, catalog);
     assert(off_faction_promotion.action == PreparationAction::Buy && off_faction_promotion.name == "野鬃");

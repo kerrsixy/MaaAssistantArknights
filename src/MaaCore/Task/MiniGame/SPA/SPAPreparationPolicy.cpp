@@ -1637,6 +1637,48 @@ static bool can_recruit_after_paid_refresh(
     });
 }
 
+static std::optional<PreparationChoice> choose_open_field_recruit(
+    const PreparationPolicy& policy,
+    int funds,
+    const std::vector<ShopOffer>& offers,
+    const std::map<std::string, std::vector<std::string>>& pacts)
+{
+    const auto retention = round_balance_retention(policy.selected_strategy_id, funds);
+    // Existing bench stock has first claim on the visible field vacancies.
+    if (funds <= 0 || !policy.dynamic_decision_mode || policy.boss_preparation || !retention || retention->carries ||
+        policy.deployed_population < 0 || policy.bench_occupied < 0 ||
+        policy.deployed_population + policy.bench_occupied >= 8) {
+        return std::nullopt;
+    }
+
+    const ShopOffer* best = nullptr;
+    int best_score = 0;
+    for (const auto& offer : offers) {
+        if (offer.price < 0 || offer.price > funds || offer.right_slot < 0 || offer.right_slot > 5 ||
+            !pacts.contains(offer.name) || policy.owned.contains(offer.name)) {
+            continue;
+        }
+        const auto value = policy.early_board_scores.find(offer.name);
+        if (value == policy.early_board_scores.end() || value->second <= UnclassifiedEarlyBoardScore) {
+            continue;
+        }
+        const int score = value->second - offer.price * 20;
+        if (score > best_score) {
+            best = &offer;
+            best_score = score;
+        }
+    }
+    if (!best) {
+        return std::nullopt;
+    }
+    return PreparationChoice { PreparationAction::Buy,
+                               best->name,
+                               best->price,
+                               best->right_slot,
+                               "Spend expiring funds on a distinct combat operator for a vacant field slot",
+                               policy.primary_pact == "auto" ? std::string {} : policy.primary_pact };
+}
+
 static const ScoredShopPurchase& prefer_spending_last_coin(
     const ScoredShopPurchase& best,
     const std::vector<ScoredShopPurchase>& eligible,
@@ -1844,6 +1886,9 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
                          "Use a verified free refresh before spending the round budget",
                          {},
                          true };
+            }
+            if (const auto recruit = choose_open_field_recruit(policy, funds, offers, pacts)) {
+                return *recruit;
             }
             if (policy.allow_refresh && can_recruit_after_paid_refresh(policy, funds, pacts)) {
                 return { PreparationAction::Refresh,
@@ -2142,6 +2187,9 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
             PreparationAction::Refresh, "刷新", 0, -1, "Use a verified free refresh before spending the round budget",
             resolved.primary_pact,      true
         };
+    }
+    if (const auto recruit = choose_open_field_recruit(resolved, funds, offers, pacts)) {
+        return *recruit;
     }
     const auto retention = round_balance_retention(resolved.selected_strategy_id, funds);
     const bool reserve_for_next_round =

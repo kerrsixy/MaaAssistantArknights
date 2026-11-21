@@ -42,6 +42,8 @@ struct ShopOffer
 
 bool is_one_coin_bank_offer(const ShopOffer& offer);
 
+inline constexpr int UnclassifiedEarlyBoardScore = 100;
+
 struct PreparationPolicy
 {
     std::string primary_pact;

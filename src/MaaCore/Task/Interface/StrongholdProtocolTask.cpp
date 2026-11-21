@@ -5143,7 +5143,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         m_policy.early_board_scores.clear();
         for (const auto& [name, pacts] : catalog) {
             const auto role = spa::operator_placement_role(name);
-            int score = 100;
+            int score = spa::UnclassifiedEarlyBoardScore;
             if (role == spa::PlacementRole::Frontline) {
                 score = blockers < 2 ? 1700 : 500;
             }
