@@ -699,7 +699,9 @@ bool asst::spa::ShopTaskPlugin::_run()
     if (m_equipment_discount) {
         return run_equipment_discount(image);
     }
-    if (!m_supply && !m_bounty && !m_tactical && !m_refresh && !m_freeze) {
+    // Board scans can close the hand after the planner reads its offers.
+    // Refresh and freeze need the same verified restoration as card purchases.
+    if (!m_supply && !m_bounty && !m_tactical) {
         OCRer toggle(image, Rect(1100, 620, 180, 90));
         std::vector<TextObservation> controls;
         bool collapsed = false;
@@ -1326,7 +1328,10 @@ bool asst::spa::ShopTaskPlugin::_run()
     // to be skipped after a previous purchase.
     if (page.page != Page::Preparation || (!m_freeze && !name_rect) || !funds || *funds != m_funds || !round ||
         *round != m_round) {
-        LogError << "SPA shop purchase preconditions were not verified page=" << static_cast<int>(page.page)
+        if (m_refresh) {
+            save_evidence(image, utils::path("debug/SPA/shop_refresh_preconditions"), false);
+        }
+        LogError << "SPA shop action preconditions were not verified page=" << static_cast<int>(page.page)
                  << " contradictory=" << page.contradictory << " target=" << name_rect.has_value()
                  << " funds=" << (funds ? std::to_string(*funds) : "none") << "/" << m_funds
                  << " round=" << (round ? std::to_string(*round) : "none") << "/" << m_round << " slot=" << m_slot;
@@ -1657,8 +1662,7 @@ bool asst::spa::ShopTaskPlugin::reconcile_purchase_rejection(
             return warning({ text.text, text.score, text.rect.x, text.rect.y });
         });
     const bool capacity_verified = clipped_warning || std::any_of(detail.begin(), detail.end(), warning);
-    if (shop_number(frame, Rect(1180, 510, 45, 40)) != m_funds ||
-        preparation_round_number(frame, m_round) != m_round) {
+    if (shop_number(frame, Rect(1180, 510, 45, 40)) != m_funds || preparation_round_number(frame, m_round) != m_round) {
         return false;
     }
     if (!capacity_verified) {
@@ -1668,9 +1672,9 @@ bool asst::spa::ShopTaskPlugin::reconcile_purchase_rejection(
         OCRer title(frame, Rect(0, 165, 350, 75));
         const auto tokens = title.analyze();
         if (!tokens || std::count_if(tokens->begin(), tokens->end(), [&](const auto& text) {
-                return text.text == m_name && text.score >= .90 && text.rect.x < 40 &&
-                       text.rect.y >= 175 && text.rect.y <= 215;
-            }) != 1) {
+                           return text.text == m_name && text.score >= .90 && text.rect.x < 40 && text.rect.y >= 175 &&
+                                  text.rect.y <= 215;
+                       }) != 1) {
             return false;
         }
     }
