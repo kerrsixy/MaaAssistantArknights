@@ -55,6 +55,9 @@ public:
     // 普通商店补齐通用藏品，秘境行商仍只使用自己的买表。
     std::vector<RoguelikeGoods> get_shop_goods(const std::string& theme, const std::string& table) const;
 
+    std::vector<RoguelikeGoods>
+        get_shop_goods(const std::string& theme, const std::string& table, const std::string& profile) const;
+
     const std::vector<std::string>& get_sell_goods(const std::string& theme, const std::string& table) const
     {
         return m_tables.at(theme).sell.at(table);
@@ -69,6 +72,7 @@ private:
         std::unordered_map<std::string, std::vector<RoguelikeGoods>> buy;
         std::unordered_map<std::string, std::vector<std::string>> sell;
         std::unordered_map<std::string, std::vector<std::string>> ordinary_shop_extensions;
+        std::unordered_map<std::string, std::vector<std::string>> ordinary_shop_profile_exclusions;
     };
 
     virtual bool parse(const json::value& json) override;

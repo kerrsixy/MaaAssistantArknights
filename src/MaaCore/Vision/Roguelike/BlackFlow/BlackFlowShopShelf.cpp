@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <tuple>
+#include <utility>
 
 #include "Utils/DebugImageHelper.hpp"
 #include "Utils/Logger.hpp"
@@ -190,22 +191,43 @@ std::optional<asst::blackflow::ShopShelfOffer> asst::blackflow::BlackFlowShopShe
     const Scroll& scroll,
     int limit)
 {
-    auto page = rewind(observe, scroll, limit);
-    int stable = 0;
-    for (int i = 0; page && i < limit; ++i) {
-        const auto found = std::ranges::find_if(page->offers, [&](const auto& offer) {
+    if (limit <= 0) {
+        return std::nullopt;
+    }
+    const auto fresh_match = [&]() -> std::optional<ShopShelfOffer> {
+        const auto fresh = observe();
+        if (!fresh) {
+            return std::nullopt;
+        }
+        const auto verified = std::ranges::find_if(fresh->offers, [&](const auto& offer) {
             return offer.name == target.name && offer.price == target.price;
         });
+        return verified == fresh->offers.end() ? std::nullopt : std::optional(*verified);
+    };
+    const auto matches_target = [&](const ShopShelfOffer& offer) {
+        return offer.name == target.name && offer.price == target.price;
+    };
+    auto current = observe();
+    if (!current) {
+        return std::nullopt;
+    }
+    if (std::ranges::any_of(current->offers, matches_target)) {
+        // A full scan often ends on the desired product's page. Verify it again
+        // here instead of navigating away and reconstructing the same viewport.
+        return fresh_match();
+    }
+    // No input has occurred since this observation. Reuse it as rewind's first
+    // sample, then obtain fresh observations after every subsequent scroll.
+    const Observe rewind_observe = [&]() {
+        return current ? std::exchange(current, std::nullopt) : observe();
+    };
+    auto page = rewind(rewind_observe, scroll, limit);
+    int stable = 0;
+    for (int i = 0; page && i < limit; ++i) {
+        const auto found = std::ranges::find_if(page->offers, matches_target);
         if (found != page->offers.end()) {
             // Re-observe after returning to the product; the cached rectangle is intentionally discarded.
-            const auto fresh = observe();
-            if (!fresh) {
-                return std::nullopt;
-            }
-            const auto verified = std::ranges::find_if(fresh->offers, [&](const auto& offer) {
-                return offer.name == target.name && offer.price == target.price;
-            });
-            return verified == fresh->offers.end() ? std::nullopt : std::optional(*verified);
+            return fresh_match();
         }
         if (!scroll(true)) {
             return std::nullopt;
