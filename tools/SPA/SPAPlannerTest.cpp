@@ -4402,6 +4402,63 @@ int main()
     victoria_opening.full_field_offer_improvements["Miss.Christine"] = 0;
     assert(should_upgrade_dynamic_shop(victoria_opening, 8, 7, victoria_quotes, catalog));
 
+    // Unchanged D4 second run: round 5 had a three-gold Harold with a
+    // positive full-field replacement review, but upgrading left one gold.
+    auto d4_victoria = victoria_opening;
+    d4_victoria.selected_strategy_id = "band_dance";
+    d4_victoria.current_life = 28;
+    d4_victoria.disabled_pacts = { "谢拉格", "萨尔贡", "乌萨斯", "伊比利亚", "精准", "不屈" };
+    d4_victoria.owned = { { "卡达", { 2, false, true } }, { "摆渡人", { 2, false, true } },
+                          { "夏栎", { 1, false, true } }, { "慕斯", { 1, false, true } },
+                          { "褐果", { 1, false, true } }, { "陨星", { 1, false, true } } };
+    d4_victoria.full_field_offer_improvements = { { "哈洛德", 520 },
+                                                  { "奥斯塔", 240 },
+                                                  { "渡桥", 240 },
+                                                  { "蛇屠箱", 240 } };
+    const std::vector<ShopOffer> d4_round5 { { "蛇屠箱", 3, 3 },
+                                             { "奥斯塔", 3, 2 },
+                                             { "哈洛德", 3, 1 },
+                                             { "渡桥", 3, 0 } };
+    assert(choose_preparation(d4_victoria, 8, d4_round5, catalog).name == "哈洛德");
+    assert(!should_upgrade_dynamic_shop(d4_victoria, 8, 7, d4_round5, catalog, &upgrade_hold));
+    assert(
+        upgrade_hold && upgrade_hold->reason.find("哈洛德") != std::string::npos &&
+        !upgrade_hold->next_round_upgrade_price);
+    assert(should_upgrade_dynamic_shop(d4_victoria, 10, 7, d4_round5, catalog));
+    d4_victoria.full_field_offer_improvements["哈洛德"] = 0;
+    assert(should_upgrade_dynamic_shop(d4_victoria, 8, 7, d4_round5, catalog));
+    d4_victoria.full_field_offer_improvements.erase("哈洛德");
+    assert(should_upgrade_dynamic_shop(d4_victoria, 8, 7, d4_round5, catalog));
+
+    // Round 6 at book III can already roll missing Victoria names. A
+    // ten-gold upgrade with eleven in hand would leave no recruitment budget.
+    d4_victoria.shop_level = 3;
+    d4_victoria.round = 6;
+    d4_victoria.full_field_offer_improvements.clear();
+    const std::vector<ShopOffer> d4_round6 { { "陨星", 2, 3 }, { "罗比菈塔", 3, 2 }, { "矩", 3, 1 }, { "青枳", 3, 0 } };
+    assert(!should_upgrade_dynamic_shop(d4_victoria, 11, 10, d4_round6, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->next_round_upgrade_price == 9);
+    assert(choose_preparation(d4_victoria, 11, d4_round6, catalog).action == PreparationAction::Refresh);
+    assert(should_upgrade_dynamic_shop(d4_victoria, 14, 10, d4_round6, catalog));
+    auto no_refresh_window = d4_victoria;
+    no_refresh_window.allow_refresh = false;
+    assert(should_upgrade_dynamic_shop(no_refresh_window, 11, 10, d4_round6, catalog));
+    no_refresh_window = d4_victoria;
+    no_refresh_window.last_round_life_loss = 3;
+    assert(should_upgrade_dynamic_shop(no_refresh_window, 11, 10, d4_round6, catalog));
+    auto thin_current_pool = catalog;
+    thin_current_pool.erase("Miss.Christine");
+    thin_current_pool.erase("哈洛德");
+    thin_current_pool.erase("凯瑟琳");
+    assert(should_upgrade_dynamic_shop(d4_victoria, 11, 10, d4_round6, thin_current_pool));
+    auto retaining_window = d4_victoria;
+    retaining_window.selected_strategy_id = "band_cannot";
+    assert(should_upgrade_dynamic_shop(retaining_window, 11, 10, d4_round6, catalog));
+    d4_victoria.shop_discount_wait_level = 3;
+    d4_victoria.shop_discount_wait_round = 6;
+    d4_victoria.round = 7;
+    assert(should_upgrade_dynamic_shop(d4_victoria, 11, 9, d4_round6, catalog));
+
     // Recorded regulation-3 round-7 shop and roster. The positive and zero
     // outcomes isolate the live replacement review input to the policy.
     auto kjerag_market = discount_window;
