@@ -210,6 +210,7 @@ private:
     cv::Mat m_registered_grid_projection;
     std::string m_registered_grid_map_id;
     bool preparation_matches();
+    bool preparation_matches(const cv::Mat& image);
     bool restore_preparation();
     bool current_identity(const std::string& name);
     bool verify_replacement_bench_identity(const std::string& name, int& probes);
@@ -227,6 +228,7 @@ private:
     bool close_selection();
     bool ensure_expanded_shop(cv::Mat* already_visible_frame = nullptr);
     bool ensure_collapsed_shop(cv::Mat* already_visible_frame = nullptr);
+    bool capture_collapsed_preparation(cv::Mat& image);
     bool ensure_shop_visibility(bool expanded, cv::Mat* already_visible_frame);
     bool reacquire_cash_equipment_source(const Point& verified_source);
     std::optional<int> read_selected_cash_equipment_credit(const cv::Mat& frame) const;

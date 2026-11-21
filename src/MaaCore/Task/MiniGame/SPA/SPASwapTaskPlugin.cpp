@@ -640,7 +640,11 @@ bool asst::spa::SwapTaskPlugin::on_run_fails()
 
 bool asst::spa::SwapTaskPlugin::preparation_matches()
 {
-    const auto image = ctrler()->get_image();
+    return preparation_matches(ctrler()->get_image());
+}
+
+bool asst::spa::SwapTaskPlugin::preparation_matches(const cv::Mat& image)
+{
     if (image.empty() || image.cols != 1280 || image.rows != 720) {
         return false;
     }
@@ -925,11 +929,10 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::selected_identity_any(cons
 bool asst::spa::SwapTaskPlugin::observe_deployed_pose()
 {
     m_field_pose_verified = false;
-    if (m_held_board.empty() || m_name.empty() || m_name == "*" || !close_selection() || !ensure_collapsed_shop() ||
-        !preparation_matches()) {
+    cv::Mat collapsed;
+    if (m_held_board.empty() || m_name.empty() || m_name == "*" || !capture_collapsed_preparation(collapsed)) {
         return false;
     }
-    const auto collapsed = ctrler()->get_image();
     const auto held_target = m_settled_held_target.value_or(m_drag_target);
     const auto projected =
         m_deployment_grid_to_screen.empty()
@@ -1039,10 +1042,10 @@ bool asst::spa::SwapTaskPlugin::observe_grid_snapshot(
     m_remaining = remaining;
     m_fast_mode = true;
     m_best_effort_deployment = true;
-    if (!close_selection() || !ensure_collapsed_shop() || !preparation_matches()) {
+    cv::Mat current;
+    if (!capture_collapsed_preparation(current)) {
         return false;
     }
-    const auto current = ctrler()->get_image();
     std::vector<cv::Point> points;
     for (const auto& member : members) {
         points.emplace_back(member.x, member.y);
@@ -1484,6 +1487,27 @@ bool asst::spa::SwapTaskPlugin::ensure_expanded_shop(cv::Mat* already_visible_fr
 bool asst::spa::SwapTaskPlugin::ensure_collapsed_shop(cv::Mat* already_visible_frame)
 {
     return ensure_shop_visibility(false, already_visible_frame);
+}
+
+bool asst::spa::SwapTaskPlugin::capture_collapsed_preparation(cv::Mat& image)
+{
+    image.release();
+    if (!close_selection() || !ensure_collapsed_shop(&image)) {
+        return false;
+    }
+    // A toggle can change the label before the camera settles. Keep the
+    // post-toggle HUD check before capturing the field that will be used.
+    if (image.empty()) {
+        if (!preparation_matches()) {
+            return false;
+        }
+        image = ctrler()->get_image();
+    }
+    if (!preparation_matches(image)) {
+        image.release();
+        return false;
+    }
+    return true;
 }
 
 bool asst::spa::SwapTaskPlugin::ensure_shop_visibility(bool expanded, cv::Mat* already_visible_frame)
@@ -2868,20 +2892,20 @@ bool asst::spa::SwapTaskPlugin::drag_direction_only(const Point& center)
 bool asst::spa::SwapTaskPlugin::reorient_in_place()
 {
     m_spatial_direction_attempted = false;
-    if (m_placement_members.empty() || m_placement_members.size() > 8 || !close_selection() ||
-        !ensure_collapsed_shop() || !preparation_matches()) {
+    cv::Mat reference;
+    if (m_placement_members.empty() || m_placement_members.size() > 8 || !capture_collapsed_preparation(reference)) {
         return false;
     }
-    const auto reference = ctrler()->get_image();
     const auto source_member =
         std::find_if(m_placement_members.begin(), m_placement_members.end(), [&](const auto& member) {
             return member.name == m_name && member.x == m_source.x && member.y == m_source.y;
         });
+    cv::Mat clean;
     if (source_member == m_placement_members.end() || !selected_identity(m_source, m_name) ||
         !selected_retreat_control(
             ctrler()->get_image(),
             TemplResource::get_instance().get_templ("MiniGame@SPA@RetreatSelected.png")) ||
-        !close_selection() || !ensure_collapsed_shop() || !preparation_matches()) {
+        !capture_collapsed_preparation(clean)) {
         return false;
     }
     std::optional<std::size_t> displaced_index;
@@ -2899,12 +2923,11 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
             !selected_retreat_control(
                 ctrler()->get_image(),
                 TemplResource::get_instance().get_templ("MiniGame@SPA@RetreatSelected.png")) ||
-            !close_selection() || !ensure_collapsed_shop() || !preparation_matches()) {
+            !capture_collapsed_preparation(clean)) {
             return false;
         }
         displaced_index = static_cast<std::size_t>(std::distance(m_placement_members.begin(), displaced));
     }
-    const auto clean = ctrler()->get_image();
     std::vector<cv::Point> previous;
     for (const auto& member : m_placement_members) {
         previous.emplace_back(member.x, member.y);
@@ -2916,10 +2939,10 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
     const auto source_index = static_cast<std::size_t>(std::distance(m_placement_members.begin(), source_member));
     m_source = Point(clean_points->at(source_index).x, clean_points->at(source_index).y);
     m_reorientation_reconcile = [this, clean, clean_points, source_index, displaced_index]() {
-        if (!close_selection() || !ensure_collapsed_shop() || !preparation_matches()) {
+        cv::Mat field;
+        if (!capture_collapsed_preparation(field)) {
             return false;
         }
-        cv::Mat field;
         auto expected = *clean_points;
         if (m_reorientation_destination) {
             expected[source_index] = *m_reorientation_destination;
@@ -2935,8 +2958,10 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
                 // at its original cell. Observe both possible outcomes; do
                 // not repeat the drag to make an assumed outcome come true.
                 expected = *clean_points;
+                if (field.empty() && !capture_collapsed_preparation(field)) {
+                    return false;
+                }
             }
-            field = ctrler()->get_image();
             points = registered_field_points(clean, field, expected);
             if (!points) {
                 continue;
@@ -2948,7 +2973,7 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
                                           ctrler()->get_image(),
                                           TemplResource::get_instance().get_templ("MiniGame@SPA@RetreatSelected.png"))
                                           .has_value();
-                return close_selection() && ensure_collapsed_shop() && preparation_matches() && verified;
+                return capture_collapsed_preparation(field) && verified;
             };
             identified =
                 proves(source_index, m_name) && (!displaced_index || proves(*displaced_index, m_relocation_displaced));
@@ -2963,7 +2988,6 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
         if (m_relocate_field && !m_relocation_applied) {
             m_direction_committed = false;
         }
-        field = ctrler()->get_image();
         points = registered_field_points(clean, field, expected);
         if (!points) {
             return false;

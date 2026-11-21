@@ -3706,10 +3706,14 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             preparation_round > 0 && ((m_spatial_boss_phase && m_spatial_boss_phase_round == preparation_round) ||
                                       (m_expected_boss_round > 0 && preparation_round >= m_expected_boss_round));
         if (m_auto_run && field_work_due && time_for_board_maintenance) {
-            refresh_spatial_grid_snapshot(
-                state,
-                (boss_preparation && m_boss_attackable_round != preparation_round) ||
-                    (m_pending_direct_promotion && m_spatial_snapshot_round != preparation_round));
+            // A scheduled boss still needs a grid in this preparation. A
+            // missing measured attack area alone does not justify repeated
+            // registration unless the current HUD actually shows a boss.
+            const bool needs_round_projection =
+                m_spatial_snapshot_round != preparation_round && (boss_preparation || m_pending_direct_promotion);
+            const bool needs_visible_boss_region = boss_preparation && m_boss_attackable_round != preparation_round &&
+                                                   state.get("preparation_boss_bar_visible", false);
+            refresh_spatial_grid_snapshot(state, needs_round_projection || needs_visible_boss_region);
         }
         if (m_auto_run && field_work_due && reconcile_direct_promotion_equipment(state)) {
             continue;
