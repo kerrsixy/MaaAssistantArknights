@@ -553,6 +553,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         { "boss_coverage_improvement", proposal.boss_coverage_improvement },
         { "boss_estimated_attack_improvement", proposal.boss_estimated_attack_improvement },
         { "boss_supported_attack_improvement", proposal.boss_supported_attack_improvement },
+        { "boss_sustained_attack_improvement", proposal.boss_sustained_attack_improvement },
         { "boss_movement_waypoints", std::move(movement_targets) },
         { "boss_movement_coverage_improvement", proposal.boss_movement_coverage_improvement },
         { "boss_basic_attack_weight_before", spa::stationary_boss_attack_weight(current, boss_cells) },

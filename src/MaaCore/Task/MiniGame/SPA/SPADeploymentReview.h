@@ -91,6 +91,7 @@ struct DeploymentProposal
     int preparation_growth_preference_improvement = 0;
     int boss_estimated_attack_improvement = 0;
     int boss_supported_attack_improvement = 0;
+    int boss_sustained_attack_improvement = 0;
 };
 
 // Distinct friendly patients covered by a different healer's measured range.

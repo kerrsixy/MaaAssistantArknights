@@ -239,5 +239,39 @@ int main()
     assert(moving_boss.units.front().cell == guard.cell && moving_boss.units.back().facing == 'E');
     assert(moving_boss.boss_coverage_improvement == -700 && moving_boss.boss_movement_coverage_improvement == 1400);
     assert(deployment_change_worth_input(moving_boss, sequence_deployment(patrol_start, moving_boss.units)));
+    // The supported attacker shares the only useful firing tile with a
+    // stronger attacker who cannot be healed by this medic.
+    auto covered_attacker = main_output;
+    covered_attacker.id = "covered";
+    covered_attacker.facing = 'E';
+    covered_attacker.local_range = { { 1, 0 } };
+    covered_attacker.boss_basic_attack_weight = 500;
+    auto uncovered_attacker = covered_attacker;
+    uncovered_attacker.id = "uncovered";
+    uncovered_attacker.cell = { 3, 3 };
+    uncovered_attacker.boss_basic_attack_weight = 700;
+    uncovered_attacker.accepts_direct_healing = false;
+    covered_attacker.placement_cells = uncovered_attacker.placement_cells = { { 4, 2 }, { 3, 3 } };
+    medic.local_range.push_back({ 2, 0 });
+    const std::vector<BoardCell> boss_firing_cells { { 5, 2 } };
+    const std::vector<BoardCell> firing_terrain { guard.cell, medic.cell, { 4, 2 }, { 3, 3 } };
+    const auto sustain_plan = propose_deployment(
+        { guard, medic, covered_attacker, uncovered_attacker },
+        one_lane,
+        firing_terrain,
+        96,
+        {},
+        boss_firing_cells);
+    assert(sustain_plan.input_complete && sustain_plan.units[2].cell == covered_attacker.cell);
+    assert(stationary_boss_attack_weight(sustain_plan.units, boss_firing_cells) == 500);
+    const auto without_healing = propose_deployment(
+        { guard, covered_attacker, uncovered_attacker },
+        one_lane,
+        firing_terrain,
+        96,
+        {},
+        boss_firing_cells);
+    assert(without_healing.units[2].cell == covered_attacker.cell && without_healing.boss_coverage_improvement == 200);
+    assert(without_healing.boss_sustained_attack_improvement > 0);
     std::cout << "fixed-boss coverage, fallback, guard and cached continuation checks passed\n";
 }

@@ -419,8 +419,9 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         int unblocked_lanes = 0;
         int exposed_support = 0;
         int boss_movement_cost = 0;
+        int boss_sustained_attack_cost = 0;
         int boss_opening_cost = 0;
-        int boss_unhealed_attack_cost = 0;
+        int boss_healed_attack_cost = 0;
         int lost_first_block_capacity = 0;
         int lane_problem_count = 0;
         int lost_block_capacity = 0;
@@ -458,6 +459,9 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
             uncovered_approach += lane.required_approach_cells - lane.covered_approach_cells;
         }
         const auto [boss_opening_weight, boss_supported_weight] = boss_attack_weights(candidate, opening_boss_cells);
+        // Keep some value for burst without coverage, but favour keeping attackers
+        // in reach of healing. This is a search priority, not predicted survival.
+        const int boss_sustained_attack_weight = boss_opening_weight + 4 * boss_supported_weight;
         // Preparation-only growth can break a tie in survival coverage.
         // Preserve the original coverage ordering when there is no growth
         // objective. A pair cannot trade away a lane, a healing check or
@@ -465,6 +469,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         return CandidateScore { unblocked,
                                 review.exposed_support_units,
                                 -boss_movement_attack_weight(candidate, boss_movement_waypoints),
+                                -boss_sustained_attack_weight,
                                 -boss_opening_weight,
                                 -boss_supported_weight,
                                 lost_first_block_capacity,
@@ -534,7 +539,9 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
                                        stationary_boss_attack_weight(units, opening_boss_cells);
     result.boss_estimated_attack_improvement = initial_score.boss_opening_cost - best_score.boss_opening_cost;
     result.boss_supported_attack_improvement =
-        initial_score.boss_unhealed_attack_cost - best_score.boss_unhealed_attack_cost;
+        initial_score.boss_healed_attack_cost - best_score.boss_healed_attack_cost;
+    result.boss_sustained_attack_improvement =
+        initial_score.boss_sustained_attack_cost - best_score.boss_sustained_attack_cost;
     result.preparation_growth_preference_improvement =
         initial_score.preparation_growth_cost - best_score.preparation_growth_cost;
     result.preference_improvement = initial_score.placement_preference_cost - best_score.placement_preference_cost;
@@ -572,9 +579,8 @@ bool asst::spa::deployment_change_worth_input(const DeploymentProposal& proposal
         return false;
     }
     if (proposal.unblocked_lanes_improvement > 0 || proposal.score_improvement > 0 ||
-        proposal.blocking_capacity_improvement > 0 || proposal.boss_coverage_improvement > 0 ||
-        proposal.boss_movement_coverage_improvement > 0 || proposal.boss_estimated_attack_improvement > 0 ||
-        proposal.boss_supported_attack_improvement > 0) {
+        proposal.blocking_capacity_improvement > 0 || proposal.boss_movement_coverage_improvement > 0 ||
+        proposal.boss_sustained_attack_improvement > 0) {
         return true;
     }
     // One additional covered approach cell is worth 200 preference points;
