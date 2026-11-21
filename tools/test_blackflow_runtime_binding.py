@@ -167,6 +167,8 @@ class RuntimeBindingTests(unittest.TestCase):
                 driver = Mock()
                 driver.snapshot.return_value = image
                 driver.save.return_value = (self.root / "callbacks.jsonl", 0)
+                driver.wait.return_value = True
+                driver.completion_exit_code.return_value = 0
                 args = [
                     "live",
                     "--out",
@@ -187,6 +189,9 @@ class RuntimeBindingTests(unittest.TestCase):
                 self.assertEqual(task, "Roguelike")
                 self.assertEqual(params["scan_account_modules"], scan)
                 self.assertEqual(params["account_cache_file"], "same-uid.json")
+                driver.completion_exit_code.assert_called_once_with(
+                    True, require_settlement=True, lobby_verified=True
+                )
 
 
 if __name__ == "__main__":

@@ -695,7 +695,9 @@ def evaluate(
         if not context.account_uid or not context.client:
             unknown.append("account_identity_unverified")
         roles = {role_name(str(role)) for role in features.get("recruit_roles", [])}
-        if "recruit_role" in features:
+        # The explicit profession list is authoritative. A legacy ALL marker
+        # must not widen a Sniper/Medic voucher to every profession.
+        if "recruit_roles" not in features and "recruit_role" in features:
             roles.add(role_name(str(features["recruit_role"])))
         if not roles:
             unknown.append("voucher_profession_unverified")
