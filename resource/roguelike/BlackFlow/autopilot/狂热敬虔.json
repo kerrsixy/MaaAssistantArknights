@@ -1,44 +1,72 @@
 {
     "stage_name": "狂热敬虔",
     "doc": [
-        "2026-11-21 run18 后的候选B，未实机验证，不称最优。真实失败卡达8,3原图显示被魂灵之影占格；原医疗10,6朝上不覆盖机械师10,2。",
-        "先医疗8,3朝右占位，再EW9,3朝左覆盖Boss中段5,3/7,3/9,1；机械师10,2朝上保持在医疗内，精一卡达6,1朝下帮助中段，史都华德仅作没有卡达时的几何替代，不等效卡达锁定/眩晕。",
-        "普通安赛尔/芙蓉、元素医疗蜜莓/纯烬精一在8,3朝右均覆盖EW9,3、机械师10,2和下路10,4。Carda6,1不在医疗范围，仍需实测火种波及。",
-        "EW朝左不覆盖10,4/10,5，下路有漏怪风险；额外真正阻挡可在10,4朝下补漏，不能把炮灰/工人当长期主坦。缺医疗/副输出无法保证。",
-        "run18 EW实际开启三次技能；机械师08:16:08被检测退场。Boss火种遇近战爆炸，法伤和凋亡随路程衰减；旧文档“被阻挡就不会传送”没有源证据，不当作事实。主线程正在复测，尚无N8整局通关。"
+        "2026-11-21 run22 N8在本图自然失败，387分、boss=0、game_pass=false。旧EW9,3及卡达6,1的部署不能当作正确打法；用户再次纠正后整体替换旧候选B。",
+        "主输出7,4朝左：优先EW/望，也允许合适术师和凯尔希·思衡托。思衡托使用二技能，已在本主题招募配置中声明。火雨输出同样朝左，目标是覆盖并爆发处理Boss，不把投放成功当作伤害已验证。",
+        "圣聆初雪是主输出的特殊射程替代，左移到6,4朝左。6,4与7,4互斥，已经有主输出时不再补另一个位置。按既有组内强度顺序选择主力，不因便宜就让低顺位干员抢主输出位。",
+        "2号位10,4优先盾，没有盾可用能承伤阻挡的近卫；沿用原图朝下。4号位9,3仅提丰朝左，按她的特殊射程处理，不能再把EW放进这个位置。",
+        "1号位10,5朝左是近卫低优先级备选，不抢主输出和主阻挡费用。旧上方6,1卡达、10,2机械师及8,3医疗步骤均撤销；仅按当前作业投放，不混入通用补位。",
+        "本作业尚未实机通关。生命游戏已手动核验瘤胃升级63到64/67，点数5到2；这不代表非零点数自动分配已验收。"
     ],
     "deploy_plan_only": true,
     "reserve_deploy_cost": true,
     "deploy_plan": [
         {
-            "groups": ["医疗", "奶", "单奶", "群奶", "元素奶"],
-            "location": [8, 3],
-            "direction": "right",
-            "minimum_elite": 1
-        },
-        {
-            "groups": ["益达"],
-            "operator_names": ["维什戴尔"],
-            "location": [9, 3],
-            "direction": "left"
-        },
-        {
-            "groups": ["机械师"],
-            "operator_names": ["机械师"],
-            "location": [10, 2],
-            "direction": "up"
+            "groups": ["益达", "望"],
+            "location": [7, 4],
+            "direction": "left",
+            "minimum_elite": 1,
+            "exclusive_locations": [[6, 4]],
+            "prefer_group_order": true
         },
         {
             "groups": ["术师"],
-            "operator_names": ["卡达", "史都华德"],
-            "location": [6, 1],
-            "direction": "down",
-            "minimum_elite": 1
+            "operator_names": ["圣聆初雪"],
+            "location": [6, 4],
+            "direction": "left",
+            "minimum_elite": 1,
+            "exclusive_locations": [[7, 4]],
+            "prefer_group_order": true
         },
         {
-            "groups": ["重装", "奶盾", "铁卫", "挡人先锋", "近卫", "领主"],
+            "groups": ["群奶"],
+            "operator_names": ["凯尔希·思衡托"],
+            "location": [7, 4],
+            "direction": "left",
+            "minimum_elite": 1,
+            "exclusive_locations": [[6, 4]],
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["术师", "高台输出"],
+            "excluded_operator_names": ["维什戴尔", "望", "圣聆初雪", "提丰"],
+            "location": [7, 4],
+            "direction": "left",
+            "minimum_elite": 1,
+            "exclusive_locations": [[6, 4]],
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["重装", "奶盾", "铁卫", "机械师", "近卫", "领主"],
             "location": [10, 4],
-            "direction": "down"
+            "direction": "down",
+            "minimum_elite": 1,
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["提丰", "狙击"],
+            "operator_names": ["提丰"],
+            "location": [9, 3],
+            "direction": "left",
+            "minimum_elite": 1,
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["近卫", "领主"],
+            "location": [10, 5],
+            "direction": "left",
+            "minimum_elite": 1,
+            "prefer_group_order": true
         }
     ]
 }

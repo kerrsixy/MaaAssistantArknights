@@ -66,6 +66,7 @@ protected:
         Point placed;                         // 指令坐标
         battle::DeployDirection direction {}; // 部署朝向
         int cost = 0;                         // 干员部署费用，0 表示未识别
+        bool prefer_group_order = false;
 
         bool operator<(const DeployPlanInfo& x) const
         {
@@ -75,7 +76,18 @@ protected:
             if (rank != x.rank) {
                 return rank < x.rank;
             }
-            // 同 rank（同一落点位）内先比费用，再比组内排名。
+            // Keep the tactical preference in the ordering key so mixed candidates
+            // retain a strict weak ordering rather than using a pairwise exception.
+            if (prefer_group_order != x.prefer_group_order) {
+                return prefer_group_order;
+            }
+            if ((cost > 0) != (x.cost > 0)) {
+                return cost > 0;
+            }
+            if (prefer_group_order && oper_order_in_group != x.oper_order_in_group) {
+                return oper_order_in_group < x.oper_order_in_group;
+            }
+            // 未显式指定组内顺序时，同 rank（同一落点位）内先比费用，再比组内排名。
             // 依据：实测 2511 条 `best deploy is X with rank N`，同一 rank 上维什戴尔（25+ 费）
             // 与史都华德（19 费）交替出现、每轮都是贵的那位先被选中然后 `waiting for cost` 空转。
             // 原因是组内排名 oper_order_in_group 排在费用前面，而两人的组内排名不同，
