@@ -564,6 +564,27 @@ bool asst::RoguelikeBattleTaskPlugin::observe_hunter_prelude(const cv::Mat& imag
     return false;
 }
 
+void asst::RoguelikeBattleTaskPlugin::observe_hunter_after_deployment()
+{
+    if (!m_hunter_prelude || m_hunter_main_allowed) {
+        return;
+    }
+    // The verified bait can be attacked as soon as deployment completes. Sample
+    // the existing visual controller before another full deployment-bar scan.
+    // This is a bounded observation burst, never a timed retreat or clearance.
+    for (int sample = 0; sample < 3 && !need_exit(); ++sample) {
+        if (sample != 0 && !sleep(80)) {
+            return;
+        }
+        const auto image = ctrler()->get_image();
+        const bool normal_battle = check_pause_button(image);
+        LogInfo << __FUNCTION__ << "Post-deployment hunter observation" << sample << normal_battle;
+        if (observe_hunter_prelude(image, normal_battle) || !normal_battle) {
+            return;
+        }
+    }
+}
+
 bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
 {
     Log.info("deploy diag: cur_opers", m_cur_deployment_opers.size(), "homes", m_homes.size());
@@ -817,6 +838,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
             m_skill_usage[oper_tag] = oper_info.skill_usage;
             m_skill_times[oper_tag] = oper_info.skill_times;
             Log.info("    best deploy is", deploy_plan.oper_name, "with rank", deploy_plan.rank);
+            observe_hunter_after_deployment();
             return true;
         }
     }
@@ -982,7 +1004,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
     update_kills(image, image_prev);
     // 漏怪 / 崩盘诊断：只记录，不干预部署
     diagnose_battle_progress();
-    if (m_hunter_prelude && !m_hunter_main_allowed && observe_hunter_prelude(image)) {
+    if (m_hunter_prelude && !m_hunter_main_allowed && observe_hunter_prelude(ctrler()->get_image())) {
         return true;
     }
 

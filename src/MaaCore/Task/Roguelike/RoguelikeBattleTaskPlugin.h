@@ -157,6 +157,7 @@ protected:
 
     void check_drone_tiles();
     bool wait_until_start_button_clicked();
+    void observe_hunter_after_deployment();
     std::string m_resume_stage;
 
     std::vector<Point> available_locations(const battle::DeploymentOper& oper) const;

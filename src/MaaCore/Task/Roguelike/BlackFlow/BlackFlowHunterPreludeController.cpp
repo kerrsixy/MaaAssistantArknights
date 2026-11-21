@@ -480,8 +480,16 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
             bait_cooling = matching_cards == 1 && bait_cooling;
         }
     }
-    const bool lower_visible =
-        m_bait_consumed && bait_cooling && !bait_present && battlefield_valid && lower_occlusions.empty();
+    if (bait_present) {
+        m_bait_removal_verified = false;
+    }
+    const bool current_removal = m_bait_consumed && bait_cooling && !bait_present && battlefield_valid;
+    // A previously verified removal does not expire when cooldown finishes.
+    // Still require the uniquely identified hand card in the current frame;
+    // neither an absent card nor stale battlefield bookkeeping proves visibility.
+    const bool removal_visible =
+        (current_removal || m_bait_removal_verified) && matching_cards == 1 && !bait_present && battlefield_valid;
+    const bool lower_visible = removal_visible && lower_occlusions.empty();
     const bool battlefield_visible = lower_visible && battlefield_occlusions.empty();
     HunterPreludeObservation visual;
     if (m_prepared && !m_contract_breached) {
@@ -503,6 +511,9 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
         context.lower_unit_occlusion_rois = lower_occlusions;
         visual = m_analyzer.analyze(image, context);
         m_frame_verified = visual.frame_observable;
+        if (visual.frame_observable && current_removal) {
+            m_bait_removal_verified = true;
+        }
         if (visual.frame_observable && (visual.battlefield_presence == HunterPresence::Present ||
                                         visual.lower_presence == HunterPresence::Present ||
                                         std::ranges::any_of(visual.spawns, [](const auto& slot) {
@@ -557,7 +568,7 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
         else if (decision.retreat_bait) {
             stage = "retreat_bait_requested";
         }
-        else if (!bait_present && !bait_cooling) {
+        else if (!bait_present && !removal_visible) {
             stage = "bait_absence_unverified";
         }
         else if (lower_visible) {
@@ -580,8 +591,8 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
     if (!timestamp_fresh) {
         reasons.emplace_back("Capture timestamp is stale or repeated");
     }
-    if (m_bait_consumed && !bait_present && !bait_cooling) {
-        reasons.emplace_back("Bait absence has no unique matching cooldown card evidence");
+    if (m_bait_consumed && !bait_present && !removal_visible) {
+        reasons.emplace_back("Bait absence lacks verified removal or a unique current hand card");
     }
     if (bait_present && bait_cooling) {
         reasons.emplace_back("Bait is simultaneously reported on field and on cooldown");
@@ -615,8 +626,8 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
                              { "withdraw_for_unoccluded_observation", withdraw_for_unoccluded_observation },
                              { "hunter_positive_verified", m_hunter_positive_verified },
                              { "retreat_input_confirmed", false },
-                             { "bait_removal_verified",
-                               m_bait_consumed && bait_cooling && !bait_present && battlefield_valid },
+                             { "bait_removal_verified", removal_visible },
+                             { "bait_removal_history_verified", m_bait_removal_verified },
                              { "bait_branch", "ordinary_ranged_attack" },
                              { "lower_unit_occlusion_count", lower_occlusions.size() },
                              { "battlefield_unit_occlusion_count", battlefield_occlusions.size() },
