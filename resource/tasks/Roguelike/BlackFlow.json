@@ -169,7 +169,7 @@
         "action": "ClickSelf",
         "maxTimes": 2,
         "postDelay": 1000,
-        "next": ["BlackFlow@Roguelike@NextLevel-Enter"]
+        "next": ["BlackFlow@Roguelike@ResumeFloorIntro", "BlackFlow@Roguelike@NextLevel-Enter"]
     },
     "BlackFlow@Roguelike@ResumeFloorIntroOnly": {
         "baseTask": "BlackFlow@Roguelike@ResumeFloorIntro",
