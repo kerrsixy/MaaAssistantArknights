@@ -1,4 +1,5 @@
 #include "SPAShopTaskPlugin.h"
+#include "SPABenchSalePolicy.h"
 #include "SPABountyPolicy.h"
 #include "SPAEquipmentCatalogue.h"
 
@@ -171,25 +172,25 @@ std::optional<std::pair<int, double>> sale_credit_number(const cv::Mat& image, i
         button_y >= 470) {
         return std::nullopt;
     }
-    OCRer number(image, Rect(button_x + 44, button_y - 51, 60, 27));
-    number.set_without_det(true);
-    number.set_use_char_model(true);
-    const auto recognized = number.analyze();
-    if (!recognized || recognized->size() != 1) {
-        return std::nullopt;
+    const auto read = [&](const Rect& roi) -> std::optional<std::pair<int, double>> {
+        OCRer number(image, roi);
+        number.set_without_det(true);
+        number.set_use_char_model(true);
+        const auto recognized = number.analyze();
+        if (!recognized || recognized->size() != 1) {
+            return std::nullopt;
+        }
+        const auto& token = recognized->front();
+        const auto value = sale_credit_from_panel({ { token.text, token.score, roi.x, roi.y } }, button_x, button_y);
+        return token.score >= .95 && value ? std::optional(std::pair { *value, static_cast<double>(token.score) })
+                                           : std::nullopt;
+    };
+    if (const auto quote = read(Rect(button_x + 44, button_y - 51, 60, 27))) {
+        return quote;
     }
-    const auto& token = recognized->front();
-    if (!std::isfinite(token.score) || token.score < .95 || token.text.size() < 2 || token.text.size() > 3 ||
-        token.text.front() != '+' ||
-        !std::all_of(token.text.begin() + 1, token.text.end(), [](unsigned char c) { return c >= '0' && c <= '9'; })) {
-        return std::nullopt;
-    }
-    int value = 0;
-    for (auto digit = token.text.begin() + 1; digit != token.text.end(); ++digit) {
-        value = value * 10 + *digit - '0';
-    }
-    return value > 0 && value <= 99 ? std::optional(std::pair { value, static_cast<double>(token.score) })
-                                    : std::nullopt;
+    // The wide crop may include a sprite behind the right edge of the badge.
+    // Retry inside the plate, keeping the same signed quote and confidence checks.
+    return read(Rect(button_x + 52, button_y - 45, 37, 16));
 }
 
 std::optional<int> pact_layers(const cv::Mat& image, const std::string& pact)
