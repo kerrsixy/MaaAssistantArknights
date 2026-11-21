@@ -4318,12 +4318,36 @@ int main()
     assert(!should_upgrade_dynamic_shop(discount_window, 7, 6, available_healer, catalog, &upgrade_hold));
     assert(upgrade_hold && upgrade_hold->next_round_upgrade_price == 5);
     discount_window.boss_preparation = true;
-    assert(should_upgrade_dynamic_shop(discount_window, 7, 6, available_healer, catalog, &upgrade_hold));
+    assert(!should_upgrade_dynamic_shop(discount_window, 7, 6, available_healer, catalog, &upgrade_hold));
+    assert(upgrade_hold && !upgrade_hold->next_round_upgrade_price);
     discount_window.boss_preparation = false;
     discount_window.shop_discount_wait_level = 3;
     discount_window.shop_discount_wait_round = 8;
     discount_window.round = 9;
     assert(should_upgrade_dynamic_shop(discount_window, 6, 5, available_healer, catalog, &upgrade_hold));
+
+    // D4 R14 took a ten-gold book-VI upgrade with eleven gold and a
+    // full bench. Neither the reroll nor a new four-gold carry fit.
+    auto boss_book = victoria_pair_window;
+    boss_book.boss_preparation = true;
+    boss_book.round = 14;
+    boss_book.early_board_ready = true;
+    boss_book.last_round_life_loss = 8;
+    boss_book.deployed_population = 8;
+    boss_book.bench_occupied = 10;
+    boss_book.allow_refresh = true;
+    boss_book.carries = { "水灯心", "涤火杰西卡", "烛煌" };
+    assert(!should_upgrade_dynamic_shop(boss_book, 11, 10, {}, catalog, &upgrade_hold));
+    assert(upgrade_hold && !upgrade_hold->next_round_upgrade_price);
+    assert(!should_upgrade_dynamic_shop(boss_book, 15, 10, {}, catalog));
+    boss_book.bench_occupied = 8;
+    assert(!should_upgrade_dynamic_shop(boss_book, 11, 10, {}, catalog));
+    assert(!should_upgrade_dynamic_shop(boss_book, 14, 10, {}, catalog));
+    assert(should_upgrade_dynamic_shop(boss_book, 15, 10, {}, catalog));
+    boss_book.free_refreshes = 1;
+    assert(should_upgrade_dynamic_shop(boss_book, 14, 10, {}, catalog));
+    boss_book.shop_frozen_this_round = true;
+    assert(!should_upgrade_dynamic_shop(boss_book, 15, 10, {}, catalog));
 
     // Regulation 4, round 3. The book-I upgrade and one 2-gold recruit
     // leave one coin. The visible shop can instead develop two field roles.

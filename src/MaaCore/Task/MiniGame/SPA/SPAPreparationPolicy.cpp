@@ -1201,8 +1201,12 @@ static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
     const std::map<std::string, std::vector<std::string>>& pacts)
 {
     const auto route = route_profiles().find(policy.primary_pact);
+    const bool paid_boss_upgrade = policy.boss_preparation && upgrade_price > 0;
     if (route == route_profiles().end() || contains(policy.disabled_pacts, policy.primary_pact)) {
-        return std::nullopt;
+        return paid_boss_upgrade
+                   ? std::optional(
+                         ShopUpgradeHold { "Keep boss-round funds until a currently useful recruit is identified" })
+                   : std::nullopt;
     }
     const bool accepts_recruits = policy.bench_occupied >= 0 && policy.bench_occupied < 10;
     const bool below_growth_window = policy.shop_level < std::max(3, route->second.minimum_shop_level);
@@ -1291,7 +1295,7 @@ static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
             }
         }
     }
-    if (below_growth_window) {
+    if (below_growth_window && !paid_boss_upgrade) {
         // A route's recommended entry tier can be higher than a visible
         // engine's tier. A paid upgrade must not erase its recruitment budget.
         if (policy.shop_level < 2 || !accepts_recruits || upgrade_price <= 0 || policy.boss_preparation ||
@@ -1371,7 +1375,16 @@ static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
         }
     }
     const bool upgrade_grants_faction_refresh =
-        policy.selected_strategy_id == "band_pepe" && policy.primary_pact == "萨尔贡";
+        policy.selected_strategy_id == "band_pepe" && policy.primary_pact == "萨尔贡" && policy.shop_level % 2 == 1;
+    if (paid_boss_upgrade) {
+        const int boss_refresh_cost = upgrade_grants_faction_refresh ? 0 : refresh_cost;
+        if (!accepts_recruits || !can_refresh || new_tier_recruit_price == 0 ||
+            funds - upgrade_price < boss_refresh_cost + new_tier_recruit_price) {
+            return ShopUpgradeHold {
+                "Keep boss-round funds when a useful new-tier recruit cannot be bought this round"
+            };
+        }
+    }
     if (book_five && new_tier_recruit_price == 0 && !upgrade_grants_faction_refresh) {
         return ShopUpgradeHold { "Book V already gives tier-VI promotion rewards; VI opens no missing route target",
                                  pair ? std::string(pair->name) : std::string(),
