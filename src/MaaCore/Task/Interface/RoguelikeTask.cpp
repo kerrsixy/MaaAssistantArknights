@@ -58,6 +58,7 @@
 #include "Task/Roguelike/BlackFlow/BlackFlowNodeTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowRoutingTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowScrapTradeTaskPlugin.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowStashedRecruitTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowTaskPort.h"
 
 #include "Utils/Logger.hpp"
@@ -138,6 +139,8 @@ asst::RoguelikeTask::RoguelikeTask(const AsstCallback& callback, Assistant* inst
     encounter_plugin->set_blackflow_session(m_blackflow_session_ptr);
     shopping_plugin->set_blackflow_session(m_blackflow_session_ptr);
     m_roguelike_task_ptr->register_plugin<blackflow::BlackFlowAccountTaskPlugin>(m_config_ptr, m_control_ptr)
+        ->set_retry_times(0);
+    m_roguelike_task_ptr->register_plugin<blackflow::BlackFlowStashedRecruitTaskPlugin>(m_config_ptr, m_control_ptr)
         ->set_retry_times(0);
     m_roguelike_task_ptr->register_plugin<blackflow::BlackFlowLifeGameTaskPlugin>(m_config_ptr, m_control_ptr)
         ->set_retry_times(0);
@@ -274,6 +277,14 @@ bool asst::RoguelikeTask::set_params(const json::value& params)
         m_roguelike_task_ptr->set_tasks({ "BlackFlow@Roguelike@LifeGameRun" });
     }
 #ifdef ASST_DEBUG
+    if (params.get("stashed_recruit_service_only", false)) {
+        if (theme != RoguelikeTheme::BlackFlow) {
+            return false;
+        }
+        m_roguelike_task_ptr->set_tasks({ "BlackFlow@Roguelike@StashedRecruitReady" });
+        m_roguelike_task_ptr->override_next("BlackFlow@Roguelike@StashedRecruitOptionsReady", {});
+        m_roguelike_task_ptr->override_next("BlackFlow@Roguelike@StashedRecruitMapReady", {});
+    }
     if (!params.get("battle_resume_stage", std::string()).empty()) {
         if (theme != RoguelikeTheme::BlackFlow) {
             return false;

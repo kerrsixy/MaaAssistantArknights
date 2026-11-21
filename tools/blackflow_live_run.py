@@ -217,7 +217,7 @@ class LiveDriver:
     def wait(self, seconds):
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
-            if self._done.is_set() or not self.running():
+            if not self.running():
                 return True
             # Cooperative diagnostic stops retain the normal final screenshot,
             # callback save and handle cleanup instead of killing Python.
@@ -225,8 +225,13 @@ class LiveDriver:
                 print("Stop requested; stopping native task in place", flush=True)
                 self.stop()
                 return False
-            if self._done.wait(timeout=2.0):
-                return True
+            # AllTasksCompleted can arrive before the native worker becomes idle.
+            # Keep waiting for the authoritative running state without spinning
+            # on an already-set event or reporting this short race as a timeout.
+            if self._done.is_set():
+                time.sleep(0.05)
+            else:
+                self._done.wait(timeout=2.0)
         return False
 
     def save(self):

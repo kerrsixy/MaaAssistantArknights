@@ -12,6 +12,7 @@
 #include "MaaUtils/NoWarningCV.hpp"
 #include "Task/ProcessTask.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowSession.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowStashedRecruitPolicy.h"
 #include "Task/Roguelike/Map/RoguelikeBoskyPassageMap.h"
 #include "Utils/DebugImageHelper.hpp"
 #include "Utils/Logger.hpp"
@@ -52,6 +53,11 @@ bool asst::RoguelikeStageEncounterTaskPlugin::verify(AsstMsg msg, const json::va
     }
     const std::string roguelike_name = m_config->get_theme() + "@";
     const std::string& task = details.get("details", "task", "");
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow &&
+        task == "BlackFlow@Roguelike@StashedRecruitEventContinue") {
+        m_resume_after_stashed_recruit = true;
+        return true;
+    }
     std::string_view task_view = task;
     if (task_view.starts_with(roguelike_name)) {
         task_view.remove_prefix(roguelike_name.length());
@@ -519,6 +525,12 @@ std::optional<std::string> asst::RoguelikeStageEncounterTaskPlugin::select_black
     const blackflow::EncounterRule* rule = context->rule.has_value() ? &*context->rule : nullptr;
     SelectionPlan plan = rule != nullptr ? plan_from_rule(*rule) : plan_from_event(event, choose_option);
     plan.continue_single_option = event.continue_single_option;
+    const bool returning_from_service = std::exchange(m_resume_after_stashed_recruit, false);
+    if (returning_from_service) {
+        plan.option_text = blackflow::after_stashed_recruit_options(plan.option_text, available_options);
+        plan.allow_fallback = false;
+        plan.continue_single_option = false;
+    }
 
     // The BlackFlow "Face to Face" node is an opponent-selection page. Its
     // first enabled entry is the stable, user-requested choice for every
@@ -543,7 +555,7 @@ std::optional<std::string> asst::RoguelikeStageEncounterTaskPlugin::select_black
 
     const auto selected = select_event_option(plan, event.name);
     if (!selected.has_value()) {
-        set_blackflow_result(BlackFlowAbandonTask);
+        set_blackflow_result(returning_from_service ? BlackFlowRecoveryFailedTask : BlackFlowAbandonTask);
         return std::nullopt;
     }
     // 保留黑流确认完成后的页面稳定等待，再记录策略结果。

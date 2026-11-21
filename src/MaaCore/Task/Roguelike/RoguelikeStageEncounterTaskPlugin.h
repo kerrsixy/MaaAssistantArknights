@@ -96,6 +96,7 @@ private:
 
     std::shared_ptr<blackflow::BlackFlowSession> m_blackflow_session;
     std::string m_reported_event_name;
+    mutable bool m_resume_after_stashed_recruit = false;
     OptionAnalyzer::Result m_option_list;
     size_t m_view_begin = 0;
     size_t m_view_end = 0;
