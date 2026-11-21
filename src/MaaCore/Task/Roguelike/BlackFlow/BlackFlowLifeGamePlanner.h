@@ -78,6 +78,7 @@ struct LifeGameIdentityEvidence
     // These IDs must be positively identified on the same group. Page-switch counts,
     // icon brightness and a clipped viewport are not group evidence.
     std::vector<std::string> same_group_anchor_ids;
+    // These anchors supply global graph facts, not implicit same-group evidence.
     std::vector<LifeGameIdentityConstraint> constraints;
 };
 
@@ -105,8 +106,9 @@ class BlackFlowLifeGamePlanner
 public:
     bool load(const json::value& resource, std::string* error = nullptr);
     [[nodiscard]] LifeGamePlan next(const LifeGameEvidence& evidence) const;
-    // Relative order constraints apply only within one graph row. A direct-edge
-    // constraint requires an observed connection, not guessed nearest neighbors.
+    // Rows are global. Relative order applies only within one graph row.
+    // Observed direct edges may cross groups; neither relation infers a group.
+    // Direct-edge evidence requires a real connection, not guessed neighbors.
     [[nodiscard]] LifeGameIdentityResult identify(const LifeGameIdentityEvidence& evidence) const;
 
     [[nodiscard]] const std::vector<LifeGameNode>& nodes() const noexcept { return m_nodes; }

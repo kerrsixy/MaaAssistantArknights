@@ -53,7 +53,30 @@ private:
     // 返回值: 招募结果 (true: 成功; false: 失败)
     bool recruit_appointed_char(const std::string& char_name, bool is_rtl = false, bool require_strength = false);
     // 选择干员
-    void select_oper(const battle::roguelike::Recruitment& oper);
+    bool select_oper(const battle::roguelike::Recruitment& oper);
+    int read_current_hope(const cv::Mat& image);
+    bool can_afford(const battle::roguelike::Recruitment& oper, int hope) const;
+    void discard_pending_recruitment(std::string_view reason);
+    bool commit_pending_recruitment();
+
+    enum class RecruitmentEvent
+    {
+        Select,
+        Confirm,
+        Receipt,
+        Discard
+    };
+
+    struct PendingRecruitment
+    {
+        battle::roguelike::Recruitment oper;
+        bool confirmed = false;
+        bool advance_start = false;
+        bool opening = false;
+    };
+
+    std::optional<PendingRecruitment> m_pending_recruitment;
+    mutable RecruitmentEvent m_recruitment_event = RecruitmentEvent::Select;
     // 找出给定的 Offset 组所有满足条件的干员
     std::unordered_set<std::string> calculate_condition_oper(
         const RecruitPriorityOffset& condition,
