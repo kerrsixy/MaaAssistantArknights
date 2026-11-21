@@ -131,13 +131,48 @@
         "Doc": "Assisted debug continuation accepts only an existing exploration or its map. Missing saved exploration must stop instead of abandoning or starting a new run.",
         "algorithm": "JustReturn",
         "action": "DoNothing",
-        "next": ["BlackFlow@Roguelike@ResumeSavedContinue", "BlackFlow@Roguelike@NextLevel"]
+        "next": [
+            "BlackFlow@Roguelike@ResumeSavedContinue",
+            "BlackFlow@Roguelike@ResumeFloorIntro",
+            "BlackFlow@Roguelike@ResumeSavedMap"
+        ],
+        "reduceOtherTimes": ["BlackFlow@Roguelike@ResumeFloorIntro*2"]
     },
     "BlackFlow@Roguelike@ResumeSavedContinue": {
         "baseTask": "BlackFlow@Roguelike@Continue",
         "template": "BlackFlow@Roguelike@Continue.png",
         "templThreshold": 0.9,
+        "next": ["BlackFlow@Roguelike@ResumeFloorIntro", "BlackFlow@Roguelike@ResumeSavedMap"]
+    },
+    "BlackFlow@Roguelike@ResumeSavedMap": {
+        "Doc": "层名也显示在商店等页面上；恢复必须先确认地图缩放锚点，之后交给正常层名回执。",
+        "baseTask": "BlackFlow@Roguelike@MapPrepare-FloorEnterZoom",
+        "template": ["BlackFlow@Roguelike@MapZoomIn.png", "BlackFlow@Roguelike@MapZoomOut.png"],
+        "action": "DoNothing",
+        "postDelay": 0,
+        "reduceOtherTimes": [],
         "next": ["BlackFlow@Roguelike@NextLevel"]
+    },
+    "BlackFlow@Roguelike@ResumeFloorIntroPage": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [350, 620, 600, 55],
+        "text": ["未经探索的土地"],
+        "fullMatch": false
+    },
+    "BlackFlow@Roguelike@ResumeFloorIntro": {
+        "Doc": "继续保存的探索可能先显示楼层介绍。标题与介绍文字都命中才点入，之后仍由地图页层名回执确认楼层。",
+        "baseTask": "BlackFlow@Roguelike@NextLevel",
+        "roi": [400, 560, 500, 65],
+        "requiredPage": "BlackFlow@Roguelike@ResumeFloorIntroPage",
+        "action": "ClickSelf",
+        "maxTimes": 2,
+        "postDelay": 1000,
+        "next": ["BlackFlow@Roguelike@NextLevel-Enter"]
+    },
+    "BlackFlow@Roguelike@ResumeFloorIntroOnly": {
+        "baseTask": "BlackFlow@Roguelike@ResumeFloorIntro",
+        "next": []
     },
     "BlackFlow@Roguelike@AccountMapReturn": {
         "Doc": "Match the exact BlackFlow floor title before leaving the map for live account verification. This does not abandon the saved exploration.",
