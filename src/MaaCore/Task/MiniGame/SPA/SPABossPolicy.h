@@ -207,6 +207,20 @@ inline std::vector<BoardCell> estimate_solo_stationary_boss_footprint(const Boss
     return cells;
 }
 
+// The client route supplies one opening location only when every possible
+// variant agrees. A moving boss can leave that cell as soon as battle starts.
+inline std::vector<BoardCell> estimate_solo_boss_opening_cells(const BossObjective& objective)
+{
+    if (!objective.known || objective.possible_cells.size() != 1) {
+        return {};
+    }
+    if (objective.stationary_route) {
+        return estimate_solo_stationary_boss_footprint(objective);
+    }
+    const auto [col, row] = objective.possible_cells.front();
+    return col >= 0 && col <= 12 && row >= 0 && row <= 4 ? objective.possible_cells : std::vector<BoardCell> {};
+}
+
 inline bool current_hidden_boss_enemy(const std::string& id)
 {
     return std::any_of(SeasonBossCatalogue.begin(), SeasonBossCatalogue.end(), [&](const auto& boss) {

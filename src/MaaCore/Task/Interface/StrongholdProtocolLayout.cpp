@@ -165,6 +165,158 @@ void
     callback(AsstMsg::SubTaskExtraInfo, evidence);
 }
 
+asst::spa::DeploymentUnit asst::StrongholdProtocolTask::describe_deployed_unit(
+    const spa::GridPlacementMember& member,
+    const std::vector<spa::BoardCell>& range,
+    bool boss_round) const
+{
+    spa::DeploymentUnit unit;
+    const bool unique = m_auto_deploy_positions.count(member.name) == 1;
+    unit.id = unique ? member.name : member.name + "#" + std::to_string(member.col) + "." + std::to_string(member.row);
+    unit.cell = { member.col, member.row };
+    unit.frontline = member.role == spa::PlacementRole::Frontline;
+    // Read the chess form's actual training phase, not the operator's
+    // rarity or a universal block-one approximation. Skill/module/pact
+    // changes still need their own state before changing this baseline.
+    const auto owned = m_policy.owned.find(member.name);
+    const bool elite = owned != m_policy.owned.end() && owned->second.elite;
+    const auto baseline = spa::season_combat_stats(member.name, elite);
+    unit.block_count = baseline ? baseline->block_count : 1;
+    if (baseline && baseline->attack_interval > 0) {
+        unit.boss_basic_attack_weight = std::max(1, static_cast<int>(baseline->attack / baseline->attack_interval));
+    }
+    unit.holds_position = spa::default_skill_holds_position(member.name, elite);
+    unit.facing = member.facing ? member.facing : 'E';
+    unit.range_known = member.facing && !range.empty();
+    unit.healer = unit.range_known && member.role == spa::PlacementRole::Healer;
+    unit.damage_output = unit.range_known && member.role != spa::PlacementRole::Healer;
+    if (const auto props = BattleData.find_first_oper(battle::Role::Unknown, member.name, true)) {
+        if (props->sub_role == battle::SubRole::Warrior_Liberator) {
+            unit.block_count = 0;
+        }
+        unit.damage_output = unit.damage_output && spa::has_basic_attack(props->role, props->sub_role);
+        unit.accepts_direct_healing = spa::accepts_direct_healing(props->sub_role);
+        unit.provides_regeneration = props->sub_role == battle::SubRole::Support_Bard;
+    }
+    unit.local_range = range;
+    if (boss_round && unit.range_known) {
+        // Compare plausible early boss coverage from the season default,
+        // including the time spent on the basic range before activation.
+        constexpr double early_boss_window_seconds = 30.0;
+        const auto attack = spa::conditional_skill_attack_window(member.name, elite, early_boss_window_seconds);
+        if (attack.possible) {
+            unit.boss_skill_attack_range.assign(attack.attack_range.begin(), attack.attack_range.end());
+            unit.boss_skill_attack_uptime_percent =
+                static_cast<int>(attack.active_seconds * 100 / early_boss_window_seconds);
+        }
+        const auto skill = spa::season_default_skill(member.name, elite);
+        if (skill && skill->id == "skchr_shu_3") {
+            unit.boss_skill_healing_range.assign(skill->declared_range.begin(), skill->declared_range.end());
+        }
+    }
+    return unit;
+}
+
+asst::StrongholdProtocolTask::BossOpeningTarget asst::StrongholdProtocolTask::boss_opening_target(int round) const
+{
+    BossOpeningTarget target;
+    if (!m_spatial_boss_phase || m_spatial_boss_phase_round != round || m_spatial_snapshot_round != round) {
+        return target;
+    }
+    target.cells = spa::verified_boss_opening_region(
+        true,
+        m_spatial_map_id,
+        round,
+        m_boss_attackable_map_id,
+        m_boss_attackable_round,
+        m_boss_attackable_cells);
+    target.measured = !target.cells.empty();
+    if (target.measured) {
+        target.source = "observed_red_hatched_attackable_region";
+    }
+    else if (const auto bar = spa::preparation_boss_health_bar(m_spatial_grid_reference)) {
+        target.cells = spa::estimate_boss_opening_footprint(m_spatial_grid_reference, *bar, m_spatial_grid_projection);
+        if (!target.cells.empty()) {
+            target.source = "projected_five_by_three_opening_footprint";
+        }
+    }
+    if (m_mode == "independent") {
+        const auto terrain = spa::terrain_layout_model(m_spatial_map_id, true);
+        if (terrain && !terrain->lanes.empty() && !terrain->lanes.front().path.empty()) {
+            const auto boss =
+                spa::boss_objective(m_advertised_boss_family, terrain->lanes.front().path.back(), m_difficulty);
+            target.movement_waypoints = boss.movement_waypoints;
+            if (target.cells.empty()) {
+                target.cells = spa::estimate_solo_boss_opening_cells(boss);
+                if (!target.cells.empty()) {
+                    target.source = boss.stationary_route ? "stationary_footprint_from_registered_solo_spawn"
+                                                          : "moving_boss_opening_cell_from_client_route";
+                }
+            }
+        }
+    }
+    return target;
+}
+
+void asst::StrongholdProtocolTask::review_boss_opening_coverage(const json::value& state)
+{
+    const int round = state.get("round", -1);
+    const auto target = boss_opening_target(round);
+    const int population =
+        state.get("remaining_deployment_known", false) ? 8 - state.get("remaining_deployment", 8) : -1;
+    const bool board_known = population > 0 && m_population_grid_members.size() == static_cast<size_t>(population) &&
+                             m_population_grid_members.size() == m_auto_deploy_positions.size() &&
+                             m_growth_population_poses == m_auto_deploy_positions && !m_pending_spatial_orientation &&
+                             !m_pending_field_replacement && !m_field_checkpoint_loaded;
+    std::vector<spa::DeploymentUnit> units;
+    if (board_known && !target.cells.empty()) {
+        for (auto member : m_population_grid_members) {
+            if (m_auto_deploy_positions.count(member.name) == 1) {
+                const auto facing = m_committed_facings.find(m_auto_deploy_positions.find(member.name)->second);
+                member.facing = facing == m_committed_facings.end() ? '\0' : facing->second;
+            }
+            const auto owned = m_policy.owned.find(member.name);
+            if (owned == m_policy.owned.end()) {
+                continue;
+            }
+            const auto form = spa::season_combat_stats(member.name, owned->second.elite);
+            std::vector<spa::BoardCell> range;
+            if (form) {
+                range.assign(form->basic_range.begin(), form->basic_range.end());
+            }
+            else {
+                for (const auto& point : BattleData.get_range(
+                         BattleData.get_first_role(member.name),
+                         member.name,
+                         owned->second.elite ? 2 : 1)) {
+                    range.emplace_back(point.x, point.y);
+                }
+            }
+            units.push_back(describe_deployed_unit(member, range, false));
+        }
+    }
+    const bool coverage_known =
+        board_known && !target.cells.empty() && units.size() == m_population_grid_members.size() &&
+        std::all_of(units.begin(), units.end(), [](const auto& unit) { return unit.range_known; });
+    const int count = coverage_known ? spa::stationary_boss_attackers(units, target.cells) : -1;
+    const int weight = coverage_known ? spa::stationary_boss_attack_weight(units, target.cells) : -1;
+    auto objective = basic_info_with_what("SPABossPreparationObjectiveReviewed");
+    objective["details"] =
+        json::object { { "round", round },
+                       { "boss_region_verified", target.measured },
+                       { "boss_target_source", target.source },
+                       { "registered_board_known", board_known },
+                       { "boss_attackers_known", coverage_known && target.measured },
+                       { "boss_opening_attackers", target.measured ? count : -1 },
+                       { "boss_opening_basic_attack_weight", target.measured ? weight : -1 },
+                       { "estimated_boss_opening_attackers", !target.measured ? count : -1 },
+                       { "estimated_boss_opening_basic_attack_weight", !target.measured ? weight : -1 },
+                       { "skill_uptime_or_consumption_applied", false },
+                       { "boss_defeat_verified", false },
+                       { "replacement_reconciliation_pending", m_pending_field_replacement.has_value() } };
+    callback(AsstMsg::SubTaskExtraInfo, objective);
+}
+
 std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_layout_step(
     const std::vector<spa::GridPlacementMember>& members,
     const std::map<std::string, std::vector<std::pair<int, int>>>& ranges,
@@ -198,61 +350,16 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     std::map<std::string, spa::PlacementRole> roles;
     std::set<std::string> directions_known;
     for (const auto& member : members) {
-        spa::DeploymentUnit unit;
-        const bool unique = m_auto_deploy_positions.count(member.name) == 1;
-        unit.id =
-            unique ? member.name : member.name + "#" + std::to_string(member.col) + "." + std::to_string(member.row);
-        unit.cell = { member.col, member.row };
+        static const std::vector<spa::BoardCell> empty_range;
+        const auto range = ranges.find(member.name);
+        auto unit = describe_deployed_unit(member, range == ranges.end() ? empty_range : range->second, boss_round);
         const bool healer_already_adjusted = !boss_round && member.role == spa::PlacementRole::Healer &&
                                              m_spatial_orientation_attempts.contains({ round, member.name });
-        unit.movable = unique && member.facing && !healer_already_adjusted;
+        unit.movable = m_auto_deploy_positions.count(member.name) == 1 && member.facing && !healer_already_adjusted;
         names[unit.id] = member.name;
         roles[unit.id] = member.role;
         if (member.facing) {
             directions_known.insert(unit.id);
-        }
-        unit.frontline = member.role == spa::PlacementRole::Frontline;
-        // Read the chess form's actual training phase, not the operator's
-        // rarity or a universal block-one approximation. Skill/module/pact
-        // changes still need their own state before changing this baseline.
-        const auto owned = m_policy.owned.find(member.name);
-        const bool elite = owned != m_policy.owned.end() && owned->second.elite;
-        const auto baseline = spa::season_combat_stats(member.name, elite);
-        unit.block_count = baseline ? baseline->block_count : 1;
-        if (baseline && baseline->attack_interval > 0) {
-            unit.boss_basic_attack_weight = std::max(1, static_cast<int>(baseline->attack / baseline->attack_interval));
-        }
-        unit.holds_position = spa::default_skill_holds_position(member.name, elite);
-        unit.facing = member.facing ? member.facing : 'E';
-        const auto range = ranges.find(member.name);
-        unit.range_known = member.facing && range != ranges.end() && !range->second.empty();
-        unit.healer = unit.range_known && member.role == spa::PlacementRole::Healer;
-        unit.damage_output = unit.range_known && member.role != spa::PlacementRole::Healer;
-        if (const auto props = BattleData.find_first_oper(battle::Role::Unknown, member.name, true)) {
-            if (props->sub_role == battle::SubRole::Warrior_Liberator) {
-                unit.block_count = 0;
-            }
-            unit.damage_output = unit.damage_output && spa::has_basic_attack(props->role, props->sub_role);
-            unit.accepts_direct_healing = spa::accepts_direct_healing(props->sub_role);
-            unit.provides_regeneration = props->sub_role == battle::SubRole::Support_Bard;
-        }
-        if (range != ranges.end()) {
-            unit.local_range = range->second;
-        }
-        if (boss_round && unit.range_known) {
-            // Compare plausible early boss coverage from the season default,
-            // including the time spent on the basic range before activation.
-            constexpr double early_boss_window_seconds = 30.0;
-            const auto attack = spa::conditional_skill_attack_window(member.name, elite, early_boss_window_seconds);
-            if (attack.possible) {
-                unit.boss_skill_attack_range.assign(attack.attack_range.begin(), attack.attack_range.end());
-                unit.boss_skill_attack_uptime_percent =
-                    static_cast<int>(attack.active_seconds * 100 / early_boss_window_seconds);
-            }
-            const auto skill = spa::season_default_skill(member.name, elite);
-            if (skill && skill->id == "skchr_shu_3") {
-                unit.boss_skill_healing_range.assign(skill->declared_range.begin(), skill->declared_range.end());
-            }
         }
         unit.placement_cells = unit.movable ? (unit.frontline ? terrain->ground_route : terrain->buildable)
                                             : std::vector<spa::BoardCell> { unit.cell };
@@ -270,36 +377,9 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     m_deployable_cells = terrain->buildable;
     m_dynamic_layout_observed = true;
     const auto boss_mobility = spa::boss_family_mobility(m_advertised_boss_family);
-    const auto measured_boss_cells = spa::verified_boss_opening_region(
-        boss_round,
-        m_spatial_map_id,
-        round,
-        m_boss_attackable_map_id,
-        m_boss_attackable_round,
-        m_boss_attackable_cells);
-    auto boss_cells = measured_boss_cells;
-    std::string boss_target_source = boss_cells.empty() ? "unknown" : "observed_red_hatched_attackable_region";
-    spa::BossObjective solo_boss;
-    if (boss_cells.empty() && boss_round && m_spatial_snapshot_round == round) {
-        if (const auto bar = spa::preparation_boss_health_bar(m_spatial_grid_reference)) {
-            boss_cells =
-                spa::estimate_boss_opening_footprint(m_spatial_grid_reference, *bar, m_spatial_grid_projection);
-            if (!boss_cells.empty()) {
-                boss_target_source = "projected_five_by_three_opening_footprint";
-            }
-        }
-    }
-    if (boss_round && m_mode == "independent" && m_spatial_snapshot_round == round && !m_layout_lanes.empty() &&
-        !m_layout_lanes.front().path.empty()) {
-        solo_boss = spa::boss_objective(m_advertised_boss_family, m_layout_lanes.front().path.back(), m_difficulty);
-        if (boss_cells.empty()) {
-            boss_cells = spa::estimate_solo_stationary_boss_footprint(solo_boss);
-            if (!boss_cells.empty()) {
-                boss_target_source = "stationary_footprint_from_registered_solo_spawn";
-            }
-        }
-    }
-    const auto& movement_waypoints = solo_boss.movement_waypoints;
+    const auto boss_target = boss_opening_target(round);
+    const auto& boss_cells = boss_target.cells;
+    const auto& movement_waypoints = boss_target.movement_waypoints;
     std::string boss_context;
     for (const auto& [col, row] : boss_cells) {
         boss_context += "#boss-cell:" + std::to_string(col) + "." + std::to_string(row);
@@ -546,12 +626,13 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         { "unblocked_lanes_improvement", proposal.unblocked_lanes_improvement },
         { "score_improvement", proposal.score_improvement },
         { "blocking_capacity_improvement", proposal.blocking_capacity_improvement },
-        { "boss_opening_region_verified", !measured_boss_cells.empty() },
+        { "boss_opening_region_verified", boss_target.measured },
         { "boss_opening_region_cells", boss_cells.size() },
-        { "boss_opening_target_source", std::move(boss_target_source) },
-        { "boss_opening_footprint_estimated", measured_boss_cells.empty() && !boss_cells.empty() },
-        { "stationary_boss_region_verified", !measured_boss_cells.empty() && boss_mobility.stationary_route },
-        { "stationary_boss_region_cells", boss_mobility.stationary_route ? measured_boss_cells.size() : 0 },
+        { "boss_opening_target_source", boss_target.source },
+        { "boss_opening_footprint_estimated", !boss_target.measured && !boss_cells.empty() },
+        { "stationary_boss_region_verified", boss_target.measured && boss_mobility.stationary_route },
+        { "stationary_boss_region_cells",
+          boss_mobility.stationary_route && boss_target.measured ? boss_cells.size() : 0 },
         { "boss_basic_attackers_before", spa::stationary_boss_attackers(current, boss_cells) },
         { "boss_basic_attackers_after", spa::stationary_boss_attackers(proposal.units, boss_cells) },
         { "boss_coverage_improvement", proposal.boss_coverage_improvement },

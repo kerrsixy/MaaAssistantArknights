@@ -131,6 +131,21 @@ private:
         const std::map<std::string, std::vector<std::pair<int, int>>>& ranges,
         const std::vector<std::string>& active_pacts,
         int round);
+
+    struct BossOpeningTarget
+    {
+        std::vector<spa::BoardCell> cells;
+        std::vector<spa::BoardCell> movement_waypoints;
+        std::string source = "unknown";
+        bool measured = false;
+    };
+
+    BossOpeningTarget boss_opening_target(int round) const;
+    spa::DeploymentUnit describe_deployed_unit(
+        const spa::GridPlacementMember& member,
+        const std::vector<spa::BoardCell>& range,
+        bool boss_round) const;
+    void review_boss_opening_coverage(const json::value& state);
     void refresh_spatial_grid_snapshot(const json::value& state, bool require_fresh_projection = false);
     cv::Mat m_spatial_grid_reference;
     cv::Mat m_spatial_grid_projection;

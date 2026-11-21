@@ -96,6 +96,13 @@ int main()
     assert(cocoon_footprint.size() == 15);
     assert(cocoon_footprint.front() == BoardCell(8, 2) && cocoon_footprint.back() == BoardCell(12, 4));
     assert(estimate_solo_stationary_boss_footprint(moving_objective).empty());
+    assert(estimate_solo_boss_opening_cells(cocoon) == cocoon_footprint);
+    assert((estimate_solo_boss_opening_cells(moving_objective) == std::vector<BoardCell> { { 10, 2 } }));
+    auto ambiguous_opening = moving_objective;
+    ambiguous_opening.possible_cells.emplace_back(11, 3);
+    assert(estimate_solo_boss_opening_cells(ambiguous_opening).empty());
+    ambiguous_opening.possible_cells = { { 13, 2 } };
+    assert(estimate_solo_boss_opening_cells(ambiguous_opening).empty());
     assert(estimate_solo_stationary_boss_footprint(boss_objective("假想敌：管", { 2, 4 }, 14)).empty());
     assert(estimate_solo_stationary_boss_footprint(boss_objective("Unknown", { 2, 4 }, 4)).empty());
     const std::map<std::string, PlacementRole> roles {

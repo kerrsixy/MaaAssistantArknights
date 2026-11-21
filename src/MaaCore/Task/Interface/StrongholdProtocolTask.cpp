@@ -1361,7 +1361,6 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
             return false;
         }
     }
-    m_failed_bench_sales.emplace(round, *selected);
     spa::SwapTaskPlugin sale(m_callback, m_inst, TaskType);
     sale.use_bench_identity_hints(m_inventory_operator_hints);
     sale.set_retry_times(0);
@@ -1381,6 +1380,9 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
         options["target_elite"] = false;
     }
     if (!sale.configure(options) || !sale.run()) {
+        // A completed trade changes the bench and may make another worthwhile
+        // purchase possible. Only failed probes consume the failure allowance.
+        m_failed_bench_sales.emplace(round, *selected);
         if (sale.sale_committed()) {
             // No second sale or new copy of this identity may obscure a
             // committed transaction before the roster has been reconstructed.
@@ -4425,27 +4427,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 continue;
             }
             if (boss_preparation && (m_shopping_complete || state.get("funds", -1) == 0)) {
-                const auto region = spa::verified_boss_opening_region(
-                    m_spatial_boss_phase && m_spatial_boss_phase_round == preparation_round,
-                    m_spatial_map_id,
-                    preparation_round,
-                    m_boss_attackable_map_id,
-                    m_boss_attackable_round,
-                    m_boss_attackable_cells);
-                const bool coverage_known = !region.empty() && m_dynamic_layout_observed &&
-                                            m_growth_population_poses == m_auto_deploy_positions;
-                auto objective = basic_info_with_what("SPABossPreparationObjectiveReviewed");
-                objective["details"] =
-                    json::object { { "round", preparation_round },
-                                   { "boss_region_verified", !region.empty() },
-                                   { "boss_attackers_known", coverage_known },
-                                   { "boss_opening_attackers",
-                                     coverage_known ? spa::stationary_boss_attackers(m_layout_units, region) : -1 },
-                                   { "boss_opening_basic_attack_weight",
-                                     coverage_known ? spa::stationary_boss_attack_weight(m_layout_units, region) : -1 },
-                                   { "boss_defeat_verified", false },
-                                   { "replacement_reconciliation_pending", m_pending_field_replacement.has_value() } };
-                callback(AsstMsg::SubTaskExtraInfo, objective);
+                review_boss_opening_coverage(state);
             }
             if ((m_shopping_complete || available_funds == 0) && handle_preparation_summons(state)) {
                 continue;
