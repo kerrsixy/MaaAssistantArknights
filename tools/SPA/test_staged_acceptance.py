@@ -13,6 +13,7 @@ from spa_staged_acceptance import (
     replay_progress,
     select_execution,
     stage_sequence,
+    strategy_badge_requirements,
     terminal_pact_sample,
 )
 from test_joint_acceptance import event, full_run
@@ -901,6 +902,111 @@ class StagedAcceptanceTests(unittest.TestCase):
         progress = replay_progress([report])
         self.assertEqual(progress["stage_index"], 0)
         self.assertFalse(progress["all_strategy_badges_verified"])
+
+    def test_full_badge_scan_verifies_each_catalogue_entry_without_counting_a_battle(
+        self,
+    ):
+        policy = {
+            "run_id": "catalogue-review",
+            "mode": "independent",
+            "difficulty": 20,
+            "schedule_strategy_badges": True,
+        }
+
+        def received(what, details, name, message=20003):
+            callback = event(what, details)
+            callback["message"] = message
+            callback["details"].update(
+                taskchain="StrongholdProtocol", **{"class": name}
+            )
+            return callback
+
+        scanner = "asst::spa::StrategyReportTaskPlugin"
+        observer = "asst::spa::ObserverTaskPlugin"
+        rows, raw = [], [received("", {}, scanner, 20001)]
+        for index, (band_id, (ordinary, master)) in enumerate(
+            strategy_badge_requirements().items()
+        ):
+            wins = ordinary if index % 2 else master
+            verified = {
+                "band_id": band_id,
+                "wins": wins,
+                "wins_known": True,
+                "badge_verified": True,
+            }
+            rows.append({**verified, "unlocked_verified": True})
+            raw.append(
+                received(
+                    "SPAObservation",
+                    {
+                        **verified,
+                        "page": "strategy_report",
+                        "contradictory": False,
+                        "strategy_report_identity_verified": True,
+                        "strategy_progress_text_verified": True,
+                        "strategy_report_evidence_saved": True,
+                        "strategy_badge_tier": "silver" if wins == master else "orange",
+                    },
+                    observer,
+                )
+            )
+        raw += [
+            received(
+                "SPAStrategyReportScan",
+                {
+                    "target_band_id": "",
+                    "identified_strategies": len(rows),
+                    "expected_strategies": len(rows),
+                    "strategies": rows,
+                    "all_strategy_identities_observed": True,
+                    "all_strategy_badges_verified": True,
+                },
+                scanner,
+            ),
+            received("", {}, scanner, 20002),
+            received(
+                "SPAObservation", {"page": "lobby", "contradictory": False}, observer
+            ),
+            received(
+                "SPAStrategyBadgeSchedule",
+                {
+                    "report_and_lobby_verified": True,
+                    "all_strategy_badges_verified": True,
+                    "simulation_start_issued": False,
+                    "requested_strategy": "",
+                },
+                "asst::StrongholdProtocolTask",
+            ),
+            event("unused-by-scope", {}),
+        ]
+        report = self.reviewed(raw, policy, execution="catalogue-execution")
+        self.assertFalse(report["qualified_win"])
+        verified = report["strategy_catalogue_badge_evidence"]["badges"]
+        self.assertEqual(set(verified), set(strategy_badge_requirements()))
+        battle = self.reviewed()
+        state = replay_progress([battle, report])
+        self.assertTrue(state["all_strategy_badges_verified"])
+        self.assertEqual(state["stage_index"], 0)
+        self.assertEqual(state["stages"][0]["consecutive_wins"], 1)
+
+        for changed_event, patch in (
+            (1, {"strategy_report_evidence_saved": False}),
+            (1, {"strategy_badge_tier": "orange"}),
+            (2, {"band_id": rows[0]["band_id"]}),
+            (-5, {"target_band_id": rows[0]["band_id"]}),
+            (-3, {"page": "strategy_report"}),
+            (-2, {"report_and_lobby_verified": False}),
+        ):
+            with self.subTest(change=patch):
+                changed = copy.deepcopy(raw)
+                changed[changed_event]["details"]["details"].update(patch)
+                report = self.reviewed(changed, policy)
+                self.assertIsNone(report["strategy_catalogue_badge_evidence"])
+                self.assertFalse(
+                    replay_progress([report])["all_strategy_badges_verified"]
+                )
+        unreviewed = audit_run(scope_run(raw, policy), policy, {})
+        self.assertFalse(replay_progress([unreviewed])["all_strategy_badges_verified"])
 
     def test_missing_checks_or_old_schema_cannot_earn_credit(self):
         report = self.reviewed()
