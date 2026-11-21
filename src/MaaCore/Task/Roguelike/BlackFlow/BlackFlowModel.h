@@ -59,6 +59,7 @@ enum class NodeType
     Evacuate,
     Final,
     BattleBoss,
+    Fate,
 };
 
 enum class NodeProgress

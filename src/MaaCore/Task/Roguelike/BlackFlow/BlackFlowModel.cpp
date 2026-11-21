@@ -18,13 +18,14 @@ const std::vector<NodeType> AllTargetTypes = {
     NodeType::Door,      NodeType::Employ,      NodeType::Expedition,   NodeType::HideBattle,   NodeType::HideInvisible,
     NodeType::Incident,  NodeType::Light,       NodeType::Portal,       NodeType::Rest,         NodeType::Sacrifice,
     NodeType::ScrapShop, NodeType::Shop,        NodeType::Wish,         NodeType::Empty,        NodeType::Evacuate,
-    NodeType::Final,     NodeType::BattleBoss,
+    NodeType::Final,     NodeType::BattleBoss,  NodeType::Fate,
 };
 
 const std::vector<NodeType> NonCombatTargetTypes = {
-    NodeType::Door,  NodeType::Employ, NodeType::Expedition, NodeType::HideInvisible, NodeType::Incident,
-    NodeType::Light, NodeType::Portal, NodeType::Rest,       NodeType::Sacrifice,     NodeType::ScrapShop,
-    NodeType::Shop,  NodeType::Wish,   NodeType::Empty,      NodeType::Evacuate,      NodeType::Final,
+    NodeType::Door,      NodeType::Employ,    NodeType::Expedition, NodeType::HideInvisible,
+    NodeType::Incident,  NodeType::Light,     NodeType::Portal,     NodeType::Rest,
+    NodeType::Sacrifice, NodeType::ScrapShop, NodeType::Shop,       NodeType::Wish,
+    NodeType::Empty,     NodeType::Evacuate,  NodeType::Final,      NodeType::Fate,
 };
 
 const std::vector<NodeType> ShopTargetTypes = {
@@ -376,6 +377,11 @@ bool NormalizedMap::merge(const MapObservationBatch& batch, std::string* error)
         const Node* current = working.m_snapshot.find_node(*id);
         const bool preserve_door_identity = current != nullptr && current->type == NodeType::Door &&
                                             observed.type.has_value() && *observed.type != NodeType::Door;
+        // Fate has no map glyph template yet; retain its verified preview
+        // identity when a later map observation remains unclassified.
+        const bool preserve_identity =
+            preserve_door_identity ||
+            (current != nullptr && current->type == NodeType::Fate && observed.type == NodeType::Unknown);
         Node node = current == nullptr ? Node {} : *current;
         if (current == nullptr) {
             node.id = *id;
@@ -383,7 +389,7 @@ bool NormalizedMap::merge(const MapObservationBatch& batch, std::string* error)
             node.position = observed.position;
             node.traversal = default_traversal_for(NodeType::Unknown);
         }
-        if (observed.type.has_value() && !preserve_door_identity) {
+        if (observed.type.has_value() && !preserve_identity) {
             const bool newly_classified = node.type == NodeType::Unknown && *observed.type != NodeType::Unknown;
             node.type = *observed.type;
             if (!observed.traversal.has_value() &&
@@ -395,22 +401,22 @@ bool NormalizedMap::merge(const MapObservationBatch& batch, std::string* error)
         // A different node type still replaces the old name, including with an empty label.
         const bool missing_same_type_name =
             current != nullptr && observed.name.has_value() && observed.name->empty() && observed.type == current->type;
-        if (observed.name.has_value() && !preserve_door_identity && !missing_same_type_name) {
+        if (observed.name.has_value() && !preserve_identity && !missing_same_type_name) {
             node.name = *observed.name;
         }
         if (observed.progress.has_value()) {
             node.progress = *observed.progress;
         }
-        if (observed.traversal.has_value() && !preserve_door_identity) {
+        if (observed.traversal.has_value() && !preserve_identity) {
             node.traversal = *observed.traversal;
         }
-        if (observed.identity_state.has_value() && !preserve_door_identity) {
+        if (observed.identity_state.has_value() && !preserve_identity) {
             node.identity_state = *observed.identity_state;
         }
-        if (observed.identity_revealed.has_value() && !preserve_door_identity) {
+        if (observed.identity_revealed.has_value() && !preserve_identity) {
             node.identity_revealed = *observed.identity_revealed;
         }
-        if (observed.identity_from_template.has_value() && !preserve_door_identity) {
+        if (observed.identity_from_template.has_value() && !preserve_identity) {
             node.identity_from_template = *observed.identity_from_template;
         }
         if (observed.marker_type.has_value()) {
@@ -422,7 +428,7 @@ bool NormalizedMap::merge(const MapObservationBatch& batch, std::string* error)
         if (observed.marker_score.has_value()) {
             node.marker_score = *observed.marker_score;
         }
-        if (observed.badged.has_value() && !preserve_door_identity) {
+        if (observed.badged.has_value() && !preserve_identity) {
             node.badged = *observed.badged;
         }
         if (observed.buff_scope.has_value()) {
@@ -650,6 +656,7 @@ NodeTraversal default_traversal_for(NodeType type) noexcept
         return { false, false, true, true };
     case NodeType::Shop:
     case NodeType::ScrapShop:
+    case NodeType::Fate:
         return { true, true, true, true };
     default:
         return {};
@@ -710,6 +717,7 @@ std::optional<NodeType> node_type_from_string(std::string_view value) noexcept
         { "evacuate", NodeType::Evacuate },
         { "final", NodeType::Final },
         { "battle_boss", NodeType::BattleBoss },
+        { "fate", NodeType::Fate },
     };
     const auto found = Mapping.find(value);
     return found == Mapping.end() ? std::nullopt : std::optional<NodeType>(found->second);
@@ -1577,6 +1585,8 @@ std::string_view to_string(NodeType type) noexcept
         return "final";
     case NodeType::BattleBoss:
         return "battle_boss";
+    case NodeType::Fate:
+        return "fate";
     }
     return "unclassified";
 }

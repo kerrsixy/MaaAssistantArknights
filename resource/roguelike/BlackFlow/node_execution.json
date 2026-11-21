@@ -41,7 +41,7 @@
         {
             "id": "encounter",
             "page_intent": "default",
-            "node_types": ["incident", "wish", "rest", "sacrifice", "evacuate", "duel", "portal"],
+            "node_types": ["incident", "wish", "rest", "sacrifice", "evacuate", "duel", "portal", "fate"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Encounter",
@@ -632,6 +632,10 @@
         {
             "text": "险路恶敌",
             "node_type": "battle_boss"
+        },
+        {
+            "text": "命运所指",
+            "node_type": "fate"
         }
     ]
 }
