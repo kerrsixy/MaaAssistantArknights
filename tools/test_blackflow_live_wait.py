@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 from blackflow_live_run import (
     MSG_ALL_TASKS_COMPLETED,
     MSG_INTERNAL_ERROR,
+    MSG_SUBTASK_COMPLETED,
     MSG_SUBTASK_ERROR,
     MSG_SUBTASK_EXTRA_INFO,
     MSG_TASK_CHAIN_COMPLETED,
@@ -175,6 +176,63 @@ class LiveWaitTests(unittest.TestCase):
                 True, require_settlement=True, lobby_verified=True
             ),
             0,
+        )
+
+    def test_confirmed_abandon_invalidates_even_an_earlier_settlement(self):
+        for task in ("AbandonConfirm", "BlackFlow@Roguelike@AbandonConfirm"):
+            with self.subTest(task=task):
+                driver = self.settlement_driver(
+                    '{"what":"RoguelikeSettlement","details":{"game_pass":false}}'
+                )
+                driver._records.append(
+                    {
+                        "msg": MSG_SUBTASK_COMPLETED,
+                        "details": '{"subtask":"ProcessTask","details":{"task":"'
+                        + task
+                        + '"}}',
+                    }
+                )
+                self.assertEqual(
+                    driver.completion_exit_code(
+                        True, require_settlement=True, lobby_verified=True
+                    ),
+                    1,
+                )
+                self.assertEqual(driver.completion_exit_code(True), 0)
+
+    def test_uncompleted_abandon_recognition_is_not_a_confirmed_abandon(self):
+        driver = self.settlement_driver(
+            '{"what":"RoguelikeSettlement","details":{"game_pass":false}}'
+        )
+        driver._records.insert(
+            0,
+            {
+                "msg": 20_001,
+                "details": '{"subtask":"ProcessTask","details":{"task":"AbandonConfirm"}}',
+            },
+        )
+        self.assertEqual(
+            driver.completion_exit_code(
+                True, require_settlement=True, lobby_verified=True
+            ),
+            0,
+        )
+
+    def test_planning_failure_does_not_become_success_after_settlement(self):
+        driver = self.settlement_driver(
+            '{"what":"RoguelikeSettlement","details":{"game_pass":false}}'
+        )
+        driver._records.append(
+            {
+                "msg": MSG_SUBTASK_EXTRA_INFO,
+                "details": '{"what":"BlackFlowStrategyResult","details":{"outcome":"planning_failed"}}',
+            }
+        )
+        self.assertEqual(
+            driver.completion_exit_code(
+                True, require_settlement=True, lobby_verified=True
+            ),
+            1,
         )
 
     def test_malformed_and_unverified_settlement_receipts_remain_incomplete(self):

@@ -391,14 +391,10 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
                      << "hope" << shopping_hope.value_or(-1) << "required" << goods.min_hope;
             continue;
         }
-        if (strategy_shopping && goods.is_recruit_ticket && goods.recruit_role) {
-            const auto role = *goods.recruit_role;
-            const auto& promotions = map_wait_promotion[role];
-            const bool needs_promotion = std::ranges::any_of(promotions, [](size_t count) { return count > 0; });
-            if (map_roles_count[role] >= static_cast<size_t>(goods.recruit_role_target) && !needs_promotion) {
-                report_offer(goods.name, "recruitment_role_covered_and_no_pending_promotion");
-                continue;
-            }
+        if (strategy_shopping && goods.is_recruit_ticket &&
+            !goods.has_recruitment_need(map_roles_count, map_wait_promotion)) {
+            report_offer(goods.name, "recruitment_role_covered_and_no_pending_promotion");
+            continue;
         }
 
         if (!goods.roles.empty()) {

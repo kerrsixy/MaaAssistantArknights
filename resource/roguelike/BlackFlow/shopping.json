@@ -1338,6 +1338,13 @@
                 "price": 12
             },
             {
+                "name": "精英远程招募券",
+                "is_recruit_ticket": true,
+                "min_hope": 4,
+                "recruit_roles": ["SNIPER", "MEDIC"],
+                "recruit_role_target": 2
+            },
+            {
                 "name": "狙击招募券",
                 "is_recruit_ticket": true,
                 "min_hope": 1,
