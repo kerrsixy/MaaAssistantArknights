@@ -29,7 +29,7 @@
         { "name": "原始娱乐", "option_num": 2, "choose": 2, "fallback_choices": [[1, 1]], "option_tasks": {"应战": "BlackFlow@Roguelike@DuelStageEnter"} },
         { "name": "掠夺成性", "option_num": 2, "choose": 2, "fallback_choices": [[1, 1]], "option_tasks": {"应战": "BlackFlow@Roguelike@DuelStageEnter"} },
         { "name": "险路尽头", "option_num": 3, "choose": 1, "fallback_choices": [[4, 1]] },
-        { "name": "金色凝滞", "option_num": 3, "choose": 3 },
+        { "name": "金色凝滞", "option_text": ["尝试发出求援信号", "向泉水许愿", "坐下休息", "采样金色泉水", "查看无人机", "抚摸静止的小动物", "整理行囊"] },
         { "name": "安眠一隅", "continue_single_option": true },
         { "name": "线人", "option_num": 3, "choose": 2 },
         { "name": "好奇心与死", "option_text": ["修正结果，必须找到目标"] },

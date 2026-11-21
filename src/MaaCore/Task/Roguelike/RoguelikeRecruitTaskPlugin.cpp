@@ -66,7 +66,9 @@ bool asst::RoguelikeRecruitTaskPlugin::verify(AsstMsg msg, const json::value& de
             return true;
         }
         // These are positively recognized successors, not a blind click or disappearance of the confirm button.
-        if (recognized && (is_task("RecruitSkip") || is_task("RecruitOther") || is_task("EnterAfterRecruit"))) {
+        if (recognized && (is_task("RecruitSkip") || is_task("RecruitOther") || is_task("EnterAfterRecruit") ||
+                           is_task("StashedRecruitReceipt") || is_task("StashedRecruitOptionsReceipt") ||
+                           is_task("StashedRecruitPortraitAdvance"))) {
             m_recruitment_event = RecruitmentEvent::Receipt;
             return true;
         }
@@ -115,6 +117,28 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
     if (event == RecruitmentEvent::Confirm) {
         if (m_pending_recruitment) {
             m_pending_recruitment->confirmed = true;
+            const auto* process = dynamic_cast<ProcessTask*>(m_task_ptr);
+            if (process && process->get_last_task_name().starts_with("StashedRecruit@")) {
+                const auto& name = m_pending_recruitment->oper.name;
+                std::vector<std::string> names { name };
+                if (const auto properties = BattleData.find_first_oper(battle::Role::Unknown, name, true);
+                    properties && !properties->name_en.empty()) {
+                    std::string english = properties->name_en;
+                    std::ranges::transform(english, english.begin(), [](unsigned char c) {
+                        return static_cast<char>(std::toupper(c));
+                    });
+                    names.emplace_back(std::move(english));
+                }
+                for (const auto task_name : { "BlackFlow@Roguelike@StashedRecruitPortraitObserve",
+                                              "BlackFlow@Roguelike@StashedRecruitPortraitAdvance" }) {
+                    const auto task = Task.get<OcrTaskInfo>(task_name);
+                    if (!task) {
+                        m_task_ptr->set_enable(false);
+                        return false;
+                    }
+                    task->text = names;
+                }
+            }
         }
         return true;
     }

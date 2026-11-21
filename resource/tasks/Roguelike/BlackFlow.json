@@ -78,6 +78,7 @@
     "BlackFlow@Roguelike@Begin": {
         "baseTask": "Roguelike@Begin",
         "next": [
+            "BlackFlow@Roguelike@StashedRecruitReady",
             "BlackFlow@Roguelike@BeginRecovery_DataSync",
             "BlackFlow@Roguelike@BeginRecovery_DailySupply",
             "BlackFlow@Roguelike@BeginRecovery_Announcement",
@@ -2299,6 +2300,7 @@
         "Doc": "事件选完之后领取奖励，可能连续弹出多个藏品或资源弹窗。",
         "algorithm": "JustReturn",
         "next": [
+            "BlackFlow@Roguelike@StashedRecruitReady",
             "BlackFlow@Roguelike@StageEncounterReward@(BlackFlow@Roguelike@CloseCollectionContinue)",
             "BlackFlow@Roguelike@StageEncounterReward@(BlackFlow@Roguelike@CloseCollection)",
             "BlackFlow@Roguelike@CloseEventAfterEncounter"
@@ -3131,5 +3133,204 @@
         "roi": [958, 530, 322, 189],
         "action": "DoNothing",
         "next": []
+    },
+    "BlackFlow@Roguelike@StashedRecruitReady": {
+        "Doc": "Stored-voucher service identity, not an operator recruitment card. Entry consumes a voucher; policy must run before Go.",
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [12, 460, 330, 58],
+        "text": ["从右侧选择已留存的招募券进行招募"],
+        "fullMatch": true,
+        "next": ["BlackFlow@Roguelike@StashedRecruitLeaveConfirm", "BlackFlow@Roguelike@StashedRecruitDecide"]
+    },
+    "BlackFlow@Roguelike@StashedRecruitDecide": {
+        "Doc": "Registered service policy: preserve unless verified same-account strength and useful target fit the observed hope. Entry budgets 6/3 cover standard recruitment/promotion references through N10; they are not observed card prices. PRTS BlackFlow Other updates: 4star0/1,5star2/1,6star6/3. Actual card cost remains mandatory.",
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "specialParams": [6, 3, 10],
+        "postDelay": 300,
+        "next": ["BlackFlow@Roguelike@StashedRecruitLeave"]
+    },
+    "BlackFlow@Roguelike@StashedRecruitVoucher": {
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [345, 80, 920, 440],
+        "text": [],
+        "fullMatch": true
+    },
+    "BlackFlow@Roguelike@StashedRecruitEnabledButton": {
+        "algorithm": "OcrDetect",
+        "roi": [790, 550, 290, 70],
+        "action": "DoNothing",
+        "text": ["去招募"],
+        "fullMatch": true
+    },
+    "BlackFlow@Roguelike@StashedRecruitEnter": {
+        "Doc": "Only after selection and the plugin verifies the cyan enabled Go control.",
+        "algorithm": "OcrDetect",
+        "action": "ClickSelf",
+        "roi": [790, 550, 290, 70],
+        "text": ["去招募"],
+        "fullMatch": true,
+        "postDelay": 600,
+        "next": ["StashedRecruit@BlackFlow@Roguelike@ChooseOperFlag"],
+        "reduceOtherTimes": [
+            "BlackFlow@Roguelike@StashedRecruitPostConfirm*20",
+            "BlackFlow@Roguelike@StashedRecruitPortraitAdvance*3"
+        ]
+    },
+    "BlackFlow@Roguelike@StashedRecruitLeave": {
+        "algorithm": "OcrDetect",
+        "action": "ClickSelf",
+        "roi": [1100, 550, 180, 80],
+        "text": ["离开"],
+        "fullMatch": true,
+        "postDelay": 500,
+        "next": [
+            "BlackFlow@Roguelike@StashedRecruitLeaveConfirm",
+            "BlackFlow@Roguelike@StashedRecruitOptionsReady",
+            "BlackFlow@Roguelike@StashedRecruitMapReady",
+            "BlackFlow@Roguelike@StashedRecruitCloseEvent",
+            "BlackFlow@Roguelike@StashedRecruitLeave"
+        ],
+        "maxTimes": 2,
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
+    },
+    "BlackFlow@Roguelike@StashedRecruitOptionsReady": {
+        "baseTask": "BlackFlow@Roguelike@StageEncounterContinueOptionsReady",
+        "template": "BlackFlow@RoguelikeEncounterOptionAnalyzer-OptionHeaderBar-40.png",
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@StashedRecruitEventContinue"]
+    },
+    "BlackFlow@Roguelike@StashedRecruitEventContinue": {
+        "Doc": "Resume the actual recognized event and exclude the already-visited stored-ticket option for this selection only.",
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@StageEncounterResult"]
+    },
+    "BlackFlow@Roguelike@StashedRecruitReceipt": {
+        "baseTask": "BlackFlow@Roguelike@StashedRecruitReady",
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@StashedRecruitDecide"]
+    },
+    "BlackFlow@Roguelike@StashedRecruitOptionsReceipt": {
+        "baseTask": "BlackFlow@Roguelike@StashedRecruitOptionsReady",
+        "template": "BlackFlow@RoguelikeEncounterOptionAnalyzer-OptionHeaderBar-40.png",
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@StashedRecruitEventContinue"]
+    },
+    "StashedRecruit@BlackFlow@Roguelike@ChooseOperFlag": {
+        "baseTask": "BlackFlow@Roguelike@ChooseOperFlag",
+        "template": ["BlackFlow@Roguelike@ChooseOperConfirm.png", "BlackFlow@Roguelike@ChooseOperConfirmWithBuff.png"],
+        "action": "DoNothing",
+        "next": ["StashedRecruit@BlackFlow@Roguelike@ChooseOper"]
+    },
+    "StashedRecruit@BlackFlow@Roguelike@ChooseOper": {
+        "baseTask": "BlackFlow@Roguelike@ChooseOper",
+        "next": [
+            "StashedRecruit@BlackFlow@Roguelike@ChooseOperConfirm",
+            "StashedRecruit@BlackFlow@Roguelike@RecruitWithoutButton"
+        ]
+    },
+    "StashedRecruit@BlackFlow@Roguelike@ChooseOperConfirm": {
+        "baseTask": "BlackFlow@Roguelike@ChooseOperConfirm",
+        "template": ["BlackFlow@Roguelike@ChooseOperConfirm.png", "BlackFlow@Roguelike@ChooseOperConfirmWithBuff.png"],
+        "next": ["BlackFlow@Roguelike@StashedRecruitPostConfirm"]
+    },
+    "StashedRecruit@BlackFlow@Roguelike@RecruitSkip": {
+        "baseTask": "Roguelike@RecruitSkip",
+        "template": "RecruitSkip.png",
+        "next": ["BlackFlow@Roguelike@StashedRecruitPostConfirm"]
+    },
+    "StashedRecruit@BlackFlow@Roguelike@RecruitWithoutButton": {
+        "Doc": "Service return must not use the generic blind top-right click.",
+        "baseTask": "BlackFlow@Roguelike@RecruitWithoutButton",
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "next": [
+            "StashedRecruit@BlackFlow@Roguelike@RecruitSkip",
+            "BlackFlow@Roguelike@StashedRecruitReceipt",
+            "BlackFlow@Roguelike@StashedRecruitOptionsReceipt",
+            "StashedRecruit@BlackFlow@Roguelike@StageEncounterGiveUpRecruitConfirm",
+            "StashedRecruit@BlackFlow@Roguelike@ChooseOperFlag"
+        ]
+    },
+    "StashedRecruit@BlackFlow@Roguelike@StageEncounterGiveUpRecruitConfirm": {
+        "baseTask": "BlackFlow@Roguelike@StageEncounterGiveUpRecruitConfirm",
+        "template": "Roguelike@StageEncounterGiveUpRecruitConfirm.png",
+        "next": [
+            "BlackFlow@Roguelike@StashedRecruitReady",
+            "BlackFlow@Roguelike@StashedRecruitOptionsReady",
+            "StashedRecruit@BlackFlow@Roguelike@RecruitWithoutButton"
+        ]
+    },
+    "BlackFlow@Roguelike@StashedRecruitLeaveConfirm": {
+        "Doc": "The service Leave button first changes to Confirm Leave; this second positive OCR is required.",
+        "algorithm": "OcrDetect",
+        "action": "ClickSelf",
+        "roi": [1170, 550, 110, 75],
+        "text": ["确认离开"],
+        "fullMatch": true,
+        "maxTimes": 3,
+        "postDelay": 500,
+        "next": [
+            "BlackFlow@Roguelike@StashedRecruitLeaveConfirm",
+            "BlackFlow@Roguelike@StashedRecruitOptionsReady",
+            "BlackFlow@Roguelike@StashedRecruitMapReady",
+            "BlackFlow@Roguelike@StashedRecruitCloseEvent"
+        ],
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
+    },
+    "BlackFlow@Roguelike@StashedRecruitMapReady": {
+        "baseTask": "BlackFlow@Roguelike@MapPrepare-Ready",
+        "template": ["BlackFlow@Roguelike@MapZoomIn.png", "BlackFlow@Roguelike@MapZoomOut.png"],
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@Stages"],
+        "reduceOtherTimes": []
+    },
+    "BlackFlow@Roguelike@StashedRecruitPostConfirm": {
+        "Doc": "Wait for a positively recognized recruitment result or return page, without reselecting or blindly clicking the candidate list.",
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "maxTimes": 20,
+        "next": [
+            "StashedRecruit@BlackFlow@Roguelike@RecruitSkip",
+            "BlackFlow@Roguelike@StashedRecruitReceipt",
+            "BlackFlow@Roguelike@StashedRecruitOptionsReceipt",
+            "BlackFlow@Roguelike@StashedRecruitPortraitObserve",
+            "BlackFlow@Roguelike@StashedRecruitPostConfirm"
+        ],
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
+    },
+    "BlackFlow@Roguelike@StashedRecruitPortraitObserve": {
+        "Doc": "The recruiter configures the selected name only after a real confirmation; the service plugin rejects candidate-card UI before advancing.",
+        "algorithm": "OcrDetect",
+        "action": "DoNothing",
+        "roi": [180, 470, 1000, 180],
+        "text": ["__unconfigured_stashed_result__"],
+        "fullMatch": true,
+        "next": ["BlackFlow@Roguelike@StashedRecruitPostConfirm"]
+    },
+    "BlackFlow@Roguelike@StashedRecruitPortraitAdvance": {
+        "baseTask": "BlackFlow@Roguelike@StashedRecruitPortraitObserve",
+        "algorithm": "OcrDetect",
+        "text": ["__unconfigured_stashed_result__"],
+        "action": "ClickRect",
+        "specificRect": [1100, 10, 100, 70],
+        "maxTimes": 3,
+        "postDelay": 350,
+        "next": ["BlackFlow@Roguelike@StashedRecruitPostConfirm"],
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
+    },
+    "BlackFlow@Roguelike@StashedRecruitCloseEvent": {
+        "baseTask": "BlackFlow@Roguelike@CloseEventAfterEncounter",
+        "template": "BlackFlow@Roguelike@CloseEvent.png",
+        "next": [
+            "BlackFlow@Roguelike@StashedRecruitOptionsReady",
+            "BlackFlow@Roguelike@StashedRecruitMapReady",
+            "BlackFlow@Roguelike@StashedRecruitCloseEvent"
+        ],
+        "maxTimes": 3,
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
     }
 }
