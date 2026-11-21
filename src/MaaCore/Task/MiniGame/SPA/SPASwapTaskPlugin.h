@@ -205,6 +205,7 @@ private:
         BoardRegistration board,
         bool melee_only,
         const std::vector<PlacementMember>& held_members) const;
+    bool m_replacement_above_blocking_device = false;
     cv::Mat m_registered_grid_reference;
     cv::Mat m_registered_grid_projection;
     std::string m_registered_grid_map_id;

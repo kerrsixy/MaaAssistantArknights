@@ -215,6 +215,7 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
     m_replacement_original_preserved = false;
     m_replacement_committed = false;
     m_replacement_target_unavailable = false;
+    m_replacement_above_blocking_device = false;
     m_field_pose_verified = false;
     m_direction_committed = false;
     m_preparation_hud.clear();
@@ -2061,7 +2062,8 @@ bool asst::spa::SwapTaskPlugin::held_drag()
                         m_equipment_reference,
                         map_image,
                         cv::Point(m_target.x, m_target.y),
-                        m_verified_preview_feet);
+                        m_verified_preview_feet,
+                        m_replace_only && m_replacement_above_blocking_device);
                     auto evidence = basic_info_with_what("SPAPairedRecipientPreview");
                     evidence["details"] =
                         json::object { { "verified", paired.verified },
@@ -2073,6 +2075,8 @@ bool asst::spa::SwapTaskPlugin::held_drag()
                                        { "target_x", paired.target.x },
                                        { "target_y", paired.target.y },
                                        { "equipment", m_find_equipment_source },
+                                       { "replacement_above_blocking_device", m_replacement_above_blocking_device },
+                                       { "verified_blocking_device_occlusion", paired.blocking_device_assisted },
                                        { "verified_lower_body_occlusion", paired.occlusion_assisted } };
                     callback(AsstMsg::SubTaskExtraInfo, evidence);
                     if (paired.verified) {
@@ -3827,6 +3831,23 @@ bool asst::spa::SwapTaskPlugin::_run()
         save_evidence(m_equipment_reference, utils::path("debug/SPA/replacement_reference"), false);
         if (!selected_identity(m_target, m_replaced) || !close_selection() || !ensure_expanded_shop()) {
             return false;
+        }
+        if (!m_registered_grid_reference.empty()) {
+            const auto grid = registered_grid_projection(
+                m_registered_grid_reference,
+                m_equipment_reference,
+                m_registered_grid_projection);
+            const std::vector<PlacementMember> target {
+                { m_target.x, m_target.y, operator_placement_role(m_replaced), m_replaced },
+            };
+            const auto cells = grid ? registered_grid_members(*grid, target) : std::nullopt;
+            if (cells) {
+                const auto& cell = cells->front();
+                m_replacement_above_blocking_device = terrain_has_blocking_device_below(
+                    m_registered_grid_map_id,
+                    { cell.col, cell.row },
+                    preparation_boss_health_bar(m_equipment_reference).has_value());
+            }
         }
     }
     if (m_find_equipment_source) {

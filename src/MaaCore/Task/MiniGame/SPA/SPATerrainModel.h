@@ -16,6 +16,18 @@ struct TerrainLayoutModel
     std::vector<DeploymentLane> lanes;
 };
 
+inline bool terrain_has_blocking_device_below(std::string_view map_id, BoardCell cell, bool boss_phase)
+{
+    const auto [col, row] = cell;
+    if (col < 0 || col > 10 || row < 0 || row >= 4) {
+        return false;
+    }
+    const auto& catalogue = boss_phase ? BossBoardTerrains : BoardTerrains;
+    const auto board =
+        std::find_if(catalogue.begin(), catalogue.end(), [&](const auto& item) { return item.id == map_id; });
+    return board != catalogue.end() && board->rows[row + 1][col] == 'X';
+}
+
 inline bool terrain_allows_deployment(const std::string& id, BoardCell cell, bool melee, bool boss_phase = false)
 {
     if (cell.first < 0 || cell.first > 10 || cell.second < 0 || cell.second > 4) {

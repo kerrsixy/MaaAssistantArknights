@@ -1414,7 +1414,8 @@ asst::spa::EquipmentPreviewEvidence asst::spa::equipment_target_preview(
     const cv::Mat& before,
     const cv::Mat& held,
     cv::Point recipient,
-    const std::vector<cv::Point>& verified_field_feet)
+    const std::vector<cv::Point>& verified_field_feet,
+    bool replacement_above_blocking_device)
 {
     EquipmentPreviewEvidence result;
     if (before.type() != CV_8UC3 || held.type() != CV_8UC3) {
@@ -1460,6 +1461,20 @@ asst::spa::EquipmentPreviewEvidence asst::spa::equipment_target_preview(
                        lower->y - target->y <= 100;
             });
         result.verified = result.occlusion_assisted;
+    }
+    if (!result.verified && replacement_above_blocking_device) {
+        // The crate immediately below hides the lower edge of this occupied
+        // receiver. Its upper left and right strips must both light up over
+        // several common scanlines after the independent camera alignment.
+        const auto left = added(cv::Rect(0, 6, 16, 30));
+        const auto right = added(cv::Rect(57, 6, 16, 30));
+        int paired_rows = 0;
+        for (int row = 0; row < left.rows; ++row) {
+            paired_rows += cv::countNonZero(left.row(row)) >= 3 && cv::countNonZero(right.row(row)) >= 3;
+        }
+        result.blocking_device_assisted =
+            cv::countNonZero(left) >= 60 && cv::countNonZero(right) >= 60 && paired_rows >= 5;
+        result.verified = result.blocking_device_assisted;
     }
     return result;
 }

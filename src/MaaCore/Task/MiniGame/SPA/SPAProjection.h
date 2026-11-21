@@ -89,6 +89,7 @@ struct EquipmentPreviewEvidence
     int left_green = 0;
     int right_green = 0;
     bool occlusion_assisted = false;
+    bool blocking_device_assisted = false;
 };
 
 // The caller must separately establish the recipient's identity in `before`.
@@ -98,7 +99,8 @@ EquipmentPreviewEvidence equipment_target_preview(
     const cv::Mat& before,
     const cv::Mat& held,
     cv::Point recipient,
-    const std::vector<cv::Point>& verified_field_feet = {});
+    const std::vector<cv::Point>& verified_field_feet = {},
+    bool replacement_above_blocking_device = false);
 
 bool occupied_swap_hint(const cv::Mat& image, cv::Point center);
 // Name rectangle and pixels must belong to one immutable frame. A clipped

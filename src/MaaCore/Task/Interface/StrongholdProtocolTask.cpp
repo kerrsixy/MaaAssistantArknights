@@ -1895,7 +1895,17 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
     exchange->set_retry_times(0);
     exchange->set_task_id(m_task_id);
     exchange->set_task_ptr(this);
-    if (!exchange->configure(options) || !exchange->run()) {
+    const bool configured = exchange->configure(options);
+    if (configured && !target_failure_key.empty() && m_auto_deploy_positions.count(choice.outgoing) == 1 &&
+        std::any_of(m_population_grid_members.begin(), m_population_grid_members.end(), [&](const auto& member) {
+            return member.name == choice.outgoing && spa::terrain_has_blocking_device_below(
+                                                         m_spatial_map_id,
+                                                         { member.col, member.row },
+                                                         m_spatial_boss_phase);
+        })) {
+        exchange->set_registered_grid_context(m_spatial_grid_reference, m_spatial_grid_projection, m_spatial_map_id);
+    }
+    if (!configured || !exchange->run()) {
         const bool drop_issued = exchange->replacement_committed();
         if (!drop_issued && exchange->replacement_target_unavailable() && !target_failure_key.empty()) {
             m_failed_spatial_actions.insert(target_failure_key);
