@@ -3629,12 +3629,17 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         const int free_field_slots = state.get("remaining_deployment", -1);
         const bool equipment_capacity_blocked = m_equipment_capacity_blocked_round == state.get("round", 0);
         const bool field_finalization = m_shopping_complete || available_funds == 0;
+        const bool promotion_due =
+            m_pending_direct_promotion && !m_direct_promotion_observed_rounds.contains(preparation_round) &&
+            (m_pending_direct_promotion->get("effect_timing", std::string()) == "on_equip" ||
+             (m_pending_direct_promotion->get("effect_timing", std::string()) == "next_round_start" &&
+              preparation_round > m_pending_direct_promotion->get("contact_round", -1)));
         const bool field_work_due =
-            field_finalization || confirmed_full_bench || equipment_capacity_blocked ||
-            (m_pending_direct_promotion && !m_direct_promotion_observed_rounds.contains(state.get("round", -1)) &&
-             (m_pending_direct_promotion->get("effect_timing", std::string()) == "on_equip" ||
-              (m_pending_direct_promotion->get("effect_timing", std::string()) == "next_round_start" &&
-               state.get("round", -1) > m_pending_direct_promotion->get("contact_round", -1))));
+            field_finalization || confirmed_full_bench || equipment_capacity_blocked || promotion_due;
+        // Clearing equipment space does not free a bench slot. Defer
+        // ordinary scans and assignments until the bench trade is resolved.
+        const bool prioritize_bench_space = confirmed_full_bench && available_funds > 0 && !field_finalization &&
+                                            !equipment_capacity_blocked && !promotion_due;
         auto scheduling = basic_info_with_what("SPAPreparationSchedulingObserved");
         scheduling["details"] = json::object {
             { "run_id", m_run_id },
@@ -3657,6 +3662,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             { "deadline_emergency", nullptr },
             { "preparation_seconds_remaining_known", state.get("preparation_seconds_remaining_known", false) },
             { "field_work_due", field_work_due },
+            { "ordinary_equipment_work_deferred_for_bench_space", prioritize_bench_space },
             { "replacement_reconciliation_pending", m_pending_field_replacement.has_value() }
         };
         if (!bench_capacity_full && (m_bench_recount_pending || m_policy.bench_occupied < 0)) {
@@ -3694,7 +3700,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             handle_full_field_replacement(state)) {
             continue;
         }
-        if (field_work_due && refresh_equipment_inventory(state)) {
+        if (field_work_due && !prioritize_bench_space && refresh_equipment_inventory(state)) {
             continue;
         }
         if (m_auto_run && handle_cash_equipment(state)) {
@@ -3709,7 +3715,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         if (m_auto_run && field_work_due && handle_direct_promotion_equipment(state)) {
             continue;
         }
-        if (m_auto_run && handle_persistent_equipment(state)) {
+        if (m_auto_run && !prioritize_bench_space && handle_persistent_equipment(state)) {
             continue;
         }
         if (!m_unreconciled_sale.empty()) {
