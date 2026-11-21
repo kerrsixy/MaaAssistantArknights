@@ -2672,6 +2672,16 @@ int main()
     assert(!strategy_confirmation_enabled(cv::Mat()));
     assert(!strategy_confirmation_enabled_on_frame(cv::Mat()));
     assert(!strategy_confirmation_enabled_on_frame(cv::Mat(720, 1280, CV_8UC1)));
+    const cv::Rect decorated_card(391, 463, 125, 128);
+    cv::Mat decorated_strategy_page = cv::Mat::zeros(720, 1280, CV_8UC3);
+    const cv::Scalar selection_cyan(180, 220, 20);
+    decorated_strategy_page(cv::Rect(391, 463, 5, 128)).setTo(selection_cyan);
+    decorated_strategy_page(cv::Rect(391, 463, 19, 5)).setTo(selection_cyan);
+    assert(!opening_strategy_tile_highlighted(decorated_strategy_page, decorated_card));
+    decorated_strategy_page(cv::Rect(391, 586, 19, 5)).setTo(selection_cyan);
+    assert(opening_strategy_tile_highlighted(decorated_strategy_page, decorated_card));
+    assert(!opening_strategy_tile_highlighted(decorated_strategy_page, cv::Rect(531, 463, 125, 128)));
+    assert(!opening_strategy_tile_highlighted(decorated_strategy_page, cv::Rect(391, 602, 125, 128)));
     assert(verified_loading_page({ { "搜寻成功!", .969, 977, 606 }, { "正在连接中…", .997, 1006, 656 } }));
     assert(!verified_loading_page({ { "搜寻成功!", .969, 977, 606 } }));
     assert(!verified_loading_page({ { "搜寻成功!", .969, 977, 606 }, { "正在连接中…", .4, 1006, 656 } }));

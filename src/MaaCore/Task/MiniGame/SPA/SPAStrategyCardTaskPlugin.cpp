@@ -75,19 +75,7 @@ std::vector<int> opening_strategy_rows(const cv::Mat& image, const cv::Mat& edge
 
 bool opening_strategy_cell_selected(const cv::Mat& image, const asst::Rect& card)
 {
-    if (image.size() != cv::Size(1280, 720) || image.type() != CV_8UC3) {
-        return false;
-    }
-    const auto cyan_border = [&](const cv::Rect& area, double proportion) {
-        cv::Mat cyan;
-        cv::inRange(image(area), cv::Scalar(110, 160, 0), cv::Scalar(255, 255, 105), cyan);
-        return cv::countNonZero(cyan) >= area.area() * proportion;
-    };
-    const bool left = cyan_border(cv::Rect(card.x, card.y + 18, 7, 70), .35);
-    const bool top_strip = cyan_border(cv::Rect(card.x + 7, card.y, 30, 8), .32);
-    const bool top_corners = cyan_border(cv::Rect(card.x + 1, card.y, 20, 8), .32) &&
-                             cyan_border(cv::Rect(card.x + card.width - 19, card.y, 18, 8), .32);
-    return left && (top_strip || top_corners);
+    return asst::spa::opening_strategy_tile_highlighted(image, { card.x, card.y, card.width, card.height });
 }
 }
 

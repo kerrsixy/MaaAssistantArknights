@@ -76,4 +76,28 @@ inline bool strategy_confirmation_enabled_on_frame(const cv::Mat& frame)
     return frame.size() == cv::Size(1280, 720) && frame.type() == CV_8UC3 &&
            strategy_confirmation_enabled(frame(cv::Rect(990, 634, 210, 55)));
 }
+
+inline bool opening_strategy_tile_highlighted(const cv::Mat& frame, const cv::Rect& card)
+{
+    if (frame.size() != cv::Size(1280, 720) || frame.type() != CV_8UC3) {
+        return false;
+    }
+    const auto cyan_border = [&](const cv::Rect& area, double proportion) {
+        if ((area & cv::Rect(0, 0, frame.cols, frame.rows)) != area) {
+            return false;
+        }
+        cv::Mat cyan;
+        cv::inRange(frame(area), cv::Scalar(110, 160, 0), cv::Scalar(255, 255, 105), cyan);
+        return cv::countNonZero(cyan) >= area.area() * proportion;
+    };
+    const bool left = cyan_border({ card.x, card.y + 18, 7, 70 }, .35);
+    const bool top_strip = cyan_border({ card.x + 7, card.y, 30, 8 }, .32);
+    const bool top_left = cyan_border({ card.x + 1, card.y, 20, 8 }, .32);
+    const bool top_right = cyan_border({ card.x + card.width - 19, card.y, 18, 8 }, .32);
+    // A medal can cover the top-right corner and the SELECTED label can
+    // interrupt the top strip. A complete tile still has its lower-left L.
+    const bool bottom_left = card.height >= 125 &&
+                             cyan_border({ card.x + 1, card.br().y - 8, 20, 8 }, .32);
+    return left && (top_strip || (top_left && (top_right || bottom_left)));
+}
 }
