@@ -171,9 +171,13 @@ bool BlackFlowMovementTaskPlugin::observe_inventory()
     return true;
 }
 
-bool BlackFlowMovementTaskPlugin::rewind_inventory(bool& head_verified, std::string* error)
+bool BlackFlowMovementTaskPlugin::rewind_inventory(
+    bool& head_verified,
+    std::optional<MovementInventoryFrame>& verified_head_frame,
+    std::string* error)
 {
     head_verified = false;
+    verified_head_frame.reset();
     MovementInventoryFrame previous;
     auto outcome = analyze_movement_inventory_frame(ctrler()->get_image(), previous, error);
     if (outcome == MovementInventoryFrameStatus::Failed) {
@@ -191,6 +195,9 @@ bool BlackFlowMovementTaskPlugin::rewind_inventory(bool& head_verified, std::str
         }
         if (same_movement_inventory_page(previous, current)) {
             head_verified = true;
+            if (outcome == MovementInventoryFrameStatus::Recognized) {
+                verified_head_frame = std::move(current);
+            }
             return true;
         }
         previous = std::move(current);
@@ -203,7 +210,8 @@ bool BlackFlowMovementTaskPlugin::scan_inventory_frame(MovementInventoryFrame& f
 {
     frame = MovementInventoryFrame {};
     bool head_verified = false;
-    if (!rewind_inventory(head_verified, error)) {
+    std::optional<MovementInventoryFrame> verified_head_frame;
+    if (!rewind_inventory(head_verified, verified_head_frame, error)) {
         return false;
     }
     std::unordered_set<std::string> page_signatures;
@@ -232,8 +240,15 @@ bool BlackFlowMovementTaskPlugin::scan_inventory_frame(MovementInventoryFrame& f
     for (int page_index = 0; page_index <= MaxInventoryForwardSwipes; ++page_index) {
         int no_candidate_frames = 0;
         MovementInventoryFrame page;
-        bool page_recognized = false;
-        for (int attempt = 0; attempt < MaxFrameRecognitionAttempts; ++attempt) {
+        // This result belongs to the last rewind capture. Consume it only for
+        // page zero, before any further gesture, instead of recognizing it twice.
+        bool page_recognized = page_index == 0 && head_verified && verified_head_frame.has_value();
+        if (page_recognized) {
+            page = std::move(*verified_head_frame);
+            LogTrace << __FUNCTION__ << "Reused verified inventory head frame";
+        }
+        verified_head_frame.reset();
+        for (int attempt = 0; !page_recognized && attempt < MaxFrameRecognitionAttempts; ++attempt) {
             page = MovementInventoryFrame {};
             const MovementInventoryFrameStatus outcome =
                 analyze_movement_inventory_frame(ctrler()->get_image(), page, &latest_error);

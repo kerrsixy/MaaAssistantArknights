@@ -14,6 +14,60 @@
 #include "Vision/OCRer.h"
 #include "Vision/Roguelike/RoguelikeRecruitImageAnalyzer.h"
 
+namespace asst
+{
+// Apply the existing task-specific replacements and required-word rules to one
+// unfiltered capture. The object and results never survive the current UI frame.
+class RoguelikeSquadFrameOCRer final : public OCRer
+{
+public:
+    using OCRer::OCRer;
+
+    bool shares_capture_with(const RoguelikeSquadFrameOCRer& source) const
+    {
+        return m_image.data == source.m_image.data && m_image.size() == source.m_image.size() &&
+               m_image.step == source.m_image.step && m_roi == source.m_roi &&
+               m_params.use_char_model == source.m_params.use_char_model &&
+               m_params.without_det == source.m_params.without_det && m_params.use_raw == source.m_params.use_raw &&
+               m_params.bin_threshold_lower == source.m_params.bin_threshold_lower &&
+               m_params.bin_threshold_upper == source.m_params.bin_threshold_upper;
+    }
+
+    ResultsVecOpt filter_same_frame(const RoguelikeSquadFrameOCRer& source, const ResultsVec& raw_results) const
+    {
+        if (!shares_capture_with(source)) {
+            // Configuration changes to the ROI/model must retain fresh OCR.
+            return analyze();
+        }
+        ResultsVec results;
+        for (auto result : raw_results) {
+            postproc_trim_(result);
+            postproc_replace_(result);
+            if (filter_and_replace_by_required_(result)) {
+                results.emplace_back(std::move(result));
+            }
+        }
+        if (results.empty()) {
+            return std::nullopt;
+        }
+        switch (m_params.order_by) {
+        case ResultOrderBy::Horizontal:
+            sort_by_horizontal_(results);
+            break;
+        case ResultOrderBy::Vertical:
+            sort_by_vertical_(results);
+            break;
+        case ResultOrderBy::Score:
+            sort_by_score_(results);
+            break;
+        case ResultOrderBy::None:
+            break;
+        }
+        return results;
+    }
+};
+}
+
 bool asst::RoguelikeCustomStartTaskPlugin::verify(AsstMsg msg, const json::value& details) const
 {
     if (details.get("subtask", std::string()) != "ProcessTask") {
@@ -227,7 +281,12 @@ bool asst::RoguelikeCustomStartTaskPlugin::hijack_squad()
                 return false;
             }
             auto image = ctrler()->get_image();
-            OCRer analyzer(image);
+            RoguelikeSquadFrameOCRer capture(image);
+            capture.set_task_info("RoguelikeCustom-HijackSquad");
+            capture.set_required({});
+            capture.set_replace({});
+            const auto raw_results = capture.analyze();
+            RoguelikeSquadFrameOCRer analyzer(image);
             analyzer.set_task_info("RoguelikeCustom-HijackSquad");
             // The first card is often clipped after the horizontal list is
             // reset.  OCR then returns only the visible tail (for example
@@ -240,26 +299,27 @@ bool asst::RoguelikeCustomStartTaskPlugin::hijack_squad()
                 analyzer.set_required({ name });
             }
 
-            if (!analyzer.analyze()) {
+            const auto names = raw_results ? analyzer.filter_same_frame(capture, *raw_results) : std::nullopt;
+            if (!names) {
                 ProcessTask(*this, { "Roguelike@SquadSlowlySwipeToTheRight" }).run();
                 sleep(Task.get("RoguelikeCustom-HijackSquad")->post_delay);
                 continue;
             }
-            const auto& rect = analyzer.get_result().front().rect;
+            const auto& rect = names->front().rect;
             // A locked squad still exposes its name in the card.  Check the same
             // row for the unlock label before clicking, otherwise the game keeps
             // the previous/default squad while MAA records the locked name.
-            OCRer locked_analyzer(image);
+            RoguelikeSquadFrameOCRer locked_analyzer(image);
             locked_analyzer.set_task_info("RoguelikeCustom-HijackSquadLocked");
-            OCRer locked_ocr_analyzer(image);
+            RoguelikeSquadFrameOCRer locked_ocr_analyzer(image);
             locked_ocr_analyzer.set_task_info("RoguelikeCustom-HijackSquadLockedOCR");
             const auto is_same_card = [&](const auto& locked) {
                 return std::abs(locked.rect.y - rect.y) < 90 && std::abs(locked.rect.x - rect.x) < 360;
             };
-            const bool locked_by_normal_ocr =
-                locked_analyzer.analyze() && std::ranges::any_of(locked_analyzer.get_result(), is_same_card);
-            const bool locked_by_raw_ocr =
-                locked_ocr_analyzer.analyze() && std::ranges::any_of(locked_ocr_analyzer.get_result(), is_same_card);
+            const auto normal_locks = locked_analyzer.filter_same_frame(capture, *raw_results);
+            const auto raw_locks = locked_ocr_analyzer.filter_same_frame(capture, *raw_results);
+            const bool locked_by_normal_ocr = normal_locks && std::ranges::any_of(*normal_locks, is_same_card);
+            const bool locked_by_raw_ocr = raw_locks && std::ranges::any_of(*raw_locks, is_same_card);
             if (locked_by_normal_ocr || locked_by_raw_ocr) {
                 LogWarn << __FUNCTION__ << "configured squad is locked" << name;
                 reset_squad_scroll();

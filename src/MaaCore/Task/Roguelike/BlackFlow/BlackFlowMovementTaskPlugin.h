@@ -57,7 +57,10 @@ private:
     };
 
     bool observe_inventory();
-    bool rewind_inventory(bool& head_verified, std::string* error);
+    bool rewind_inventory(
+        bool& head_verified,
+        std::optional<MovementInventoryFrame>& verified_head_frame,
+        std::string* error);
     bool scan_inventory_frame(MovementInventoryFrame& frame, std::string* error);
 
     SelectionOutcome select_movement(MovementKind target, std::string* error);

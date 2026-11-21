@@ -248,10 +248,12 @@ asst::blackflow::LifeGameIdentityResult
     }
     for (const auto& constraint : evidence.constraints) {
         const auto found = m_index.find(constraint.anchor_id);
-        if (found == m_index.end() || (group && m_nodes[found->second].group_id != *group)) {
-            return invalid("Unknown constraint anchor or anchor outside the verified group");
+        if (found == m_index.end()) {
+            return invalid("Unknown constraint anchor ID");
         }
-        group = m_nodes[found->second].group_id;
+        // A real prerequisite/successor edge may cross a group boundary. Global
+        // row constraints also do not assert same-group membership. Only the
+        // explicit group and same-group anchors above may restrict that domain.
         if (constraint.relation < LifeGameRelativePosition::EarlierRow ||
             constraint.relation > LifeGameRelativePosition::HasSuccessor) {
             return invalid("Unknown identity relation");

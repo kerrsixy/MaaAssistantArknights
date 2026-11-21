@@ -3,6 +3,7 @@
 #include "Config/Roguelike/BlackFlow/BlackFlowAccountProfile.h"
 
 #include <cctype>
+#include <utility>
 
 #include "Config/TaskData.h"
 #include "Controller/Controller.h"
@@ -18,7 +19,7 @@ using namespace asst::battle::roguelike;
 
 bool asst::RoguelikeRecruitTaskPlugin::verify(AsstMsg msg, const json::value& details) const
 {
-    if (msg != AsstMsg::SubTaskCompleted || details.get("subtask", std::string()) != "ProcessTask") {
+    if (details.get("subtask", std::string()) != "ProcessTask") {
         return false;
     }
 
@@ -36,17 +37,46 @@ bool asst::RoguelikeRecruitTaskPlugin::verify(AsstMsg msg, const json::value& de
         m_stash_resume_source.clear();
         return false;
     }
+    const auto is_task = [&](std::string_view name) {
+        return task == name || task.ends_with("@" + std::string(name));
+    };
+    const bool cancelled = task.find("GiveUp") != std::string::npos ||
+                           task.find("ReserveRecruitmentVoucher") != std::string::npos ||
+                           task.find("VoucherStashConfirm") != std::string::npos || is_task("StashedRecruitLeave");
+    if (m_pending_recruitment && (msg == AsstMsg::SubTaskError || (msg == AsstMsg::SubTaskStart && cancelled))) {
+        m_recruitment_event = RecruitmentEvent::Discard;
+        return true;
+    }
+    if (msg != AsstMsg::SubTaskCompleted) {
+        return false;
+    }
+    if (is_task("StartExplore")) {
+        m_initail_recruit = true;
+    }
+    if (is_task("EnterAfterRecruit")) {
+        m_initail_recruit = false;
+    }
+    if (m_pending_recruitment) {
+        const auto algorithm = details.get("details", "algorithm", std::string());
+        const auto action = details.get("details", "action", std::string());
+        const bool recognized = !algorithm.empty() && algorithm != "JustReturn";
+        if (recognized && (action == "ClickSelf" || action == "ClickRect") &&
+            (is_task("ChooseOperConfirm") || is_task("RecruitSupportConfirm"))) {
+            m_recruitment_event = RecruitmentEvent::Confirm;
+            return true;
+        }
+        // These are positively recognized successors, not a blind click or disappearance of the confirm button.
+        if (recognized && (is_task("RecruitSkip") || is_task("RecruitOther") || is_task("EnterAfterRecruit"))) {
+            m_recruitment_event = RecruitmentEvent::Receipt;
+            return true;
+        }
+    }
     std::string_view task_view = task;
     if (task_view.starts_with(roguelike_name)) {
         task_view.remove_prefix(roguelike_name.length());
     }
-    if (task_view.ends_with("Roguelike@StartExplore")) {
-        m_initail_recruit = true;
-    }
-    if (task_view.ends_with("Roguelike@EnterAfterRecruit")) {
-        m_initail_recruit = false;
-    }
     if (task_view.ends_with("Roguelike@ChooseOper") || task_view == "ChooseOper") {
+        m_recruitment_event = RecruitmentEvent::Select;
         return true;
     }
     else {
@@ -76,6 +106,22 @@ std::unordered_set<std::string> asst::RoguelikeRecruitTaskPlugin::calculate_cond
 bool asst::RoguelikeRecruitTaskPlugin::_run()
 {
     LogTraceFunction;
+
+    const auto event = std::exchange(m_recruitment_event, RecruitmentEvent::Select);
+    if (event == RecruitmentEvent::Discard) {
+        discard_pending_recruitment("cancelled_or_failed");
+        return true;
+    }
+    if (event == RecruitmentEvent::Confirm) {
+        if (m_pending_recruitment) {
+            m_pending_recruitment->confirmed = true;
+        }
+        return true;
+    }
+    if (event == RecruitmentEvent::Receipt) {
+        return commit_pending_recruitment();
+    }
+    discard_pending_recruitment("new_recruitment_page");
 
     if (m_voucher_stash.pending()) {
         // A retry may verify the previous click, but must never click a second voucher.
@@ -160,8 +206,9 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                 const bool recruited = start_oper->use_support ? recruit_support_char(start_oper->name, max_refresh)
                                                                : recruit_own_char(start_oper->name);
                 if (recruited) {
-                    m_config->advance_start_oper_index();
-                    m_starts_complete = true;
+                    if (m_pending_recruitment) {
+                        m_pending_recruitment->advance_start = true;
+                    }
                     return true;
                 }
             }
@@ -234,72 +281,7 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
 
     auto image = ctrler()->get_image();
 
-    // 读取当前希望值（招募界面顶部「希望 ⚡N」）。
-    // 识别失败时保持 -1，此时不启用希望储蓄策略，行为与旧版完全一致。
-    int cur_hope = -1;
-    {
-        // 1280x720 下实测：色条右侧的当前希望数字位于 x≈600..640、y≈18..52。
-        // 数字为 1~2 位，48px 宽度足够；两个候选 roi 依次尝试以提高识别率。
-        static const std::vector<Rect> HopeRois = {
-            Rect { 599, 16, 48, 38 },
-            Rect { 592, 12, 62, 44 },
-            // 希望为两位数（如 10 / 19）时数字右移，靠前两个 roi 会截断，补一个更宽的
-            Rect { 594, 10, 100, 42 },
-        };
-        // 数字是黄色、底色是深棕，自动二值化的阈值波动较大；多档 bin_expansion 各试一次。
-        static const std::vector<int> HopeBinExpansions = { 1, 2, 3 };
-        for (const Rect& roi : HopeRois) {
-            for (int bin_expansion : HopeBinExpansions) {
-                RegionOCRer hope_analyzer(image);
-                hope_analyzer.set_task_info("NumberOcrReplace");
-                hope_analyzer.set_roi(roi);
-                hope_analyzer.set_bin_expansion(bin_expansion);
-                if (!hope_analyzer.analyze()) {
-                    continue;
-                }
-                const std::string hope_text = hope_analyzer.get_result().text;
-                std::string digits;
-                bool started = false;
-                for (char c : hope_text) {
-                    if (std::isdigit(static_cast<unsigned char>(c))) {
-                        started = true;
-                        digits.push_back(c);
-                    }
-                    else if (started) {
-                        break;
-                    }
-                }
-                if (!digits.empty() && digits.size() <= 2) {
-                    cur_hope = std::stoi(digits);
-                    Log.info(
-                        __FUNCTION__,
-                        "| Current hope:",
-                        cur_hope,
-                        "raw:",
-                        hope_text,
-                        "roi:",
-                        roi.x,
-                        roi.y,
-                        "bin:",
-                        bin_expansion);
-                    break;
-                }
-                Log.info(__FUNCTION__, "| Current hope raw not digit:", hope_text, "bin:", bin_expansion);
-            }
-            if (cur_hope >= 0) {
-                break;
-            }
-        }
-        if (cur_hope < 0) {
-            Log.info(__FUNCTION__, "| Current hope not recognized, hope-saving disabled");
-        }
-        else {
-            // 回写希望值，供商店插件判断「这张招募券现在买来能不能兑现」。
-            // 依据：商店旧逻辑没有任何经济性输入（RoguelikeShoppingTaskPlugin.cpp buy_once
-            // 只按白名单顺序匹配），而 status().hope 在此之前全仓没有赋值点。
-            m_config->status().hope = cur_hope;
-        }
-    }
+    const int cur_hope = read_current_hope(image);
 
     // 翻页找出所有候选干员
     for (; i != SwipeTimes; ++i) {
@@ -357,6 +339,9 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                 rect_it->second = oper_info.rect;
             }
 
+            if (!can_afford(oper_info, cur_hope)) {
+                continue;
+            }
             // 查询招募配置
             if (RoguelikeRecruit.is_oper_excluded(theme, oper_info.name)) {
                 LogInfo << "Excluded roguelike recruitment candidate" << theme << oper_info.name;
@@ -639,25 +624,6 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
         selected_oper->priority);
     std::string char_name = selected_oper->name;
     LogInfo << __FUNCTION__ << "Selected recruitment tier" << static_cast<int>(selected_oper->tier) << char_name;
-    // 记录开局阶段的职业覆盖情况，供下一轮加分与日志追溯。
-    if (opening_phase) {
-        const battle::Role picked_role = BattleDataConfig::get_instance().get_first_role(char_name);
-        if (picked_role != battle::Role::Unknown) {
-            m_opening_roles.insert(picked_role);
-        }
-        Log.info(
-            __FUNCTION__,
-            "| opening phase: picked",
-            char_name,
-            "role",
-            static_cast<int>(picked_role),
-            "covered roles",
-            m_opening_roles.size(),
-            "diversity bonus",
-            role_bonus,
-            "recruit_count",
-            m_recruit_count);
-    }
     Log.trace(
         __FUNCTION__,
         "| Top priority oper:",
@@ -788,6 +754,8 @@ void asst::RoguelikeRecruitTaskPlugin::reset_in_run_variables()
     m_opening_roles.clear();
     m_voucher_stash.reset();
     m_stash_resume_source.clear();
+    discard_pending_recruitment("run_reset");
+    m_recruitment_event = RecruitmentEvent::Select;
     m_config->reset_start_oper_index();
 }
 
@@ -856,7 +824,7 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
                     m_recruit_count == 1) {
                     if (it->elite == 2) {
                         if (m_config->get_first_floor_foldartal()) {
-                            select_oper(*it); // 放心选择精二，之后还要继续凹密文板
+                            return select_oper(*it); // Continue only after a candidate was actually selected.
                         }
                         else {
                             m_task_ptr->set_enable(false); // 仅当之后没有东西要凹了才停止
@@ -871,7 +839,7 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
                     }
                 }
                 else {
-                    select_oper(*it);
+                    return select_oper(*it);
                 }
                 return true;
             }
@@ -986,7 +954,10 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_support_char(const std::string& n
 
     // 点击干员并记录信息
     auto& satisfied_char = satisfied_chars.front();
-    select_oper(satisfied_char.oper_info);
+    if (!select_oper(satisfied_char.oper_info)) {
+        click_return_button();
+        return false;
+    }
 
     sleep(500);
 
@@ -1005,13 +976,135 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_own_char(const std::string& name)
     return recruit_appointed_char(name, false, true);
 }
 
-void asst::RoguelikeRecruitTaskPlugin::select_oper(const battle::roguelike::Recruitment& oper)
+int asst::RoguelikeRecruitTaskPlugin::read_current_hope(const cv::Mat& image)
 {
-    Log.info(__FUNCTION__, "| Choose oper:", oper.name, "( elite", oper.elite, "level", oper.level, ")");
+    int cur_hope = -1;
+    {
+        // 1280x720 下实测：色条右侧的当前希望数字位于 x≈600..640、y≈18..52。
+        // 数字为 1~2 位，48px 宽度足够；两个候选 roi 依次尝试以提高识别率。
+        static const std::vector<Rect> HopeRois = {
+            Rect { 599, 16, 48, 38 },
+            Rect { 592, 12, 62, 44 },
+            // 希望为两位数（如 10 / 19）时数字右移，靠前两个 roi 会截断，补一个更宽的
+            Rect { 594, 10, 100, 42 },
+        };
+        // 数字是黄色、底色是深棕，自动二值化的阈值波动较大；多档 bin_expansion 各试一次。
+        static const std::vector<int> HopeBinExpansions = { 1, 2, 3 };
+        for (const Rect& roi : HopeRois) {
+            for (int bin_expansion : HopeBinExpansions) {
+                RegionOCRer hope_analyzer(image);
+                hope_analyzer.set_task_info("NumberOcrReplace");
+                hope_analyzer.set_roi(roi);
+                hope_analyzer.set_bin_expansion(bin_expansion);
+                if (!hope_analyzer.analyze()) {
+                    continue;
+                }
+                const std::string hope_text = hope_analyzer.get_result().text;
+                std::string digits;
+                bool started = false;
+                for (char c : hope_text) {
+                    if (std::isdigit(static_cast<unsigned char>(c))) {
+                        started = true;
+                        digits.push_back(c);
+                    }
+                    else if (started) {
+                        break;
+                    }
+                }
+                if (!digits.empty() && digits.size() <= 2) {
+                    cur_hope = std::stoi(digits);
+                    Log.info(
+                        __FUNCTION__,
+                        "| Current hope:",
+                        cur_hope,
+                        "raw:",
+                        hope_text,
+                        "roi:",
+                        roi.x,
+                        roi.y,
+                        "bin:",
+                        bin_expansion);
+                    break;
+                }
+                Log.info(__FUNCTION__, "| Current hope raw not digit:", hope_text, "bin:", bin_expansion);
+            }
+            if (cur_hope >= 0) {
+                break;
+            }
+        }
+        if (cur_hope < 0) {
+            Log.info(__FUNCTION__, "| Current hope remains unknown");
+        }
+        else {
+            // Share this observed budget with the shop; a failed OCR never invents a new balance.
+            m_config->status().hope = cur_hope;
+        }
+    }
 
-    ctrler()->click(oper.rect);
+    return cur_hope;
+}
 
+bool asst::RoguelikeRecruitTaskPlugin::can_afford(const Recruitment& oper, int hope) const
+{
+    if (oper.hope_cost && (*oper.hope_cost < 0 || (hope >= 0 && *oper.hope_cost > hope))) {
+        LogInfo << __FUNCTION__ << "Recruitment candidate exceeds verified budget" << oper.name << *oper.hope_cost
+                << hope;
+        return false;
+    }
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow && (!oper.hope_cost || (hope < 0 && *oper.hope_cost != 0))) {
+        LogInfo << __FUNCTION__ << "Recruitment affordability remains unknown" << oper.name
+                << oper.hope_cost.value_or(-1) << hope;
+        return false;
+    }
+    return true;
+}
+
+bool asst::RoguelikeRecruitTaskPlugin::select_oper(const Recruitment& oper)
+{
+    if (!can_afford(oper, read_current_hope(ctrler()->get_image()))) {
+        return false;
+    }
+    LogInfo << __FUNCTION__ << "Select pending candidate" << oper.name << oper.elite << oper.level;
+    if (!ctrler()->click(oper.rect)) {
+        return false;
+    }
+    m_pending_recruitment = PendingRecruitment { oper, false, false, m_initail_recruit };
+    return true;
+}
+
+void asst::RoguelikeRecruitTaskPlugin::discard_pending_recruitment(std::string_view reason)
+{
+    if (m_pending_recruitment) {
+        LogInfo << __FUNCTION__ << "Discard uncommitted candidate" << m_pending_recruitment->oper.name << reason;
+        m_pending_recruitment.reset();
+    }
+}
+
+bool asst::RoguelikeRecruitTaskPlugin::commit_pending_recruitment()
+{
+    if (!m_pending_recruitment || !m_pending_recruitment->confirmed) {
+        return true;
+    }
+    const auto pending = std::exchange(m_pending_recruitment, std::nullopt);
+    const auto& oper = pending->oper;
+    if (oper.name.empty() || oper.elite < 0 || oper.elite > 2 || oper.level <= 0) {
+        LogWarn << __FUNCTION__ << "Recruitment receipt has no verified strength" << oper.name << oper.elite
+                << oper.level;
+        return true;
+    }
     m_config->status().opers[oper.name] = { .elite = oper.elite, .level = oper.level };
+    if (pending->advance_start) {
+        m_config->advance_start_oper_index();
+        m_starts_complete = true;
+    }
+    if (pending->opening) {
+        const auto role = BattleData.get_first_role(oper.name);
+        if (role != battle::Role::Unknown) {
+            m_opening_roles.insert(role);
+        }
+    }
+    LogInfo << __FUNCTION__ << "Committed confirmed recruitment receipt" << oper.name << oper.elite << oper.level;
+    return true;
 }
 
 void asst::RoguelikeRecruitTaskPlugin::swipe_to_the_left_of_operlist(int loop_times)
