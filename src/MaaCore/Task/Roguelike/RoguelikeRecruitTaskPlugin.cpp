@@ -69,7 +69,8 @@ bool asst::RoguelikeRecruitTaskPlugin::verify(AsstMsg msg, const json::value& de
         if (recognized && (is_task("RecruitSkip") || is_task("RecruitOther") || is_task("EnterAfterRecruit") ||
                            is_task("StashedRecruitReceipt") || is_task("StashedRecruitOptionsReceipt") ||
                            is_task("StashedRecruitPortraitAdvance") ||
-                           (m_config->get_theme() == RoguelikeTheme::BlackFlow && is_task("DropsFlag")))) {
+                           (m_config->get_theme() == RoguelikeTheme::BlackFlow &&
+                            (is_task("DropsFlag") || is_task("RecruitShopReturn"))))) {
             m_recruitment_event = RecruitmentEvent::Receipt;
             return true;
         }

@@ -221,7 +221,14 @@
     },
     "BlackFlow@Roguelike@ChooseOperConfirm": {
         "template": ["BlackFlow@Roguelike@ChooseOperConfirm.png", "BlackFlow@Roguelike@ChooseOperConfirmWithBuff.png"],
-        "roi": [1016, 602, 264, 118]
+        "roi": [1016, 602, 264, 118],
+        "next": [
+            "BlackFlow@Roguelike@RecruitSkip",
+            "BlackFlow@Roguelike@RecruitShopReturn",
+            "BlackFlow@Roguelike@StageEncounterGiveUpRecruitConfirm",
+            "BlackFlow@Roguelike@ChooseOperConfirm",
+            "BlackFlow@Roguelike@RecruitWithoutButton"
+        ]
     },
     "BlackFlow@Roguelike@ChooseOperFlag": {
         "template": ["BlackFlow@Roguelike@ChooseOperConfirm.png", "BlackFlow@Roguelike@ChooseOperConfirmWithBuff.png"],
@@ -1858,10 +1865,25 @@
     "BlackFlow@Roguelike@RecruitOther": {
         "template": "BlackFlow@Roguelike@Recruit.png"
     },
+    "BlackFlow@Roguelike@ShopPurchasePage": {
+        "algorithm": "OcrDetect",
+        "text": ["购买"],
+        "fullMatch": true,
+        "roi": [1040, 75, 220, 110],
+        "action": "DoNothing"
+    },
+    "BlackFlow@Roguelike@RecruitShopReturn": {
+        "Doc": "招募确认后的商店回执。先正识别购买页与货架，再提交pending，之后才进入购物插件，避免买表用到旧阵容。",
+        "baseTask": "BlackFlow@Roguelike@TraderRandomShopping",
+        "template": "Roguelike@TraderRandomShopping.png",
+        "requiredPage": "BlackFlow@Roguelike@ShopPurchasePage",
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@TraderRandomShopping"]
+    },
     "BlackFlow@Roguelike@RecruitWithoutButton": {
         "next": [
             "BlackFlow@Roguelike@RecruitOther",
-            "BlackFlow@Roguelike@TraderRandomShopping",
+            "BlackFlow@Roguelike@RecruitShopReturn",
             "BlackFlow@Roguelike@StageTraderLeave",
             "BlackFlow@Roguelike@DropsFlag",
             "BlackFlow@Roguelike@ChooseOperFlag",

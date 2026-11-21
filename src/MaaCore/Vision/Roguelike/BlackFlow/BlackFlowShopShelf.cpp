@@ -46,6 +46,20 @@ std::optional<asst::blackflow::ShopShelfPage> asst::blackflow::BlackFlowShopShel
             continue;
         }
         ShopShelfOffer offer { .name = name.text, .rect = name.rect };
+        // A thin leading glyph can be omitted by text detection while the full title
+        // remains visible inside its card. Re-read that bounded line instead of
+        // guessing the item from an approximate name or relaxing its price check.
+        if (name.rect.x - card_left > 20) {
+            RegionOCRer title(image);
+            title.set_task_info("BlackFlow@RoguelikeTraderShoppingOcr");
+            title.set_use_raw(true);
+            title.set_bin_threshold(0, 255);
+            title.set_roi({ card_left, name.rect.y - 3, card_right - card_left, name.rect.height + 6 });
+            if (const auto full = title.analyze(); full && full->score >= 0.90 && full->text.ends_with(name.text)) {
+                offer.name = full->text;
+                LogDebug << __FUNCTION__ << "Complete shelf title observed" << name.text << offer.name;
+            }
+        }
         const Rect price_area { card_left, name.rect.y + 130, card_right - card_left, 80 };
         if (price_area.y + price_area.height > viewport_bottom) {
             page.clipped_content = true;
@@ -94,7 +108,10 @@ bool asst::blackflow::BlackFlowShopShelf::same_view(const ShopShelfPage& lhs, co
     for (std::size_t i = 0; i < lhs.offers.size(); ++i) {
         const auto& a = lhs.offers[i];
         const auto& b = rhs.offers[i];
-        if (a.name != b.name || a.price != b.price || std::abs(a.rect.x - b.rect.x) > 4 ||
+        const auto column = [](const Rect& rect) {
+            return (rect.x - 410 + 20) / 207;
+        };
+        if (a.name != b.name || a.price != b.price || column(a.rect) != column(b.rect) ||
             std::abs(a.rect.y - b.rect.y) > 4) {
             return false;
         }

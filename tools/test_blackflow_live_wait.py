@@ -8,6 +8,7 @@ from blackflow_live_run import (
     MSG_ALL_TASKS_COMPLETED,
     MSG_INTERNAL_ERROR,
     MSG_SUBTASK_ERROR,
+    MSG_SUBTASK_EXTRA_INFO,
     MSG_TASK_CHAIN_COMPLETED,
     MSG_TASK_CHAIN_ERROR,
     LiveDriver,
@@ -121,6 +122,77 @@ class LiveWaitTests(unittest.TestCase):
             {"msg": MSG_TASK_CHAIN_COMPLETED},
         ]
         self.assertEqual(driver.completion_exit_code(True), 0)
+
+    def settlement_driver(self, details):
+        driver = self.make_driver(".")
+        driver._records = [
+            {"msg": MSG_SUBTASK_EXTRA_INFO, "details": details},
+            {"msg": MSG_TASK_CHAIN_COMPLETED},
+        ]
+        return driver
+
+    def test_shop_stop_without_settlement_is_not_a_completed_exploration(self):
+        driver = self.make_driver(".")
+        driver._records = [
+            {"msg": MSG_SUBTASK_ERROR},
+            {"msg": MSG_TASK_CHAIN_COMPLETED},
+        ]
+        self.assertEqual(driver.completion_exit_code(True, require_settlement=True), 1)
+
+    def test_lobby_without_settlement_does_not_prove_exploration_completion(self):
+        driver = self.make_driver(".")
+        driver._records = [{"msg": MSG_TASK_CHAIN_COMPLETED}]
+        self.assertEqual(
+            driver.completion_exit_code(
+                True, require_settlement=True, lobby_verified=True
+            ),
+            1,
+        )
+
+    def test_settlement_without_lobby_keeps_terminal_flow_incomplete(self):
+        driver = self.settlement_driver(
+            '{"what":"RoguelikeSettlement","details":{"game_pass":false}}'
+        )
+        self.assertEqual(driver.completion_exit_code(True, require_settlement=True), 1)
+
+    def test_natural_defeat_and_lobby_complete_flow_without_claiming_a_win(self):
+        driver = self.settlement_driver(
+            '{"what":"RoguelikeSettlement","details":{"game_pass":false}}'
+        )
+        self.assertEqual(
+            driver.completion_exit_code(
+                True, require_settlement=True, lobby_verified=True
+            ),
+            0,
+        )
+
+    def test_victory_receipt_and_lobby_complete_terminal_flow(self):
+        driver = self.settlement_driver(
+            '{"what":"RoguelikeSettlement","details":{"game_pass":true}}'
+        )
+        self.assertEqual(
+            driver.completion_exit_code(
+                True, require_settlement=True, lobby_verified=True
+            ),
+            0,
+        )
+
+    def test_malformed_and_unverified_settlement_receipts_remain_incomplete(self):
+        for details in (
+            "not JSON",
+            "[]",
+            '{"what":"Other","details":{"game_pass":true}}',
+            '{"what":"RoguelikeSettlement","details":{}}',
+            '{"what":"RoguelikeSettlement","details":{"game_pass":"false"}}',
+        ):
+            with self.subTest(details=details):
+                driver = self.settlement_driver(details)
+                self.assertEqual(
+                    driver.completion_exit_code(
+                        True, require_settlement=True, lobby_verified=True
+                    ),
+                    1,
+                )
 
 
 if __name__ == "__main__":
