@@ -205,13 +205,34 @@ class LiveDriver:
     def running(self):
         return bool(self._lib.AsstRunning(self._handle))
 
-    def completion_exit_code(self, finished):
+    def completion_exit_code(
+        self, finished, *, require_settlement=False, lobby_verified=False
+    ):
         """Report task completion separately from a roguelike victory."""
         with self._lock:
-            messages = {record["msg"] for record in self._records}
+            records = list(self._records)
+        messages = {record["msg"] for record in records}
         if messages & {MSG_INTERNAL_ERROR, MSG_TASK_CHAIN_ERROR}:
             return 2
         if not finished or MSG_TASK_CHAIN_COMPLETED not in messages:
+            return 1
+        if require_settlement:
+            if not lobby_verified:
+                return 1
+            for record in records:
+                if record["msg"] != MSG_SUBTASK_EXTRA_INFO:
+                    continue
+                try:
+                    payload = json.loads(record.get("details", ""))
+                except (ValueError, TypeError):
+                    continue
+                if (
+                    isinstance(payload, dict)
+                    and payload.get("what") == "RoguelikeSettlement"
+                    and isinstance(payload.get("details"), dict)
+                    and isinstance(payload["details"].get("game_pass"), bool)
+                ):
+                    return 0
             return 1
         return 0
 
@@ -401,13 +422,34 @@ def main():
             return 2
         print("task started", flush=True)
         finished = driver.wait(args.seconds)
-        exit_code = driver.completion_exit_code(finished)
+        path = driver.snapshot("final_screen.png")
+        print(f"final snapshot: {path}", flush=True)
+        require_settlement = args.mode == 0 and args.starts > 0
+        final_lobby = None
+        if require_settlement and path:
+            final_image = cv2.imdecode(
+                np.fromfile(path, dtype=np.uint8), cv2.IMREAD_COLOR
+            )
+            if final_image is not None:
+                final_lobby = check_state(final_image)
+        exit_code = driver.completion_exit_code(
+            finished,
+            require_settlement=require_settlement,
+            lobby_verified=bool(final_lobby and final_lobby["ok"]),
+        )
+        outcome = {
+            "task_exit_code": exit_code,
+            "settlement_required": require_settlement,
+            "final_lobby": final_lobby,
+            "process_completion_is_not_a_victory_claim": True,
+        }
+        (out_dir / "outcome.json").write_text(
+            json.dumps(outcome, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         print(
             f"finished={finished} running={driver.running()} task_exit_code={exit_code}",
             flush=True,
         )
-        path = driver.snapshot("final_screen.png")
-        print(f"final snapshot: {path}", flush=True)
         return exit_code
     finally:
         driver.close()
