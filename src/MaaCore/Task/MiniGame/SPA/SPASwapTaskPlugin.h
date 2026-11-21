@@ -212,23 +212,24 @@ private:
     bool preparation_matches();
     bool preparation_matches(const cv::Mat& image);
     bool restore_preparation();
-    bool current_identity(const std::string& name);
+    bool current_identity(const std::string& name, cv::Mat* verified_panel = nullptr);
     bool verify_replacement_bench_identity(const std::string& name, int& probes);
     std::optional<std::string> m_last_panel_identity;
     std::optional<std::string> selected_identity_any(const Point& point);
     bool current_equipment(const std::string& name);
     std::optional<std::vector<std::string>> selected_equipment_names(size_t expected_count);
-    bool selected_identity(const Point& point, const std::string& name);
+    bool selected_identity(const Point& point, const std::string& name, cv::Mat* verified_panel = nullptr);
+    bool selected_field_identity(const Point& point, const std::string& name, cv::Mat& verified_panel);
     std::optional<std::string> bench_identity(
         const Point& point,
         bool allow_sale_head_retry = false,
         const std::string& replacement_bench_name = {});
     bool reconcile_deployed_target();
     bool observe_deployed_pose();
-    bool close_selection(cv::Mat* clean_frame = nullptr);
+    bool close_selection(cv::Mat* clean_frame = nullptr, const cv::Mat& initial_frame = {});
     bool ensure_expanded_shop(cv::Mat* already_visible_frame = nullptr);
     bool ensure_collapsed_shop(cv::Mat* already_visible_frame = nullptr);
-    bool capture_collapsed_preparation(cv::Mat& image);
+    bool capture_collapsed_preparation(cv::Mat& image, const cv::Mat& selected_frame = {});
     bool ensure_shop_visibility(
         bool expanded,
         cv::Mat* already_visible_frame,

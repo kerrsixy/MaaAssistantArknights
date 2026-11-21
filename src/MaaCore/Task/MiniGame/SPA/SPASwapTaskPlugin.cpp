@@ -858,7 +858,7 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(
     return std::nullopt;
 }
 
-bool asst::spa::SwapTaskPlugin::selected_identity(const Point& point, const std::string& name)
+bool asst::spa::SwapTaskPlugin::selected_identity(const Point& point, const std::string& name, cv::Mat* verified_panel)
 {
     // The sprite foot is not always the hitbox center on B-server maps, and
     // camera/animation settling can move the clickable area by a few pixels.
@@ -880,7 +880,7 @@ bool asst::spa::SwapTaskPlugin::selected_identity(const Point& point, const std:
                     : 700)) {
             return false;
         }
-        if (current_identity(name)) {
+        if (current_identity(name, verified_panel)) {
             return true;
         }
         const bool wrong_identity = m_last_panel_identity && *m_last_panel_identity != name;
@@ -889,6 +889,23 @@ bool asst::spa::SwapTaskPlugin::selected_identity(const Point& point, const std:
         }
     }
     return false;
+}
+
+bool asst::spa::SwapTaskPlugin::selected_field_identity(
+    const Point& point,
+    const std::string& name,
+    cv::Mat& verified_panel)
+{
+    if (!selected_identity(point, name, &verified_panel)) {
+        return false;
+    }
+    const auto& retreat = TemplResource::get_instance().get_templ("MiniGame@SPA@RetreatSelected.png");
+    if (selected_retreat_control(verified_panel, retreat)) {
+        return true;
+    }
+    // The button can settle after the title. Recheck the title on that fresh
+    // frame too, so a control from a different panel cannot prove this unit.
+    return current_identity(name, &verified_panel) && selected_retreat_control(verified_panel, retreat).has_value();
 }
 
 std::optional<std::string> asst::spa::SwapTaskPlugin::selected_identity_any(const Point& point)
@@ -1201,11 +1218,9 @@ bool asst::spa::SwapTaskPlugin::probe_registered_grid(
     }
     if (verify_all_identities) {
         for (const auto& member : members) {
-            if (!selected_identity(Point(member.x, member.y), member.name) ||
-                !selected_retreat_control(
-                    ctrler()->get_image(),
-                    TemplResource::get_instance().get_templ("MiniGame@SPA@RetreatSelected.png")) ||
-                !close_selection() || !ensure_collapsed_shop() || !preparation_matches()) {
+            cv::Mat selected, clean;
+            if (!selected_field_identity(Point(member.x, member.y), member.name, selected) ||
+                !capture_collapsed_preparation(clean, selected)) {
                 return false;
             }
         }
@@ -1264,10 +1279,13 @@ bool asst::spa::SwapTaskPlugin::selected_form_matches(const cv::Mat& image, cons
     return matched;
 }
 
-bool asst::spa::SwapTaskPlugin::current_identity(const std::string& name)
+bool asst::spa::SwapTaskPlugin::current_identity(const std::string& name, cv::Mat* verified_panel)
 {
     m_last_panel_identity.reset();
     m_selected_panel_evidence.clear();
+    if (verified_panel) {
+        verified_panel->release();
+    }
     auto image = ctrler()->get_image();
     const Rect roi = m_fast_mode ? Rect(0, 165, 350, 75) : Rect(0, 80, 350, 230);
     const auto read_title = [&](const cv::Mat& frame) {
@@ -1304,21 +1322,27 @@ bool asst::spa::SwapTaskPlugin::current_identity(const std::string& name)
             }
         }
     }
+    const auto remember_verified_panel = [&] {
+        if (verified_panel) {
+            *verified_panel = image;
+        }
+        return true;
+    };
     if (m_last_panel_identity) {
         m_selected_panel_evidence.remember_recognized_title(image);
         if ((m_inspect_only || m_deploy_only) && name == "*") {
             m_name = *m_last_panel_identity;
-            return true;
+            return remember_verified_panel();
         }
         if (*m_last_panel_identity == name) {
-            return selected_form_matches(image, name);
+            return selected_form_matches(image, name) && remember_verified_panel();
         }
     }
     if (m_find_equipment_source && name == m_name) {
         for (const auto& text : texts) {
             if (text.score >= .9 && text.x >= 0 && text.x < 200 && text.y >= 170 && text.y <= 240 &&
                 equipment_title_matches(name, text.text)) {
-                return true;
+                return remember_verified_panel();
             }
         }
     }
@@ -1389,7 +1413,7 @@ std::optional<std::vector<std::string>> asst::spa::SwapTaskPlugin::selected_equi
     return result;
 }
 
-bool asst::spa::SwapTaskPlugin::close_selection(cv::Mat* clean_frame)
+bool asst::spa::SwapTaskPlugin::close_selection(cv::Mat* clean_frame, const cv::Mat& initial_frame)
 {
     if (clean_frame) {
         clean_frame->release();
@@ -1399,7 +1423,7 @@ bool asst::spa::SwapTaskPlugin::close_selection(cv::Mat* clean_frame)
     // cannot prove that the map is clean. Clicking an empty, non-deployable
     // map area closes the panel without changing the roster; only then is the
     // normal preparation reconciliation authoritative.
-    const auto image = ctrler()->get_image();
+    const auto image = initial_frame.empty() ? ctrler()->get_image() : initial_frame;
     if (m_fast_mode && (m_best_effort_deployment || m_find_equipment_source || m_find_bench_source)) {
         // Preparation callers have a verified HUD snapshot. Dismiss only a
         // visible left panel here; sale/replacement/deployment still perform
@@ -1495,11 +1519,11 @@ bool asst::spa::SwapTaskPlugin::ensure_collapsed_shop(cv::Mat* already_visible_f
     return ensure_shop_visibility(false, already_visible_frame);
 }
 
-bool asst::spa::SwapTaskPlugin::capture_collapsed_preparation(cv::Mat& image)
+bool asst::spa::SwapTaskPlugin::capture_collapsed_preparation(cv::Mat& image, const cv::Mat& selected_frame)
 {
     image.release();
     cv::Mat clean;
-    if (!close_selection(&clean) || !ensure_shop_visibility(false, &image, clean)) {
+    if (!close_selection(&clean, selected_frame) || !ensure_shop_visibility(false, &image, clean)) {
         return false;
     }
     // A toggle can change the label before the camera settles. Keep the
@@ -2917,12 +2941,9 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
         std::find_if(m_placement_members.begin(), m_placement_members.end(), [&](const auto& member) {
             return member.name == m_name && member.x == m_source.x && member.y == m_source.y;
         });
-    cv::Mat clean;
-    if (source_member == m_placement_members.end() || !selected_identity(m_source, m_name) ||
-        !selected_retreat_control(
-            ctrler()->get_image(),
-            TemplResource::get_instance().get_templ("MiniGame@SPA@RetreatSelected.png")) ||
-        !capture_collapsed_preparation(clean)) {
+    cv::Mat clean, selected;
+    if (source_member == m_placement_members.end() || !selected_field_identity(m_source, m_name, selected) ||
+        !capture_collapsed_preparation(clean, selected)) {
         return false;
     }
     std::optional<std::size_t> displaced_index;
@@ -2936,11 +2957,8 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
                 m_placement_members.begin(),
                 m_placement_members.end(),
                 [&](const auto& member) { return member.name == m_relocation_displaced; }) != 1 ||
-            !selected_identity(Point(displaced->x, displaced->y), displaced->name) ||
-            !selected_retreat_control(
-                ctrler()->get_image(),
-                TemplResource::get_instance().get_templ("MiniGame@SPA@RetreatSelected.png")) ||
-            !capture_collapsed_preparation(clean)) {
+            !selected_field_identity(Point(displaced->x, displaced->y), displaced->name, selected) ||
+            !capture_collapsed_preparation(clean, selected)) {
             return false;
         }
         displaced_index = static_cast<std::size_t>(std::distance(m_placement_members.begin(), displaced));
@@ -2985,12 +3003,9 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
             }
             const auto proves = [&](std::size_t index, const std::string& name) {
                 const auto point = points->at(index);
-                const bool verified = selected_identity(Point(point.x, point.y), name) &&
-                                      selected_retreat_control(
-                                          ctrler()->get_image(),
-                                          TemplResource::get_instance().get_templ("MiniGame@SPA@RetreatSelected.png"))
-                                          .has_value();
-                return capture_collapsed_preparation(field) && verified;
+                cv::Mat panel;
+                const bool verified = selected_field_identity(Point(point.x, point.y), name, panel);
+                return capture_collapsed_preparation(field, panel) && verified;
             };
             identified =
                 proves(source_index, m_name) && (!displaced_index || proves(*displaced_index, m_relocation_displaced));
@@ -4203,7 +4218,8 @@ bool asst::spa::SwapTaskPlugin::_run()
         // Wildcard phase-one deployment only uses the tier-badge frame and
         // never opens an operator panel. Avoid another full-frame OCR pass;
         // named swaps still require the strict close/reconciliation path.
-        if (!sale_source_panel_open && !source_identity_deferred_to_hold && !wildcard_bench_scan && !close_selection()) {
+        if (!sale_source_panel_open && !source_identity_deferred_to_hold && !wildcard_bench_scan &&
+            !close_selection()) {
             return false;
         }
         if (named_source_index) {
