@@ -1470,6 +1470,23 @@ bool asst::StrongholdProtocolTask::handle_fear_trap_instruction(const json::valu
     if (!normal_grid) {
         return false;
     }
+    std::vector<spa::DeploymentUnit> field;
+    for (const auto& member : m_population_grid_members) {
+        const auto owned = m_policy.owned.find(member.name);
+        const auto forms = owned == m_policy.owned.end() ? std::nullopt : spa::owned_form_counts(owned->second);
+        const auto stats = forms && (forms->initial == 0 || forms->elite == 0)
+                               ? spa::season_combat_stats(member.name, forms->elite > 0)
+                               : std::nullopt;
+        std::vector<spa::BoardCell> range;
+        if (stats) {
+            range.assign(stats->basic_range.begin(), stats->basic_range.end());
+        }
+        auto unit = describe_deployed_unit(member, range, false);
+        if (!stats) {
+            unit.block_count = 0;
+        }
+        field.push_back(std::move(unit));
+    }
     const auto send = [&](InputEvent::Type type, Point point = {}) {
         InputEvent event;
         event.type = type;
@@ -1499,37 +1516,15 @@ bool asst::StrongholdProtocolTask::handle_fear_trap_instruction(const json::valu
     };
     std::optional<std::pair<spa::BoardCell, Point>> target;
     std::optional<std::pair<spa::BoardCell, Point>> hover_target;
-    int best_score = 0, best_hover_score = 0;
+    std::optional<std::tuple<int, int, int, int>> best_score, best_hover_score;
     if (held_grid) {
         const auto lanes = spa::active_preparation_lanes(*terrain, round);
         for (const auto& cell : terrain->ground_route) {
-            if (m_fear_trap_cells.contains(cell) || m_confirmed_summon_cells.contains({ round, cell }) ||
-                std::any_of(
-                    m_population_grid_members.begin(),
-                    m_population_grid_members.end(),
-                    [&](const auto& member) { return cell == spa::BoardCell(member.col, member.row); })) {
+            if (m_confirmed_summon_cells.contains({ round, cell })) {
                 continue;
             }
-            int score = 0;
-            for (const auto& lane : lanes) {
-                const auto at = std::find(lane.path.begin(), lane.path.end(), cell);
-                if (at == lane.path.end()) {
-                    continue;
-                }
-                const auto already_covered = std::count_if(lane.path.begin(), lane.path.end(), [&](const auto& tile) {
-                    return m_fear_trap_cells.contains(tile);
-                });
-                score += 10 * lane.blocking_weight / (1 + static_cast<int>(already_covered));
-            }
-            if (score == 0) {
-                continue;
-            }
-            for (const auto& unit : m_layout_units) {
-                if (unit.damage_output && spa::range_covers(unit, cell)) {
-                    score += 4;
-                }
-            }
-            if (score <= best_score && score <= best_hover_score) {
+            const auto score = spa::fear_trap_route_priority(cell, lanes, field, m_fear_trap_cells);
+            if (!score || (score <= best_score && score <= best_hover_score)) {
                 continue;
             }
             const auto point = project_cell(cell, *held_grid);
@@ -1622,20 +1617,22 @@ bool asst::StrongholdProtocolTask::handle_fear_trap_instruction(const json::valu
                                          { "charges_before", *charges_before },
                                          { "charges_after", charges_after.value_or(-1) },
                                          { "held_grid_verified", held_grid.has_value() },
-                                         { "legal_route_tile", best_score > 0 || verified },
+                                         { "legal_route_tile", best_score.has_value() || verified },
+                                         { "target_col", target ? target->first.first : -1 },
+                                         { "target_row", target ? target->first.second : -1 },
                                          { "hover_prompt_verified", hover_prompt_verified },
                                          { "hover_registered", hovered_tile_verified },
                                          { "input_issued", issued },
                                          { "charge_spent_verified", verified } };
     callback(AsstMsg::SubTaskExtraInfo, evidence);
+    if (!hover.empty()) {
+        spa::save_evidence(hover, utils::path("debug/SPA/fear_trap_hover"), false);
+    }
     if (verified) {
         spa::save_evidence(after, utils::path("debug/SPA/fear_trap_placed"), false);
     }
     else {
         spa::save_evidence(preview, utils::path("debug/SPA/fear_trap_held"), false);
-        if (!hover.empty()) {
-            spa::save_evidence(hover, utils::path("debug/SPA/fear_trap_hover"), false);
-        }
         spa::save_evidence(after, utils::path("debug/SPA/fear_trap_unverified"), false);
     }
     return true;

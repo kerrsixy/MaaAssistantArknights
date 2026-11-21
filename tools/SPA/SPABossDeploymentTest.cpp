@@ -313,5 +313,28 @@ int main()
         boss_firing_cells);
     assert(without_healing.units[2].cell == covered_attacker.cell && without_healing.boss_coverage_improvement == 200);
     assert(without_healing.boss_sustained_attack_improvement > 0);
+
+    const std::vector<DeploymentLane> trap_routes {
+        { "north", { { 6, 1 }, { 5, 1 }, { 4, 1 }, { 3, 1 }, { 2, 1 } }, 0, 2, 2 },
+        { "south", { { 6, 3 }, { 5, 3 }, { 4, 3 }, { 3, 3 }, { 2, 3 } }, 0, 2, 2 },
+    };
+    auto north_blocker = guard;
+    north_blocker.cell = { 4, 1 };
+    auto south_blocker = north_blocker;
+    south_blocker.cell = { 4, 3 };
+    auto forward_output = covered_attacker;
+    forward_output.cell = { 5, 2 };
+    forward_output.facing = 'N';
+    forward_output.local_range = { { 1, 0 } };
+    const std::vector<DeploymentUnit> trap_field { north_blocker, south_blocker, forward_output };
+    const auto trap_priority = [&](BoardCell cell, const std::set<BoardCell>& traps = {}) {
+        return fear_trap_route_priority(cell, trap_routes, trap_field, traps);
+    };
+    assert(trap_priority({ 5, 1 }) > trap_priority({ 3, 1 }));
+    assert(trap_priority({ 5, 1 }) > trap_priority({ 6, 1 }));
+    assert(trap_priority({ 5, 1 }) > trap_priority({ 5, 3 }));
+    assert(trap_priority({ 5, 3 }, { { 5, 1 } }) > trap_priority({ 6, 1 }, { { 5, 1 } }));
+    assert(!trap_priority({ 5, 1 }, { { 5, 1 } }));
+    assert(!trap_priority({ 4, 1 }) && !trap_priority({ 1, 4 }));
     std::cout << "fixed-boss coverage, fallback, guard and cached continuation checks passed\n";
 }

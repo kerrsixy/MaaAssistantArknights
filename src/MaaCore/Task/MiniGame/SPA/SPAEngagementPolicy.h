@@ -6,9 +6,55 @@
 #include <map>
 #include <set>
 #include <string_view>
+#include <tuple>
 
 namespace asst::spa
 {
+// Prefer a route before first contact, then current fire support, lane
+// coverage and proximity to the blocker. These are predicted encounters.
+inline std::optional<std::tuple<int, int, int, int>> fear_trap_route_priority(
+    BoardCell cell,
+    const std::vector<DeploymentLane>& lanes,
+    const std::vector<DeploymentUnit>& field,
+    const std::set<BoardCell>& existing_traps)
+{
+    if (existing_traps.contains(cell) ||
+        std::ranges::any_of(field, [&](const auto& unit) { return unit.cell == cell; })) {
+        return std::nullopt;
+    }
+    int before_contact = 0, on_route = 0, contact_approach = 0;
+    for (const auto& lane : lanes) {
+        const auto at = std::ranges::find(lane.path, cell);
+        if (at == lane.path.end() || lane.blocking_weight <= 0) {
+            continue;
+        }
+        const int covered = static_cast<int>(std::ranges::count_if(lane.path, [&](const auto& step) {
+            return existing_traps.contains(step);
+        }));
+        const int weight = std::max(1, lane.blocking_weight * 100 / (covered + 1));
+        on_route += weight;
+        const auto contact = std::ranges::find_if(lane.path, [&](const auto& step) {
+            return std::ranges::any_of(field, [&](const auto& unit) {
+                return unit.cell == step && unit.frontline && unit.holds_position && !unit.healer &&
+                       unit.block_count > 0;
+            });
+        });
+        if (at < contact) {
+            before_contact += weight;
+            if (contact != lane.path.end()) {
+                contact_approach += std::max(0, lane.precontact_cells + 1 - static_cast<int>(contact - at));
+            }
+        }
+    }
+    if (on_route == 0) {
+        return std::nullopt;
+    }
+    const int attackers = static_cast<int>(std::ranges::count_if(field, [&](const auto& unit) {
+        return unit.damage_output && !unit.healer && range_covers(unit, cell);
+    }));
+    return std::tuple(before_contact, attackers, on_route, contact_approach);
+}
+
 // The first shared non-objective cell of predicted routes is a staging
 // anchor, not proof of an individual enemy's path or an executable target.
 inline std::optional<BoardCell> engagement_junction(const std::vector<DeploymentLane>& lanes)
