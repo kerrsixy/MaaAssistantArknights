@@ -53,6 +53,17 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
         self.assertIn("if (!sleep(400))", boundary)
         self.assertTrue(boundary.rstrip().endswith("continue;\n        }"))
 
+    def test_full_field_swap_waits_for_shop_review_but_reconciliation_does_not(self):
+        boundary = self.session.split("const bool field_finalization =", 1)[1].split(
+            "if (field_work_due && refresh_equipment_inventory(state))", 1
+        )[0]
+        self.assertTrue(boundary.startswith(" m_shopping_complete || available_funds == 0;"))
+        self.assertIn(
+            "((field_finalization && time_for_board_maintenance) || m_pending_field_replacement) &&\n"
+            "            handle_full_field_replacement(state))",
+            boundary,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

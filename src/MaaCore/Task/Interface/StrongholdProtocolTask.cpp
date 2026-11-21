@@ -3648,7 +3648,9 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         if (m_auto_run && field_work_due && reconcile_direct_promotion_equipment(state)) {
             continue;
         }
-        if (m_auto_run && ((field_work_due && time_for_board_maintenance) || m_pending_field_replacement) &&
+        // A full-field swap sends the outgoing operator back to the bench.
+        // Finish the shop's sale and purchase decisions before starting one.
+        if (m_auto_run && ((field_finalization && time_for_board_maintenance) || m_pending_field_replacement) &&
             handle_full_field_replacement(state)) {
             continue;
         }
