@@ -1124,9 +1124,17 @@ bool asst::spa::SwapTaskPlugin::revalidate_promoted_pose(
     if (!close_selection() || !ensure_collapsed_shop()) {
         return false;
     }
-    // Probe the exact prior footpoint, without neighboring-tile searches.
+    // The selected panel can appear after the first capture at the exact
+    // prior footpoint. Re-read an unknown title without clicking again.
+    if (!ctrler()->click(point) || !sleep(250)) {
+        return false;
+    }
+    bool identity_verified = current_identity(name);
+    const bool retry_title = !identity_verified && !m_last_panel_identity && sleep(200);
+    if (retry_title) {
+        identity_verified = current_identity(name);
+    }
     // The retreat control distinguishes a field selection from a bench card.
-    const bool identity_verified = ctrler()->click(point) && sleep(250) && current_identity(name);
     std::optional<RetreatControlMatch> retreat;
     std::optional<OperatorCardObservation> card;
     if (identity_verified) {
@@ -1149,6 +1157,7 @@ bool asst::spa::SwapTaskPlugin::revalidate_promoted_pose(
                                          { "y", point.y },
                                          { "identity_and_field_control_verified", verified },
                                          { "identity_verified", identity_verified },
+                                         { "selected_title_retried", retry_title },
                                          { "form_verification_required", expected_elite.has_value() },
                                          { "form_verified", form_verified },
                                          { "training_level", card ? card->training_level : 0 },
