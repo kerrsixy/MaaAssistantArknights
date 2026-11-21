@@ -25,6 +25,7 @@ CATEGORIES = {
     "SPAAutomationEquipmentInventoryObserved": "equipment_inventory_receipts",
     "SPAEquipmentInventoryScan": "equipment_target_searches",
     "SPAAutomationShopScan": "shop_offer_scans",
+    "SPAAutomationPrimaryPactSelected": "primary_pact_selection_changes",
     "SPARegisteredFormationObserved": "field_registrations",
     "SPASpatialGridSnapshotRefreshed": "grid_snapshot_refreshes",
     "SPAFieldGridBootstrapObserved": "field_bootstrap_passes",
@@ -34,6 +35,7 @@ CATEGORIES = {
     "SPADeployedPoseObserved": "deployed_pose_receipts",
     "SPAFieldFacingObserved": "field_facing_observations",
     "SPAShopPurchase": "purchase_payment_receipts",
+    "SPAShopRefresh": "refresh_payment_receipts",
     "SPAAutomationPurchaseReconciled": "operator_purchase_reconciliations",
     "SPAShopEquipmentPurchaseReconciled": "equipment_purchase_reconciliations",
     "SPASaleInputIssued": "sale_input_receipts",
@@ -46,7 +48,10 @@ CATEGORIES = {
     "SPAReplacementReconciled": "replacement_reconciliations",
     "SPAShopExpandedForPreparation": "shop_preparation_expansion_receipts",
     "SPAShopExpandedForDeployment": "shop_deployment_visibility_receipts",
+    "SPAShopRestoredBeforeTransaction": "shop_transaction_restoration_receipts",
     "SPAShopCollapsed": "shop_collapse_receipts",
+    "SPASpatialOrientationReconciled": "spatial_transaction_reconciliations",
+    "SPASpatialOrientationDeferred": "spatial_transaction_deferrals",
     "SPAJointPreparationDeadline": "preparation_deadline_deferrals",
 }
 WORK_EVENTS = {
@@ -65,12 +70,14 @@ LIMITATIONS = [
     "Each source is audited separately; overlapping native logs and journals must not be added as unique inputs.",
     "Receipts, plans and reconciliations are separate counters, not distinct physical actions.",
     "Missing timestamps do not imply zero duration. Native plugin times include recognition/waits and can overlap.",
+    "Preparation timing begins at the first scheduling receipt and ends at observed combat. Phase intervals are attributed between receipts, not scoped plugin timers.",
     "Known round/run context is inherited only within a source/process. Unknown context is reported explicitly.",
     "Positive funds and affordable offers do not prove a useful purchase exists; shopping-order findings need review.",
     "Missing capacity/deadline data remains unknown; grey cards alone are never interpreted as capacity evidence.",
     "Repeated discovery is a candidate, not proof of waste: external changes and unlogged invalidations may exist.",
     "Registered grid snapshots with fresh_identity_probes=false are not classified as full identity scans.",
     "Shop visibility receipts do not cover every native toggle; no collapse count is inferred from coordinates.",
+    "Moving a unit before replacing it is a review candidate. The new geometry may enable the replacement.",
 ]
 
 
@@ -110,10 +117,41 @@ def parse_lines(lines, native=False):
             stamp = None
         records.append({
             "line": line_number, "what": body.get("what", ""), "details": details,
+            "execution_id": body.get("run_execution_id"),
             "timestamp": stamp, "process": match[2] if native else "journal",
             "native_line": line if native else None,
         })
     return records, malformed
+
+
+def preparation_timing(execution_id, milestones):
+    first = next((i for i, event in enumerate(milestones) if event["what"] == "SPAPreparationSchedulingObserved"), None)
+    started = next((i for i, event in enumerate(milestones) if event["what"] == "SPARoundStarted"), None)
+    first_scheduling = milestones[first] if first is not None else None
+    battle = milestones[started] if started is not None else None
+    duration = None
+    by_phase = {}
+    if first is not None and started is not None and first < started:
+        window = milestones[first:started + 1]
+        stamps = [event["timestamp"] for event in window]
+        if all(stamps) and len({stamp.utcoffset() is None for stamp in stamps}) == 1 and stamps == sorted(stamps):
+            totals = defaultdict(float)
+            for index, event in enumerate(window[:-1]):
+                phase = event["details"].get("phase")
+                totals[phase if isinstance(phase, str) and phase else "unknown"] += (
+                    stamps[index + 1] - stamps[index]
+                ).total_seconds()
+            by_phase = {phase: round(seconds, 3) for phase, seconds in totals.items()}
+            duration = round((stamps[-1] - stamps[0]).total_seconds(), 3)
+    funds = battle["details"].get("funds_before") if battle else None
+    return {
+        "run_execution_id": execution_id,
+        "first_scheduling_line": first_scheduling["line"] if first_scheduling else None,
+        "battle_started_line": battle["line"] if battle else None,
+        "seconds_to_observed_battle": duration,
+        "observed_phase_seconds": by_phase,
+        "caller_funds_before_battle": funds if number(funds) and funds >= 0 else None,
+    }
 
 
 def audit_lines(lines, source="journal", native=False, freshness_events=20, frequent_threshold=2):
@@ -145,6 +183,8 @@ def audit_lines(lines, source="journal", native=False, freshness_events=20, freq
                 "counts": Counter(), "event_counts": Counter(), "first_line": record["line"],
                 "last_line": record["line"], "timestamps": [], "native_lines": [],
                 "explicit_duration_ms": defaultdict(list), "state": {}, "last_scans": {},
+                "preparation_milestones": defaultdict(list),
+                "recent_orientations": {},
                 "mutation_epoch": 0, "shopping_work": [], "shopping_order_evidence_gaps": Counter(),
             }
         group = groups[key]
@@ -156,7 +196,27 @@ def audit_lines(lines, source="journal", native=False, freshness_events=20, freq
             group["timestamps"].append(record["timestamp"])
         if record["native_line"]:
             group["native_lines"].append(record["native_line"])
-        for field in ("duration_ms", "elapsed_ms", "inspection_ms", "scan_ms"):
+        if valid_round(observed_round):
+            execution = record["execution_id"]
+            execution = execution if isinstance(execution, str) else None
+            if what in ("SPAPreparationSchedulingObserved", "SPARoundStarted"):
+                group["preparation_milestones"][execution].append(record)
+            if what == "SPASpatialOrientationReconciled" and (
+                data.get("relocation_applied") is True or data.get("direction_input_committed") is True
+            ) and isinstance(data.get("name"), str) and data["name"]:
+                group["recent_orientations"][(execution, data["name"])] = record
+            if what == "SPAReplacementReconciled" and isinstance(data.get("outgoing"), str):
+                movement = group["recent_orientations"].pop((execution, data["outgoing"]), None)
+                if movement:
+                    candidates.append({
+                        "kind": "field_adjustment_before_replacement",
+                        "source": source, "process": process, "run_id": context["run"], "round": observed_round,
+                        "run_execution_id": execution, "outgoing": data["outgoing"], "incoming": data.get("incoming"),
+                        "movement_line": movement["line"], "line": record["line"],
+                        "movement_transaction_ms": movement["details"].get("transaction_ms"),
+                        "confirmed_invariant_failure": False,
+                    })
+        for field in ("duration_ms", "elapsed_ms", "inspection_ms", "scan_ms", "planning_ms", "transaction_ms"):
             value = data.get(field)
             if number(value) and value >= 0:
                 group["explicit_duration_ms"][what + "." + field].append(value)
@@ -276,12 +336,16 @@ def audit_lines(lines, source="journal", native=False, freshness_events=20, freq
         except TypeError:
             span = None  # Mixed timezone-aware/naive stamps cannot be compared.
         group["observed_span_seconds"] = span
+        group["preparation_executions"] = [
+            preparation_timing(execution_id, milestones)
+            for execution_id, milestones in group.pop("preparation_milestones").items()
+        ]
         native_lines = group.pop("native_lines")
         group["plugin_wall_time"] = audit_plugin_timing(native_lines) if native_lines else None
         group["explicit_duration_ms"] = {key: {"count": len(values), "total": sum(values), "max": max(values)}
                                          for key, values in group["explicit_duration_ms"].items()}
         group["shopping_order_prerequisites_complete_events"] = len(group.pop("shopping_work"))
-        for internal in ("state", "last_scans", "mutation_epoch"):
+        for internal in ("state", "last_scans", "mutation_epoch", "recent_orientations"):
             group.pop(internal)
         result_groups.append(group)
     return {

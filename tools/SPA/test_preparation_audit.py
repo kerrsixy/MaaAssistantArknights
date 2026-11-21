@@ -4,10 +4,12 @@ import unittest
 from spa_preparation_audit import audit_lines
 
 
-def event(what, details=None, timestamp=None):
+def event(what, details=None, timestamp=None, execution_id=None):
     row = {"message": 20003, "details": {"what": what, "details": details or {}}}
     if timestamp:
         row["timestamp"] = timestamp
+    if execution_id:
+        row["details"]["run_execution_id"] = execution_id
     return json.dumps(row)
 
 
@@ -167,6 +169,57 @@ class PreparationAuditTests(unittest.TestCase):
         report = audit_lines([native(2, "SubTaskStart", plugin, 1), native(5, "SubTaskCompleted", plugin, 2)], native=True)
         self.assertEqual(len(report["by_run_round"]), 2)
         self.assertTrue(all(not row["plugin_wall_time"]["plugins"] for row in report["by_run_round"]))
+
+    def test_preparation_timing_excludes_battle_and_separates_continuation(self):
+        def at(second, what, execution, **details):
+            timestamp = f"2026-11-22T06:00:{second:02}+08:00"
+            return event(what, {"round": 4, "run_id": "A", **details}, timestamp, execution)
+
+        report = audit_lines([
+            at(1, "SPAPreparationSchedulingObserved", "original", phase="shop"),
+            at(2, "SPAPreparationSchedulingObserved", "resumed", phase="shop"),
+            at(9, "SPAPreparationSchedulingObserved", "resumed", phase="finalize_formation"),
+            at(11, "SPASpatialOrientationReconciled", "resumed", transaction_ms=3000),
+            at(20, "SPARoundStarted", "resumed", funds_before=1),
+            at(55, "SPABattleSample", "resumed"),
+        ])
+        row = report["by_run_round"][0]
+        original, resumed = row["preparation_executions"]
+        self.assertIsNone(original["seconds_to_observed_battle"])
+        self.assertIsNone(original["battle_started_line"])
+        self.assertEqual(resumed["seconds_to_observed_battle"], 18)
+        self.assertEqual(resumed["observed_phase_seconds"], {"shop": 7, "finalize_formation": 11})
+        self.assertEqual(resumed["caller_funds_before_battle"], 1)
+        self.assertEqual(row["explicit_duration_ms"]["SPASpatialOrientationReconciled.transaction_ms"]["total"], 3000)
+        self.assertEqual(row["observed_span_seconds"], 54)
+
+    def test_missing_or_reversed_timing_keeps_funds_receipt(self):
+        prep = "SPAPreparationSchedulingObserved"
+        battle = event("SPARoundStarted", {"round": 4, "funds_before": 2}, "2026-11-22T06:00:08+08:00")
+        for stamp in (None, "2026-11-22T06:00:09+08:00", "2026-11-22T06:00:05"):
+            with self.subTest(stamp=stamp):
+                report = audit_lines([event(prep, {"round": 4}, stamp), battle])
+                receipt = report["by_run_round"][0]["preparation_executions"][0]
+                self.assertIsNone(receipt["seconds_to_observed_battle"])
+                self.assertEqual(receipt["observed_phase_seconds"], {})
+                self.assertEqual(receipt["caller_funds_before_battle"], 2)
+
+    def test_live_movement_before_replacement_is_a_candidate_for_same_execution(self):
+        motion = "SPASpatialOrientationReconciled"
+        replacement = "SPAReplacementReconciled"
+        report = audit_lines([
+            event(motion, {"round": 7, "name": "灰喉", "direction_input_committed": False}, execution_id="A"),
+            event(replacement, {"round": 7, "outgoing": "灰喉", "incoming": "慕斯"}, execution_id="A"),
+            event(motion, {"round": 7, "name": "灰喉", "relocation_applied": True, "transaction_ms": 19934},
+                  execution_id="A"),
+            event(replacement, {"round": 7, "outgoing": "灰喉", "incoming": "慕斯"}, execution_id="B"),
+            event(replacement, {"round": 7, "outgoing": "灰喉", "incoming": "慕斯"}, execution_id="A"),
+        ])
+        self.assertEqual(report["confirmed_invariant_failures"], [])
+        found, = report["candidate_issues"]
+        self.assertEqual(found["kind"], "field_adjustment_before_replacement")
+        self.assertEqual(found["movement_transaction_ms"], 19934)
+        self.assertEqual((found["movement_line"], found["line"]), (3, 5))
 
 
 if __name__ == "__main__":
