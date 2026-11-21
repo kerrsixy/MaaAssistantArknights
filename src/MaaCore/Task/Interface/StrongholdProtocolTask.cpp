@@ -141,6 +141,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_pending_field_replacement.reset();
     m_blocked_purchases.clear();
     m_purchase_reserved_after_sale.reset();
+    m_replacement_bench_space_round = -1;
     m_prefer_unclaimed = params.get("prefer_unclaimed_strategy", false);
     m_current_strategy_inspected = false;
     m_preparation_instruction_attempts.clear();
@@ -1300,7 +1301,8 @@ bool asst::StrongholdProtocolTask::handle_reward_page(int after_round)
 bool asst::StrongholdProtocolTask::handle_full_bench_sale(
     const json::value& state,
     int funding_deficit,
-    const spa::BenchCapacityTrade* capacity_trade)
+    const spa::BenchCapacityTrade* capacity_trade,
+    const spa::ReplacementChoice* replacement_to_enable)
 {
     const int remaining_deployment = state.get("remaining_deployment", -1);
     if (!m_policy.dynamic_decision_mode || m_decision_only || (m_policy.bench_occupied < 10 && funding_deficit <= 0) ||
@@ -1331,6 +1333,10 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
     }
     if (m_pending_direct_promotion) {
         protected_names.push_back(m_pending_direct_promotion->get("operator", std::string()));
+    }
+    if (replacement_to_enable) {
+        protected_names.push_back(replacement_to_enable->incoming);
+        protected_names.push_back(replacement_to_enable->outgoing);
     }
     const auto selected =
         capacity_trade && std::find(protected_names.begin(), protected_names.end(), capacity_trade->spare_initial) ==
@@ -1430,6 +1436,8 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
                        { "funding_deficit", funding_deficit },
                        { "spare_initial_form_verified", remaining_copies.has_value() },
                        { "reserved_shop_offer", capacity_trade ? capacity_trade->purchase.name : std::string() },
+                       { "replacement_incoming", replacement_to_enable ? replacement_to_enable->incoming : "" },
+                       { "replacement_outgoing", replacement_to_enable ? replacement_to_enable->outgoing : "" },
                        { "protected_replacement_names", protected_names },
                        { "credit", sale.sale_credit() },
                        { "funds", state.get("funds", 0) + sale.sale_credit() },
@@ -1680,10 +1688,7 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
         m_pending_field_replacement.reset();
         return true;
     }
-    if (m_field_checkpoint_loaded || m_policy.bench_occupied >= 10) {
-        // A full hand cannot receive the outgoing actor. Resolve a pending
-        // committed exchange above, but free a bench slot before a new one.
-        // The ordinary full-bench sale step follows this function.
+    if (m_field_checkpoint_loaded || m_bench_recount_pending || !m_unreconciled_sale.empty()) {
         return false;
     }
     // A failed exchange can require source/panel recovery. Bound that work
@@ -1763,6 +1768,23 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
     }
     if (!choice.found) {
         return false;
+    }
+    if (m_policy.bench_occupied >= 10) {
+        if (target_failure_key.empty() || m_replacement_bench_space_round == round ||
+            (m_mode == "joint" && state.get("preparation_seconds_remaining", 0) < 45)) {
+            return false;
+        }
+        if (!handle_full_bench_sale(state, 0, nullptr, &choice)) {
+            return false;
+        }
+        if (m_policy.bench_occupied < 10) {
+            // Keep the freed slot available for the next field decision.
+            // The sale receipt invalidated the old wallet review, so resume
+            // shopping with the new balance once the field work finishes.
+            m_replacement_bench_space_round = round;
+            m_shopping_complete = true;
+        }
+        return true;
     }
     m_failed_replacements.emplace(choice.incoming, choice.outgoing, choice.x, choice.y);
     auto decision = basic_info_with_what("SPAReplacementDecision");

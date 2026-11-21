@@ -1573,6 +1573,23 @@ int main()
     auto all_reserved = pending_swap_bench;
     all_reserved.owned = { { "奥尔佳", { 1, false, false } }, { "杰克", { 1, true, true } } };
     assert(!choose_full_bench_sale(all_reserved, { "奥尔佳", "杰克" }));
+    // Live D4 round 12 had no transient slot to bring the Iberian carry
+    // up from a full bench. Protect both proposed exchange identities.
+    PreparationPolicy iberia_full_bench;
+    iberia_full_bench.primary_pact = "伊比利亚";
+    iberia_full_bench.primary_locked_after_activation = true;
+    iberia_full_bench.support_pacts = { "精准", "远见" };
+    iberia_full_bench.shop_level = 5;
+    iberia_full_bench.bench_occupied = 10;
+    iberia_full_bench.owned = { { "伺夜", { 1, false, true } },   { "塞雷娅", { 1, false, false } },
+                                { "夏栎", { 2, false, true } },   { "引星棘刺", { 1, false, false } },
+                                { "摆渡人", { 1, false, true } }, { "旅骨", { 2, false, true } },
+                                { "海沫", { 1, false, false } },  { "深靛", { 1, true, true } },
+                                { "渡桥", { 1, false, true } },   { "温蒂", { 1, false, false } },
+                                { "瑰盐", { 2, false, true } },   { "空弦", { 2, false, false } },
+                                { "蓝毒", { 1, true, true } },    { "陨星", { 1, false, false } } };
+    assert(choose_full_bench_sale(iberia_full_bench, { "引星棘刺", "摆渡人" }) == "陨星");
+    assert(!choose_full_bench_sale(iberia_full_bench, { "引星棘刺", "摆渡人", "陨星", "塞雷娅" }));
     assert(normalize_bounty_title("悬赏·特异Ⅰ") == normalize_bounty_title("悬赏·特异I"));
     assert(normalize_bounty_title("悬赏·特异Ⅰ") != normalize_bounty_title("悬赏·特异Ⅱ"));
     assert(resolve_difficulty(KeepDifficulty, 9, { 1, 9, 14 }) == 9);

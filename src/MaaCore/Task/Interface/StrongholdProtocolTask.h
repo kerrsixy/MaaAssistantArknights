@@ -93,10 +93,12 @@ private:
     bool handle_full_bench_sale(
         const json::value& state,
         int funding_deficit = 0,
-        const spa::BenchCapacityTrade* capacity_trade = nullptr);
+        const spa::BenchCapacityTrade* capacity_trade = nullptr,
+        const spa::ReplacementChoice* replacement_to_enable = nullptr);
     std::optional<std::pair<int, spa::ShopOffer>> m_purchase_reserved_after_sale;
     std::set<std::pair<int, std::string>> m_failed_bench_sales;
     std::string m_unreconciled_sale;
+    int m_replacement_bench_space_round = -1;
     bool reconcile_pending_cash_equipment(const json::value& state);
     bool handle_cash_equipment(const json::value& state, int funding_deficit = 0);
     bool handle_delayed_cash_equipment(const json::value& state);
