@@ -166,6 +166,42 @@ inline std::optional<BenchCapacityTrade> choose_kjerag_freeze_funding_trade(
     return lowest ? std::optional(BenchCapacityTrade { std::string(lowest->name), funding.offer }) : std::nullopt;
 }
 
+// A verified field copy remains in place when selling an initial bench duplicate.
+inline std::optional<std::string> choose_verified_bench_spare_sale(
+    const PreparationPolicy& policy,
+    const std::map<std::string, int>& verified_field_counts,
+    const std::vector<std::string>& protected_names)
+{
+    const auto pacts = operator_pacts();
+    const auto& growth = growth_profiles();
+    const OperatorCatalogueEntry* lowest = nullptr;
+    for (const auto& facts : OperatorCatalogue) {
+        const std::string name(facts.name);
+        const auto owned = policy.owned.find(name);
+        const auto field = verified_field_counts.find(name);
+        if (owned == policy.owned.end() || field == verified_field_counts.end() || field->second != 1 ||
+            !owned->second.deployed || facts.sale_has_side_effect || facts.trait_mentions_bench || facts.price <= 0 ||
+            is_strategy_core(policy.selected_strategy_id, name) ||
+            std::find(protected_names.begin(), protected_names.end(), name) != protected_names.end()) {
+            continue;
+        }
+        const auto forms = owned_form_counts(owned->second);
+        // This name is already represented on the field, so the sale
+        // preserves its distinct contribution even for bench-counting pacts.
+        // Per-instance effects in the bench still block the sale.
+        if (!forms || forms->initial <= field->second || !pacts.contains(name)) {
+            continue;
+        }
+        if (const auto source = growth.find(name); source != growth.end() && source->second.works_on_bench) {
+            continue;
+        }
+        if (!lowest || facts.tier < lowest->tier) {
+            lowest = &facts;
+        }
+    }
+    return lowest ? std::optional(std::string(lowest->name)) : std::nullopt;
+}
+
 inline std::optional<BenchCapacityTrade> choose_bench_capacity_trade(
     const PreparationPolicy& policy,
     int funds,
@@ -210,36 +246,9 @@ inline std::optional<BenchCapacityTrade> choose_bench_capacity_trade(
     if (const auto expendable = choose_full_bench_sale(policy, protected_names)) {
         return BenchCapacityTrade { *expendable, { purchase.name, purchase.price, purchase.right_slot } };
     }
-    const auto growth = growth_profiles();
-    const OperatorCatalogueEntry* lowest = nullptr;
-    for (const auto& facts : OperatorCatalogue) {
-        const std::string name(facts.name);
-        const auto owned = policy.owned.find(name);
-        const auto field = verified_field_counts.find(name);
-        if (owned == policy.owned.end() || field == verified_field_counts.end() || field->second != 1 ||
-            !owned->second.deployed || facts.sale_has_side_effect || facts.trait_mentions_bench || facts.price <= 0 ||
-            is_strategy_core(policy.selected_strategy_id, name) ||
-            std::find(protected_names.begin(), protected_names.end(), name) != protected_names.end()) {
-            continue;
-        }
-        const auto forms = owned_form_counts(owned->second);
-        // This name is already represented on the field, so the sale
-        // preserves its distinct contribution even for bench-counting pacts.
-        // Per-instance effects in the bench still block the sale.
-        if (!forms || forms->initial <= field->second || !pacts.contains(name)) {
-            continue;
-        }
-        if (const auto source = growth.find(name); source != growth.end() && source->second.works_on_bench) {
-            continue;
-        }
-        if (!lowest || facts.tier < lowest->tier) {
-            lowest = &facts;
-        }
-    }
-    if (!lowest) {
-        return std::nullopt;
-    }
-    return BenchCapacityTrade { std::string(lowest->name), { purchase.name, purchase.price, purchase.right_slot } };
+    const auto spare = choose_verified_bench_spare_sale(policy, verified_field_counts, protected_names);
+    return spare ? std::optional(BenchCapacityTrade { *spare, { purchase.name, purchase.price, purchase.right_slot } })
+                 : std::nullopt;
 }
 
 // Select a purchase under a hypothetical funded budget for the requested source.

@@ -1342,18 +1342,32 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
         protected_names.push_back(replacement_to_enable->incoming);
         protected_names.push_back(replacement_to_enable->outgoing);
     }
-    const auto selected =
+    auto selected =
         capacity_trade && std::find(protected_names.begin(), protected_names.end(), capacity_trade->spare_initial) ==
                               protected_names.end()
             ? std::optional(capacity_trade->spare_initial)
             : spa::choose_full_bench_sale(candidates, protected_names, funding_deficit);
-    if (!selected) {
+    if (!selected && replacement_to_enable && !capacity_trade) {
+        std::map<std::string, int> field_counts;
+        for (const auto& [name, position] : m_auto_deploy_positions) {
+            if (!m_verified_field_pose_points.contains(position)) {
+                return false;
+            }
+            ++field_counts[name];
+        }
+        if (m_auto_deploy_positions.size() == 8) {
+            selected = spa::choose_verified_bench_spare_sale(candidates, field_counts, protected_names);
+        }
+    }
+    if (!selected || (capacity_trade && *selected != capacity_trade->spare_initial)) {
         return false;
     }
     std::optional<spa::OwnedOperator> remaining_copies;
-    if (capacity_trade) {
+    const bool verify_initial_form =
+        capacity_trade || (replacement_to_enable && candidates.owned.at(*selected).deployed);
+    if (verify_initial_form) {
         const auto found = candidates.owned.find(*selected);
-        if (*selected != capacity_trade->spare_initial || found == candidates.owned.end()) {
+        if (found == candidates.owned.end()) {
             return false;
         }
         const auto forms = spa::owned_form_counts(found->second);
@@ -1385,7 +1399,7 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
                            { "round", round },
                            { "funds", state.get("funds", -1) },
                            { "remaining_deployment", remaining_deployment } };
-    if (capacity_trade) {
+    if (verify_initial_form) {
         options["verify_source_form"] = true;
         options["target_elite"] = false;
     }
@@ -1812,6 +1826,7 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
             // shopping with the new balance once the field work finishes.
             m_replacement_bench_space_round = round;
             m_shopping_complete = true;
+            m_shop_review_after_replacements = true;
         }
         return true;
     }

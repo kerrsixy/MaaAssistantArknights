@@ -1437,6 +1437,25 @@ int main()
     victoria_capacity.full_field_offer_improvements["水灯心"] = 0;
     assert(!choose_bench_capacity_trade(victoria_capacity, 11, { { "水灯心", 3, 4 } }, victoria_field, {}));
 
+    // Regulation 4 round 14 had a full bench, with initial spares of
+    // deployed 慕斯 and 渡桥. An already-owned upgrade needs no shop offer.
+    auto boss_swap_full = victoria_full;
+    boss_swap_full.boss_preparation = true;
+    boss_swap_full.owned = {
+        { "慕斯", { 2, false, true } },  { "渡桥", { 2, false, true } },           { "卡达", { 1, false, true } },
+        { "酒神", { 1, false, false } }, { "Miss.Christine", { 1, true, false } },
+    };
+    const std::vector<std::string> protected_exchange { "酒神", "卡达" };
+    const std::map<std::string, int> verified_bodies { { "慕斯", 1 }, { "渡桥", 1 }, { "卡达", 1 } };
+    assert(!choose_full_bench_sale(boss_swap_full, protected_exchange));
+    assert(choose_verified_bench_spare_sale(boss_swap_full, verified_bodies, protected_exchange) == "慕斯");
+    assert(choose_verified_bench_spare_sale(boss_swap_full, verified_bodies, { "酒神", "慕斯" }) == "渡桥");
+    assert(!choose_verified_bench_spare_sale(boss_swap_full, {}, protected_exchange));
+    assert(!choose_verified_bench_spare_sale(boss_swap_full, verified_bodies, { "慕斯", "渡桥" }));
+    boss_swap_full.owned.at("慕斯").copies = 1;
+    assert(choose_verified_bench_spare_sale(boss_swap_full, verified_bodies, protected_exchange) == "渡桥");
+    assert(!choose_verified_bench_spare_sale(boss_swap_full, { { "慕斯", 1 }, { "渡桥", 2 } }, protected_exchange));
+
     auto victoria_support = victoria_full;
     victoria_support.derive_support_pacts = true;
     victoria_support.owned = { { "Miss.Christine", { 1, false, true } }, { "白铁", { 1, false, true } },
