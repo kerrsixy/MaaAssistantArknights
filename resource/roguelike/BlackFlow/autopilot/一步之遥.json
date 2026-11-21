@@ -1,0 +1,70 @@
+{
+    "stage_name": "一步之遥",
+    "doc": [
+        "EW开局的五人研究候选，尚未实机通过。ro6_n_5_1与ro6_e_5_1地形相同，但随机植物配置、敌人倍率不同，不将普通与紧急视为同一验收。",
+        "上方(3,1)/(5,1)/(7,1)是中点A/B/C伪装敌，不是可忽略的普通红门。提丰(4,5)上基础范围覆盖A/B，卡达(6,3)上覆盖B/C；范围可及不保证视野、伤害或完成击杀。",
+        "EW(6,4)右负责右路(9,3)/(9,4)/(9,5)，与视频(7,5)右并不等价，不覆盖(9,6)。提丰费用使用本局手牌，不套用参考视频来源未明的3费条件。",
+        "机械师(1,5)上守左门前唯一通路，原始配置无该格固定占位；动态占位仍须部署确认。它不覆盖上方A，也不使用可能被盾与墙占据的(5,3)。",
+        "波登可(5,5)上基础范围可在S1期间治疗三个高台，存在技能空窗；普通医疗仅偏好这些覆盖点，不由攻击范围门禁排除。左侧机械师不在此治疗范围。",
+        "新约能天使是持续流失生命的特种，不以医疗替代，也不在此作业补位。树丛、盾与墙和中点必须区别，不能套用无主地打花还原狗或枝头诱饵机制。",
+        "预留主力费用与格子，禁止通用兜底向未规划位置继续铺人。此候选不是望的固定棋位，望仍需实时战场观察和部署回执。号角蓝门能力未启用。"
+    ],
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true,
+    "deploy_plan": [
+        {
+            "groups": ["机械师", "重装", "奶盾", "铁卫", "地面阻挡"],
+            "exclude_starting_core": true,
+            "location": [1, 5],
+            "direction": "up",
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["益达"],
+            "operator_names": ["维什戴尔"],
+            "minimum_elite": 1,
+            "location": [6, 4],
+            "direction": "right",
+            "required_attack_tiles": [
+                [9, 3],
+                [9, 4],
+                [9, 5]
+            ]
+        },
+        {
+            "groups": ["提丰"],
+            "operator_names": ["提丰"],
+            "minimum_elite": 1,
+            "location": [4, 5],
+            "direction": "up",
+            "required_attack_tiles": [
+                [3, 1],
+                [5, 1]
+            ]
+        },
+        {
+            "groups": ["术师", "高台法术", "速狙", "狙击", "高台输出"],
+            "exclude_starting_core": true,
+            "excluded_operator_names": ["提丰", "新约能天使", "波登可"],
+            "minimum_elite": 1,
+            "location": [6, 3],
+            "direction": "up",
+            "required_attack_tiles": [
+                [5, 1],
+                [7, 1]
+            ]
+        },
+        {
+            "groups": ["医疗", "奶", "单奶", "群奶", "元素奶"],
+            "minimum_elite": 1,
+            "location": [5, 5],
+            "direction": "up",
+            "preferred_attack_tiles": [
+                [4, 5],
+                [6, 4],
+                [6, 3]
+            ],
+            "prefer_group_order": true
+        }
+    ]
+}
