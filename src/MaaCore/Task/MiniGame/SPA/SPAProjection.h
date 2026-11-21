@@ -126,6 +126,8 @@ OccupiedPreviewRegistration align_occupied_preview(const cv::Mat& image, const s
 // Visual registration only: terrain plane, tile identity and legal placement need separate verification.
 std::optional<cv::Point> direction_selection_center(const cv::Mat& image);
 std::optional<cv::Point> direction_cancel_target(const cv::Mat& image, cv::Point center);
+std::optional<cv::Point>
+    replacement_direction_center(const cv::Mat& placement, const cv::Mat& held, cv::Point expected_target);
 std::optional<char> deployed_facing(const cv::Mat& image, cv::Point foot);
 // A single long boss HP bar in the enemy preparation area. This supplies a
 // visible phase marker, not a boss identity or a guessed ground coordinate.

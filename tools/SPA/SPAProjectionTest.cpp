@@ -751,6 +751,10 @@ int main()
     assert(cancel && cv::norm(*cancel - cv::Point(655, 174)) < 4);
     assert(!direction_cancel_target(occupied_held, *occupied_center));
     assert(!direction_cancel_target(blank, *occupied_center));
+    assert(replacement_direction_center(occupied_direction, occupied_held, { 803, 300 }) == occupied_center);
+    assert(!replacement_direction_center(occupied_direction, occupied_held, { 824, 353 }));
+    assert(!replacement_direction_center(occupied_held, occupied_held, { 803, 300 }));
+    assert(!replacement_direction_center(occupied_direction, blank, { 803, 300 }));
     assert(!equipment_target_preview(gear_normal, gear_normal, { 800, 185 }).verified);
     assert(!equipment_target_preview(gear_normal, gear_held, { 500, 185 }).verified);
     assert(!equipment_target_preview(blank, gear_held, { 800, 185 }).verified);

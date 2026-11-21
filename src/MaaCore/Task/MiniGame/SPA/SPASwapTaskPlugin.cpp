@@ -4444,7 +4444,16 @@ bool asst::spa::SwapTaskPlugin::_run()
         const auto settled_image = ctrler()->get_image();
         save_evidence(settled_image, utils::path("debug/SPA/deploy_settled"), false);
         std::vector<TextObservation> texts;
-        const bool visual_placement = deployment_surface_visible(settled_image);
+        const auto replacement_center = [&](const cv::Mat& frame) -> std::optional<cv::Point> {
+            if (!m_deployment_hint_verified || m_held_board.empty()) {
+                return std::nullopt;
+            }
+            return replacement_direction_center(frame, m_held_board, cv::Point(m_drag_target.x, m_drag_target.y));
+        };
+        // On a full board only the occupied receivers turn green. The
+        // direction modal is visible even when the full-board mask is sparse.
+        const bool visual_placement = deployment_surface_visible(settled_image) ||
+                                      (m_replace_only && replacement_center(settled_image).has_value());
         if (!(m_best_effort_deployment && visual_placement)) {
             OCRer ocr(settled_image);
             if (const auto recognized = ocr.analyze()) {
@@ -4522,7 +4531,8 @@ bool asst::spa::SwapTaskPlugin::_run()
         // diamond centre toward the requested direction; a tap on the
         // visible arrow is only a visual cue and does not commit placement.
         const auto placement_image = ctrler()->get_image();
-        const auto center = direction_selection_center(placement_image);
+        const auto center =
+            m_replace_only ? replacement_center(placement_image) : direction_selection_center(placement_image);
         if (!center) {
             save_evidence(placement_image, utils::path("debug/SPA/deploy_direction_diamond_missing"), false);
             return false;

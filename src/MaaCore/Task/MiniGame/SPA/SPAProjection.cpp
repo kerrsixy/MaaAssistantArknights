@@ -1399,6 +1399,17 @@ std::optional<cv::Point> asst::spa::direction_cancel_target(const cv::Mat& image
     return target;
 }
 
+std::optional<cv::Point>
+    asst::spa::replacement_direction_center(const cv::Mat& placement, const cv::Mat& held, cv::Point expected_target)
+{
+    const auto center = direction_selection_center(placement);
+    if (!center || !direction_cancel_target(placement, *center)) {
+        return std::nullopt;
+    }
+    const auto foot = registered_deployment_pose(placement, held, *center + cv::Point(0, 20));
+    return foot && cv::norm(*foot - expected_target) <= 22 ? center : std::nullopt;
+}
+
 asst::spa::EquipmentPreviewEvidence asst::spa::equipment_target_preview(
     const cv::Mat& before,
     const cv::Mat& held,
