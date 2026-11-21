@@ -391,11 +391,13 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
     const std::function<int(const std::vector<DeploymentUnit>&)>& preference,
     const std::vector<BoardCell>& opening_boss_cells,
     const std::vector<BoardCell>& boss_movement_waypoints,
-    const std::function<int(const std::vector<DeploymentUnit>&)>& preparation_growth_preference)
+    const std::function<int(const std::vector<DeploymentUnit>&)>& preparation_growth_preference,
+    std::optional<int> available_input_steps)
 {
     DeploymentProposal result;
     const auto initial = review_deployment(units, lanes, deployable_cells);
-    if (!initial.complete || evaluation_budget < 1 || evaluation_budget > 100'000) {
+    if (!initial.complete || evaluation_budget < 1 || evaluation_budget > 100'000 ||
+        (available_input_steps && *available_input_steps < 0)) {
         result.reason = "Incomplete geometry or invalid search budget";
         return result;
     }
@@ -517,6 +519,21 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
                     candidate[index].facing = direction;
                     const auto value = score(candidate);
                     if (value < next_score) {
+                        if (available_input_steps) {
+                            int changed = 0;
+                            for (size_t member = 0; member < units.size(); ++member) {
+                                changed += units[member].cell != candidate[member].cell ||
+                                           units[member].facing != candidate[member].facing;
+                            }
+                            if (changed > *available_input_steps) {
+                                continue;
+                            }
+                            const auto sequence = sequence_deployment(units, candidate, 1500);
+                            if (!sequence.complete ||
+                                deployment_input_steps_with_facing_repairs(sequence) > *available_input_steps) {
+                                continue;
+                            }
+                        }
                         next_score = value;
                         best = std::move(candidate);
                     }
@@ -559,6 +576,22 @@ int asst::spa::deployment_preference_input_cost(const DeploymentSequence& sequen
         cost += step.kind == DeploymentStepKind::Face ? 100 : 250;
     }
     return cost;
+}
+
+int asst::spa::deployment_input_steps_with_facing_repairs(const DeploymentSequence& sequence)
+{
+    int count = 0;
+    std::set<std::string> pending_facing;
+    for (const auto& step : sequence.steps) {
+        const bool was_displaced = pending_facing.erase(step.unit) != 0;
+        // A final explicit Face already covers the repair reserved by its swap.
+        count += !(step.kind == DeploymentStepKind::Face && was_displaced);
+        if (step.kind == DeploymentStepKind::Swap) {
+            ++count;
+            pending_facing.insert(step.displaced);
+        }
+    }
+    return count;
 }
 
 bool asst::spa::deployment_change_worth_input(const DeploymentProposal& proposal, const DeploymentSequence& sequence)

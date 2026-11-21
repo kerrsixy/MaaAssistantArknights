@@ -114,7 +114,8 @@ DeploymentProposal propose_deployment(
     const std::function<int(const std::vector<DeploymentUnit>&)>& preference = {},
     const std::vector<BoardCell>& opening_boss_cells = {},
     const std::vector<BoardCell>& boss_movement_waypoints = {},
-    const std::function<int(const std::vector<DeploymentUnit>&)>& preparation_growth_preference = {});
+    const std::function<int(const std::vector<DeploymentUnit>&)>& preparation_growth_preference = {},
+    std::optional<int> available_input_steps = std::nullopt);
 
 enum class DeploymentStepKind
 {
@@ -154,6 +155,8 @@ struct DeploymentSequence
 // latency. Apply this hysteresis only to the generic coverage planner, never
 // to a pact's explicit mechanism sequence such as an Egir consumption chain.
 int deployment_preference_input_cost(const DeploymentSequence& sequence);
+// A swap can leave the displaced operator's facing unobservable until a repair.
+int deployment_input_steps_with_facing_repairs(const DeploymentSequence& sequence);
 bool deployment_change_worth_input(const DeploymentProposal& proposal, const DeploymentSequence& sequence);
 
 DeploymentSequence sequence_deployment(

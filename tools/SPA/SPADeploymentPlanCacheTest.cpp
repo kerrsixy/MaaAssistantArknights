@@ -44,6 +44,28 @@ int main()
     assert(swap_plan.complete && swap_plan.steps.size() == 2);
     assert(swap_plan.steps[0].kind == DeploymentStepKind::Swap && swap_plan.steps[1].kind == DeploymentStepKind::Face);
     assert(swap_plan.steps[1].unit == swap_plan.steps[0].displaced);
+    assert(deployment_input_steps_with_facing_repairs(move_plan) == 1);
+    assert(deployment_input_steps_with_facing_repairs(swap_plan) == 2);
+    auto chained_plan = swap_plan;
+    chained_plan.steps[1] = { DeploymentStepKind::Move, swap_plan.steps[0].displaced, {}, { 7, 1 }, { 8, 1 }, 'N' };
+    assert(deployment_input_steps_with_facing_repairs(chained_plan) == 3);
+
+    const std::vector<BoardCell> adjacent_cells { { 7, 1 }, { 7, 2 } };
+    std::vector<DeploymentUnit> pair { unit("旅骨", { 7, 1 }), unit("慕斯", { 7, 2 }) };
+    for (auto& member : pair) {
+        member.placement_cells = adjacent_cells;
+    }
+    const auto facing_priority = [](const auto& board) {
+        return (board[0].facing == 'S' ? 1200 : 0) + (board[1].facing == 'W' ? 600 : 0);
+    };
+    const std::vector<DeploymentLane> test_lane { { "lane", adjacent_cells } };
+    const auto one_action = propose_deployment(pair, test_lane, adjacent_cells, 100, facing_priority, {}, {}, {}, 1);
+    assert(one_action.improved && one_action.units[0].facing == 'S' && one_action.units[1].facing == 'E');
+    assert(deployment_input_steps_with_facing_repairs(sequence_deployment(pair, one_action.units)) == 1);
+    const auto two_actions = propose_deployment(pair, test_lane, adjacent_cells, 100, facing_priority, {}, {}, {}, 2);
+    assert(two_actions.improved && two_actions.units[0].facing == 'S' && two_actions.units[1].facing == 'W');
+    assert(deployment_input_steps_with_facing_repairs(sequence_deployment(pair, two_actions.units)) == 2);
+
     auto target = before;
     target[0].cell = { 8, 3 };
     target[2].cell = { 8, 1 };

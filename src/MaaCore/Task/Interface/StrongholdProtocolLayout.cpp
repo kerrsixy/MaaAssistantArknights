@@ -331,6 +331,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     if (m_layout_supplied || !terrain || m_dynamic_layout_attempts[round] >= layout_action_budget) {
         return std::nullopt;
     }
+    const int available_input_steps = layout_action_budget - m_dynamic_layout_attempts[round];
     const auto map_context = m_spatial_map_id + (boss_round ? "#boss" : "#normal");
     const auto rejected_vacant_drop = [&](const spa::DeploymentUnit& unit, const spa::BoardCell& cell) {
         if (unit.cell == cell || m_failed_spatial_actions.empty() ||
@@ -645,7 +646,8 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         trait_preference,
         boss_cells,
         movement_waypoints,
-        preparation_growth);
+        preparation_growth,
+        available_input_steps);
     json::array movement_targets;
     for (const auto& [col, row] : movement_waypoints) {
         movement_targets.emplace_back(json::object { { "col", col }, { "row", row } });
@@ -694,6 +696,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
               freeze_stackers,
               skill_freeze_sources) },
         { "preparation_growth_priority", static_cast<bool>(preparation_growth) },
+        { "available_input_steps", available_input_steps },
         { "preparation_growth_preference_improvement", proposal.preparation_growth_preference_improvement },
         { "evaluations", proposal.evaluations },
         { "planning_ms",
@@ -742,11 +745,14 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
                            { "direction", std::string(1, step.facing) } });
     }
     auto plan = basic_info_with_what("SPAFormationPreplanned");
-    plan["details"] = json::object { { "round", round },
-                                     { "map_id", m_spatial_map_id },
-                                     { "target", target_snapshot(m_dynamic_layout_target) },
-                                     { "steps", std::move(planned_steps) },
-                                     { "input_issued", false } };
+    plan["details"] =
+        json::object { { "round", round },
+                       { "map_id", m_spatial_map_id },
+                       { "target", target_snapshot(m_dynamic_layout_target) },
+                       { "steps", std::move(planned_steps) },
+                       { "available_input_steps", available_input_steps },
+                       { "input_steps_with_facing_repairs", spa::deployment_input_steps_with_facing_repairs(sequence) },
+                       { "input_issued", false } };
     callback(AsstMsg::SubTaskExtraInfo, plan);
     return sequence.steps.front();
 }
