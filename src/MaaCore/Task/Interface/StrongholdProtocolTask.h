@@ -171,7 +171,12 @@ private:
     std::map<int, int> m_spatial_reconciliation_attempts;
     bool m_dynamic_layout_observed = false;
     bool m_field_checkpoint_loaded = false;
-    std::map<std::string, int> m_spatial_grid_refresh_attempts;
+    struct SpatialGridRefresh
+    {
+        int attempts = 0;
+        bool facings_reviewed = false;
+    };
+    std::map<std::string, SpatialGridRefresh> m_spatial_grid_refresh_attempts;
     std::string m_recent_bench_acquisition;
     std::set<std::pair<int, std::string>> m_spatial_orientation_attempts;
     std::optional<json::object> m_pending_spatial_orientation;

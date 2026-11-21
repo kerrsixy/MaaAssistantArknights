@@ -34,13 +34,14 @@ void
         std::any_of(m_auto_deploy_positions.begin(), m_auto_deploy_positions.end(), [&](const auto& item) {
             return !m_committed_facings.contains(item.second);
         });
+    const bool needs_grid_recovery = bootstrap || m_growth_population_poses != m_auto_deploy_positions ||
+                                     m_population_grid_members.size() != m_auto_deploy_positions.size();
     if (!m_policy.dynamic_decision_mode || state.get("page", std::string()) != "preparation" ||
         !state.get("round_known", false) || !state.get("funds_known", false) ||
         !state.get("remaining_deployment_known", false) || m_pending_spatial_orientation ||
         m_pending_field_replacement || m_auto_deploy_positions.empty() ||
         m_auto_deploy_positions.size() != static_cast<std::size_t>(8 - state.get("remaining_deployment", -1)) ||
-        (!require_fresh_projection && !bootstrap && m_growth_population_poses == m_auto_deploy_positions &&
-         m_population_grid_members.size() == m_auto_deploy_positions.size() && !has_unknown_facing)) {
+        (!require_fresh_projection && !needs_grid_recovery && !has_unknown_facing)) {
         return;
     }
     std::vector<spa::PlacementMember> members;
@@ -69,11 +70,14 @@ void
     // new physical field. Funds, bench purchases and inventory changes alone
     // do not reset this bounded identity/pose/form context.
     const auto refresh_context = std::to_string(round) + ":" + bootstrap_failure_key;
-    auto& refresh_attempt = m_spatial_grid_refresh_attempts[refresh_context];
-    if (refresh_attempt >= (bootstrap ? 1 : 2)) {
+    auto& refresh = m_spatial_grid_refresh_attempts[refresh_context];
+    // A clean frame already tried the unknown chevrons for this physical
+    // field. A turn-in-place on a different slot should not recheck them.
+    if (refresh.attempts >= (bootstrap ? 1 : 2) ||
+        (!require_fresh_projection && !needs_grid_recovery && refresh.facings_reviewed)) {
         return;
     }
-    ++refresh_attempt;
+    ++refresh.attempts;
     spa::SwapTaskPlugin probe(m_callback, m_inst, TaskType);
     probe.set_retry_times(0);
     probe.set_task_id(m_task_id);
@@ -117,6 +121,7 @@ void
     const auto populations = observed ? spa::same_row_growth_populations(grid) : std::nullopt;
     if (populations && grid.size() == m_auto_deploy_positions.size() &&
         probe.observed_field_members().size() == m_auto_deploy_positions.size()) {
+        refresh.facings_reviewed = !bootstrap;
         m_auto_deploy_positions.clear();
         m_verified_field_pose_points.clear();
         m_auto_deploy_used_cells.clear();
@@ -152,7 +157,7 @@ void
     }
     evidence["details"] = json::object { { "run_id", m_run_id },
                                          { "round", round },
-                                         { "field_context_attempt", refresh_attempt },
+                                         { "field_context_attempt", refresh.attempts },
                                          { "roster", roster_snapshot() },
                                          { "field_positions", field_position_snapshot() },
                                          { "failed_spatial_actions", failed_spatial_action_snapshot() },

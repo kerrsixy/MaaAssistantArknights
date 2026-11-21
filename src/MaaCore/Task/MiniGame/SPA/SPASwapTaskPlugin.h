@@ -225,11 +225,11 @@ private:
         const std::string& replacement_bench_name = {});
     bool reconcile_deployed_target();
     bool observe_deployed_pose();
-    bool close_selection();
+    bool close_selection(cv::Mat* clean_frame = nullptr);
     bool ensure_expanded_shop(cv::Mat* already_visible_frame = nullptr);
     bool ensure_collapsed_shop(cv::Mat* already_visible_frame = nullptr);
     bool capture_collapsed_preparation(cv::Mat& image);
-    bool ensure_shop_visibility(bool expanded, cv::Mat* already_visible_frame);
+    bool ensure_shop_visibility(bool expanded, cv::Mat* already_visible_frame, const cv::Mat& initial_frame = {});
     bool reacquire_cash_equipment_source(const Point& verified_source);
     std::optional<int> read_selected_cash_equipment_credit(const cv::Mat& frame) const;
     bool held_drag();

@@ -1389,8 +1389,11 @@ std::optional<std::vector<std::string>> asst::spa::SwapTaskPlugin::selected_equi
     return result;
 }
 
-bool asst::spa::SwapTaskPlugin::close_selection()
+bool asst::spa::SwapTaskPlugin::close_selection(cv::Mat* clean_frame)
 {
+    if (clean_frame) {
+        clean_frame->release();
+    }
     // The B-server keeps the selected operator panel open while still
     // showing the preparation HUD.  A plain preparation OCR check therefore
     // cannot prove that the map is clean. Clicking an empty, non-deployable
@@ -1439,6 +1442,9 @@ bool asst::spa::SwapTaskPlugin::close_selection()
                 }
             }
             if (!selected_panel) {
+                if (clean_frame) {
+                    *clean_frame = frame;
+                }
                 return true;
             }
             // Map point (1080,300) can contain an interactive roadblock. It
@@ -1492,7 +1498,8 @@ bool asst::spa::SwapTaskPlugin::ensure_collapsed_shop(cv::Mat* already_visible_f
 bool asst::spa::SwapTaskPlugin::capture_collapsed_preparation(cv::Mat& image)
 {
     image.release();
-    if (!close_selection() || !ensure_collapsed_shop(&image)) {
+    cv::Mat clean;
+    if (!close_selection(&clean) || !ensure_shop_visibility(false, &image, clean)) {
         return false;
     }
     // A toggle can change the label before the camera settles. Keep the
@@ -1510,14 +1517,17 @@ bool asst::spa::SwapTaskPlugin::capture_collapsed_preparation(cv::Mat& image)
     return true;
 }
 
-bool asst::spa::SwapTaskPlugin::ensure_shop_visibility(bool expanded, cv::Mat* already_visible_frame)
+bool asst::spa::SwapTaskPlugin::ensure_shop_visibility(
+    bool expanded,
+    cv::Mat* already_visible_frame,
+    const cv::Mat& initial_frame)
 {
     if (already_visible_frame) {
         already_visible_frame->release();
     }
     bool input_issued = false;
     for (int attempt = 0; attempt < 4; ++attempt) {
-        const auto image = ctrler()->get_image();
+        const auto image = attempt == 0 && !initial_frame.empty() ? initial_frame : ctrler()->get_image();
         const auto publish_frame = [&] {
             // After a toggle, the layout label can settle ahead of the
             // camera. Geometry callers keep their existing follow-up frame.
