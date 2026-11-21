@@ -1486,8 +1486,15 @@ bool asst::StrongholdProtocolTask::handle_fear_trap_instruction(const json::valu
     }
     const auto preview = held ? ctrler()->get_image() : cv::Mat {};
     const auto held_grid = held ? project(preview) : std::nullopt;
+    const auto project_cell = [](spa::BoardCell cell, const cv::Mat& grid) {
+        const std::vector<cv::Point2f> logical { { static_cast<float>(cell.first), static_cast<float>(cell.second) } };
+        std::vector<cv::Point2f> projected;
+        cv::perspectiveTransform(logical, projected, grid);
+        return projected.front();
+    };
     std::optional<std::pair<spa::BoardCell, Point>> target;
-    int best_score = 0;
+    std::optional<std::pair<spa::BoardCell, Point>> hover_target;
+    int best_score = 0, best_hover_score = 0;
     if (held_grid) {
         const auto lanes = spa::active_preparation_lanes(*terrain, round);
         for (const auto& cell : terrain->ground_route) {
@@ -1517,24 +1524,40 @@ bool asst::StrongholdProtocolTask::handle_fear_trap_instruction(const json::valu
                     score += 4;
                 }
             }
-            if (score <= best_score) {
+            if (score <= best_score && score <= best_hover_score) {
                 continue;
             }
-            const std::vector<cv::Point2f> logical { { static_cast<float>(cell.first),
-                                                       static_cast<float>(cell.second) } };
-            std::vector<cv::Point2f> points, previous;
-            cv::perspectiveTransform(logical, points, *held_grid);
-            cv::perspectiveTransform(logical, previous, *normal_grid);
+            const auto point = project_cell(cell, *held_grid);
+            const auto previous = project_cell(cell, *normal_grid);
             const cv::Rect2f bounds(180, 145, 820, 355);
-            if (!bounds.contains(points.front()) || !bounds.contains(previous.front())) {
+            if (!bounds.contains(point) || !bounds.contains(previous)) {
                 continue;
             }
-            const cv::Point center(points.front());
-            if (spa::green_deployment_hint(preview, center) &&
-                !spa::green_deployment_hint(before, cv::Point(previous.front()))) {
+            const cv::Point center(point);
+            if (score > best_score && spa::green_deployment_hint(preview, center) &&
+                !spa::green_deployment_hint(before, cv::Point(previous))) {
                 best_score = score;
                 target = std::pair(cell, Point(center.x, center.y));
             }
+            if (score > best_hover_score &&
+                spa::terrain_allows_deployment(m_spatial_map_id, cell, true, m_spatial_boss_phase)) {
+                best_hover_score = score;
+                hover_target = std::pair(cell, Point(center.x, center.y));
+            }
+        }
+    }
+    bool hover_prompt_verified = false;
+    if (!target && hover_target) {
+        // The instruction can prompt for a tile without drawing the
+        // operator deployment overlay. Only probe a registered, empty
+        // ground cell when the game explicitly requests a target.
+        OCRer prompt(preview, Rect(450, 128, 390, 48));
+        const auto labels = prompt.analyze();
+        hover_prompt_verified = labels && std::ranges::any_of(*labels, [](const auto& label) {
+                                    return label.score >= .85 && label.text == "请指向一格可用的地块";
+                                });
+        if (hover_prompt_verified) {
+            target = hover_target;
         }
     }
     bool moved = held && target.has_value();
@@ -1546,6 +1569,16 @@ bool asst::StrongholdProtocolTask::handle_fear_trap_instruction(const json::valu
                         staging.y + (target->second.y - staging.y) * step / 8)) &&
                     sleep(35);
         }
+    }
+    bool hovered_tile_verified = false;
+    cv::Mat hover;
+    if (moved && hover_prompt_verified) {
+        hover = sleep(150) ? ctrler()->get_image() : cv::Mat {};
+        const auto hovered_grid =
+            hover.empty() ? std::nullopt : spa::registered_grid_projection(preview, hover, *held_grid);
+        const cv::Point2f cursor(static_cast<float>(target->second.x), static_cast<float>(target->second.y));
+        moved = hovered_grid && cv::norm(project_cell(target->first, *hovered_grid) - cursor) <= 8;
+        hovered_tile_verified = moved;
     }
     if (!moved) {
         static_cast<void>(move(Point(20, 300)));
@@ -1584,7 +1617,9 @@ bool asst::StrongholdProtocolTask::handle_fear_trap_instruction(const json::valu
                                          { "charges_before", *charges_before },
                                          { "charges_after", charges_after.value_or(-1) },
                                          { "held_grid_verified", held_grid.has_value() },
-                                         { "legal_route_tile", target.has_value() },
+                                         { "legal_route_tile", best_score > 0 || verified },
+                                         { "hover_prompt_verified", hover_prompt_verified },
+                                         { "hover_registered", hovered_tile_verified },
                                          { "input_issued", issued },
                                          { "charge_spent_verified", verified } };
     callback(AsstMsg::SubTaskExtraInfo, evidence);
@@ -1593,6 +1628,9 @@ bool asst::StrongholdProtocolTask::handle_fear_trap_instruction(const json::valu
     }
     else {
         spa::save_evidence(preview, utils::path("debug/SPA/fear_trap_held"), false);
+        if (!hover.empty()) {
+            spa::save_evidence(hover, utils::path("debug/SPA/fear_trap_hover"), false);
+        }
         spa::save_evidence(after, utils::path("debug/SPA/fear_trap_unverified"), false);
     }
     return true;
