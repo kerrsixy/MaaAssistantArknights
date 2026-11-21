@@ -1930,26 +1930,22 @@ std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(
             }
         }
     }
-    if (!close_selection() || !preparation_matches()) {
+    if (!close_selection() || !ensure_collapsed_shop() || !preparation_matches()) {
         return false;
     }
-    // Use the post-drop camera for identity verification. The held-green
-    // overlay is insufficient proof that the game accepted the summon.
+    // The drop ends the green placement preview. Recover only the grid
+    // geometry on the clean frame, then read the title at the placed cell.
     const auto after = ctrler()->get_image();
-    const auto projected = reproject_preparation_board(
-        m_registered_grid_reference,
-        after,
-        m_registered_grid_projection,
-        m_registered_grid_map_id,
-        true);
-    if (!projected.verified || !projected.grid_verified) {
+    const auto projected = registered_grid_projection(m_registered_grid_reference, after, m_registered_grid_projection);
+    if (!projected) {
+        save_evidence(after, utils::path("debug/SPA/summon_field_grid_unverified"), false);
         return false;
     }
     std::vector<cv::Point2f> point;
     cv::perspectiveTransform(
         std::vector<cv::Point2f> { { static_cast<float>(chosen->first), static_cast<float>(chosen->second) } },
         point,
-        projected.grid_to_screen);
+        *projected);
     if (point.size() != 1 || !std::isfinite(point.front().x) || !std::isfinite(point.front().y) ||
         point.front().x < 180 || point.front().x >= 1050 || point.front().y < 130 || point.front().y >= 520) {
         return false;
@@ -1961,6 +1957,7 @@ std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(
         save_evidence(after, utils::path("debug/SPA/summon_on_field"), false);
         return true;
     }
+    save_evidence(after, utils::path("debug/SPA/summon_field_title_unverified"), false);
     return false;
 }
 

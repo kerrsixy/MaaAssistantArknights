@@ -3011,13 +3011,30 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         // already on the map. New deployments update this value through the
         // reconciled receipt/cached observation below.
         if (state_storage.get("page", std::string()) == "preparation") {
-            if (state_storage.get("preparation_boss_bar_visible", false)) {
+            const int observed_round = state_storage.get("round", 0);
+            const bool boss_bar_visible = state_storage.get("preparation_boss_bar_visible", false);
+            const bool scheduled_boss = state_storage.get("round_known", false) &&
+                                        spa::scheduled_independent_boss_preparation(
+                                            m_mode,
+                                            observed_round,
+                                            m_expected_boss_round,
+                                            m_difficulty,
+                                            m_advertised_boss_family);
+            if (boss_bar_visible || scheduled_boss) {
+                if (!m_spatial_boss_phase || m_spatial_boss_phase_round != observed_round) {
+                    auto phase = basic_info_with_what("SPABossPreparationPhaseObserved");
+                    phase["details"] = json::object {
+                        { "round", observed_round },
+                        { "source", boss_bar_visible ? "visible_health_bar" : "verified_independent_schedule" },
+                        { "boss_family_name", m_advertised_boss_family },
+                        { "attackable_region_measured", false }
+                    };
+                    callback(AsstMsg::SubTaskExtraInfo, phase);
+                }
                 m_spatial_boss_phase = true;
-                m_spatial_boss_phase_round = state_storage.get("round", 0);
+                m_spatial_boss_phase_round = observed_round;
             }
-            else if (
-                state_storage.get("round_known", false) &&
-                state_storage.get("round", 0) != m_spatial_boss_phase_round) {
+            else if (state_storage.get("round_known", false) && observed_round != m_spatial_boss_phase_round) {
                 m_spatial_boss_phase = false;
             }
             if (state_storage.get("remaining_deployment_known", false)) {

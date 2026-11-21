@@ -132,6 +132,20 @@ inline bool known_boss_family(const std::string& family)
     });
 }
 
+inline bool scheduled_independent_boss_preparation(
+    std::string_view mode,
+    int observed_round,
+    int scheduled_round,
+    int difficulty,
+    std::string_view verified_family)
+{
+    return mode == "independent" && observed_round >= 2 && observed_round <= 20 &&
+           observed_round == scheduled_round && difficulty >= 1 && difficulty <= 20 &&
+           std::any_of(SeasonBossCatalogue.begin(), SeasonBossCatalogue.end(), [&](const auto& boss) {
+               return boss.family_name == verified_family && boss.hp_by_difficulty[difficulty - 1] > 0;
+           });
+}
+
 inline BossObjective boss_objective(
     const std::string& family,
     BoardCell registered_home,

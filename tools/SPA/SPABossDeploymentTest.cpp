@@ -57,6 +57,16 @@ int main()
     assert(fixed.known && fixed.stationary_route);
     assert(mobile.known && !mobile.stationary_route);
     assert(!boss_family_mobility("unknown").known);
+    // Live D4 m01 advertised 矩兽. Round 14 had its preview but no readable HP bar.
+    assert(scheduled_independent_boss_preparation("independent", 14, 14, 4, "矩兽"));
+    assert(!scheduled_independent_boss_preparation("independent", 13, 14, 4, "矩兽"));
+    assert(!scheduled_independent_boss_preparation("independent", 15, 14, 4, "矩兽"));
+    assert(!scheduled_independent_boss_preparation("independent", 14, 14, 4, ""));
+    assert(!scheduled_independent_boss_preparation("independent", 14, 14, 0, "矩兽"));
+    assert(!scheduled_independent_boss_preparation("joint", 14, 14, 4, "矩兽"));
+    const auto d4_m01_boss = boss_objective("矩兽", { 2, 4 }, 4);
+    assert((estimate_solo_boss_opening_cells(d4_m01_boss) == std::vector<BoardCell> { { 10, 2 } }));
+    assert(!d4_m01_boss.movement_waypoints.empty());
     const auto moving_objective = boss_objective("假想敌：鳍", { 2, 4 }, 14);
     assert(moving_objective.known && !moving_objective.stationary_route && !moving_objective.variant_known);
     assert((moving_objective.movement_waypoints == std::vector<BoardCell> { { 9, 1 }, { 3, 4 }, { 9, 3 } }));

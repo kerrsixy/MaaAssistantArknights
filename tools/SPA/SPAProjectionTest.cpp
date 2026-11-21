@@ -524,6 +524,11 @@ int main()
     assert(medic_board.verified && medic_board.map_id == "m05");
     const auto medic_reference_grid = registered_grid_projection(medic_held, medic_normal, medic_board.grid_to_screen);
     assert(medic_reference_grid);
+    // Once a summon is released, clean field geometry is still available
+    // even though there is no green placement overlay to register as legal.
+    const auto clean_geometry = registered_grid_projection(medic_normal, medic_normal, *medic_reference_grid);
+    assert(clean_geometry);
+    assert(!reproject_preparation_board(medic_normal, medic_normal, *medic_reference_grid, "m05", false).verified);
     const auto carried_board =
         reproject_preparation_board(medic_normal, medic_held, *medic_reference_grid, "m05", false);
     assert(carried_board.verified && carried_board.identity_from_reference && carried_board.map_id == "m05");
