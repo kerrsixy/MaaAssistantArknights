@@ -764,15 +764,20 @@ int main()
     cv::RNG edge_rng(977);
     auto field_texture = edge_held(cv::Rect(330, 150, 660, 335));
     edge_rng.fill(field_texture, cv::RNG::UNIFORM, 0, 160);
-    auto edge_direction = edge_held.clone();
-    cv::polylines(
-        edge_direction,
-        std::vector<cv::Point> { { 1001, 243 }, { 1225, 429 }, { 1001, 615 }, { 777, 429 } },
-        true,
-        cv::Scalar(255, 255, 255),
-        3);
-    cv::rectangle(edge_direction, cv::Rect(828, 305, 46, 38), cv::Scalar(30, 30, 200), cv::FILLED);
-    cv::line(edge_direction, { 838, 324 }, { 862, 324 }, cv::Scalar(255, 255, 255), 3);
+    const auto draw_replacement_direction = [&](int center_x) {
+        auto direction = edge_held.clone();
+        cv::polylines(
+            direction,
+            std::vector<cv::Point> { { center_x, 243 }, { center_x + 224, 429 },
+                                     { center_x, 615 }, { center_x - 224, 429 } },
+            true,
+            cv::Scalar(255, 255, 255),
+            3);
+        cv::rectangle(direction, cv::Rect(center_x - 173, 305, 46, 38), cv::Scalar(30, 30, 200), cv::FILLED);
+        cv::line(direction, { center_x - 163, 324 }, { center_x - 139, 324 }, cv::Scalar(255, 255, 255), 3);
+        return direction;
+    };
+    const auto edge_direction = draw_replacement_direction(1001);
     const auto edge_center = direction_selection_center(edge_direction);
     assert(edge_center && cv::norm(*edge_center - cv::Point(1001, 429)) < 3);
     assert(!registered_deployment_pose(edge_direction, edge_held, *edge_center + cv::Point(0, 20)));
@@ -780,6 +785,15 @@ int main()
     assert(!replacement_direction_center(edge_direction, edge_held, { 893, 438 }));
     assert(!replacement_direction_center(edge_direction, edge_held, { 977, 365 }));
     assert(!replacement_direction_center(edge_direction, blank, { 977, 438 }));
+    const auto interior_direction = draw_replacement_direction(910);
+    const auto interior_center = direction_selection_center(interior_direction);
+    assert(interior_center && cv::norm(*interior_center - cv::Point(910, 429)) < 3);
+    const cv::Point interior_receiver(888, 438);
+    const auto interior_foot = registered_deployment_pose(
+        interior_direction, edge_held, *interior_center + cv::Point(0, 20));
+    assert(interior_foot && cv::norm(*interior_foot - interior_receiver) > 22);
+    assert(replacement_direction_center(interior_direction, edge_held, interior_receiver) == interior_center);
+    assert(!replacement_direction_center(interior_direction, edge_held, { 977, 438 }));
     assert(!equipment_target_preview(gear_normal, gear_normal, { 800, 185 }).verified);
     assert(!equipment_target_preview(gear_normal, gear_held, { 500, 185 }).verified);
     assert(!equipment_target_preview(blank, gear_held, { 800, 185 }).verified);
