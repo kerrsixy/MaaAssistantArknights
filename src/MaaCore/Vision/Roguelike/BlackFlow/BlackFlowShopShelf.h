@@ -44,7 +44,7 @@ public:
     static std::optional<ShopShelfOffer>
         seek(const ShopShelfOffer& target, const Observe& observe, const Scroll& scroll, int limit = 8);
 
-private:
-    static std::optional<ShopShelfPage> rewind(const Observe& observe, const Scroll& scroll, int limit);
+    // Restore the verified shelf head before handing control to the investment entry.
+    static std::optional<ShopShelfPage> rewind(const Observe& observe, const Scroll& scroll, int limit = 8);
 };
 }
