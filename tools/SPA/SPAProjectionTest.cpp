@@ -760,6 +760,26 @@ int main()
     assert(!replacement_direction_center(occupied_direction, occupied_held, { 824, 353 }));
     assert(!replacement_direction_center(occupied_held, occupied_held, { 803, 300 }));
     assert(!replacement_direction_center(occupied_direction, blank, { 803, 300 }));
+    cv::Mat edge_held = cv::Mat::zeros(blank.size(), CV_8UC3);
+    cv::RNG edge_rng(977);
+    auto field_texture = edge_held(cv::Rect(330, 150, 660, 335));
+    edge_rng.fill(field_texture, cv::RNG::UNIFORM, 0, 160);
+    auto edge_direction = edge_held.clone();
+    cv::polylines(
+        edge_direction,
+        std::vector<cv::Point> { { 1001, 243 }, { 1225, 429 }, { 1001, 615 }, { 777, 429 } },
+        true,
+        cv::Scalar(255, 255, 255),
+        3);
+    cv::rectangle(edge_direction, cv::Rect(828, 305, 46, 38), cv::Scalar(30, 30, 200), cv::FILLED);
+    cv::line(edge_direction, { 838, 324 }, { 862, 324 }, cv::Scalar(255, 255, 255), 3);
+    const auto edge_center = direction_selection_center(edge_direction);
+    assert(edge_center && cv::norm(*edge_center - cv::Point(1001, 429)) < 3);
+    assert(!registered_deployment_pose(edge_direction, edge_held, *edge_center + cv::Point(0, 20)));
+    assert(replacement_direction_center(edge_direction, edge_held, { 977, 438 }) == edge_center);
+    assert(!replacement_direction_center(edge_direction, edge_held, { 893, 438 }));
+    assert(!replacement_direction_center(edge_direction, edge_held, { 977, 365 }));
+    assert(!replacement_direction_center(edge_direction, blank, { 977, 438 }));
     assert(!equipment_target_preview(gear_normal, gear_normal, { 800, 185 }).verified);
     assert(!equipment_target_preview(gear_normal, gear_held, { 500, 185 }).verified);
     assert(!equipment_target_preview(blank, gear_held, { 800, 185 }).verified);

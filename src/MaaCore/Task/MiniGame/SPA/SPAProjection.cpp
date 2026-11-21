@@ -1406,8 +1406,18 @@ std::optional<cv::Point>
     if (!center || !direction_cancel_target(placement, *center)) {
         return std::nullopt;
     }
-    const auto foot = registered_deployment_pose(placement, held, *center + cv::Point(0, 20));
-    return foot && cv::norm(*foot - expected_target) <= 22 ? center : std::nullopt;
+    const auto placement_foot = *center + cv::Point(0, 20);
+    if (const auto foot = registered_deployment_pose(placement, held, placement_foot)) {
+        return cv::norm(*foot - expected_target) <= 22 ? center : std::nullopt;
+    }
+    if (center->x < 1000) {
+        return std::nullopt;
+    }
+    // On the rightmost column the diamond can extend past the held board's
+    // feature hull, even when the receiver lies inside it. Project the verified
+    // receiver into the modal instead of extrapolating from the diamond.
+    const auto projected_receiver = registered_field_points(held, placement, { expected_target }, FieldView::Held);
+    return projected_receiver && cv::norm(projected_receiver->front() - placement_foot) <= 28 ? center : std::nullopt;
 }
 
 asst::spa::EquipmentPreviewEvidence asst::spa::equipment_target_preview(
