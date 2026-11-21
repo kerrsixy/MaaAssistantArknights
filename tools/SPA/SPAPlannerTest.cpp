@@ -1048,6 +1048,12 @@ int main()
     const std::vector<TextObservation> settled_dusk { { "夕", .897747, 14, 182 }, { "LV", .999747, 94, 217 } };
     assert(single_operator_title_confidence(weak_dusk, "夕") == .749195);
     assert(single_operator_title_confidence(settled_dusk, "夕") == .897747);
+    const auto dusk_title = single_operator_title_confidence(settled_dusk, "夕");
+    const auto incomplete_dusk_title = single_operator_title_confidence(weak_dusk, "夕");
+    assert(repeated_single_operator_title(dusk_title, dusk_title));
+    assert(repeated_single_operator_title(incomplete_dusk_title, dusk_title));
+    assert(!repeated_single_operator_title(incomplete_dusk_title, incomplete_dusk_title));
+    assert(!repeated_single_operator_title(dusk_title, single_operator_title_confidence(settled_dusk, "余")));
     assert(!single_operator_title_confidence(weak_dusk, "余"));
     assert(!single_operator_title_confidence({ { "夕", .897, 14, 665 } }, "夕"));
     assert(!single_operator_title_confidence({ { "夕", .897, 14, 182 }, { "余", .98, 13, 182 } }, "夕"));

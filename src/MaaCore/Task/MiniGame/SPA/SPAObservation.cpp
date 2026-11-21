@@ -309,6 +309,11 @@ std::optional<double>
     return result;
 }
 
+bool asst::spa::repeated_single_operator_title(std::optional<double> first, std::optional<double> second)
+{
+    return first && second && std::max(*first, *second) >= .88;
+}
+
 bool asst::spa::bench_replacement_title_needs_settle(
     const std::vector<TextObservation>& texts,
     const std::string& expected_name)

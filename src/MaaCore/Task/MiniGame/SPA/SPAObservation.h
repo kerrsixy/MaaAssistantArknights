@@ -47,6 +47,7 @@ std::optional<std::string>
 bool operator_title_contains_rank_artifact(const std::vector<TextObservation>& texts, const std::string& expected);
 std::optional<double>
     single_operator_title_confidence(const std::vector<TextObservation>& texts, const std::string& expected);
+bool repeated_single_operator_title(std::optional<double> first, std::optional<double> second);
 
 struct OperatorCardObservation
 {

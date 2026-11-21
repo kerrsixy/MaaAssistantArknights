@@ -793,8 +793,7 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(
                 // Keep the same selected panel open. A one-character name
                 // needs a second exact read, including one near the normal
                 // threshold, before it can authorize any action.
-                const bool confirmed_single_name =
-                    previous_single_name && single_name && std::max(*previous_single_name, *single_name) >= .88;
+                const bool confirmed_single_name = repeated_single_operator_title(previous_single_name, single_name);
                 if (!identity &&
                     (confirmed_single_name || reread_single_operator_title(image, observations, expected))) {
                     identity = expected;
@@ -1256,38 +1255,57 @@ bool asst::spa::SwapTaskPlugin::current_identity(const std::string& name)
 {
     m_last_panel_identity.reset();
     m_selected_panel_evidence.clear();
-    const auto image = ctrler()->get_image();
-    OCRer ocr(image, m_fast_mode ? Rect(0, 165, 350, 75) : Rect(0, 80, 350, 230));
-    if (const auto recognized = ocr.analyze()) {
-        std::vector<TextObservation> texts;
-        std::vector<std::string> names;
-        for (const auto& [known, pacts] : operator_pacts()) {
-            names.push_back(known);
+    auto image = ctrler()->get_image();
+    const Rect roi = m_fast_mode ? Rect(0, 165, 350, 75) : Rect(0, 80, 350, 230);
+    const auto read_title = [&](const cv::Mat& frame) {
+        OCRer ocr(frame, roi);
+        std::vector<TextObservation> tokens;
+        if (const auto recognized = ocr.analyze()) {
+            for (const auto& text : *recognized) {
+                tokens.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+            }
         }
-        for (const auto& text : *recognized) {
-            texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
-        }
-        m_last_panel_identity = operator_panel_identity(texts, names);
-        if (!m_last_panel_identity && std::find(names.begin(), names.end(), name) != names.end() &&
-            reread_single_operator_title(image, texts, name)) {
-            m_last_panel_identity = name;
-        }
-        if (m_last_panel_identity) {
+        return tokens;
+    };
+    const auto texts = read_title(image);
+    std::vector<std::string> names;
+    for (const auto& [known, pacts] : operator_pacts()) {
+        names.push_back(known);
+    }
+    m_last_panel_identity = operator_panel_identity(texts, names);
+    const bool expected_operator = operator_pacts().contains(name);
+    if (!m_last_panel_identity && expected_operator && reread_single_operator_title(image, texts, name)) {
+        m_last_panel_identity = name;
+    }
+    if (!m_last_panel_identity && expected_operator && m_replace_only) {
+        const auto first = single_operator_title_confidence(texts, name);
+        if (first && sleep(120)) {
+            // Re-read the selected panel before offsetting the click. The
+            // one-character title and the panel must both still match.
             m_selected_panel_evidence.remember_recognized_title(image);
-            if ((m_inspect_only || m_deploy_only) && name == "*") {
-                m_name = *m_last_panel_identity;
-                return true;
-            }
-            if (*m_last_panel_identity == name) {
-                return selected_form_matches(image, name);
+            const auto settled = ctrler()->get_image();
+            if (m_selected_panel_evidence.consume_unchanged(settled) &&
+                repeated_single_operator_title(first, single_operator_title_confidence(read_title(settled), name))) {
+                image = settled;
+                m_last_panel_identity = name;
             }
         }
-        if (m_find_equipment_source && name == m_name) {
-            for (const auto& text : texts) {
-                if (text.score >= .9 && text.x >= 0 && text.x < 200 && text.y >= 170 && text.y <= 240 &&
-                    equipment_title_matches(name, text.text)) {
-                    return true;
-                }
+    }
+    if (m_last_panel_identity) {
+        m_selected_panel_evidence.remember_recognized_title(image);
+        if ((m_inspect_only || m_deploy_only) && name == "*") {
+            m_name = *m_last_panel_identity;
+            return true;
+        }
+        if (*m_last_panel_identity == name) {
+            return selected_form_matches(image, name);
+        }
+    }
+    if (m_find_equipment_source && name == m_name) {
+        for (const auto& text : texts) {
+            if (text.score >= .9 && text.x >= 0 && text.x < 200 && text.y >= 170 && text.y <= 240 &&
+                equipment_title_matches(name, text.text)) {
+                return true;
             }
         }
     }
@@ -3460,14 +3478,15 @@ bool asst::spa::SwapTaskPlugin::_run()
         if (!close_selection() || !restore_preparation() || !ensure_collapsed_shop()) {
             return false;
         }
-        const auto identity = selected_identity_any(m_target);
+        const bool incoming_verified = selected_identity(m_target, m_name);
+        const auto observed = m_last_panel_identity;
         if (!close_selection() || !preparation_matches()) {
             return false;
         }
-        if (identity != m_name) {
+        if (!incoming_verified) {
             int probes = 0;
             m_replacement_original_preserved =
-                identity == m_replaced && verify_replacement_bench_identity(m_name, probes) && preparation_matches();
+                observed == m_replaced && verify_replacement_bench_identity(m_name, probes) && preparation_matches();
             return m_replacement_original_preserved;
         }
         m_replacement_committed = true;
