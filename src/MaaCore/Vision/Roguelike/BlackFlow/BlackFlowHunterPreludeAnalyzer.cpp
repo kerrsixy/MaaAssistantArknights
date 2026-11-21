@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <span>
 
 #include <meojson/json.hpp>
 
@@ -341,7 +342,11 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
     };
 
     std::vector<Candidate> candidates;
-    for (const auto& profile : m_head_profiles) {
+    std::span<const HeadProfile> search_profiles = m_head_profiles;
+    if (context.spawn_only_probe) {
+        search_profiles = {};
+    }
+    for (const auto& profile : search_profiles) {
         const int top = profile.domain == "upper" ? field.y : std::max(field.y, lower.y - 20);
         const int bottom =
             profile.domain == "upper" ? std::min(field.y + field.height, lower.y + 60) : field.y + field.height;
@@ -462,7 +467,7 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
         track.missing_frames = 0;
     }
     for (std::size_t ti = 0; ti < assigned.size(); ++ti) {
-        if (!assigned[ti]) {
+        if (!context.spawn_only_probe && !assigned[ti]) {
             ++m_tracks[ti].missing_frames;
         }
     }
@@ -487,11 +492,11 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
         m_empty_lower_start_ms = 0;
     }
     m_last_observed_at_ms = context.observed_at_ms;
-    const bool lower_covered = contains(lower, m_lower_roi) && context.lower_visibility_verified && timestamp &&
-                               !masked(context.lower_unit_occlusion_rois, lower) &&
-                               !masked(context.battlefield_unit_occlusion_rois, lower);
+    const bool lower_covered =
+        !context.spawn_only_probe && contains(lower, m_lower_roi) && context.lower_visibility_verified && timestamp &&
+        !masked(context.lower_unit_occlusion_rois, lower) && !masked(context.battlefield_unit_occlusion_rois, lower);
     result.full_search_coverage_verified =
-        contains(field, m_battlefield_roi) && context.battlefield_visibility_verified &&
+        !context.spawn_only_probe && contains(field, m_battlefield_roi) && context.battlefield_visibility_verified &&
         context.spawn_window_closed_verified && timestamp && !masked(context.lower_unit_occlusion_rois, field) &&
         !masked(context.battlefield_unit_occlusion_rois, field);
     if (!result.lower_head_candidates.empty()) {

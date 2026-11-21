@@ -491,6 +491,7 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
         (current_removal || m_bait_removal_verified) && matching_cards == 1 && !bait_present && battlefield_valid;
     const bool lower_visible = removal_visible && lower_occlusions.empty();
     const bool battlefield_visible = lower_visible && battlefield_occlusions.empty();
+    const bool spawn_only_probe = m_bait_consumed && bait_present && !bait_cooling;
     HunterPreludeObservation visual;
     if (m_prepared && !m_contract_breached) {
         HunterPreludeFrameContext context;
@@ -501,6 +502,7 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
         context.spawn_window_closed_verified = m_spawn_window_verified;
         context.lower_visibility_verified = lower_visible;
         context.battlefield_visibility_verified = battlefield_visible;
+        context.spawn_only_probe = spawn_only_probe;
         context.battlefield_search_roi = m_battlefield_roi;
         context.battlefield_unit_occlusion_rois = battlefield_occlusions;
         context.observed_at_ms =
@@ -620,6 +622,7 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
                              { "bait_name", m_bait ? m_bait->name : std::string() },
                              { "bait_present", bait_present },
                              { "bait_cooling_verified", bait_cooling },
+                             { "spawn_only_probe", spawn_only_probe },
                              { "bait_matching_card_count", matching_cards },
                              { "retreat_requested", m_retreat_requested },
                              { "retreat_reason", retreat_reason },

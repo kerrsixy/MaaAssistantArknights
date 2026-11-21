@@ -391,7 +391,11 @@ bool NormalizedMap::merge(const MapObservationBatch& batch, std::string* error)
                 node.traversal = default_traversal_for(node.type);
             }
         }
-        if (observed.name.has_value() && !preserve_door_identity) {
+        // An unreadable map label must not erase a name learned from its preview.
+        // A different node type still replaces the old name, including with an empty label.
+        const bool missing_same_type_name =
+            current != nullptr && observed.name.has_value() && observed.name->empty() && observed.type == current->type;
+        if (observed.name.has_value() && !preserve_door_identity && !missing_same_type_name) {
             node.name = *observed.name;
         }
         if (observed.progress.has_value()) {

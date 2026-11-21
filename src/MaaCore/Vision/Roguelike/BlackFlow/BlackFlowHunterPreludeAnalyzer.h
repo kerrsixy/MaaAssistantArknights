@@ -37,6 +37,9 @@ struct HunterPreludeFrameContext
     bool spawn_window_closed_verified = false;
     bool lower_visibility_verified = false;
     bool battlefield_visibility_verified = false;
+    // A withdrawal probe checks only the calibrated spawn patches. It cannot
+    // certify lower-field absence, whole-field coverage or hunter clearance.
+    bool spawn_only_probe = false;
     std::uint64_t observed_at_ms = 0;
     // Native pixel rectangles projected from spawn tiles. Empty uses the explicit reference geometry.
     std::vector<Rect> spawn_rois;
