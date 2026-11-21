@@ -1150,11 +1150,32 @@ static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
     const std::map<std::string, std::vector<std::string>>& pacts)
 {
     const auto route = route_profiles().find(policy.primary_pact);
-    if (route == route_profiles().end() || contains(policy.disabled_pacts, policy.primary_pact) ||
-        policy.shop_level < std::max(3, route->second.minimum_shop_level)) {
+    if (route == route_profiles().end() || contains(policy.disabled_pacts, policy.primary_pact)) {
         return std::nullopt;
     }
     const bool accepts_recruits = policy.bench_occupied >= 0 && policy.bench_occupied < 10;
+    if (policy.shop_level < std::max(3, route->second.minimum_shop_level)) {
+        // A route's recommended entry tier can be higher than a visible
+        // engine's tier. A paid upgrade must not erase its recruitment budget.
+        if (policy.shop_level < 2 || !accepts_recruits || upgrade_price <= 0 || policy.boss_preparation ||
+            policy.primary_locked_after_activation || policy.growth_primary_active_verified || policy.round < 1 ||
+            policy.growth_scenario_horizon_round <= policy.round) {
+            return std::nullopt;
+        }
+        const auto purchase = choose_preparation(policy, funds, offers, pacts);
+        const auto traits = pacts.find(purchase.name);
+        const auto fit = policy.full_field_offer_improvements.find(purchase.name);
+        const bool fieldable = (policy.deployed_population >= 0 && policy.deployed_population < 8) ||
+                               (fit != policy.full_field_offer_improvements.end() && fit->second > 0);
+        if (purchase.action == PreparationAction::Buy && !purchase.is_equipment &&
+            purchase.price > funds - upgrade_price && !policy.owned.contains(purchase.name) && traits != pacts.end() &&
+            contains(traits->second, policy.primary_pact) &&
+            is_primary_growth_engine(purchase.name, policy.primary_pact) && fieldable) {
+            return ShopUpgradeHold { "Recruit " + purchase.name +
+                                     " while its verified quote fits the current growth plan" };
+        }
+        return std::nullopt;
+    }
     const bool can_refresh = policy.allow_refresh && !policy.shop_frozen_this_round;
     const int refresh_cost = policy.free_refreshes > 0 ? 0 : 1;
     const bool next_preparation =

@@ -4264,6 +4264,42 @@ int main()
     early_budget.selected_strategy_id = "band_cannot";
     assert(should_upgrade_dynamic_shop(early_budget, 6, 3, early_quotes, catalog));
 
+    // Independent D4 round 5 offered Christine at book II. Opening III
+    // for seven of eight funds left her card visible but unaffordable.
+    PreparationPolicy victoria_opening;
+    victoria_opening.primary_pact = "维多利亚";
+    victoria_opening.selected_strategy_id = "band_sarkazb";
+    victoria_opening.dynamic_decision_mode = true;
+    victoria_opening.dynamic_primary_pact = true;
+    victoria_opening.shop_level = 2;
+    victoria_opening.round = 5;
+    victoria_opening.current_life = 40;
+    victoria_opening.last_round_life_loss = 0;
+    victoria_opening.early_board_ready = true;
+    victoria_opening.deployed_population = 8;
+    victoria_opening.bench_occupied = 0;
+    victoria_opening.economy_scenario_horizon_round = 14;
+    victoria_opening.growth_scenario_horizon_round = 14;
+    victoria_opening.disabled_pacts = { "叙拉古", "谢拉格", "炎", "莱塔尼亚", "迅捷", "不屈" };
+    for (const auto* name : { "卡达", "夏栎", "慕斯", "摆渡人", "深靛", "灰喉", "烈夏", "褐果" }) {
+        victoria_opening.owned[name] = { 1, false, true };
+    }
+    victoria_opening.full_field_offer_improvements = { { "Miss.Christine", 1420 },
+                                                       { "折桠", 0 },
+                                                       { "波登可", 120 },
+                                                       { "蛇屠箱", 120 } };
+    const std::vector<ShopOffer> victoria_quotes { { "Miss.Christine", 3, 3 },
+                                                   { "蛇屠箱", 3, 2 },
+                                                   { "波登可", 3, 1 },
+                                                   { "折桠", 2, 0 } };
+    assert(choose_preparation(victoria_opening, 8, victoria_quotes, catalog).name == "Miss.Christine");
+    assert(!should_upgrade_dynamic_shop(victoria_opening, 8, 7, victoria_quotes, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->reason.find("Miss.Christine") != std::string::npos);
+    assert(should_upgrade_dynamic_shop(victoria_opening, 10, 7, victoria_quotes, catalog));
+    assert(should_upgrade_dynamic_shop(victoria_opening, 8, 0, victoria_quotes, catalog));
+    victoria_opening.full_field_offer_improvements["Miss.Christine"] = 0;
+    assert(should_upgrade_dynamic_shop(victoria_opening, 8, 7, victoria_quotes, catalog));
+
     // Recorded regulation-3 round-7 shop and roster. The positive and zero
     // outcomes isolate the live replacement review input to the policy.
     auto kjerag_market = discount_window;
