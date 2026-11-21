@@ -966,10 +966,17 @@ asst::spa::PageObservation
     // Its counter uses the same left HUD slot, without a round/self label.
     const bool joint_boss_view =
         joint_difficulty_hud && anchored("全景", 520, 720, 560, 650) && anchored("返回战场", 0, 200, 120, 490);
+    const auto countdown_visible = [&] {
+        return std::ranges::any_of(texts, [](const auto& item) {
+            return std::isfinite(item.score) && item.score >= .85 && item.x >= 1080 && item.y >= 0 && item.y < 130 &&
+                   std::regex_match(item.text, std::regex("[0-9]{1,3}"));
+        });
+    };
     if (!has("准备就绪") && !has("刷新") && (solo_boss_view || joint_boss_view)) {
+        bool weak_solo_boss_counter = false;
         for (const auto& item : texts) {
-            if (!std::isfinite(item.score) || item.score < .85 || item.x < 420 || item.x >= 565 || item.y < 0 ||
-                item.y >= 65) {
+            if (!std::isfinite(item.score) || item.score < (solo_boss_view ? .75 : .85) || item.x < 420 ||
+                item.x >= 565 || item.y < 0 || item.y >= 65) {
                 continue;
             }
             std::smatch match;
@@ -988,6 +995,10 @@ asst::spa::PageObservation
             if (total <= 0 || resolved > total) {
                 continue;
             }
+            if (item.score < .85) {
+                weak_solo_boss_counter = true;
+                continue;
+            }
             if ((result.enemies_total && *result.enemies_total != total) ||
                 (result.enemies_resolved && *result.enemies_resolved != resolved)) {
                 result.contradictory = true;
@@ -1001,6 +1012,13 @@ asst::spa::PageObservation
             result.enemies_resolved.reset();
         }
         if (result.page == Page::Battle || result.contradictory) {
+            return result;
+        }
+        // The adjacent red icon can prefix the ratio and lower its OCR score.
+        // The countdown and both solo HUD anchors confirm the battle page,
+        // but the weak reading cannot supply an enemy count.
+        if (weak_solo_boss_counter && countdown_visible()) {
+            result.page = Page::Battle;
             return result;
         }
     }
@@ -1055,14 +1073,8 @@ asst::spa::PageObservation
         // failure.  The timer is restricted to the top-right HUD and the
         // preparation markers are explicitly absent, which keeps setup/shop
         // pages out of this fallback.
-        if (result.page == Page::Unknown && !result.contradictory) {
-            const bool countdown_visible = std::any_of(texts.begin(), texts.end(), [](const auto& item) {
-                return std::isfinite(item.score) && item.score >= 0.85 && item.x >= 1080 && item.y < 130 &&
-                       std::regex_match(item.text, std::regex("[0-9]{1,3}"));
-            });
-            if (countdown_visible) {
-                result.page = Page::Battle;
-            }
+        if (result.page == Page::Unknown && !result.contradictory && countdown_visible()) {
+            result.page = Page::Battle;
         }
         if (result.page == Page::Battle || result.contradictory) {
             return result;

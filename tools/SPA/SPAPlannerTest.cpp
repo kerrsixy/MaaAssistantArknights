@@ -3493,6 +3493,29 @@ int main()
     auto boss_with_ready = final_boss_hud;
     boss_with_ready.push_back({ "准备就绪", .99, 1160, 103 });
     assert(observe_page(boss_with_ready, identities).page != Page::Battle);
+    // Regulation 4, R14: the red enemy icon contaminated the ratio for
+    // over 30 seconds while the game was visibly running.
+    std::vector<TextObservation> weak_boss_hud { { "规程等级4", .999940, 138, 21 },
+                                                 { "自己", .999949, 620, 604 },
+                                                 { "年0/8", .775224, 470, 21 },
+                                                 { "89", .998109, 1133, 35 } };
+    const auto weak_boss = observe_page(weak_boss_hud, identities);
+    assert(
+        weak_boss.page == Page::Battle && !weak_boss.enemies_resolved && !weak_boss.enemies_total && !weak_boss.round);
+    weak_boss_hud.push_back({ "准备就绪", .99, 1160, 103 });
+    assert(observe_page(weak_boss_hud, identities).page != Page::Battle);
+    weak_boss_hud.pop_back();
+    weak_boss_hud[2].text = "12/8";
+    assert(observe_page(weak_boss_hud, identities).page != Page::Battle);
+    weak_boss_hud[2].text = "年0/8";
+    weak_boss_hud[1].text = "全景";
+    weak_boss_hud[0].text = "险境模拟";
+    weak_boss_hud.push_back({ "返回战场", .99, 22, 267 });
+    assert(observe_page(weak_boss_hud, identities).page != Page::Battle);
+    weak_boss_hud[0].text = "规程等级4";
+    weak_boss_hud[1].text = "自己";
+    weak_boss_hud[3].score = .5;
+    assert(observe_page(weak_boss_hud, identities).page != Page::Battle);
     // Actual quick batch child 2 R9 OCR. No ordinary round HUD is visible.
     std::vector<TextObservation> quick_boss_hud { { "极速模拟", .999930, 145, 19 },
                                                   { "7/25", .970192, 466, 19 },
