@@ -1520,10 +1520,14 @@ bool asst::spa::SwapTaskPlugin::capture_collapsed_preparation(cv::Mat& image)
 bool asst::spa::SwapTaskPlugin::ensure_shop_visibility(
     bool expanded,
     cv::Mat* already_visible_frame,
-    const cv::Mat& initial_frame)
+    const cv::Mat& initial_frame,
+    bool* toggle_input_issued)
 {
     if (already_visible_frame) {
         already_visible_frame->release();
+    }
+    if (toggle_input_issued) {
+        *toggle_input_issued = false;
     }
     bool input_issued = false;
     for (int attempt = 0; attempt < 4; ++attempt) {
@@ -1562,6 +1566,9 @@ bool asst::spa::SwapTaskPlugin::ensure_shop_visibility(
                 return false;
             }
             input_issued = true;
+            if (toggle_input_issued) {
+                *toggle_input_issued = true;
+            }
         }
         // After one click, only observe. A delayed frame must never toggle
         // the shop back before the first transition becomes visible.
@@ -4021,47 +4028,33 @@ bool asst::spa::SwapTaskPlugin::_run()
         // the expanded shop for source discovery; the held drag itself moves
         // to the far-left staging area and fades the panel without releasing,
         // so the map is still reacquired before the final drop.
+        const bool wildcard_bench_scan = m_fast_mode && m_deploy_only && m_name == "*";
+        bool expanded_for_scan = false;
         cv::Mat bench_image;
-        {
-            // Keep the frame used for the expansion check. The phase-one
-            // wildcard path never opens an operator panel, so taking a new
-            // screenshot for every occupancy probe only adds ~300 ms per
-            // probe on MuMu without increasing confidence.
+        // The wildcard path already arrives from the expanded preparation
+        // observer. Named scans must first certify the expanded bench layout.
+        if (wildcard_bench_scan) {
             bench_image = ctrler()->get_image();
-            std::optional<Rect> expand;
-            // The phase-one wildcard path is entered only from the verified
-            // preparation observer, which already expands the shop before
-            // deployment.  Re-running a full-screen OCR merely to rediscover
-            // the "展开" label cost about 1.2 s per card.  Named swaps keep
-            // the strict expansion check because they may be called outside
-            // the normal preparation loop.
-            if (!(m_fast_mode && m_deploy_only && m_name == "*")) {
-                OCRer shop_ocr(bench_image, Rect(1080, 620, 200, 100));
-                if (const auto texts = shop_ocr.analyze()) {
-                    for (const auto& text : *texts) {
-                        if (text.score >= 0.9 && parse_shop_toggle(text.text) == false && text.rect.x > 1080 &&
-                            text.rect.y > 620) {
-                            expand = text.rect;
-                            break;
-                        }
-                    }
-                }
-            }
-            if (expand && (!ctrler()->click(*expand) || !sleep(350))) {
+        }
+        else {
+            if (!ensure_shop_visibility(true, &bench_image, {}, &expanded_for_scan)) {
                 return false;
             }
-            if (expand) {
-                // The click changed the shop camera; only this branch needs a
-                // fresh frame. The common no-expansion path keeps the first
-                // screenshot through badge scanning.
+            if (bench_image.empty()) {
                 bench_image = ctrler()->get_image();
             }
-            auto shop_state = basic_info_with_what("SPAShopExpandedForDeployment");
-            shop_state["details"] = json::object { { "expanded_before_source_scan", expand.has_value() },
-                                                   { "rightmost_bench_visible", true },
-                                                   { "held_drag_reacquisition", true } };
-            callback(AsstMsg::SubTaskExtraInfo, shop_state);
+            if (!preparation_matches(bench_image)) {
+                return false;
+            }
         }
+        if (bench_image.empty()) {
+            return false;
+        }
+        auto shop_state = basic_info_with_what("SPAShopExpandedForDeployment");
+        shop_state["details"] = json::object { { "expanded_before_source_scan", expanded_for_scan },
+                                               { "rightmost_bench_visible", true },
+                                               { "held_drag_reacquisition", true } };
+        callback(AsstMsg::SubTaskExtraInfo, shop_state);
         bool found = false;
         bool source_identity_deferred_to_hold = false;
         // On the B-server the purchased operator is rendered as a sprite in
@@ -4069,16 +4062,6 @@ bool asst::spa::SwapTaskPlugin::_run()
         // row at y≈610–680 is still the shop and must never be used as a
         // deployment source.  Probe the bounded bench strip and require the
         // opened panel to identify the requested operator before accepting it.
-        // Phase-one autonomous deployment already arrived from the verified
-        // preparation observer and deliberately uses a wildcard operator
-        // name.  Re-running the full-screen preparation OCR here (and again
-        // for every candidate) added 5-7 seconds per card on MuMu.  The shop
-        // expansion check immediately above has already restored the visible
-        // bench; keep the current frame for the bounded badge scan.  Named
-        // swaps/inspections retain the strict restore path.
-        if (!(m_fast_mode && m_deploy_only && m_name == "*") && !restore_preparation()) {
-            return false;
-        }
         // Derive occupied slot centres from the visible tier badges.  Do not
         // probe a geometric grid: empty slots and map props can open the same
         // operator panel and were the cause of the old click/cancel loop.
@@ -4126,7 +4109,7 @@ bool asst::spa::SwapTaskPlugin::_run()
             if (need_exit()) {
                 return false;
             }
-            if (!(m_fast_mode && m_deploy_only && m_name == "*") && !ensure_expanded_shop()) {
+            if (!wildcard_bench_scan && !ensure_expanded_shop()) {
                 return false;
             }
             if (!deployment_source_is_bench(candidate.x, candidate.y)) {
@@ -4138,7 +4121,7 @@ bool asst::spa::SwapTaskPlugin::_run()
             if (!compact_sprite && !bench_sprite_visible(bench_image, candidate)) {
                 continue;
             }
-            if (m_fast_mode && m_deploy_only && m_name == "*") {
+            if (wildcard_bench_scan) {
                 // The phase-one route does not need to identify a particular
                 // operator: the observer has already established that a
                 // purchased unit exists and the visible tier badge proves
@@ -4220,8 +4203,7 @@ bool asst::spa::SwapTaskPlugin::_run()
         // Wildcard phase-one deployment only uses the tier-badge frame and
         // never opens an operator panel. Avoid another full-frame OCR pass;
         // named swaps still require the strict close/reconciliation path.
-        if (!sale_source_panel_open && !source_identity_deferred_to_hold &&
-            !(m_fast_mode && m_deploy_only && m_name == "*") && !close_selection()) {
+        if (!sale_source_panel_open && !source_identity_deferred_to_hold && !wildcard_bench_scan && !close_selection()) {
             return false;
         }
         if (named_source_index) {

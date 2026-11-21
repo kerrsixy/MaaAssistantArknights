@@ -70,6 +70,7 @@ std::optional<TextObservation> shop_expansion_control(const std::vector<TextObse
 std::optional<TextObservation> purchase_confirmation_control(const std::vector<TextObservation>& texts, int slot);
 bool bench_capacity_warning(const TextObservation& text);
 bool equipment_capacity_warning(const TextObservation& text);
+bool selected_purchase_capacity_warning(const TextObservation& text, bool equipment);
 bool bench_replacement_title_needs_settle(const std::vector<TextObservation>& texts, const std::string& expected_name);
 bool selected_purchase_unavailable(const std::vector<TextObservation>& texts, int slot);
 // A reward-card selection opens its operator panel; it is not a purchase.

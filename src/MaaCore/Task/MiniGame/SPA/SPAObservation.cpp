@@ -324,19 +324,33 @@ bool asst::spa::bench_replacement_title_needs_settle(
     });
 }
 
-bool asst::spa::bench_capacity_warning(const TextObservation& text)
+static bool is_capacity_toast(const asst::spa::TextObservation& text)
 {
     return std::isfinite(text.score) && text.score >= .85 && text.x >= 440 && text.x <= 850 && text.y >= 475 &&
-           text.y <= 515 &&
-           (text.text.find("整备区已达上限") != std::string::npos || text.text.find("干员已满") != std::string::npos ||
-            text.text.find("无法继续调度干员") != std::string::npos);
+           text.y <= 515;
+}
+
+bool asst::spa::bench_capacity_warning(const TextObservation& text)
+{
+    return is_capacity_toast(text) &&
+           (text.text.find("干员已满") != std::string::npos || text.text.find("无法继续调度干员") != std::string::npos);
 }
 
 bool asst::spa::equipment_capacity_warning(const TextObservation& text)
 {
-    return std::isfinite(text.score) && text.score >= .85 && text.x >= 440 && text.x <= 850 && text.y >= 475 &&
-           text.y <= 515 &&
-           (text.text.find("装备已满") != std::string::npos || text.text.find("无法继续购买装备") != std::string::npos);
+    return is_capacity_toast(text) &&
+           (text.text.find("装备已满") != std::string::npos ||
+            text.text.find("装备区已达上限") != std::string::npos ||
+            text.text.find("无法继续购买装备") != std::string::npos);
+}
+
+bool asst::spa::selected_purchase_capacity_warning(const TextObservation& text, bool equipment)
+{
+    // The shared toast may linger after closing the selection. Only resolve
+    // its inventory type from the verified unavailable purchase slot.
+    return (is_capacity_toast(text) && text.text.find("整备区已达上限") != std::string::npos &&
+            text.text.find("无法完成购买") != std::string::npos) ||
+           (equipment ? equipment_capacity_warning(text) : bench_capacity_warning(text));
 }
 
 bool asst::spa::selected_purchase_unavailable(const std::vector<TextObservation>& texts, int slot)

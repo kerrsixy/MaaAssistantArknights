@@ -1649,7 +1649,9 @@ bool asst::spa::ShopTaskPlugin::reconcile_capacity_rejection(
     }
     OCRer toast(frame, Rect(440, 472, 450, 47));
     const auto recognized = toast.analyze();
-    const auto warning = equipment ? equipment_capacity_warning : bench_capacity_warning;
+    const auto warning = [equipment](const TextObservation& text) {
+        return selected_purchase_capacity_warning(text, equipment);
+    };
     const bool clipped_warning =
         recognized && std::any_of(recognized->begin(), recognized->end(), [&](const auto& text) {
             return warning({ text.text, text.score, text.rect.x, text.rect.y });

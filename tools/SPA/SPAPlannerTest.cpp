@@ -1004,7 +1004,7 @@ int main()
     assert(!bench_replacement_title_needs_settle({ { "至简", .821679, 13, 700 } }, "至简"));
     assert(!operator_panel_identity(settling_bench_title, { "至简" }));
     assert(operator_panel_identity({ { "至简", .938272, 13, 183 } }, { "至简" }) == "至简");
-    const TextObservation full_bench_toast { "整备区已达上限，无法完成购买", .98, 495, 490 };
+    const TextObservation full_bench_toast { "干员已满，无法继续调度干员", .98, 495, 490 };
     assert(bench_capacity_warning(full_bench_toast));
     assert(!bench_capacity_warning({ full_bench_toast.text, .98, 495, 654 }));
     assert(!bench_capacity_warning({ "装备区已达上限，无法完成购买", .98, 495, 490 }));
@@ -1013,6 +1013,15 @@ int main()
     assert(!bench_capacity_warning(full_equipment_toast));
     assert(!equipment_capacity_warning(full_bench_toast));
     assert(!equipment_capacity_warning({ full_equipment_toast.text, .98, 506, 654 }));
+    const TextObservation shared_purchase_toast { "整备区已达上限，无法完成购买", .999900, 532, 489 };
+    assert(!bench_capacity_warning(shared_purchase_toast));
+    assert(!equipment_capacity_warning(shared_purchase_toast));
+    assert(selected_purchase_capacity_warning(shared_purchase_toast, true));
+    assert(selected_purchase_capacity_warning(shared_purchase_toast, false));
+    assert(selected_purchase_capacity_warning({ "装备区已达上限，无法完成购买", .98, 495, 490 }, true));
+    assert(!selected_purchase_capacity_warning({ "干员已满，无法继续调度干员", .99, 532, 489 }, true));
+    assert(!selected_purchase_capacity_warning({ shared_purchase_toast.text, .99, 532, 655 }, true));
+    assert(!selected_purchase_capacity_warning(full_equipment_toast, false));
     assert(selected_purchase_unavailable({ { "无法购买", .97, 330, 655 } }, 4));
     assert(!selected_purchase_unavailable({ { "无法购买", .97, 330, 655 } }, 3));
     assert(!selected_purchase_unavailable({ { "无法购买", .97, 330, 655 }, { "确认购买", .98, 334, 655 } }, 4));
