@@ -161,7 +161,7 @@
         "algorithm": "OcrDetect",
         "action": "DoNothing",
         "roi": [350, 620, 600, 55],
-        "text": ["未经探索的土地", "刀锋划开，原罪混杂着甘甜倾泻而出"],
+        "text": ["未经探索的土地", "刀锋划开，原罪混杂着甘甜倾泻而出", "有些伤口不会愈合"],
         "fullMatch": false
     },
     "BlackFlow@Roguelike@ResumeFloorIntro": {
