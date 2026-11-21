@@ -516,6 +516,11 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
     继续跑 return ProcessTask(*this, { "RoguelikeTraderShoppingOver" }).run();
     }
     */
+    if (paged_shelf && !blackflow::BlackFlowShopShelf::rewind(observe_shelf, scroll_shelf)) {
+        report_offer("", "investment_viewport_unverified");
+        m_shelf_scan_failed = true;
+        return false;
+    }
     report_offer("", "no_suitable_affordable_offer_then_invest");
     return false;
 }
