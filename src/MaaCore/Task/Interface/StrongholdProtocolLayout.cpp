@@ -1,16 +1,20 @@
 #include "Config/Miscellaneous/BattleDataConfig.h"
+#include "Controller/Controller.h"
 #include "StrongholdProtocolTask.h"
 #include "Task/MiniGame/SPA/SPABattleRole.h"
 #include "Task/MiniGame/SPA/SPABossPolicy.h"
 #include "Task/MiniGame/SPA/SPACombatStats.h"
 #include "Task/MiniGame/SPA/SPAEngagementPolicy.h"
 #include "Task/MiniGame/SPA/SPAFormation.h"
+#include "Task/MiniGame/SPA/SPAImageEvidence.h"
+#include "Task/MiniGame/SPA/SPANumberOcr.h"
 #include "Task/MiniGame/SPA/SPAPlanner.h"
 #include "Task/MiniGame/SPA/SPAProjection.h"
 #include "Task/MiniGame/SPA/SPASpatialActionDeadline.h"
 #include "Task/MiniGame/SPA/SPASpatialGrowthPolicy.h"
 #include "Task/MiniGame/SPA/SPASwapTaskPlugin.h"
 #include "Task/MiniGame/SPA/SPATerrainModel.h"
+#include "Vision/OCRer.h"
 #include <algorithm>
 #include <chrono>
 #include <iterator>
@@ -1283,4 +1287,187 @@ json::array asst::StrongholdProtocolTask::failed_spatial_action_snapshot() const
         result.emplace_back(*it);
     }
     return result;
+}
+
+bool asst::StrongholdProtocolTask::handle_fear_trap_instruction(const json::value& state)
+{
+    const int round = state.get("round", -1);
+    if (m_selected_strategy_id != "band_dance" || round < 1 || !state.get("round_known", false) ||
+        m_pending_spatial_orientation || m_pending_field_replacement || m_field_checkpoint_loaded ||
+        m_growth_population_poses != m_auto_deploy_positions ||
+        m_population_grid_members.size() != m_auto_deploy_positions.size() || m_population_grid_members.empty() ||
+        (m_mode == "joint" && state.get("preparation_seconds_remaining", 0) < 15)) {
+        return false;
+    }
+    if (round != m_fear_trap_round) {
+        m_fear_trap_round = round;
+        m_fear_trap_cells.clear();
+        m_fear_trap_unverified = false;
+    }
+    const int maximum = round >= 12 ? 4 : round >= 8 ? 3 : round >= 4 ? 2 : 1;
+    if (m_fear_trap_unverified || m_fear_trap_cells.size() >= static_cast<size_t>(maximum)) {
+        return false;
+    }
+    const auto read_charges = [maximum](const cv::Mat& image) -> std::optional<int> {
+        if (image.size() != cv::Size(1280, 720) || image.type() != CV_8UC3) {
+            return std::nullopt;
+        }
+        if (!spa::active_strategy_ready(image)) {
+            return 0;
+        }
+        // On the first three rounds the visible active button has no numeral:
+        // there is only one charge, so the game does not draw a badge.
+        if (maximum == 1) {
+            return 1;
+        }
+        const auto count = spa::shop_number(image, Rect(1221, 260, 19, 19), .80);
+        return count && *count > 0 && *count <= maximum ? count : std::nullopt;
+    };
+    const auto before = ctrler()->get_image();
+    const auto terrain = spa::terrain_layout_model(m_spatial_map_id, m_spatial_boss_phase);
+    if (!terrain || !spa::active_strategy_ready(before) || m_spatial_grid_reference.empty()) {
+        return false;
+    }
+    const auto charges_before = read_charges(before);
+    if (!charges_before || *charges_before == 0) {
+        return false;
+    }
+    const auto project = [&](const cv::Mat& image) {
+        return spa::registered_grid_projection(m_spatial_grid_reference, image, m_spatial_grid_projection);
+    };
+    const auto normal_grid = project(before);
+    if (!normal_grid) {
+        return false;
+    }
+    const auto send = [&](InputEvent::Type type, Point point = {}) {
+        InputEvent event;
+        event.type = type;
+        event.point = point;
+        return ctrler()->inject_input_event(event);
+    };
+    const auto move = [&](Point point) {
+        return send(InputEvent::Type::TOUCH_MOVE, point) && send(InputEvent::Type::COMMIT);
+    };
+    const auto release = [&] {
+        const bool up = send(InputEvent::Type::TOUCH_UP);
+        return send(InputEvent::Type::COMMIT) && up;
+    };
+    const Point source(1230, 235);
+    bool held = send(InputEvent::Type::TOUCH_DOWN, source) && send(InputEvent::Type::COMMIT) && sleep(280);
+    // Stay to the right of the battlefield until the valid-tile overlay is visible.
+    for (int step = 1; held && step <= 4; ++step) {
+        held = move(Point(source.x - 15 * step, source.y + 27 * step)) && sleep(45);
+    }
+    const auto preview = held ? ctrler()->get_image() : cv::Mat {};
+    const auto held_grid = held ? project(preview) : std::nullopt;
+    std::optional<std::pair<spa::BoardCell, Point>> target;
+    int best_score = 0;
+    if (held_grid) {
+        const auto lanes = spa::active_preparation_lanes(*terrain, round);
+        for (const auto& cell : terrain->ground_route) {
+            if (m_fear_trap_cells.contains(cell) || m_confirmed_summon_cells.contains({ round, cell }) ||
+                std::any_of(
+                    m_population_grid_members.begin(),
+                    m_population_grid_members.end(),
+                    [&](const auto& member) { return cell == spa::BoardCell(member.col, member.row); })) {
+                continue;
+            }
+            int score = 0;
+            for (const auto& lane : lanes) {
+                const auto at = std::find(lane.path.begin(), lane.path.end(), cell);
+                if (at == lane.path.end()) {
+                    continue;
+                }
+                const auto already_covered = std::count_if(lane.path.begin(), lane.path.end(), [&](const auto& tile) {
+                    return m_fear_trap_cells.contains(tile);
+                });
+                score += 10 * lane.blocking_weight / (1 + static_cast<int>(already_covered));
+            }
+            if (score == 0) {
+                continue;
+            }
+            for (const auto& unit : m_layout_units) {
+                if (unit.damage_output && spa::range_covers(unit, cell)) {
+                    score += 4;
+                }
+            }
+            if (score <= best_score) {
+                continue;
+            }
+            const std::vector<cv::Point2f> logical { { static_cast<float>(cell.first),
+                                                       static_cast<float>(cell.second) } };
+            std::vector<cv::Point2f> points, previous;
+            cv::perspectiveTransform(logical, points, *held_grid);
+            cv::perspectiveTransform(logical, previous, *normal_grid);
+            const cv::Rect2f bounds(180, 145, 820, 355);
+            if (!bounds.contains(points.front()) || !bounds.contains(previous.front())) {
+                continue;
+            }
+            const cv::Point center(points.front());
+            if (spa::green_deployment_hint(preview, center) &&
+                !spa::green_deployment_hint(before, cv::Point(previous.front()))) {
+                best_score = score;
+                target = std::pair(cell, Point(center.x, center.y));
+            }
+        }
+    }
+    bool moved = held && target.has_value();
+    if (moved) {
+        const Point staging(source.x - 60, source.y + 108);
+        for (int step = 1; moved && step <= 8; ++step) {
+            moved = move(Point(
+                        staging.x + (target->second.x - staging.x) * step / 8,
+                        staging.y + (target->second.y - staging.y) * step / 8)) &&
+                    sleep(35);
+        }
+    }
+    if (!moved) {
+        static_cast<void>(move(Point(20, 300)));
+    }
+    const bool released = release();
+    const bool issued = moved && released;
+    if (issued) {
+        auto input = basic_info_with_what("SPAActiveStrategyInputIssued");
+        input["details"] = json::object { { "round", round },
+                                          { "strategy", "溃心领域" },
+                                          { "col", target->first.first },
+                                          { "row", target->first.second },
+                                          { "effect_verified", false } };
+        callback(AsstMsg::SubTaskExtraInfo, input);
+    }
+    const auto after = sleep(500) ? ctrler()->get_image() : cv::Mat {};
+    const auto charges_after = issued ? read_charges(after) : std::nullopt;
+    bool verified = false;
+    if (charges_after && *charges_after == *charges_before - 1 &&
+        spa::preparation_round_number(after, round) == round) {
+        OCRer ready(after, Rect(1100, 70, 180, 85));
+        const auto labels = ready.analyze();
+        verified = labels && std::any_of(labels->begin(), labels->end(), [](const auto& label) {
+                       return label.score >= .90 && label.text == "准备就绪";
+                   });
+    }
+    if (verified) {
+        m_fear_trap_cells.insert(target->first);
+    }
+    else {
+        m_fear_trap_unverified = true;
+    }
+    auto evidence = basic_info_with_what("SPAFearTrapPlacement");
+    evidence["details"] = json::object { { "round", round },
+                                         { "map_id", m_spatial_map_id },
+                                         { "charges_before", *charges_before },
+                                         { "charges_after", charges_after.value_or(-1) },
+                                         { "held_grid_verified", held_grid.has_value() },
+                                         { "legal_route_tile", target.has_value() },
+                                         { "input_issued", issued },
+                                         { "charge_spent_verified", verified } };
+    callback(AsstMsg::SubTaskExtraInfo, evidence);
+    if (verified) {
+        spa::save_evidence(after, utils::path("debug/SPA/fear_trap_placed"), false);
+    }
+    else {
+        spa::save_evidence(preview, utils::path("debug/SPA/fear_trap_held"), false);
+        spa::save_evidence(after, utils::path("debug/SPA/fear_trap_unverified"), false);
+    }
+    return true;
 }

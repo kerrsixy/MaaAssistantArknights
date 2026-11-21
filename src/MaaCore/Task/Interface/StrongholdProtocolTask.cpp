@@ -144,6 +144,9 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_prefer_unclaimed = params.get("prefer_unclaimed_strategy", false);
     m_current_strategy_inspected = false;
     m_preparation_instruction_attempts.clear();
+    m_fear_trap_cells.clear();
+    m_fear_trap_round = -1;
+    m_fear_trap_unverified = false;
     m_equipment_discount_round = -1;
     m_requested_strategy_id = params.get("strategy_id", std::string());
     const auto schedule_badges = params.find<bool>("schedule_strategy_badges");
@@ -4438,7 +4441,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 continue;
             }
             if (m_auto_run && (m_shopping_complete || state.get("funds", -1) == 0) &&
-                handle_temporary_elite_instruction(state)) {
+                (handle_temporary_elite_instruction(state) || handle_fear_trap_instruction(state))) {
                 continue;
             }
             const bool configured_layout = m_layout_supplied;

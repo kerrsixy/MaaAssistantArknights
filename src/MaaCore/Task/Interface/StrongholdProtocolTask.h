@@ -56,6 +56,10 @@ private:
     int m_equipment_discount_round = -1;
     bool identify_current_strategy(const json::value& state);
     bool handle_temporary_elite_instruction(const json::value& state);
+    bool handle_fear_trap_instruction(const json::value& state);
+    std::set<spa::BoardCell> m_fear_trap_cells;
+    int m_fear_trap_round = -1;
+    bool m_fear_trap_unverified = false;
     std::vector<std::string> m_configured_core_pacts;
     std::vector<std::string> m_declared_disabled_pacts;
     std::vector<std::string> m_observed_disabled_pacts;
