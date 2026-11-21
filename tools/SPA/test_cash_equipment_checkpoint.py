@@ -130,10 +130,15 @@ class CashEquipmentCheckpointTests(unittest.TestCase):
         )[0]
         self.assertIn("if (m_equip_only)", release)
         self.assertNotIn("if (ok && m_equip_only)", release)
-        self.assertLess(
-            release.index("m_equipment_contact_attempted = true"),
-            release.index("send(InputEvent::Type::TOUCH_UP)"),
+        self.assertIn(
+            "cancelled_outside_targets = moved_to_cancel_point && cancel_position_committed",
+            source,
         )
+        release_ack = "const bool released = send(InputEvent::Type::TOUCH_UP)"
+        commit_ack = "const bool committed = send(InputEvent::Type::COMMIT)"
+        attempt_guard = "m_equipment_contact_attempted = !(cancelled_outside_targets && released && committed)"
+        self.assertLess(release.index(release_ack), release.index(commit_ack))
+        self.assertLess(release.index(commit_ack), release.index(attempt_guard))
 
 
 if __name__ == "__main__":

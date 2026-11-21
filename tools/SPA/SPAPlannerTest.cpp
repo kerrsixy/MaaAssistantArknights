@@ -3022,6 +3022,11 @@ int main()
     StrategyProgress silver_progress { "silver-band", 5, true, false, true };
     assert(ledger.apply({ "silver-win", "silver-band", true, true, true }, silver_progress));
     assert(silver_progress.wins == 6 && !ProgressLedger::complete(silver_progress));
+    const StrategyProgress before_silver { "silver-band", 5, true, false, true };
+    assert(ProgressLedger::can_schedule_solo(before_silver));
+    assert(!ProgressLedger::can_schedule_solo(silver_progress));
+    assert(ProgressLedger::next_report_confirms_win(before_silver, silver_progress, "silver-band", true));
+    assert(!ProgressLedger::can_schedule_solo(after_report));
     assert(store.reconcile({ "unknown-wins", std::nullopt, true, false, true }));
     settlement.band_id = "unknown-wins";
     settlement.run_id = "unknown-run";

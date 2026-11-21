@@ -368,6 +368,78 @@ class StagedAcceptanceTests(unittest.TestCase):
                 audit_run(events, self.policy, {**review, **changed})["qualified_win"]
             )
 
+    def test_strategy_badge_needs_the_selected_identity_and_a_fresh_report(self):
+        policy = {
+            "run_id": "scheduled-band",
+            "mode": "independent",
+            "difficulty": 5,
+            "schedule_strategy_badges": True,
+        }
+        for wins, tier in ((3, "orange"), (6, "silver")):
+            raw = solo_run("independent", 5)
+            raw[-2]["details"]["taskchain"] = "StrongholdProtocol"
+            badge = event(
+                "SPAObservation",
+                {
+                    "page": "strategy_report",
+                    "band_id": "band_weakness",
+                    "wins": wins,
+                    "wins_known": True,
+                    "contradictory": False,
+                    "badge_verified": True,
+                    "strategy_report_identity_verified": True,
+                    "strategy_progress_text_verified": True,
+                    "strategy_report_evidence_saved": True,
+                    "strategy_badge_tier": tier,
+                },
+            )
+            badge["details"].update(
+                {
+                    "class": "asst::spa::ObserverTaskPlugin",
+                    "taskchain": "StrongholdProtocol",
+                }
+            )
+            settled = event(
+                "SPAStrategyBadgeScheduleSettled",
+                {
+                    "requested_strategy": "band_weakness",
+                    "actual_strategy": "band_weakness",
+                    "same_strategy": True,
+                    "settlement_victory_verified": True,
+                    "report_win_delta_verified": True,
+                    "three_win_badge_verified": True,
+                    "report_wins_before": wins - 1,
+                    "report_wins_after": wins,
+                },
+            )
+            settled["details"].update(
+                {
+                    "class": "asst::StrongholdProtocolTask",
+                    "taskchain": "StrongholdProtocol",
+                }
+            )
+            raw[-1:-1] = [badge, settled]
+            result = self.reviewed(raw, policy)
+            self.assertTrue(result["qualified_win"])
+            self.assertTrue(result["strategy_badge_verified"])
+            self.assertEqual(result["strategy_badge_evidence"]["badge_tier"], tier)
+            self.assertEqual(
+                result["strategy_badge_evidence"]["report_wins_after"], wins
+            )
+            for field, value in (
+                ("band_id", "band_amiya"),
+                ("strategy_report_evidence_saved", False),
+                ("strategy_badge_tier", "silver" if tier == "orange" else "orange"),
+            ):
+                invalid = copy.deepcopy(raw)
+                invalid[-3]["details"]["details"][field] = value
+                self.assertFalse(
+                    self.reviewed(invalid, policy)["strategy_badge_verified"]
+                )
+            swapped = list(raw)
+            swapped[-2], swapped[-3] = swapped[-3], swapped[-2]
+            self.assertFalse(self.reviewed(swapped, policy)["strategy_badge_verified"])
+
     def test_hidden_core_requires_same_run_preparation_battle_and_saved_settlement(
         self,
     ):

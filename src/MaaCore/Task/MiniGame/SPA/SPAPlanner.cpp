@@ -114,7 +114,7 @@ bool asst::spa::ProgressLedger::next_report_confirms_win(
 {
     return verified_victory && !actual_band_id.empty() && before.band_id == actual_band_id &&
            after.band_id == actual_band_id && before.unlocked && after.unlocked && before.wins && after.wins &&
-           *before.wins >= 0 && *before.wins < 3 && *after.wins == *before.wins + 1;
+           *before.wins >= 0 && *before.wins < 6 && *after.wins == *before.wins + 1;
 }
 
 bool asst::spa::ProgressLedger::can_schedule_solo(const StrategyProgress& progress)
@@ -123,7 +123,9 @@ bool asst::spa::ProgressLedger::can_schedule_solo(const StrategyProgress& progre
         return false;
     }
     if (progress.wins) {
-        return *progress.wins >= 0 && *progress.wins < 3;
+        // The orange mark can verify completion from three wins. An
+        // unverified mark can still be followed up with the six-win mark.
+        return *progress.wins >= 0 && *progress.wins < 6;
     }
     return !progress.badge_verified &&
            std::any_of(StrategyUnlockCatalogue.begin(), StrategyUnlockCatalogue.end(), [&](const auto& rule) {

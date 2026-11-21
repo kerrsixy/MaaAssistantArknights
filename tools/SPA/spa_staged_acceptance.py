@@ -408,6 +408,90 @@ def hidden_core_completion_evidence(events, combat_samples, results, difficulty)
     return None
 
 
+def strategy_badge_completion_evidence(events, strategy_indices):
+    """Bind the selected strategy to a fresh native badge report after settlement."""
+    selected_ids = {
+        events[index]["details"]["details"]["strategy_id"] for index in strategy_indices
+    }
+    if len(selected_ids) != 1:
+        return None
+    strategy = next(iter(selected_ids))
+    settled = False
+    saved_reports = {}
+    for index, event in enumerate(events):
+        envelope = event.get("details", {})
+        if (
+            event.get("message") != 20003
+            or envelope.get("taskchain") != "StrongholdProtocol"
+        ):
+            continue
+        name, detail = envelope.get("what"), envelope.get("details", {})
+        source = envelope.get("class")
+        if (
+            name == "SPALifecycleCompleted"
+            and detail.get("return_home_verified") is True
+        ):
+            settled = True
+        if not settled:
+            continue
+        if (
+            name == "SPAObservation"
+            and source == "asst::spa::ObserverTaskPlugin"
+            and detail.get("page") == "strategy_report"
+            and detail.get("band_id") == strategy
+        ):
+            wins = detail.get("wins")
+            if (
+                type(wins) is int
+                and 3 <= wins <= 6
+                and detail.get("contradictory") is False
+                and all(
+                    detail.get(flag) is True
+                    for flag in (
+                        "wins_known",
+                        "badge_verified",
+                        "strategy_report_identity_verified",
+                        "strategy_progress_text_verified",
+                        "strategy_report_evidence_saved",
+                    )
+                )
+                and detail.get("strategy_badge_tier")
+                == ("silver" if wins == 6 else "orange")
+            ):
+                saved_reports[wins] = index
+        if (
+            name != "SPAStrategyBadgeScheduleSettled"
+            or source != "asst::StrongholdProtocolTask"
+        ):
+            continue
+        before, after = (
+            detail.get("report_wins_before"),
+            detail.get("report_wins_after"),
+        )
+        if (
+            detail.get("requested_strategy")
+            == detail.get("actual_strategy")
+            == strategy
+            and detail.get("same_strategy") is True
+            and detail.get("settlement_victory_verified") is True
+            and detail.get("report_win_delta_verified") is True
+            and detail.get("three_win_badge_verified") is True
+            and type(before) is int
+            and type(after) is int
+            and before + 1 == after
+            and after in saved_reports
+        ):
+            return {
+                "strategy_id": strategy,
+                "badge_tier": "silver" if after == 6 else "orange",
+                "report_wins_before": before,
+                "report_wins_after": after,
+                "report_event_index": saved_reports[after],
+                "confirmation_event_index": index,
+            }
+    return None
+
+
 def terminal_pact_sample(events, run_id):
     """Match a terminal growth review to its preceding same-run saved HUD sample."""
     saved = set()
@@ -709,6 +793,13 @@ def audit_run(events, policy, provenance):
         and rounds == 15
         else None
     )
+    strategy_badge = (
+        strategy_badge_completion_evidence(events, strategy_indices)
+        if qualified
+        and mode == "independent"
+        and policy.get("schedule_strategy_badges") is True
+        else None
+    )
     terminal = bool(receipt)
     verified_failure = (
         scope["complete"]
@@ -761,7 +852,8 @@ def audit_run(events, policy, provenance):
         "hidden_core_victory_verified": hidden_core is not None,
         "hidden_core_evidence": hidden_core,
         "hidden_boss_verified": False,
-        "strategy_badge_verified": False,
+        "strategy_badge_verified": strategy_badge is not None,
+        "strategy_badge_evidence": strategy_badge,
         "limitations": [
             "A candidate and a hash-bound review do not detect unrecorded external inputs.",
             "Missing execution/host boundaries are insufficient evidence, not a proven loss.",
