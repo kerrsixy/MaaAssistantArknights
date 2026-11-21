@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from spa_checkpoint import (
     merge_receipt,
@@ -408,8 +409,10 @@ def main():
 
     @Asst.CallBackType
     def callback(message, details, _):
+        observed_at = time.monotonic()
+        timestamp = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
         value = json.loads(details.decode("utf-8"))
-        event = {"message": message, "details": value}
+        event = {"timestamp": timestamp, "message": message, "details": value}
         events.append(event)
         # Preserve committed actions even if the host stops before finally runs.
         # Recovery must still re-observe the game before replaying any action.
@@ -418,7 +421,7 @@ def main():
             journal.flush()
             os.fsync(journal.fileno())
         if progress is not None:
-            progress.observe(value, time.monotonic())
+            progress.observe(value, observed_at)
         context_update = setup_context_receipt(
             value.get("what", ""), value.get("details", {})
         )

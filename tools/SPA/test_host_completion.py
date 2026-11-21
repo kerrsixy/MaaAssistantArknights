@@ -6,6 +6,7 @@ import sys
 import tempfile
 import types
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -236,7 +237,15 @@ class HostCompletionTests(unittest.TestCase):
                 path.name: json.loads(path.read_text(encoding="utf-8"))
                 for path in (root / "run").glob("*.json")
             }
-            self.assertEqual(files["events.json"], events)
+            journal = [
+                json.loads(line)
+                for line in (root / "run" / "events.jsonl").read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertEqual(files["events.json"], journal)
+            for entry in journal:
+                timestamp = datetime.fromisoformat(entry.pop("timestamp"))
+                self.assertEqual(timestamp.utcoffset(), timedelta(0))
+            self.assertEqual(journal, events)
             return error, files
 
     def test_real_main_rejects_old_promotion_and_preserves_native_settlement(self):
