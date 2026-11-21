@@ -1,0 +1,17 @@
+[
+    {
+        "fixture": "setup_selected_top.png",
+        "source": "archive/SPA/setup_availability_top/2026.11.19-04.34.30.75_raw.png",
+        "sha256": "172df5765afb68fe46cd08b67bab501d3fee079e8f73032b61eedcf5e40c905a"
+    },
+    {
+        "fixture": "setup_scrolled_banned.png",
+        "source": "archive/SPA/setup_availability_scroll/2026.11.19-04.34.33.732_raw.png",
+        "sha256": "6942dbc586c872f790c7146c4d5cb6227f42640ae76397acdf50b99a2cbbba28"
+    },
+    {
+        "fixture": "setup_selected_clipped.png",
+        "source": "archive/debug/interface/2026.11.19-04.35.15.225_raw.png",
+        "sha256": "32123a39f58db443131345aa91e6c871ec3afbf3f84c2563b4b3994f4d81680c"
+    }
+]

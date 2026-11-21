@@ -1,0 +1,3264 @@
+{
+    "source": "https://squad-pool.com/arknights-pacts?v=l",
+    "captured_date": "2026-11-18",
+    "source_type": "guide_author_summaries_not_original_video_verification",
+    "integration_status": {
+        "core_route_filter": "SPAGuideRoutes.h constrains covered core routes; manual choice and all-route bans restore the specified fallbacks",
+        "noncore_routes": "precision primary route and compatible supports are planned under covered strategies; miracle primary planning, mech communication-item execution and complete guide operations remain incomplete",
+        "shop_equipment_skills": "reference candidates requiring current board/economy/skill verification, not fixed actions",
+        "support_route_filter": "Strategy-specific primary/support combinations are consumed by derive_support_pacts; require distinct activation members, growth engine and pact eligibility. Secondary core-faction planning remains incomplete.",
+        "reference_only_routes": "reverse has no Miracle execution loop; tiepi-scope has no Lingqiao primary planner."
+    },
+    "guides": [
+        {
+            "id": "ursus",
+            "primary": "乌萨斯",
+            "strategy_ids": [
+                "band_jesica",
+                "band_mess"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "乌萨斯",
+                    "members": 6
+                },
+                {
+                    "pact": "奥术",
+                    "members": 3
+                },
+                {
+                    "pact": "迅捷",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "永久层数叠层",
+                    "operators": [
+                        "折桠",
+                        "乌啾"
+                    ]
+                },
+                {
+                    "role": "部署叠层",
+                    "operators": [
+                        "赫拉格"
+                    ]
+                },
+                {
+                    "role": "叠层核心",
+                    "operators": [
+                        "冻河"
+                    ]
+                },
+                {
+                    "role": "临时层数叠层",
+                    "operators": [
+                        "烈夏"
+                    ]
+                },
+                {
+                    "role": "叠层 / 输出终端",
+                    "operators": [
+                        "塔露拉"
+                    ]
+                },
+                {
+                    "role": "其余本家",
+                    "operators": [
+                        "维伊",
+                        "真理",
+                        "奥尔佳",
+                        "怒潮凛冬"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 2,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 3,
+                    "last_round": 4,
+                    "shop_level": 2
+                },
+                {
+                    "first_round": 5,
+                    "last_round": 5,
+                    "shop_level": 3
+                },
+                {
+                    "first_round": 6,
+                    "last_round": 9,
+                    "shop_level": 4
+                },
+                {
+                    "first_round": 10,
+                    "last_round": 10,
+                    "shop_level": 5
+                },
+                {
+                    "first_round": 11,
+                    "last_round": 14,
+                    "shop_level": 6
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "乌萨斯呼吸器",
+                    "recipient": "塔露拉"
+                },
+                {
+                    "name": "佣兵名牌",
+                    "recipient": "塔露拉"
+                },
+                {
+                    "name": "防眩晕装备",
+                    "recipient": ""
+                }
+            ],
+            "skill_preferences": [
+                {
+                    "operator": "霍尔海雅",
+                    "skill": "1 技能"
+                }
+            ],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1CwWW6aEjh",
+                    "author": "白樱iridescent"
+                },
+                {
+                    "url": "https://www.bilibili.com/video/BV1VfWH61E6B",
+                    "author": "自在道爷"
+                },
+                {
+                    "url": "https://www.bilibili.com/video/BV11iWW6uE3k",
+                    "author": "苏白Seb"
+                },
+                {
+                    "url": "https://www.bilibili.com/opus/1268367330752069664",
+                    "author": "白樱iridescent"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "ursus-gravel",
+            "primary": "乌萨斯",
+            "strategy_ids": [
+                "band_mech"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "卡西米尔",
+                    "members": 3
+                },
+                {
+                    "pact": "乌萨斯",
+                    "members": 3
+                },
+                {
+                    "pact": "不屈",
+                    "members": 3
+                },
+                {
+                    "pact": "灵巧",
+                    "members": 2
+                },
+                {
+                    "pact": "奇迹",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "叠层核心（被击倒）",
+                    "operators": [
+                        "砾"
+                    ]
+                },
+                {
+                    "role": "击倒手 / 主力",
+                    "operators": [
+                        "“暴躁铁皮”"
+                    ]
+                },
+                {
+                    "role": "乌萨斯",
+                    "operators": [
+                        "折桠",
+                        "奥尔佳"
+                    ]
+                },
+                {
+                    "role": "卡西米尔",
+                    "operators": [
+                        "野鬃",
+                        "历阵锐枪芬",
+                        "玛恩纳",
+                        "耀骑士临光"
+                    ]
+                },
+                {
+                    "role": "不屈",
+                    "operators": [
+                        "风丸",
+                        "史尔特尔"
+                    ]
+                },
+                {
+                    "role": "灵巧 / 奇迹",
+                    "operators": [
+                        "云迹",
+                        "星极"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 1,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 2,
+                    "last_round": 8,
+                    "shop_level": 2
+                },
+                {
+                    "first_round": 9,
+                    "last_round": 9,
+                    "shop_level": 4
+                },
+                {
+                    "first_round": 10,
+                    "last_round": 14,
+                    "shop_level": 5
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "源石溶剂",
+                    "recipient": "砾"
+                },
+                {
+                    "name": "不屈弹射器",
+                    "recipient": "砾"
+                },
+                {
+                    "name": "简易通讯机",
+                    "recipient": "“暴躁铁皮”"
+                },
+                {
+                    "name": "精打细算玩偶 / 见钱眼开玩偶",
+                    "recipient": ""
+                },
+                {
+                    "name": "变形同构体",
+                    "recipient": "“暴躁铁皮”"
+                },
+                {
+                    "name": "战力装备",
+                    "recipient": "“暴躁铁皮”"
+                }
+            ],
+            "skill_preferences": [
+                {
+                    "operator": "“暴躁铁皮”",
+                    "skill": "大丑的愤怒"
+                }
+            ],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1X3WK6aE7u",
+                    "author": "白樱iridescent"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "lethania",
+            "primary": "莱塔尼亚",
+            "strategy_ids": [
+                "band_jesica",
+                "band_mess"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "莱塔尼亚",
+                    "members": 6
+                },
+                {
+                    "pact": "精准",
+                    "members": 3
+                },
+                {
+                    "pact": "奥术",
+                    "members": 3
+                },
+                {
+                    "pact": "远见",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前期叠层",
+                    "operators": [
+                        "地灵",
+                        "折光",
+                        "复奏"
+                    ]
+                },
+                {
+                    "role": "中期叠层",
+                    "operators": [
+                        "黑键"
+                    ]
+                },
+                {
+                    "role": "后期叠层",
+                    "operators": [
+                        "薇薇安娜",
+                        "纯烬艾雅法拉"
+                    ]
+                },
+                {
+                    "role": "本家输出",
+                    "operators": [
+                        "艾雅法拉",
+                        "锏"
+                    ]
+                },
+                {
+                    "role": "其余本家",
+                    "operators": [
+                        "车尔尼",
+                        "卡涅利安"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 2,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 3,
+                    "last_round": 3,
+                    "shop_level": 2
+                },
+                {
+                    "first_round": 4,
+                    "last_round": 6,
+                    "shop_level": 3
+                },
+                {
+                    "first_round": 7,
+                    "last_round": 14,
+                    "shop_level": 4
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "狙击镜",
+                    "recipient": ""
+                },
+                {
+                    "name": "莱塔尼亚转职",
+                    "recipient": "折光"
+                }
+            ],
+            "skill_preferences": [
+                {
+                    "operator": "地灵",
+                    "skill": "1 技能"
+                },
+                {
+                    "operator": "霍尔海雅",
+                    "skill": "1 技能"
+                },
+                {
+                    "operator": "黑键",
+                    "skill": "2 技能"
+                },
+                {
+                    "operator": "艾雅法拉",
+                    "skill": "2 / 3 技能"
+                },
+                {
+                    "operator": "纯烬艾雅法拉",
+                    "skill": "2 技能"
+                },
+                {
+                    "operator": "薇薇安娜",
+                    "skill": "3 技能"
+                }
+            ],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1UhWW6kE6t",
+                    "author": "白樱iridescent"
+                },
+                {
+                    "url": "https://www.bilibili.com/opus/1268367330752069664",
+                    "author": "白樱iridescent"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "lethania-mouth",
+            "primary": "莱塔尼亚",
+            "strategy_ids": [
+                "band_evolve"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "莱塔尼亚",
+                    "members": 4
+                },
+                {
+                    "pact": "奥术",
+                    "members": 4
+                },
+                {
+                    "pact": "精准",
+                    "members": 3
+                },
+                {
+                    "pact": "远见",
+                    "members": 3
+                },
+                {
+                    "pact": "聚合",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前期过渡",
+                    "operators": [
+                        "地灵",
+                        "空弦"
+                    ]
+                },
+                {
+                    "role": "中期叠层核心",
+                    "operators": [
+                        "黑键",
+                        "霍尔海雅"
+                    ]
+                },
+                {
+                    "role": "叠层辅助",
+                    "operators": [
+                        "华法琳",
+                        "薇薇安娜",
+                        "阿米娅"
+                    ]
+                },
+                {
+                    "role": "本家叠层（来得晚）",
+                    "operators": [
+                        "纯烬艾雅法拉"
+                    ]
+                },
+                {
+                    "role": "精奥迅叠层手",
+                    "operators": [
+                        "溯光星源",
+                        "冻河"
+                    ]
+                },
+                {
+                    "role": "给转职道具",
+                    "operators": [
+                        "车尔尼",
+                        "卡涅利安"
+                    ]
+                },
+                {
+                    "role": "输出终端",
+                    "operators": [
+                        "艾雅法拉",
+                        "逻各斯"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 1,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 2,
+                    "last_round": 3,
+                    "shop_level": 2
+                },
+                {
+                    "first_round": 4,
+                    "last_round": 4,
+                    "shop_level": 3
+                },
+                {
+                    "first_round": 5,
+                    "last_round": 8,
+                    "shop_level": 4
+                },
+                {
+                    "first_round": 9,
+                    "last_round": 9,
+                    "shop_level": 5
+                },
+                {
+                    "first_round": 10,
+                    "last_round": 14,
+                    "shop_level": 6
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "变形同构体",
+                    "recipient": "霍尔海雅"
+                },
+                {
+                    "name": "迅捷作战粮",
+                    "recipient": "霍尔海雅"
+                },
+                {
+                    "name": "莱塔尼亚小鼓",
+                    "recipient": ""
+                },
+                {
+                    "name": "人事部文档",
+                    "recipient": ""
+                }
+            ],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1Y8Wt6fEe5",
+                    "author": "Rrr3_"
+                },
+                {
+                    "url": "https://www.bilibili.com/video/BV1kPWW6cEHC",
+                    "author": "天赋型搞笑选手"
+                },
+                {
+                    "url": "https://www.bilibili.com/video/BV1BvWP6MEwG",
+                    "author": "白樱iridescent"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "lethania-iso",
+            "primary": "莱塔尼亚",
+            "strategy_ids": [
+                "band_damaztic"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "莱塔尼亚",
+                    "members": 6
+                },
+                {
+                    "pact": "精准",
+                    "members": 3
+                },
+                {
+                    "pact": "奥术",
+                    "members": 3
+                },
+                {
+                    "pact": "远见",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前期远见",
+                    "operators": [
+                        "渡桥",
+                        "空弦"
+                    ]
+                },
+                {
+                    "role": "给小鼓",
+                    "operators": [
+                        "车尔尼"
+                    ]
+                },
+                {
+                    "role": "叠层核心",
+                    "operators": [
+                        "霍尔海雅",
+                        "黑键"
+                    ]
+                },
+                {
+                    "role": "输出",
+                    "operators": [
+                        "艾雅法拉"
+                    ]
+                },
+                {
+                    "role": "后期补强",
+                    "operators": [
+                        "薇薇安娜"
+                    ]
+                }
+            ],
+            "shop_plan": [],
+            "equipment_candidates": [
+                {
+                    "name": "变形同构体 + 莱塔尼亚小鼓",
+                    "recipient": "空弦"
+                },
+                {
+                    "name": "莱塔尼亚小鼓",
+                    "recipient": ""
+                }
+            ],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.douyin.com/video/7706470460594903531",
+                    "author": "无糖冰淇淋"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "egir",
+            "primary": "阿戈尔",
+            "strategy_ids": [
+                "band_lmlee"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "阿戈尔",
+                    "members": 6
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前期叠层",
+                    "operators": [
+                        "幽灵鲨",
+                        "安哲拉",
+                        "斯卡蒂"
+                    ]
+                },
+                {
+                    "role": "中期叠层",
+                    "operators": [
+                        "淬羽赫默",
+                        "歌蕾蒂娅"
+                    ]
+                },
+                {
+                    "role": "后期叠层",
+                    "operators": [
+                        "浊心斯卡蒂"
+                    ]
+                },
+                {
+                    "role": "后期输出核心",
+                    "operators": [
+                        "克莱门莎"
+                    ]
+                },
+                {
+                    "role": "其余本家",
+                    "operators": [
+                        "乌尔比安",
+                        "归溟幽灵鲨",
+                        "深巡",
+                        "水月"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 1,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 2,
+                    "last_round": 3,
+                    "shop_level": 2
+                },
+                {
+                    "first_round": 4,
+                    "last_round": 7,
+                    "shop_level": 3
+                },
+                {
+                    "first_round": 8,
+                    "last_round": 14,
+                    "shop_level": 4
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "变形同构体 + 阿戈尔中刃",
+                    "recipient": "帕拉斯"
+                },
+                {
+                    "name": "炎国短刀 / 突袭手雷",
+                    "recipient": ""
+                }
+            ],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1FnWn6XEA5",
+                    "author": "晓杰425"
+                },
+                {
+                    "url": "https://www.bilibili.com/video/BV1vFWs6XEtt",
+                    "author": "MR流星飞"
+                },
+                {
+                    "url": "https://www.bilibili.com/opus/1268367330752069664",
+                    "author": "白樱iridescent"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "sargon",
+            "primary": "萨尔贡",
+            "strategy_ids": [
+                "band_lmlee",
+                "band_fund"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "萨尔贡",
+                    "members": 6
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前中期叠层",
+                    "operators": [
+                        "艾丝黛尔",
+                        "泡泡",
+                        "森蚺"
+                    ]
+                },
+                {
+                    "role": "后期叠层",
+                    "operators": [
+                        "佩佩",
+                        "鸿雪"
+                    ]
+                },
+                {
+                    "role": "本家道中卡",
+                    "operators": [
+                        "异客",
+                        "莎草",
+                        "卡涅利安",
+                        "至简"
+                    ]
+                },
+                {
+                    "role": "本家输出终端",
+                    "operators": [
+                        "真言"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 1,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 2,
+                    "last_round": 2,
+                    "shop_level": 2
+                },
+                {
+                    "first_round": 3,
+                    "last_round": 6,
+                    "shop_level": 3
+                },
+                {
+                    "first_round": 7,
+                    "last_round": 10,
+                    "shop_level": 4
+                },
+                {
+                    "first_round": 11,
+                    "last_round": 14,
+                    "shop_level": 5
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "萨尔贡浓茶",
+                    "recipient": ""
+                },
+                {
+                    "name": "迅捷作战粮",
+                    "recipient": ""
+                },
+                {
+                    "name": "锤子",
+                    "recipient": ""
+                },
+                {
+                    "name": "盾",
+                    "recipient": ""
+                }
+            ],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV11CWx6GELy",
+                    "author": "晓杰425"
+                },
+                {
+                    "url": "https://www.bilibili.com/opus/1268367330752069664",
+                    "author": "白樱iridescent"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "kjerag",
+            "primary": "谢拉格",
+            "strategy_ids": [
+                "band_lmlee",
+                "band_fund"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "谢拉格",
+                    "members": 6
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前中期叠层",
+                    "operators": [
+                        "雪猎",
+                        "初雪",
+                        "灵知",
+                        "极光",
+                        "角峰",
+                        "耶拉"
+                    ]
+                },
+                {
+                    "role": "后期叠层 / 输出",
+                    "operators": [
+                        "圣聆初雪",
+                        "凛御银灰",
+                        "锏"
+                    ]
+                },
+                {
+                    "role": "其余本家",
+                    "operators": [
+                        "哈洛德"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 1,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 2,
+                    "last_round": 3,
+                    "shop_level": 2
+                },
+                {
+                    "first_round": 4,
+                    "last_round": 9,
+                    "shop_level": 3
+                },
+                {
+                    "first_round": 10,
+                    "last_round": 14,
+                    "shop_level": 5
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "萨尔贡浓茶",
+                    "recipient": "圣聆初雪"
+                },
+                {
+                    "name": "机械臂",
+                    "recipient": ""
+                },
+                {
+                    "name": "奥术法阵",
+                    "recipient": ""
+                }
+            ],
+            "skill_preferences": [
+                {
+                    "operator": "凛御银灰",
+                    "skill": "3 技能"
+                },
+                {
+                    "operator": "圣聆初雪",
+                    "skill": "3 技能"
+                },
+                {
+                    "operator": "锏",
+                    "skill": "3 技能"
+                }
+            ],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1cTWW6FEAS",
+                    "author": "晓杰425"
+                },
+                {
+                    "url": "https://www.bilibili.com/video/BV1XBWn6gE16",
+                    "author": "小写毛"
+                },
+                {
+                    "url": "https://www.bilibili.com/opus/1268367330752069664",
+                    "author": "白樱iridescent"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "kazimierz",
+            "primary": "卡西米尔",
+            "strategy_ids": [
+                "band_sarkazb",
+                "band_damaztic"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "卡西米尔",
+                    "members": 6
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前中期叠层",
+                    "operators": [
+                        "野鬃",
+                        "砾",
+                        "瑕光"
+                    ]
+                },
+                {
+                    "role": "辅助叠层",
+                    "operators": [
+                        "历阵锐枪芬",
+                        "远牙"
+                    ]
+                },
+                {
+                    "role": "后期叠层",
+                    "operators": [
+                        "焰尾",
+                        "薇薇安娜",
+                        "耀骑士临光"
+                    ]
+                },
+                {
+                    "role": "本家站场输出",
+                    "operators": [
+                        "玛恩纳",
+                        "锏"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 2,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 3,
+                    "last_round": 6,
+                    "shop_level": 3
+                },
+                {
+                    "first_round": 7,
+                    "last_round": 10,
+                    "shop_level": 4
+                },
+                {
+                    "first_round": 11,
+                    "last_round": 14,
+                    "shop_level": 6
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "卡西米尔棋子",
+                    "recipient": ""
+                },
+                {
+                    "name": "天马之枪 / 天马头盔",
+                    "recipient": ""
+                },
+                {
+                    "name": "加攻击的装备",
+                    "recipient": ""
+                }
+            ],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1nRWt6kEtd",
+                    "author": "晓杰425"
+                },
+                {
+                    "url": "https://www.bilibili.com/opus/1268367330752069664",
+                    "author": "白樱iridescent"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "iberia",
+            "primary": "伊比利亚",
+            "strategy_ids": [
+                "band_damaztic"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "伊比利亚",
+                    "members": 6
+                },
+                {
+                    "pact": "精准",
+                    "members": 3
+                },
+                {
+                    "pact": "奥术",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前期叠层",
+                    "operators": [
+                        "深靛"
+                    ]
+                },
+                {
+                    "role": "前期叠层核心",
+                    "operators": [
+                        "旅骨"
+                    ]
+                },
+                {
+                    "role": "叠层",
+                    "operators": [
+                        "流明"
+                    ]
+                },
+                {
+                    "role": "辅助叠层（抬售价）",
+                    "operators": [
+                        "温蒂",
+                        "海沫"
+                    ]
+                },
+                {
+                    "role": "中后期叠层核心",
+                    "operators": [
+                        "棘刺",
+                        "引星棘刺"
+                    ]
+                },
+                {
+                    "role": "其余本家",
+                    "operators": [
+                        "瑰盐",
+                        "蓝毒",
+                        "艾丽妮"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 2,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 3,
+                    "last_round": 5,
+                    "shop_level": 3
+                },
+                {
+                    "first_round": 6,
+                    "last_round": 14,
+                    "shop_level": 5
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "引动短刀",
+                    "recipient": ""
+                },
+                {
+                    "name": "骨刺刀",
+                    "recipient": ""
+                },
+                {
+                    "name": "怀表",
+                    "recipient": ""
+                },
+                {
+                    "name": "迅捷作战粮",
+                    "recipient": "棘刺"
+                },
+                {
+                    "name": "狙击镜",
+                    "recipient": "蓝毒"
+                }
+            ],
+            "skill_preferences": [
+                {
+                    "operator": "蓝毒",
+                    "skill": "1 技能"
+                },
+                {
+                    "operator": "流明",
+                    "skill": "1 技能"
+                }
+            ],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1k1WW6AEx7",
+                    "author": "白绮Infinity"
+                },
+                {
+                    "url": "https://www.bilibili.com/video/BV1FnWn6XE5H",
+                    "author": "晓杰425"
+                },
+                {
+                    "url": "https://www.bilibili.com/opus/1268367330752069664",
+                    "author": "白樱iridescent"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "victoria",
+            "primary": "维多利亚",
+            "strategy_ids": [
+                "band_sarkazb",
+                "band_lmlee"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "维多利亚",
+                    "members": 6
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前期叠层",
+                    "operators": [
+                        "慕斯",
+                        "Miss.Christine"
+                    ]
+                },
+                {
+                    "role": "中期叠层",
+                    "operators": [
+                        "涤火杰西卡"
+                    ]
+                },
+                {
+                    "role": "辅助叠层 / 增伤",
+                    "operators": [
+                        "凯瑟琳",
+                        "白铁"
+                    ]
+                },
+                {
+                    "role": "后期叠层 / 输出",
+                    "operators": [
+                        "维娜·维多利亚",
+                        "烛煌",
+                        "酒神"
+                    ]
+                },
+                {
+                    "role": "其余本家",
+                    "operators": [
+                        "水灯心",
+                        "哈洛德"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 1,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 2,
+                    "last_round": 2,
+                    "shop_level": 2
+                },
+                {
+                    "first_round": 3,
+                    "last_round": 3,
+                    "shop_level": 3
+                },
+                {
+                    "first_round": 4,
+                    "last_round": 9,
+                    "shop_level": 4
+                },
+                {
+                    "first_round": 10,
+                    "last_round": 14,
+                    "shop_level": 6
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "维多利亚锤子",
+                    "recipient": ""
+                },
+                {
+                    "name": "转职器 / 突袭手雷",
+                    "recipient": ""
+                },
+                {
+                    "name": "炎国短刀 ×2",
+                    "recipient": ""
+                }
+            ],
+            "skill_preferences": [
+                {
+                    "operator": "白铁",
+                    "skill": "2 技能"
+                },
+                {
+                    "operator": "烛煌",
+                    "skill": "3 技能"
+                }
+            ],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1m1W864ErS",
+                    "author": "晓杰425"
+                },
+                {
+                    "url": "https://www.bilibili.com/opus/1268367330752069664",
+                    "author": "白樱iridescent"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "siracusa",
+            "primary": "叙拉古",
+            "strategy_ids": [
+                "band_damaztic",
+                "band_siracusa"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "叙拉古",
+                    "members": 6
+                },
+                {
+                    "pact": "精准",
+                    "members": 3
+                },
+                {
+                    "pact": "聚合",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前期叠层",
+                    "operators": [
+                        "拉普兰德",
+                        "复奏"
+                    ]
+                },
+                {
+                    "role": "中期叠层",
+                    "operators": [
+                        "伺夜",
+                        "安洁莉娜"
+                    ]
+                },
+                {
+                    "role": "辅助叠层（刷新）",
+                    "operators": [
+                        "奥斯塔",
+                        "忍冬",
+                        "铃兰"
+                    ]
+                },
+                {
+                    "role": "后期叠层 / 输出",
+                    "operators": [
+                        "荒芜拉普兰德",
+                        "贝洛内",
+                        "斥罪"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 4,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 5,
+                    "last_round": 9,
+                    "shop_level": 3
+                },
+                {
+                    "first_round": 10,
+                    "last_round": 14,
+                    "shop_level": 5
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "驱逐者防暴装备",
+                    "recipient": "荒芜拉普兰德"
+                },
+                {
+                    "name": "双模机械臂",
+                    "recipient": ""
+                },
+                {
+                    "name": "变形同构体 + 叙拉古正装",
+                    "recipient": "妮芙"
+                },
+                {
+                    "name": "精打细算玩偶",
+                    "recipient": ""
+                },
+                {
+                    "name": "驮兽储蓄罐",
+                    "recipient": ""
+                },
+                {
+                    "name": "虹彩活血饮料",
+                    "recipient": "斥罪"
+                },
+                {
+                    "name": "简易通讯机",
+                    "recipient": ""
+                },
+                {
+                    "name": "博士投影",
+                    "recipient": ""
+                },
+                {
+                    "name": "卫戍推荐信",
+                    "recipient": ""
+                }
+            ],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1uJWb6xEEi",
+                    "author": "春分只想说乐"
+                },
+                {
+                    "url": "https://www.bilibili.com/video/BV1BTWH6nEXK",
+                    "author": "白樱iridescent"
+                },
+                {
+                    "url": "https://www.bilibili.com/video/BV1mwW86dESE",
+                    "author": "W-涂鸦電塔"
+                },
+                {
+                    "url": "https://www.bilibili.com/opus/1268367330752069664",
+                    "author": "白樱iridescent"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "yan",
+            "primary": "炎",
+            "strategy_ids": [
+                "band_gain"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "炎",
+                    "members": 6
+                },
+                {
+                    "pact": "灵巧",
+                    "members": 2
+                },
+                {
+                    "pact": "远见",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前期叠层",
+                    "operators": [
+                        "拜松",
+                        "矩",
+                        "风絮"
+                    ]
+                },
+                {
+                    "role": "中期叠层",
+                    "operators": [
+                        "余",
+                        "仇白"
+                    ]
+                },
+                {
+                    "role": "后期叠层",
+                    "operators": [
+                        "黍",
+                        "夕",
+                        "烛煌"
+                    ]
+                },
+                {
+                    "role": "其余本家（别一起上）",
+                    "operators": [
+                        "乌有",
+                        "老鲤"
+                    ]
+                }
+            ],
+            "shop_plan": [],
+            "equipment_candidates": [],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1BPWJ6yE3P",
+                    "author": "转瞬即逝Elapse"
+                },
+                {
+                    "url": "https://www.bilibili.com/video/BV1npWp6FEL7",
+                    "author": "博士摸鱼ing"
+                },
+                {
+                    "url": "https://www.bilibili.com/opus/1268367330752069664",
+                    "author": "白樱iridescent"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "yan-duyaoye",
+            "primary": "炎",
+            "strategy_ids": [
+                "band_yan"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "炎",
+                    "members": 5
+                },
+                {
+                    "pact": "坚守",
+                    "members": 3
+                },
+                {
+                    "pact": "聚合",
+                    "members": 2
+                },
+                {
+                    "pact": "灵巧",
+                    "members": 2
+                },
+                {
+                    "pact": "协防干员",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前期过渡（怎么强怎么来）",
+                    "operators": [
+                        "罗比菈塔",
+                        "摆渡人",
+                        "夏栎",
+                        "云迹"
+                    ]
+                },
+                {
+                    "role": "前期炎",
+                    "operators": [
+                        "拜松",
+                        "矩",
+                        "风絮"
+                    ]
+                },
+                {
+                    "role": "好牌多抓",
+                    "operators": [
+                        "乌有",
+                        "伊桑"
+                    ]
+                },
+                {
+                    "role": "核心三人",
+                    "operators": [
+                        "余",
+                        "仇白",
+                        "华法琳"
+                    ]
+                },
+                {
+                    "role": "5 本挂 · Boss 输出",
+                    "operators": [
+                        "赤刃明霄陈"
+                    ]
+                },
+                {
+                    "role": "Boss 战坚守 / 协防",
+                    "operators": [
+                        "塞雷娅",
+                        "机械师"
+                    ]
+                },
+                {
+                    "role": "不推荐",
+                    "operators": [
+                        "老鲤",
+                        "夕"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 4,
+                    "shop_level": 2
+                },
+                {
+                    "first_round": 5,
+                    "last_round": 5,
+                    "shop_level": 3
+                },
+                {
+                    "first_round": 6,
+                    "last_round": 8,
+                    "shop_level": 4
+                },
+                {
+                    "first_round": 9,
+                    "last_round": 14,
+                    "shop_level": 5
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "精准狙击镜",
+                    "recipient": "赤刃明霄陈"
+                }
+            ],
+            "skill_preferences": [
+                {
+                    "operator": "余",
+                    "skill": "2 技能"
+                },
+                {
+                    "operator": "仇白",
+                    "skill": "1 技能"
+                },
+                {
+                    "operator": "华法琳",
+                    "skill": "2 技能"
+                },
+                {
+                    "operator": "风絮",
+                    "skill": "2 技能"
+                }
+            ],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1vRWG64E8c",
+                    "author": "某中二的鸽子"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "preci-arcane",
+            "primary": "精准",
+            "strategy_ids": [
+                "band_mech"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "精准",
+                    "members": 4
+                },
+                {
+                    "pact": "奥术",
+                    "members": 3
+                },
+                {
+                    "pact": "远见",
+                    "members": 3
+                },
+                {
+                    "pact": "灵巧",
+                    "members": 2
+                },
+                {
+                    "pact": "聚合",
+                    "members": 2
+                },
+                {
+                    "pact": "奇迹",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前期叠层",
+                    "operators": [
+                        "渡桥",
+                        "空弦",
+                        "云迹",
+                        "承曦格雷伊"
+                    ]
+                },
+                {
+                    "role": "中期叠层",
+                    "operators": [
+                        "霍尔海雅",
+                        "黑键"
+                    ]
+                },
+                {
+                    "role": "辅助叠层",
+                    "operators": [
+                        "帕拉斯",
+                        "阿米娅",
+                        "Mon3tr",
+                        "华法琳"
+                    ]
+                },
+                {
+                    "role": "Boss 战生存（聚合）",
+                    "operators": [
+                        "纯烬艾雅法拉",
+                        "遥"
+                    ]
+                },
+                {
+                    "role": "主力（吃装备）",
+                    "operators": [
+                        "“暴躁铁皮”"
+                    ]
+                },
+                {
+                    "role": "奇迹（挂整备区）",
+                    "operators": [
+                        "复奏",
+                        "星极"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 1,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 2,
+                    "last_round": 7,
+                    "shop_level": 2
+                },
+                {
+                    "first_round": 8,
+                    "last_round": 9,
+                    "shop_level": 4
+                },
+                {
+                    "first_round": 10,
+                    "last_round": 14,
+                    "shop_level": 5
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "简易通讯机",
+                    "recipient": "“暴躁铁皮”"
+                },
+                {
+                    "name": "变形同构体",
+                    "recipient": "“暴躁铁皮”"
+                },
+                {
+                    "name": "精准狙击镜",
+                    "recipient": "“暴躁铁皮”"
+                },
+                {
+                    "name": "投机骰子",
+                    "recipient": ""
+                },
+                {
+                    "name": "高阶装备",
+                    "recipient": "“暴躁铁皮”"
+                }
+            ],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1jMWM6VE5n",
+                    "author": "白樱iridescent"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "preci-russo",
+            "primary": "精准",
+            "strategy_ids": [
+                "band_ioleta"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "精准",
+                    "members": 3
+                },
+                {
+                    "pact": "灵巧",
+                    "members": 3
+                },
+                {
+                    "pact": "坚守",
+                    "members": 3
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "核心（保证在场）",
+                    "operators": [
+                        "空弦",
+                        "承曦格雷伊",
+                        "云迹"
+                    ]
+                },
+                {
+                    "role": "3 坚守",
+                    "operators": [
+                        "车尔尼",
+                        "青枳",
+                        "摆渡人"
+                    ]
+                },
+                {
+                    "role": "一奶",
+                    "operators": [
+                        "华法琳"
+                    ]
+                },
+                {
+                    "role": "任意精准",
+                    "operators": [
+                        "霍尔海雅",
+                        "黑键",
+                        "伺夜",
+                        "灰喉"
+                    ]
+                },
+                {
+                    "role": "4 本平替",
+                    "operators": [
+                        "余"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 1,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 2,
+                    "last_round": 5,
+                    "shop_level": 2
+                },
+                {
+                    "first_round": 6,
+                    "last_round": 8,
+                    "shop_level": 3
+                },
+                {
+                    "first_round": 9,
+                    "last_round": 14,
+                    "shop_level": 4
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "精准狙击镜",
+                    "recipient": "空弦"
+                },
+                {
+                    "name": "双模机械臂",
+                    "recipient": "空弦"
+                },
+                {
+                    "name": "伊比利亚骨刺刀",
+                    "recipient": "空弦"
+                },
+                {
+                    "name": "奥术法阵",
+                    "recipient": "承曦格雷伊"
+                }
+            ],
+            "skill_preferences": [
+                {
+                    "operator": "承曦格雷伊",
+                    "skill": "2 技能"
+                },
+                {
+                    "operator": "云迹",
+                    "skill": ""
+                }
+            ],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1N4Wb6DE9G",
+                    "author": "当归_dang"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "preci-anaconda",
+            "primary": "精准",
+            "strategy_ids": [
+                "band_mech"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "精准",
+                    "members": 3
+                },
+                {
+                    "pact": "奥术",
+                    "members": 3
+                },
+                {
+                    "pact": "协防干员",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前期叠层（2 本）",
+                    "operators": [
+                        "云迹",
+                        "承曦格雷伊"
+                    ]
+                },
+                {
+                    "role": "中期叠层（3–4 本）",
+                    "operators": [
+                        "空弦",
+                        "华法琳",
+                        "霍尔海雅"
+                    ]
+                },
+                {
+                    "role": "主力（吃装备）",
+                    "operators": [
+                        "“暴躁铁皮”"
+                    ]
+                },
+                {
+                    "role": "后期补位",
+                    "operators": [
+                        "逻各斯",
+                        "迷迭香",
+                        "Mon3tr"
+                    ]
+                }
+            ],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 1,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 2,
+                    "last_round": 5,
+                    "shop_level": 2
+                },
+                {
+                    "first_round": 6,
+                    "last_round": 9,
+                    "shop_level": 4
+                },
+                {
+                    "first_round": 10,
+                    "last_round": 14,
+                    "shop_level": 5
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "精打细算玩偶",
+                    "recipient": ""
+                },
+                {
+                    "name": "简易通讯机",
+                    "recipient": "“暴躁铁皮”"
+                },
+                {
+                    "name": "博士投影",
+                    "recipient": "“暴躁铁皮”"
+                },
+                {
+                    "name": "变形同构体",
+                    "recipient": "“暴躁铁皮”"
+                },
+                {
+                    "name": "精准狙击镜",
+                    "recipient": "“暴躁铁皮”"
+                },
+                {
+                    "name": "奥术法阵",
+                    "recipient": "“暴躁铁皮”"
+                },
+                {
+                    "name": "M3茧甲",
+                    "recipient": "“暴躁铁皮”"
+                },
+                {
+                    "name": "天马之耀",
+                    "recipient": "“暴躁铁皮”"
+                },
+                {
+                    "name": "汲取者之镰",
+                    "recipient": "“暴躁铁皮”"
+                }
+            ],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.douyin.com/video/7706460660900678938",
+                    "author": "绮梦"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "reverse",
+            "primary": "奇迹",
+            "strategy_ids": [
+                "band_sell",
+                "band_bonus"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "奇迹",
+                    "members": 2
+                },
+                {
+                    "pact": "投资人",
+                    "members": 3
+                },
+                {
+                    "pact": "远见",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [],
+            "shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 1,
+                    "shop_level": 1
+                },
+                {
+                    "first_round": 2,
+                    "last_round": 4,
+                    "shop_level": 2
+                },
+                {
+                    "first_round": 5,
+                    "last_round": 5,
+                    "shop_level": 3
+                },
+                {
+                    "first_round": 6,
+                    "last_round": 14,
+                    "shop_level": 4
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "随身身份牌",
+                    "recipient": ""
+                },
+                {
+                    "name": "卫戍推荐信",
+                    "recipient": "云迹"
+                },
+                {
+                    "name": "见钱眼开玩偶",
+                    "recipient": ""
+                },
+                {
+                    "name": "简易通讯机",
+                    "recipient": "锡人"
+                },
+                {
+                    "name": "盟约之币",
+                    "recipient": ""
+                }
+            ],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1jEWx68EFC",
+                    "author": "染雨阳"
+                },
+                {
+                    "url": "https://www.bilibili.com/video/BV1CvWM69EcV",
+                    "author": "泥萌都是托"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": false,
+                "documented_auxiliary_support_preferences": false,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            },
+            "mode_constraints": {
+                "joint": "full infinite-refresh route is not executable within preparation time; do not auto-enable from this reference",
+                "quick": "guide develops beyond the quick boss horizon; requires separate adaptation",
+                "independent": "reference only until Miracle primary and gain loop are implemented"
+            }
+        },
+        {
+            "id": "skland-lethania-arcane",
+            "primary": "莱塔尼亚",
+            "strategy_ids": [
+                "band_weakness",
+                "band_transfer",
+                "band_bonus"
+            ],
+            "required_available_pacts": [
+                "精准",
+                "奥术"
+            ],
+            "target_pacts": [],
+            "support_preferences": [
+                "精准",
+                "奥术",
+                "聚合",
+                "远见"
+            ],
+            "role_candidates": [
+                {
+                    "role": "叠层候选（玩家攻略）",
+                    "operators": [
+                        "空弦",
+                        "黑键",
+                        "霍尔海雅"
+                    ]
+                },
+                {
+                    "role": "输出候选（玩家攻略）",
+                    "operators": [
+                        "艾雅法拉"
+                    ]
+                }
+            ],
+            "shop_plan": [],
+            "equipment_candidates": [],
+            "skill_preferences": [],
+            "applicability_reference": "这套阵容最关键的一张牌就是霍尔海雅，尽量不要在霍尔海雅被ban后强行玩，当然要玩也是可以的不过得配合夕和溯光星源这种高费卡来叠层，压力会大很多，这套阵容的生存在奶羊和瑶来之前其实是偏差的，所以在遇到萨卡兹悖谬暴虐兵长时一定要吧车尼尔下掉，直接放掉便好，不然可以会被直接击穿阵线",
+            "sources": [
+                {
+                    "provider": "Skland",
+                    "guide_id": "2119975763311388699",
+                    "source_file": "2026-11-11/skland-raw-recommend-1000.json",
+                    "captured_date": "2026-11-11",
+                    "reviewed_date": "2026-11-18",
+                    "source_title": "最数值的盟约，轻轻松松9000+攻小羊，成型单个干员可达45+输出"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "skland-precision-arcane",
+            "primary": "精准",
+            "strategy_ids": [
+                "band_weakness"
+            ],
+            "required_available_pacts": [
+                "精准",
+                "奥术"
+            ],
+            "target_pacts": [],
+            "support_preferences": [
+                "奥术",
+                "聚合",
+                "灵巧",
+                "远见"
+            ],
+            "role_candidates": [
+                {
+                    "role": "叠层候选（玩家攻略）",
+                    "operators": [
+                        "承曦格雷伊",
+                        "霍尔海雅",
+                        "空弦"
+                    ]
+                },
+                {
+                    "role": "输出候选（玩家攻略）",
+                    "operators": [
+                        "逻各斯",
+                        "艾雅法拉"
+                    ]
+                }
+            ],
+            "shop_plan": [],
+            "equipment_candidates": [],
+            "skill_preferences": [],
+            "applicability_reference": "适用于没有开局ban精准和奥术的情况",
+            "sources": [
+                {
+                    "provider": "Skland",
+                    "guide_id": "2120190464597509199",
+                    "source_file": "2026-11-11/skland-raw-recommend-1000.json",
+                    "captured_date": "2026-11-11",
+                    "reviewed_date": "2026-11-18",
+                    "source_title": "终极模拟攻略答案"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "skland-ursus-weakness",
+            "primary": "乌萨斯",
+            "strategy_ids": [
+                "band_weakness"
+            ],
+            "required_available_pacts": [],
+            "target_pacts": [],
+            "support_preferences": [
+                "奥术",
+                "不屈"
+            ],
+            "role_candidates": [
+                {
+                    "role": "叠层候选（玩家攻略）",
+                    "operators": [
+                        "乌啾",
+                        "冻河"
+                    ]
+                },
+                {
+                    "role": "输出候选（玩家攻略）",
+                    "operators": [
+                        "塔露拉"
+                    ]
+                }
+            ],
+            "shop_plan": [],
+            "equipment_candidates": [],
+            "skill_preferences": [],
+            "applicability_reference": "",
+            "sources": [
+                {
+                    "provider": "Skland",
+                    "guide_id": "2119463508043480355",
+                    "source_file": "2026-11-11/skland-raw-recommend-1000.json",
+                    "captured_date": "2026-11-11",
+                    "reviewed_date": "2026-11-18",
+                    "source_title": "乌萨斯是对的"
+                }
+            ],
+            "execution_verified": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            }
+        },
+        {
+            "id": "fuzou-1",
+            "name": "精聚奥莱 · 复奏一本流",
+            "primary": "莱塔尼亚",
+            "strategy_ids": [
+                "band_bonus"
+            ],
+            "planner_supported": true,
+            "required_available_pacts": [
+                "精准",
+                "奥术"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "莱塔尼亚",
+                    "members": 3
+                },
+                {
+                    "pact": "奥术",
+                    "members": 3
+                },
+                {
+                    "pact": "精准",
+                    "members": 3
+                },
+                {
+                    "pact": "聚合",
+                    "members": 2
+                },
+                {
+                    "pact": "奇迹",
+                    "members": 2
+                },
+                {
+                    "pact": "远见",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "奇迹（挂整备区）",
+                    "operators": [
+                        "复奏",
+                        "云迹",
+                        "星极"
+                    ]
+                },
+                {
+                    "role": "前期道中",
+                    "operators": [
+                        "渡桥",
+                        "承曦格雷伊",
+                        "空弦"
+                    ]
+                },
+                {
+                    "role": "中期关键牌",
+                    "operators": [
+                        "黑键",
+                        "霍尔海雅"
+                    ]
+                },
+                {
+                    "role": "5 本关键牌",
+                    "operators": [
+                        "纯烬艾雅法拉"
+                    ]
+                },
+                {
+                    "role": "辅助叠层（见到就抓）",
+                    "operators": [
+                        "阿米娅",
+                        "华法琳",
+                        "Mon3tr"
+                    ]
+                },
+                {
+                    "role": "聚合占位（不强求）",
+                    "operators": [
+                        "遥",
+                        "褐果"
+                    ]
+                },
+                {
+                    "role": "输出",
+                    "operators": [
+                        "艾雅法拉",
+                        "逻各斯"
+                    ]
+                }
+            ],
+            "shop_plan": [],
+            "source_drawn_shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 5,
+                    "shop_level": 1,
+                    "label": "1 本 · 攒对子"
+                },
+                {
+                    "first_round": 6,
+                    "last_round": 8,
+                    "shop_level": 3,
+                    "label": "3 本 · 听牌"
+                },
+                {
+                    "first_round": 9,
+                    "last_round": 10,
+                    "shop_level": 4,
+                    "label": "4 本 · 找奶羊"
+                },
+                {
+                    "first_round": 11,
+                    "last_round": 12,
+                    "shop_level": 5,
+                    "label": "5 本"
+                },
+                {
+                    "first_round": 13,
+                    "last_round": 14,
+                    "shop_level": 6,
+                    "label": "6 本 · 转职球"
+                }
+            ],
+            "shop_plan_notes": [
+                "The diagram uses III at R6-8 and IV at R9-10; narration permits III at R6/7 and IV at R8/9 only after a middle-game core arrives.",
+                "V around R11 and VI around R13 remain conditional on the acquired engine."
+            ],
+            "source_round_conditions": [
+                {
+                    "text": "1–5 回合**停在 1 本**：对子来得多，可以碰一个找优质二本卡",
+                    "video_seconds": 42
+                },
+                {
+                    "text": "最晚第 7 回合、手上有 3 个及以上对子就升 3 本，一般至少能听出一张关键牌",
+                    "video_seconds": 119
+                },
+                {
+                    "text": "8/9 回合升 4 本的前提是来牌顺、已经抓到中期关键牌；叠层核心在 5 本的话就考虑速 4 本，3 本阶段找通用叠层卡 / 体系相关卡",
+                    "video_seconds": 190
+                },
+                {
+                    "text": "拿到关键体系卡再考虑升 5 升 6，一般 11 回合升 5、13 回合升 6",
+                    "video_seconds": 233
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "精准狙击镜",
+                    "recipient": "艾雅法拉",
+                    "usage_note": "承曦格雷伊获得时给两件；没有转职球时给艾雅法拉伤害可能最高（图上就放在她头上）"
+                },
+                {
+                    "name": "变形同构体",
+                    "recipient": "逻各斯",
+                    "usage_note": "6 本找缪尔赛思拿（UP 叫转职球），配精准狙击镜让逻各斯算精准，替掉空弦"
+                }
+            ],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1FoWj6kEBs",
+                    "author": "白樱iridescent",
+                    "title": "【卫戍协议∶规程】复奏一本流轮椅打法一图流！灵活变阵上限极高！极速听牌快速叠层！",
+                    "source_date_text": "11-11"
+                }
+            ],
+            "source_capture": {
+                "url": "https://squad-pool.com/arknights-lineups-data.js?v=20261118-1",
+                "captured_date": "2026-11-18",
+                "type": "author_video_summaries_not_original_video_verification"
+            },
+            "execution_verified": false,
+            "round_plan_executed": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            },
+            "mode_constraints": {
+                "quick": "Fourteen-round reference requires adaptation to the quick ninth-round boss; no literal schedule execution."
+            }
+        },
+        {
+            "id": "yan-bison4",
+            "name": "炎 · 拜松四本流",
+            "primary": "炎",
+            "strategy_ids": [
+                "band_closeout"
+            ],
+            "planner_supported": true,
+            "required_available_pacts": [],
+            "target_pacts": [
+                {
+                    "pact": "炎",
+                    "members": 4
+                },
+                {
+                    "pact": "坚守",
+                    "members": 3
+                },
+                {
+                    "pact": "投资人",
+                    "members": 3
+                },
+                {
+                    "pact": "灵巧",
+                    "members": 2
+                },
+                {
+                    "pact": "聚合",
+                    "members": 2
+                },
+                {
+                    "pact": "奇迹",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "核心四人（前期就上）",
+                    "operators": [
+                        "风絮",
+                        "余",
+                        "仇白",
+                        "华法琳"
+                    ]
+                },
+                {
+                    "role": "V 阶补强（三合一）",
+                    "operators": [
+                        "塞雷娅",
+                        "佩佩",
+                        "赤刃明霄陈"
+                    ]
+                },
+                {
+                    "role": "前期 2 奇迹（挂整备区）",
+                    "operators": [
+                        "云迹",
+                        "星极"
+                    ]
+                },
+                {
+                    "role": "前期 3 坚守",
+                    "operators": [
+                        "罗比菈塔",
+                        "青枳"
+                    ]
+                },
+                {
+                    "role": "前期 2 聚合",
+                    "operators": [
+                        "褐果",
+                        "波登可"
+                    ]
+                },
+                {
+                    "role": "狙击镜",
+                    "operators": [
+                        "承曦格雷伊"
+                    ]
+                },
+                {
+                    "role": "3 投资人（挂整备区）",
+                    "operators": [
+                        "锡人",
+                        "山",
+                        "可露希尔",
+                        "凛御银灰",
+                        "老鲤"
+                    ]
+                },
+                {
+                    "role": "叠层辅助（三合一）",
+                    "operators": [
+                        "铃兰",
+                        "阿米娅"
+                    ]
+                },
+                {
+                    "role": "生存位",
+                    "operators": [
+                        "夜莺"
+                    ]
+                }
+            ],
+            "shop_plan": [],
+            "source_drawn_shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 1,
+                    "shop_level": 1,
+                    "label": "1 本"
+                },
+                {
+                    "first_round": 2,
+                    "last_round": 3,
+                    "shop_level": 2,
+                    "label": "2 本"
+                },
+                {
+                    "first_round": 4,
+                    "last_round": 5,
+                    "shop_level": 3,
+                    "label": "3 本"
+                },
+                {
+                    "first_round": 6,
+                    "last_round": 14,
+                    "shop_level": 4,
+                    "label": "卡 4 本"
+                }
+            ],
+            "shop_plan_notes": [
+                "The diagram reaches IV at R6; narration allows R5 only with favorable offers and economy.",
+                "Stay IV normally. V requires elite key units and exceptional offers; VI is not required.",
+                "The author summarizes the strategy as costing 9, but its live cost falls each round until used. Never hardcode a price of 9."
+            ],
+            "source_round_conditions": [
+                {
+                    "text": "画面升级思路：**第 2 回合升 2 本、第 4 回合升 3 本、第 5 / 6 回合升 4 本**",
+                    "video_seconds": 41
+                },
+                {
+                    "text": "前期**速 4 本，能升就升**：一般第 6 回合能上，发牌顺、有经济牌可抓时第 5 回合也能上",
+                    "video_seconds": 41
+                },
+                {
+                    "text": "**发牌极顺、关键牌全精锐**才考虑升 5 本；不是胡穿一般不升 6 本",
+                    "video_seconds": 0
+                },
+                {
+                    "text": "V 阶的塞雷娅、佩佩、火陈靠**三合一**拿，不用为它们升 5 本",
+                    "video_seconds": 164
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "精准狙击镜",
+                    "recipient": "仇白",
+                    "usage_note": "画面：有狙击镜可以给**仇白或火陈**；承曦格雷伊获得时给一个，铃兰对着格雷伊能再拿；火陈没拿到狙击镜就带比较高阶的装备"
+                }
+            ],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1Dvs16VESj",
+                    "author": "白樱iridescent",
+                    "title": "【卫戍协议∶规程】四本流拜松策略走地炎，推荐联机游玩！技能/阵容/道中抓牌/升本节奏保姆级一图流解说！",
+                    "source_date_text": "11-18"
+                }
+            ],
+            "source_capture": {
+                "url": "https://squad-pool.com/arknights-lineups-data.js?v=20261118-1",
+                "captured_date": "2026-11-18",
+                "type": "author_video_summaries_not_original_video_verification"
+            },
+            "execution_verified": false,
+            "round_plan_executed": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            },
+            "mode_constraints": {
+                "quick": "Fourteen-round reference requires adaptation to the quick ninth-round boss; no literal schedule execution."
+            }
+        },
+        {
+            "id": "tiepi-scope",
+            "name": "六狙击镜大丑 · 森蚺轮椅",
+            "primary": "灵巧",
+            "strategy_ids": [
+                "band_mech"
+            ],
+            "planner_supported": false,
+            "required_available_pacts": [],
+            "target_pacts": [
+                {
+                    "pact": "灵巧",
+                    "members": 2
+                },
+                {
+                    "pact": "奇迹",
+                    "members": 2
+                },
+                {
+                    "pact": "坚守",
+                    "members": 3
+                },
+                {
+                    "pact": "聚合",
+                    "members": 3
+                },
+                {
+                    "pact": "协防干员",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "主力（堆狙击镜）",
+                    "operators": [
+                        "“暴躁铁皮”"
+                    ]
+                },
+                {
+                    "role": "前中期叠层 / 发狙击镜",
+                    "operators": [
+                        "承曦格雷伊",
+                        "云迹"
+                    ]
+                },
+                {
+                    "role": "奇迹（挂整备区）",
+                    "operators": [
+                        "复奏",
+                        "星极"
+                    ]
+                },
+                {
+                    "role": "坚守",
+                    "operators": [
+                        "蛇屠箱",
+                        "罗比菈塔"
+                    ]
+                },
+                {
+                    "role": "聚合",
+                    "operators": [
+                        "莎草",
+                        "褐果",
+                        "夜莺"
+                    ]
+                }
+            ],
+            "shop_plan": [],
+            "source_drawn_shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 1,
+                    "shop_level": 1,
+                    "label": "1 本"
+                },
+                {
+                    "first_round": 2,
+                    "last_round": 9,
+                    "shop_level": 2,
+                    "label": "2 本 · 格雷伊云迹"
+                },
+                {
+                    "first_round": 10,
+                    "last_round": 14,
+                    "shop_level": 5,
+                    "label": "上本 · 坚守聚合"
+                }
+            ],
+            "shop_plan_notes": [
+                "The drawn R10-14 level V is illustrative: narration only says upgrade from R10; the final screenshot is VI without intermediate timing.",
+                "Do not merge this R3-9 tier-II hold with preci-arcane, which leaves II at R8 even without communication gear.",
+                "The damage-multiplier claim concerns large bosses and is not independent simulator evidence."
+            ],
+            "source_round_conditions": [
+                {
+                    "text": "**2 回合升 2 本**",
+                    "video_seconds": 0
+                },
+                {
+                    "text": "**3–9 回合停在 2 本**，找承曦格雷伊、云迹和装备",
+                    "video_seconds": 0
+                },
+                {
+                    "text": "**10 回合考虑上本**，转职开 3 坚守 / 3 聚合，高本再挑高阶装备和体系叠层卡",
+                    "video_seconds": 0
+                },
+                {
+                    "text": "视频没说 10 回合后升到几本；片尾 Boss 战画面调度中心是 **LEVEL VI**",
+                    "video_seconds": 139
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "精准狙击镜",
+                    "recipient": "“暴躁铁皮”",
+                    "usage_note": "承曦格雷伊获得时给（精锐给 2 个）；对 3 格及以上的目标伤害 +30%（精锐 +50%），多个**乘算**，白樱算约 11 倍+"
+                },
+                {
+                    "name": "虹彩活血饮料",
+                    "recipient": "“暴躁铁皮”",
+                    "usage_note": "前期回血、补道中战力，没有聚合卡时用；注意携带者无法被治疗"
+                },
+                {
+                    "name": "简易通讯机",
+                    "recipient": "“暴躁铁皮”",
+                    "usage_note": "2 本给大丑，用于精锐进阶"
+                },
+                {
+                    "name": "精打细算玩偶 / 见钱眼开玩偶",
+                    "recipient": "",
+                    "usage_note": "经济，无脑买，别影响抓云迹"
+                },
+                {
+                    "name": "坚守盾牌",
+                    "recipient": "",
+                    "usage_note": "坚守转职，有闲钱买，后期配变形同构体开 3 坚守"
+                },
+                {
+                    "name": "聚合急救箱",
+                    "recipient": "",
+                    "usage_note": "聚合转职（白樱这么叫），有闲钱买，后期配变形同构体开 3 聚合"
+                },
+                {
+                    "name": "变形同构体",
+                    "recipient": "",
+                    "usage_note": "有就多开 3 坚守 / 3 聚合；视频没说给谁带"
+                }
+            ],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1mtWk64E8w",
+                    "author": "白樱iridescent",
+                    "title": "【卫戍协议∶规程】六狙击镜大丑一图流！大体型BOSS克星！新卫戍最无脑最简单的轮椅构筑！",
+                    "source_date_text": "11-13"
+                }
+            ],
+            "source_capture": {
+                "url": "https://squad-pool.com/arknights-lineups-data.js?v=20261118-1",
+                "captured_date": "2026-11-18",
+                "type": "author_video_summaries_not_original_video_verification"
+            },
+            "execution_verified": false,
+            "round_plan_executed": false,
+            "runtime_integration": {
+                "primary_filter": false,
+                "documented_auxiliary_support_preferences": false,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false,
+                "limitation": "Lingqiao primary planner is unavailable; reference only, excluded from selection and contention scoring."
+            },
+            "mode_constraints": {
+                "quick": "Fourteen-round reference requires adaptation to the quick ninth-round boss; no literal schedule execution."
+            }
+        },
+        {
+            "id": "victoria-stead",
+            "name": "坚守维多利亚 · 公式化运营",
+            "primary": "维多利亚",
+            "strategy_ids": [
+                "band_jesica",
+                "band_bonus",
+                "band_prepfin",
+                "band_damaztic"
+            ],
+            "planner_supported": true,
+            "required_available_pacts": [
+                "坚守"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "维多利亚",
+                    "members": 6
+                },
+                {
+                    "pact": "坚守",
+                    "members": 3
+                },
+                {
+                    "pact": "奇迹",
+                    "members": 2
+                },
+                {
+                    "pact": "灵巧",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "前期叠层（2–3 本）",
+                    "operators": [
+                        "罗比菈塔",
+                        "星源",
+                        "空弦",
+                        "渡桥",
+                        "承曦格雷伊",
+                        "云迹"
+                    ]
+                },
+                {
+                    "role": "叠层核心",
+                    "operators": [
+                        "涤火杰西卡"
+                    ]
+                },
+                {
+                    "role": "复制叠层",
+                    "operators": [
+                        "塞雷娅"
+                    ]
+                },
+                {
+                    "role": "装备升精锐",
+                    "operators": [
+                        "白铁"
+                    ]
+                },
+                {
+                    "role": "坚守位",
+                    "operators": [
+                        "罗比菈塔",
+                        "机械师"
+                    ]
+                },
+                {
+                    "role": "后期本家",
+                    "operators": [
+                        "维娜·维多利亚",
+                        "烛煌",
+                        "酒神",
+                        "水灯心"
+                    ]
+                },
+                {
+                    "role": "转职 / 多转职补位",
+                    "operators": [
+                        "佩佩",
+                        "霍尔海雅"
+                    ]
+                }
+            ],
+            "shop_plan": [],
+            "source_drawn_shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 6,
+                    "shop_level": 3,
+                    "label": "1–3 本 · 叠小盟约"
+                },
+                {
+                    "first_round": 7,
+                    "last_round": 8,
+                    "shop_level": 4,
+                    "label": "速 4 · 找涤火"
+                },
+                {
+                    "first_round": 9,
+                    "last_round": 14,
+                    "shop_level": 5,
+                    "label": "5 本+ · 凑 6 维"
+                }
+            ],
+            "shop_plan_notes": [
+                "The diagram's R1-6 level III represents a I-III phase, not an initial level of III; early upgrade rounds are unspecified.",
+                "Jessica aims for IV at R7; Fuzou saves pairs R1-5, promotes once each R6-8, and upgrades after receiving Jessica.",
+                "V follows the key operator, as early as R8 in one example; VI timing is unspecified."
+            ],
+            "source_round_conditions": [
+                {
+                    "text": "杰西卡分队**第 7 回合速 4 本**，用寻呼模块找涤火杰西卡",
+                    "video_seconds": 97
+                },
+                {
+                    "text": "复奏分队 1–5 回合攒对子，6–8 回合三合一找涤火杰西卡，出了就升 4 本",
+                    "video_seconds": 116
+                },
+                {
+                    "text": "拿到涤火杰西卡后可以考虑升 5 本；杰西卡分队第 7 回合就找到的话，第 8 回合考虑升 5",
+                    "video_seconds": 116
+                },
+                {
+                    "text": "1–3 本具体哪回合升视频没讲；成型阵容里烛煌、酒神、机械师都是六阶，几回合上 6 本也没讲",
+                    "video_seconds": 199
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "维式重锤",
+                    "recipient": "",
+                    "usage_note": "配变形同构体合出维多利亚转职"
+                },
+                {
+                    "name": "变形同构体",
+                    "recipient": "",
+                    "usage_note": "缪尔赛思给（字幕叫“缪尔赛思的球”）；配维式重锤让携带者算维多利亚"
+                },
+                {
+                    "name": "寻呼模块",
+                    "recipient": "",
+                    "usage_note": "集结指示第 4、7、10、13 回合给；第 7 回合用它找涤火杰西卡"
+                },
+                {
+                    "name": "精准狙击镜",
+                    "recipient": "",
+                    "usage_note": "承曦格雷伊获得时给"
+                }
+            ],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1FHWX6GEh2",
+                    "author": "白樱iridescent",
+                    "title": "【卫戍协议∶规程】坚守维多利亚公式化运营一图流！boss战播报的神！",
+                    "source_date_text": "11-12"
+                }
+            ],
+            "source_capture": {
+                "url": "https://squad-pool.com/arknights-lineups-data.js?v=20261118-1",
+                "captured_date": "2026-11-18",
+                "type": "author_video_summaries_not_original_video_verification"
+            },
+            "execution_verified": false,
+            "round_plan_executed": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            },
+            "mode_constraints": {
+                "quick": "Fourteen-round reference requires adaptation to the quick ninth-round boss; no literal schedule execution."
+            }
+        },
+        {
+            "id": "iberia-3",
+            "name": "伊比利亚 · 三本坚守聚合",
+            "primary": "伊比利亚",
+            "strategy_ids": [
+                "band_prepfin",
+                "band_damaztic"
+            ],
+            "planner_supported": true,
+            "required_available_pacts": [
+                "坚守",
+                "聚合"
+            ],
+            "target_pacts": [
+                {
+                    "pact": "伊比利亚",
+                    "members": 6
+                },
+                {
+                    "pact": "坚守",
+                    "members": 3
+                },
+                {
+                    "pact": "聚合",
+                    "members": 2
+                }
+            ],
+            "role_candidates": [
+                {
+                    "role": "叠层核心",
+                    "operators": [
+                        "旅骨",
+                        "流明"
+                    ]
+                },
+                {
+                    "role": "辅助叠层（抬售价）",
+                    "operators": [
+                        "海沫",
+                        "温蒂"
+                    ]
+                },
+                {
+                    "role": "后期叠层",
+                    "operators": [
+                        "棘刺",
+                        "引星棘刺"
+                    ]
+                },
+                {
+                    "role": "核心输出",
+                    "operators": [
+                        "蓝毒"
+                    ]
+                },
+                {
+                    "role": "前期补伊比利亚",
+                    "operators": [
+                        "深靛",
+                        "瑰盐"
+                    ]
+                },
+                {
+                    "role": "坚守 / 聚合 / 助力过渡",
+                    "operators": [
+                        "罗比菈塔",
+                        "青枳",
+                        "蛇屠箱",
+                        "褐果",
+                        "夜莺"
+                    ]
+                }
+            ],
+            "shop_plan": [],
+            "source_drawn_shop_plan": [
+                {
+                    "first_round": 1,
+                    "last_round": 1,
+                    "shop_level": 1,
+                    "label": "1 本"
+                },
+                {
+                    "first_round": 2,
+                    "last_round": 3,
+                    "shop_level": 2,
+                    "label": "2 回合升 2"
+                },
+                {
+                    "first_round": 4,
+                    "last_round": 9,
+                    "shop_level": 3,
+                    "label": "4 回合升 3 · 停 3 本"
+                },
+                {
+                    "first_round": 10,
+                    "last_round": 14,
+                    "shop_level": 4,
+                    "label": "升 4 → 5 → 6"
+                }
+            ],
+            "shop_plan_notes": [
+                "R2 II and R4 III, then stay III for promotions and leave by R9/10.",
+                "The final IV diagram represents IV-V-VI progression; V and VI rounds are unspecified.",
+                "Precision is optional only with band_damaztic; do not impose it on band_prepfin."
+            ],
+            "source_round_conditions": [
+                {
+                    "text": "二回合升 2，四回合升 3；在 3 本停一段时间，三合一进阶旅骨、出流明",
+                    "video_seconds": 20
+                },
+                {
+                    "text": "**最晚 9/10 回合**考虑升 4，再搜精锐温蒂 / 流明；之后上 5 上 6 找引星棘刺（5、6 本的具体回合视频没给）",
+                    "video_seconds": 93
+                }
+            ],
+            "equipment_candidates": [
+                {
+                    "name": "精准狙击镜",
+                    "recipient": "蓝毒",
+                    "usage_note": "输出核心的装备"
+                },
+                {
+                    "name": "双模机械臂",
+                    "recipient": "蓝毒",
+                    "usage_note": "画面里挂在蓝毒下面；更高阶的合成装备也行，但很难遇到"
+                },
+                {
+                    "name": "变形同构体",
+                    "recipient": "",
+                    "usage_note": "转职：配坚守盾牌转坚守、配聚合急救箱转聚合，凑 3 坚守 / 3 聚合"
+                }
+            ],
+            "skill_preferences": [],
+            "sources": [
+                {
+                    "url": "https://www.bilibili.com/video/BV1WGWr6UEhb",
+                    "author": "白樱iridescent",
+                    "title": "【卫戍协议∶规程】三本伊比利亚公式化运营一图流！道中强兜底阵容！",
+                    "source_date_text": "11-14"
+                }
+            ],
+            "source_capture": {
+                "url": "https://squad-pool.com/arknights-lineups-data.js?v=20261118-1",
+                "captured_date": "2026-11-18",
+                "type": "author_video_summaries_not_original_video_verification"
+            },
+            "execution_verified": false,
+            "round_plan_executed": false,
+            "runtime_integration": {
+                "primary_filter": true,
+                "documented_auxiliary_support_preferences": true,
+                "round_shop_plan_executed": false,
+                "all_equipment_actions_verified": false,
+                "whole_guide_execution_verified": false
+            },
+            "mode_constraints": {
+                "quick": "Fourteen-round reference requires adaptation to the quick ninth-round boss; no literal schedule execution."
+            },
+            "conditional_support_pacts": [
+                {
+                    "strategy_id": "band_damaztic",
+                    "pacts": [
+                        "精准"
+                    ],
+                    "optional": true
+                }
+            ]
+        }
+    ],
+    "source_counts": {
+        "squadpool_reference_routes": 23,
+        "skland_reviewed_routes": 3,
+        "combined_unique_route_ids": 26,
+        "note": "Source-specific IDs, not a count of executable or independently verified builds."
+    }
+}

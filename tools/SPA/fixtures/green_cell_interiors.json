@@ -1,0 +1,74 @@
+{
+  "cases": [
+    {
+      "name": "乌啾",
+      "round": 3,
+      "image": "green_cell_r3_live.png",
+      "source_image": "archive/SPA/reorientation_held_map/2026.11.19-01.37.01.542_raw.png",
+      "sha256": "dee7e7c556b73c09acc373991928388f3e854346d7e9de5a7d4460cfd0d76bfb",
+      "source_log": "archive/日志/spa_entry_controls_20261118/staged-quick-trial3.log",
+      "source_line": 8164,
+      "cell": [
+        5,
+        1
+      ],
+      "original_point": [
+        638,
+        234
+      ],
+      "projection": [
+        [
+          78.98725916189487,
+          -12.518916490420285,
+          245.1056483045376
+        ],
+        [
+          0.03596528389229294,
+          58.12262941649222,
+          172.22563044514558
+        ],
+        [
+          0.0006810568655606894,
+          -0.019655995172693064,
+          1.0
+        ]
+      ],
+      "projection_source": "least-squares reconstruction from all 8 native logged member projected grid coordinates and pixels; not a fresh map classification"
+    },
+    {
+      "name": "乌啾",
+      "round": 4,
+      "image": "green_cell_r4_live.png",
+      "source_image": "archive/SPA/reorientation_held_map/2026.11.19-01.39.04.895_raw.png",
+      "sha256": "2cebe963cf8b94b96907615da5a8b8cb715f869ef22e7e43ea0ae8bba40cd272",
+      "source_log": "archive/日志/spa_entry_controls_20261118/staged-quick-trial3.log",
+      "source_line": 9379,
+      "cell": [
+        6,
+        2
+      ],
+      "original_point": [
+        719,
+        299
+      ],
+      "projection": [
+        [
+          78.96374559551575,
+          -12.441213341351977,
+          245.12911534972756
+        ],
+        [
+          0.06594260713888815,
+          58.17063376965816,
+          172.005851849639
+        ],
+        [
+          0.0006606613446396651,
+          -0.019567282572547928,
+          1.0
+        ]
+      ],
+      "projection_source": "least-squares reconstruction from all 8 native logged member projected grid coordinates and pixels; not a fresh map classification"
+    }
+  ]
+}

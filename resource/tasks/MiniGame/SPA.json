@@ -1,4 +1,156 @@
 {
+    "StrongholdProtocol@Interrupts": {
+        "algorithm": "JustReturn",
+        "doc": "Native lifecycle owns resumable SPA interruptions"
+    },
+    "Custom@Interrupts": {
+        "doc": "SPA custom-task interruption leaf; do not restart the current round after an overlay is dismissed",
+        "algorithm": "JustReturn"
+    },
+    "MiniGame@SPA@ReconnectSolo": {
+        "doc": "Reconnect only with the personal-mode selection visually verified",
+        "algorithm": "MatchTemplate",
+        "template": "MiniGame@SPA@PersonalSelected.png",
+        "templThreshold": 0.95,
+        "roi": [885, 520, 185, 80],
+        "next": ["MiniGame@SPA@ReconnectCurrent"]
+    },
+    "MiniGame@SPA@ReconnectCurrent": {
+        "algorithm": "OcrDetect",
+        "text": ["断线重连"],
+        "roi": [970, 600, 300, 110],
+        "action": "ClickSelf",
+        "postDelay": 5000,
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@OpenLobby": {
+        "doc": "Match the current-season title strip; the small stylized title is unstable under cropped OCR",
+        "algorithm": "MatchTemplate",
+        "template": "MiniGame@SPA@HomeBanner.png",
+        "templThreshold": 0.95,
+        "roi": [980, 70, 300, 190],
+        "action": "ClickSelf",
+        "postDelay": 4000,
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@AckSync": {
+        "doc": "Acknowledge the exact data-update dialog once; never abandons or starts a run",
+        "algorithm": "OcrDetect",
+        "text": ["数据已更新，即将进行同步"],
+        "roi": [400, 280, 480, 100],
+        "action": "ClickRect",
+        "specificRect": [610, 465, 60, 60],
+        "postDelay": 3000,
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@LifecycleAckSync": {
+        "baseTask": "MiniGame@SPA@AckSync",
+        "doc": "Acknowledge server data synchronization, then log in and reconnect the preserved simulation",
+        "next": ["MiniGame@SPA@LifecycleLogin"]
+    },
+    "MiniGame@SPA@ReadyRound": {
+        "doc": "Verify the reviewed layout and exact budget; remaining funds require an explicit spending review",
+        "algorithm": "JustReturn",
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@UpgradeShop": {
+        "doc": "Verify current preparation round, funds and displayed upgrade price before payment",
+        "algorithm": "JustReturn",
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@BuyShopItem": {
+        "doc": "Verified single purchase during preparation; target identity, price and funds required",
+        "algorithm": "JustReturn",
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@SelectFormation": {
+        "doc": "Select configured operators by OCR identity and verify formation confirmation",
+        "algorithm": "JustReturn",
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@SelectStrategy": {
+        "doc": "Select one configured image-only strategy card and verify transition to formation stage",
+        "algorithm": "JustReturn",
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@SetupPacts": {
+        "doc": "Select and verify the configured core and attached pacts before readiness",
+        "algorithm": "JustReturn",
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@PrepareIndependent": {
+        "baseTask": "MiniGame@SPA@OpenIndependentDifficulty"
+    },
+    "MiniGame@SPA@OpenIndependentStart": {
+        "doc": "Open the personal simulation difficulty screen after the mode toggle is verified",
+        "algorithm": "OcrDetect",
+        "text": ["独立模拟"],
+        "roi": [980, 585, 300, 135],
+        "action": "ClickSelf",
+        "postDelay": 2600,
+        "next": ["MiniGame@SPA@SelectDifficulty"]
+    },
+    "MiniGame@SPA@SelectDifficulty": {
+        "baseTask": "MiniGame@SPA@ObserveDifficulty",
+        "next": ["MiniGame@SPA@StartIndependent"]
+    },
+    "MiniGame@SPA@OpenIndependentDifficulty": {
+        "doc": "Check the current selector before switching; clicking an already selected personal label toggles to joint mode",
+        "algorithm": "JustReturn",
+        "next": [
+            "MiniGame@SPA@PersonalModeVerified",
+            "MiniGame@SPA@PersonalModeLabelVerified",
+            "MiniGame@SPA@JointModeVerified"
+        ]
+    },
+    "MiniGame@SPA@PersonalModeVerified": {
+        "doc": "Already selected personal mode requires no click; the destination also verifies a single mode-switch input",
+        "algorithm": "MatchTemplate",
+        "template": "MiniGame@SPA@PersonalSelected.png",
+        "templThreshold": 0.95,
+        "roi": [885, 520, 185, 80],
+        "next": ["MiniGame@SPA@OpenIndependentStart"]
+    },
+    "MiniGame@SPA@SelectPersonalMode": {
+        "algorithm": "OcrDetect",
+        "text": ["个人模拟"],
+        "roi": [860, 500, 240, 125],
+        "action": "ClickSelf",
+        "postDelay": 1100,
+        "next": ["MiniGame@SPA@PersonalModeVerified"]
+    },
+    "MiniGame@SPA@PersonalModeLabelVerified": {
+        "doc": "A visible solo entry proves personal mode if the selected-pill template is unreadable; no toggle is issued",
+        "algorithm": "OcrDetect",
+        "text": ["独立模拟"],
+        "roi": [980, 585, 300, 135],
+        "next": ["MiniGame@SPA@OpenIndependentStart"]
+    },
+    "MiniGame@SPA@JointModeVerified": {
+        "doc": "Only a positively recognized joint entry authorizes switching back to personal mode; never enters matchmaking",
+        "algorithm": "OcrDetect",
+        "text": ["搜寻队友", "同盟模拟"],
+        "roi": [735, 585, 545, 135],
+        "next": ["MiniGame@SPA@SelectPersonalMode"]
+    },
+    "MiniGame@SPA@ObserveDifficulty": {
+        "algorithm": "OcrDetect",
+        "text": ["请选择模拟难度", "开始模拟", "规程等级", "开始搜寻"],
+        "roi": [880, 0, 400, 720],
+        "next": []
+    },
+    "MiniGame@SPA@Observe": {
+        "doc": "Read-only current-season page observation; never enters legacy round-five exit flow",
+        "algorithm": "JustReturn",
+        "next": []
+    },
+    "MiniGame@SPA@ShopBookOneGlyph": {
+        "doc": "Load the complete shop-I glyph for anchored silhouette verification; never match only one stroke of II or VI",
+        "algorithm": "MatchTemplate",
+        "template": "MiniGame@SPA@ShopBookOne.png",
+        "templThreshold": 0.99,
+        "roi": [0, 568, 1100, 50]
+    },
     "MiniGame@SPA@Begin": {
         "doc": "卫戍协议：盟约",
         "algorithm": "JustReturn",
@@ -116,6 +268,28 @@
         "postDelay": 0,
         "next": ["MiniGame@SPA@ConfirmResult", "#self"]
     },
+    "MiniGame@SPA@DiagnosticDirectExit": {
+        "baseTask": "MiniGame@SPA@DirectExit",
+        "template": "MiniGame@SPA@ExitButton.png",
+        "roi": [0, 0, 154, 155],
+        "next": ["MiniGame@SPA@DiagnosticConfirmResult", "#self"]
+    },
+    "MiniGame@SPA@ForceExit": {
+        "doc": "Explicit cleanup-only path: click the fixed return button even when the battle HUD scale changes the template score",
+        "algorithm": "JustReturn",
+        "action": "ClickRect",
+        "specificRect": [20, 20, 70, 70],
+        "postDelay": 500,
+        "next": ["MiniGame@SPA@DiagnosticConfirmResult", "MiniGame@SPA@PreparationExit"]
+    },
+    "MiniGame@SPA@PreparationExit": {
+        "doc": "Cleanup-only second exit: leaving the 3/3 formation page first returns to the round preparation HUD",
+        "template": "MiniGame@SPA@ExitButton.png",
+        "action": "ClickSelf",
+        "roi": [0, 0, 154, 155],
+        "postDelay": 500,
+        "next": ["MiniGame@SPA@DiagnosticConfirmResult"]
+    },
     "MiniGame@SPA@ConfirmResult": {
         "template": "MiniGame@SPA@ConfirmHint.png",
         "baseTask": "MiniGame@SPA@ConfirmHint",
@@ -126,6 +300,42 @@
             "MiniGame@SPA@LoadingText",
             "MiniGame@SPA@LoadingIcon"
         ]
+    },
+    "MiniGame@SPA@DiagnosticConfirmResult": {
+        "baseTask": "MiniGame@SPA@ConfirmResult",
+        "template": "MiniGame@SPA@ConfirmHint.png",
+        "next": [
+            "MiniGame@SPA@ObserveResult",
+            "MiniGame@SPA@DiagnosticResultDispatch"
+        ]
+    },
+    "MiniGame@SPA@ObserveResult": {
+        "doc": "Read the interrupted/completed result page before cleanup continues",
+        "algorithm": "MatchTemplate",
+        "template": "MiniGame@SPA@ConfirmHint.png",
+        "roi": [0, 0, 1280, 720],
+        "action": "ClickRect",
+        "specificRect": [0, 0, 1, 1],
+        "postDelay": 50,
+        "next": ["MiniGame@SPA@DiagnosticResultDispatch"]
+    },
+    "MiniGame@SPA@DiagnosticResultDispatch": {
+        "algorithm": "JustReturn",
+        "next": [
+            "MiniGame@SPA@DiagnosticGiveUp",
+            "MiniGame@SPA@DiagnosticReturnHome",
+            "MiniGame@SPA@DiagnosticLoadingText",
+            "MiniGame@SPA@DiagnosticLoadingIcon"
+        ]
+    },
+    "MiniGame@SPA@DiagnosticLoadingText": {
+        "baseTask": "MiniGame@SPA@LoadingText",
+        "next": ["MiniGame@SPA@DiagnosticResultDispatch"]
+    },
+    "MiniGame@SPA@DiagnosticLoadingIcon": {
+        "baseTask": "MiniGame@SPA@LoadingIcon",
+        "template": "LoadingIcon.png",
+        "next": ["MiniGame@SPA@DiagnosticResultDispatch"]
     },
     "MiniGame@SPA@LoadingText": {
         "next": [
@@ -150,10 +360,294 @@
         "postDelay": 2000,
         "next": ["MiniGame@SPA@EnterIndependentQuickly", "MiniGame@SPA@EnterIndependent"]
     },
+    "MiniGame@SPA@DiagnosticReturnHome": {
+        "baseTask": "MiniGame@SPA@ReturnHome",
+        "template": "MiniGame@SPA@ReturnHome.png",
+        "next": ["MiniGame@SPA@Observe"]
+    },
     "MiniGame@SPA@GiveUp": {
         "doc": "二期新加的允许中断返回",
         "action": "ClickSelf",
         "roi": [717, 573, 242, 141],
         "next": ["#self", "MiniGame@SPA@ConfirmResult"]
+    },
+    "MiniGame@SPA@DiagnosticGiveUp": {
+        "baseTask": "MiniGame@SPA@GiveUp",
+        "template": "MiniGame@SPA@GiveUp.png",
+        "next": ["#self", "MiniGame@SPA@DiagnosticConfirmResult"]
+    },
+    "MiniGame@SPA@SwapOperator": {
+        "algorithm": "JustReturn",
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@RetreatSelected": {
+        "algorithm": "MatchTemplate",
+        "template": "MiniGame@SPA@RetreatSelected.png",
+        "templThreshold": 0.92,
+        "roi": [400, 150, 650, 500],
+        "next": []
+    },
+    "MiniGame@SPA@SelectSupply": {
+        "doc": "Select one identity-verified free supply; inventory verification is a separate step",
+        "algorithm": "JustReturn",
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@RefreshShop": {
+        "algorithm": "JustReturn",
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@FreezeShop": {
+        "doc": "Freeze the current shop so good visible offers survive the round transition",
+        "algorithm": "JustReturn",
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@ResultSummaryNext": {
+        "algorithm": "OcrDetect",
+        "text": ["模拟完成", "模拟中断"],
+        "roi": [0, 150, 430, 100],
+        "next": ["MiniGame@SPA@ResultSummaryNextClick"]
+    },
+    "MiniGame@SPA@ResultSummaryNextClick": {
+        "algorithm": "OcrDetect",
+        "text": ["下一步"],
+        "roi": [900, 590, 380, 120],
+        "action": "ClickSelf",
+        "postDelay": 1500,
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@ReturnResultHome": {
+        "doc": "Return from the SPA settlement page only after matching its result anchors",
+        "algorithm": "OcrDetect",
+        "text": ["模拟完成", "模拟中断"],
+        "roi": [0, 180, 430, 540],
+        "next": ["MiniGame@SPA@ReturnResultHomeClick"]
+    },
+    "MiniGame@SPA@ReturnResultHomeClick": {
+        "algorithm": "OcrDetect",
+        "text": ["返回主页"],
+        "roi": [800, 600, 480, 110],
+        "action": "ClickSelf",
+        "postDelay": 2500,
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@OpenReport": {
+        "algorithm": "OcrDetect",
+        "text": ["报告"],
+        "roi": [1010, 65, 260, 90],
+        "action": "ClickSelf",
+        "postDelay": 1500,
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@OpenStrategyReport": {
+        "algorithm": "OcrDetect",
+        "text": ["策略报告"],
+        "roi": [690, 20, 170, 60],
+        "action": "ClickSelf",
+        "postDelay": 1200,
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@ScanStrategyReport": {
+        "algorithm": "JustReturn",
+        "next": []
+    },
+    "MiniGame@SPA@OpeningStrategyTileEdge": {
+        "algorithm": "MatchTemplate",
+        "template": "MiniGame@SPA@OpeningStrategyTileEdge.png"
+    },
+    "MiniGame@SPA@StrategyReportTileEdge": {
+        "algorithm": "MatchTemplate",
+        "template": "MiniGame@SPA@StrategyReportTileEdge.png"
+    },
+    "MiniGame@SPA@StrategyCompletedMark": {
+        "algorithm": "MatchTemplate",
+        "template": "MiniGame@SPA@StrategyCompletedMark.png",
+        "templThreshold": 0.95,
+        "roi": [175, 140, 80, 60]
+    },
+    "MiniGame@SPA@StrategySilverMark": {
+        "baseTask": "MiniGame@SPA@StrategyCompletedMark",
+        "template": "MiniGame@SPA@StrategySilverMark.png"
+    },
+    "MiniGame@SPA@HiddenRoundBadge": {
+        "algorithm": "MatchTemplate",
+        "template": "MiniGame@SPA@HiddenRoundBadge.png",
+        "templThreshold": 0.9,
+        "roi": [480, 14, 48, 35]
+    },
+    "MiniGame@SPA@ReportBack": {
+        "algorithm": "OcrDetect",
+        "text": ["策略报告"],
+        "roi": [690, 20, 170, 60],
+        "action": "ClickRect",
+        "specificRect": [25, 15, 100, 50],
+        "postDelay": 1200,
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@StartIndependent": {
+        "algorithm": "JustReturn",
+        "next": ["MiniGame@SPA@SetupPacts"]
+    },
+    "MiniGame@SPA@InspectCurrentStrategy": {
+        "algorithm": "OcrDetect",
+        "text": ["查看"],
+        "roi": [1110, 195, 95, 85],
+        "action": "ClickSelf",
+        "postDelay": 700,
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@SelectBounty": {
+        "algorithm": "JustReturn",
+        "next": ["MiniGame@SPA@Observe"]
+    },
+    "MiniGame@SPA@LifecycleDispatch": {
+        "algorithm": "JustReturn",
+        "doc": "Native solo lifecycle dispatcher; never abandons a live run",
+        "onErrorNext": ["MiniGame@SPA@LifecycleWait"],
+        "next": []
+    },
+    "MiniGame@SPA@LifecycleWait": {
+        "algorithm": "JustReturn",
+        "postDelay": 600,
+        "next": ["MiniGame@SPA@LifecycleDispatch"]
+    },
+    "MiniGame@SPA@LifecycleExecute": {
+        "algorithm": "JustReturn",
+        "next": ["MiniGame@SPA@LifecycleDispatch"]
+    },
+    "MiniGame@SPA@LifecycleLogin": {
+        "algorithm": "JustReturn",
+        "next": ["MiniGame@SPA@LifecycleFindLobby"]
+    },
+    "MiniGame@SPA@LifecycleComplete": {
+        "algorithm": "JustReturn",
+        "next": []
+    },
+    "MiniGame@SPA@LifecycleFindLobby": {
+        "algorithm": "JustReturn",
+        "next": [
+            "MiniGame@SPA@LifecycleTaskMenuBack",
+            "MiniGame@SPA@OpenLobby",
+            "MiniGame@SPA@LifecycleEnterProtocol",
+            "MiniGame@SPA@LifecycleTerminalBanner",
+            "MiniGame@SPA@LifecycleHomeTerminal",
+            "MiniGame@SPA@LifecycleTerminalTab",
+            "MiniGame@SPA@LifecycleMenuTerminalText",
+            "MiniGame@SPA@LifecycleMenuTerminal",
+            "MiniGame@SPA@LifecycleOpenMenu",
+            "MiniGame@SPA@ReportBack",
+            "MiniGame@SPA@LifecycleWait"
+        ]
+    },
+    "MiniGame@SPA@LifecycleTaskMenuBack": {
+        "doc": "Recover only a positively identified global mission menu; never back out of a battle or setup page",
+        "algorithm": "OcrDetect",
+        "text": ["日常任务", "周常任务", "主线任务", "特勤任务"],
+        "roi": [400, 0, 880, 85],
+        "action": "ClickRect",
+        "specificRect": [20, 15, 80, 50],
+        "postDelay": 900,
+        "next": ["MiniGame@SPA@LifecycleDispatch"]
+    },
+    "MiniGame@SPA@LifecycleSelectJoint": {
+        "algorithm": "OcrDetect",
+        "text": ["联合模拟"],
+        "roi": [1060, 500, 220, 125],
+        "action": "ClickSelf",
+        "postDelay": 700,
+        "next": ["MiniGame@SPA@LifecycleDispatch"]
+    },
+    "MiniGame@SPA@LifecycleQuickStart": {
+        "algorithm": "OcrDetect",
+        "text": ["极速模拟"],
+        "roi": [700, 585, 280, 135],
+        "action": "ClickSelf",
+        "postDelay": 700,
+        "next": ["MiniGame@SPA@LifecycleDispatch"]
+    },
+    "MiniGame@SPA@LifecycleOpenJoint": {
+        "algorithm": "OcrDetect",
+        "text": ["搜寻队友"],
+        "roi": [980, 585, 300, 135],
+        "action": "ClickSelf",
+        "postDelay": 700,
+        "next": ["MiniGame@SPA@SelectDifficulty"]
+    },
+    "MiniGame@SPA@LifecycleSelectPersonal": {
+        "algorithm": "OcrDetect",
+        "text": ["个人模拟"],
+        "roi": [860, 500, 240, 125],
+        "action": "ClickSelf",
+        "postDelay": 700,
+        "next": ["MiniGame@SPA@LifecycleDispatch"]
+    },
+    "MiniGame@SPA@LifecycleMenuTerminal": {
+        "baseTask": "QuickSwitch@ToTerminal@Entry",
+        "next": ["MiniGame@SPA@LifecycleDispatch"],
+        "template": "QuickSwitch/Terminal.png"
+    },
+    "MiniGame@SPA@LifecycleMenuTerminalText": {
+        "algorithm": "OcrDetect",
+        "text": ["终端"],
+        "fullMatch": true,
+        "roi": [465, 82, 120, 62],
+        "action": "ClickSelf",
+        "postDelay": 900,
+        "next": ["MiniGame@SPA@LifecycleDispatch"]
+    },
+    "MiniGame@SPA@LifecycleOpenMenu": {
+        "baseTask": "QuickSwitch@ToTerminal@Open",
+        "next": ["MiniGame@SPA@LifecycleDispatch"],
+        "template": "QuickSwitch/Menu.png"
+    },
+    "MiniGame@SPA@LifecycleHomeTerminal": {
+        "algorithm": "OcrDetect",
+        "text": ["Terminal", "终端"],
+        "roi": [820, 75, 245, 110],
+        "action": "ClickSelf",
+        "postDelay": 900,
+        "next": ["MiniGame@SPA@LifecycleDispatch"]
+    },
+    "MiniGame@SPA@LifecycleTerminalBanner": {
+        "algorithm": "OcrDetect",
+        "text": ["卫戍协议", "卫成协议"],
+        "roi": [1020, 105, 160, 175],
+        "action": "ClickSelf",
+        "postDelay": 900,
+        "next": ["MiniGame@SPA@LifecycleDispatch"]
+    },
+    "MiniGame@SPA@LifecycleTerminalTab": {
+        "algorithm": "OcrDetect",
+        "text": ["前往上一次作战"],
+        "roi": [950, 520, 300, 70],
+        "action": "ClickRect",
+        "postDelay": 900,
+        "next": ["MiniGame@SPA@LifecycleDispatch"],
+        "specificRect": [1150, 645, 80, 55]
+    },
+    "MiniGame@SPA@LifecycleEnterProtocol": {
+        "algorithm": "OcrDetect",
+        "text": ["模拟开放中"],
+        "roi": [990, 500, 230, 80],
+        "action": "ClickSelf",
+        "postDelay": 900,
+        "next": ["MiniGame@SPA@LifecycleDispatch"]
+    },
+    "MiniGame@SPA@LifecycleQuickConfirm": {
+        "algorithm": "OcrDetect",
+        "text": ["开始模拟"],
+        "roi": [900, 550, 380, 170],
+        "action": "ClickSelf",
+        "postDelay": 900,
+        "next": ["MiniGame@SPA@LifecycleDispatch"],
+        "doc": "Quick mode has no selectable difficulty; confirm its start and share the setup/session dispatcher."
+    },
+    "MiniGame@SPA@LifecycleDifficultyBack": {
+        "algorithm": "OcrDetect",
+        "text": ["请选择模拟难度"],
+        "roi": [980, 0, 300, 80],
+        "action": "ClickRect",
+        "specificRect": [20, 15, 90, 50],
+        "postDelay": 700,
+        "next": ["MiniGame@SPA@LifecycleDispatch"]
     }
 }

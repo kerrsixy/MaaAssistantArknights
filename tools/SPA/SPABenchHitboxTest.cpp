@@ -1,0 +1,79 @@
+#include "Task/MiniGame/SPA/SPABenchHitbox.h"
+#include <cassert>
+#include <iostream>
+#include <opencv2/imgcodecs.hpp>
+
+int main()
+{
+    using namespace asst::spa;
+    // Unmodified batch2 R9 source-discovery failure; not a successful retry.
+    const auto failed = cv::imread("bench_sale_head_occluded_live.png");
+    const auto selected = cv::imread("selected_panel_title_live.png");
+    assert(failed.size() == cv::Size(1280, 720));
+    assert(selected.size() == failed.size());
+    const cv::Point source(964, 450);
+    const cv::Point exposed(964, 420);
+    assert(bench_inspection_panel_absent(failed));
+    assert(!bench_inspection_panel_absent(selected));
+    assert(exposed_bench_head(failed, source) == exposed);
+    // Identical-frame replay proves the geometry and unchanged-panel gates,
+    // not that the live game has accepted any click or sold this operator.
+    assert(bench_head_retry_target(failed, failed, source, false) == exposed);
+    assert(!bench_head_retry_target(failed, failed, source, true));
+    assert(!bench_head_retry_target(failed, selected, source, false));
+    assert(!bench_head_retry_target(selected, failed, source, false));
+
+    // A correct or unreadable open panel must never be clicked through.
+    auto unreadable_panel = failed.clone();
+    selected(cv::Rect(0, 170, 180, 180)).copyTo(unreadable_panel(cv::Rect(0, 170, 180, 180)));
+    assert(!bench_head_retry_target(failed, unreadable_panel, source, false));
+
+    // Neighboring operators, a freeze control itself, and non-bench points do
+    // not inherit the final slot's visible head or badge.
+    for (const auto other : { cv::Point(883, 450),
+                              cv::Point(943, 450),
+                              cv::Point(970, 450),
+                              cv::Point(1040, 450),
+                              cv::Point(964, 420),
+                              cv::Point(964, 395) }) {
+        assert(!bench_head_retry_target(failed, failed, other, false));
+    }
+    auto no_badge = failed.clone();
+    no_badge(cv::Rect(918, 378, 34, 36)).setTo(cv::Scalar(150, 165, 180));
+    assert(!bench_head_retry_target(failed, no_badge, source, false));
+    auto no_head = failed.clone();
+    no_head(cv::Rect(954, 412, 21, 15)).setTo(cv::Scalar(100, 140, 180));
+    assert(!bench_head_retry_target(failed, no_head, source, false));
+
+    // Synthetic occlusion uses real freeze-button pixels from the same frame;
+    // texture alone cannot make that control an operator's exposed head.
+    auto frozen_head = failed.clone();
+    failed(cv::Rect(986, 447, 21, 15)).copyTo(frozen_head(cv::Rect(954, 412, 21, 15)));
+    assert(!bench_head_retry_target(failed, frozen_head, source, false));
+
+    auto changed_page = failed.clone();
+    changed_page(cv::Rect(0, 170, 180, 180)) += cv::Scalar(8, 8, 8);
+    assert(!bench_head_retry_target(failed, changed_page, source, false));
+    assert(!bench_head_retry_target(cv::Mat(), failed, source, false));
+    assert(!bench_head_retry_target(failed, cv::Mat(720, 1280, CV_8UC1), source, false));
+
+    // Christine is a purchasable operator with a low model. The genuine
+    // R5/R6 frames reproduce source discovery with and without other units.
+    const cv::Point christine(761, 450);
+    for (const auto* file : { "bench_christine_with_operators_live.png", "bench_christine_alone_live.png" }) {
+        const auto frame = cv::imread(file);
+        assert(frame.size() == failed.size());
+        const auto old = bench_source_centres(frame);
+        const auto revised = bench_source_centres(frame, true);
+        assert(std::find(old.begin(), old.end(), christine) == old.end());
+        assert(std::count(revised.begin(), revised.end(), christine) == 1);
+        assert(revised.size() == old.size() + 1);
+        assert(!bench_christine_sprite_visible(frame, cv::Point(842, 450)));
+        auto badge_only = frame.clone();
+        badge_only(cv::Rect(741, 456, 50, 35)).setTo(cv::Scalar(30, 30, 30));
+        const auto no_sprite = bench_source_centres(badge_only, true);
+        assert(std::find(no_sprite.begin(), no_sprite.end(), christine) == no_sprite.end());
+    }
+    assert(bench_source_centres(failed, true) == bench_source_centres(failed));
+    std::cout << "bench sale hitbox and compact operator source frames passed; no live input\n";
+}

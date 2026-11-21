@@ -1,0 +1,125 @@
+{
+  "coordinate_space": "source_sublevel_row_col",
+  "boards": [
+    {
+      "map_id": "m01",
+      "rows": [
+        "           ",
+        "   FGGGGG.S",
+        "   FGFFFG. ",
+        "   FGFFFG. ",
+        "  EGG   GGS"
+      ],
+      "source": "level_act3autochess_m01/level_act3autochess_m01_sub_01.json",
+      "sha256": "1060bc9c0b71f9d01a1315cc8e74a90ae799d70ccf9e735c6995da1d35614919"
+    },
+    {
+      "map_id": "m02",
+      "rows": [
+        "           ",
+        "   GGGGGG.S",
+        "   GFFGGG. ",
+        "   GFFG  . ",
+        "  EGGGG  GS"
+      ],
+      "source": "level_act3autochess_m02/level_act3autochess_m02_sub_01.json",
+      "sha256": "a1d3003883ea43d54562df3a684e7f69b29afcc032a51fee76efdb30c9c56600"
+    },
+    {
+      "map_id": "m03",
+      "rows": [
+        "           ",
+        "     FGGG.S",
+        "     FGFF. ",
+        "   ..GGFF. ",
+        "  EGGGGGGGS"
+      ],
+      "source": "level_act3autochess_m03/level_act3autochess_m03_sub_01.json",
+      "sha256": "67bd2f210f0b6abd412d4837afd1ba8eb7a3c989f3faaefbb6be6b0307ce750a"
+    },
+    {
+      "map_id": "m04",
+      "rows": [
+        "           ",
+        "   FG   G.S",
+        "   FGGGGG. ",
+        "   FGGGGG. ",
+        "  EGG   GGS"
+      ],
+      "source": "level_act3autochess_m04/level_act3autochess_m04_sub_01.json",
+      "sha256": "1157931175b18b752ea8bcc3e79c832bcc24af36990920acc38a332de02ddde5"
+    },
+    {
+      "map_id": "m05",
+      "rows": [
+        "           ",
+        "    RGGG .S",
+        "    RGFG . ",
+        "    RG G . ",
+        "  EGGG GGGS"
+      ],
+      "source": "level_act3autochess_m05/level_act3autochess_m05_sub_01.json",
+      "sha256": "2a849b67e88896017108be43fb60ef05a0a359bb0c79215d0b8ed661a681df08"
+    },
+    {
+      "map_id": "m06",
+      "rows": [
+        "           ",
+        "      RMG.S",
+        "     RFMF. ",
+        "    RFFMF. ",
+        "  EGGGGGGGS"
+      ],
+      "source": "level_act3autochess_m06/level_act3autochess_m06_sub_01.json",
+      "sha256": "c827d93722fc4f75f2d3c76a67077dd40fa3e81e5b22d28290a8d72ec530d65f"
+    },
+    {
+      "map_id": "m09",
+      "rows": [
+        "           ",
+        "   GGGGGG.S",
+        "   GFGGG . ",
+        "   G GRG . ",
+        "  EGGG GGGS"
+      ],
+      "source": "level_act3autochess_m09/level_act3autochess_m09_sub_01.json",
+      "sha256": "b1c552c703e5a77bc4a5526f860f53ad8f0db6f3e05837b0ebaf9293c0246253"
+    },
+    {
+      "map_id": "m10",
+      "rows": [
+        "           ",
+        "   RGGGGG.S",
+        "   RGFGGG  ",
+        "   RGFGFG. ",
+        "  EGGGGF GS"
+      ],
+      "source": "level_act3autochess_m10/level_act3autochess_m10_sub_01.json",
+      "sha256": "1f087787e66675f584e34b0be0c07e6e4654d8fa798866c57c985e4ffa802709"
+    },
+    {
+      "map_id": "m11",
+      "rows": [
+        "           ",
+        "   FFFGGG.S",
+        "   GGGGFF  ",
+        "   GR GGG. ",
+        "  EGGGGF .S"
+      ],
+      "source": "level_act3autochess_m11/level_act3autochess_m11_sub_01.json",
+      "sha256": "7065a65df145d8d3e2cc738291ef948adfa8239538590f38e4edb6940d29b5c2"
+    },
+    {
+      "map_id": "m12",
+      "rows": [
+        "           ",
+        "   FFGGG .S",
+        "   GGG GG. ",
+        "   GGG F   ",
+        "  EGFGGGGGS"
+      ],
+      "source": "level_act3autochess_m12/level_act3autochess_m12_sub_01.json",
+      "sha256": "6844a602a3ba34c306fe886c2c906b7c2f855369f9901131cd429b0f948ec4f9"
+    }
+  ]
+}

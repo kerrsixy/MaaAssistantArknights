@@ -201,6 +201,11 @@ public class AsstProxy
         AsstSetConnectionExtras("LDPlayer", extras);
     }
 
+    private static void AsstSetConnectionExtrasModAvd(string extras)
+    {
+        AsstSetConnectionExtras("ModAVD", extras);
+    }
+
     private static unsafe AsstTaskId AsstAppendTask(AsstHandle handle, string type, string taskParams)
     {
         fixed (byte* ptr1 = EncodeNullTerminatedUtf8(type),
@@ -1237,6 +1242,18 @@ public class AsstProxy
                             }
 
                             break;
+
+                        case ConnectConfig.ModAVD:
+                            // 根目录为空时只用 ADB 截图，不提示
+                            if (SettingsViewModel.ConnectSettings.ExtraConfig is ModAvdExtra { RootPath: not "" } && method != "ModAvdExtras")
+                            {
+                                var modAvdExtrasMsg = LocalizationHelper.GetString("Connection.ModAVD.ExtrasNotEnabledMessage");
+                                Instances.TaskQueueViewModel.AddLog(modAvdExtrasMsg, UiLogColor.Error);
+                                Instances.CopilotViewModel.AddLog(modAvdExtrasMsg, UiLogColor.Error, showTime: false);
+                                needToStop = true;
+                            }
+
+                            break;
                     }
 
                     fastestScreencapStringBuilder.Insert(0, LocalizationHelper.GetStringFormat("Asst.Connection.FastestWayToScreencap", costString, method));
@@ -1363,7 +1380,7 @@ public class AsstProxy
                 default:
                     {
                         // 高配电脑未开截图增强时耗时也常在 100ms 以上，此档不告警，仅提示可优化
-                        if (avgInt >= 100 && SettingsViewModel.ConnectSettings.ScreencapMethod is not ("MumuExtras" or "LDExtras"))
+                        if (avgInt >= 100 && SettingsViewModel.ConnectSettings.ScreencapMethod is not ("MumuExtras" or "LDExtras" or "ModAvdExtras"))
                         {
                             AddLog(LocalizationHelper.GetStringFormat("Asst.Connection.FastestWayToScreencap.InfoTip", avgInt), UiLogColor.Info);
                         }
@@ -2348,6 +2365,36 @@ public class AsstProxy
         string what = details["what"]?.ToString() ?? string.Empty;
         switch (what)
         {
+            case "SPAStrategyCardSelected":
+                Instances.TaskQueueViewModel.AddLog(
+                    LocalizationHelper.GetStringFormat("Toolbox.MiniGame.SPA.StrategyLog", subTaskDetails?["strategy_name"] ?? subTaskDetails?["strategy_index"] ?? "?"),
+                    UiLogColor.Info);
+                break;
+
+            case "SPAAutomationBattleObserved":
+                {
+                    var deployed = (subTaskDetails?["roster"] as JArray ?? [])
+                        .Where(unit => (bool?)unit?["deployed"] == true)
+                        .Select(unit => unit?["name"]?.ToString() ?? string.Empty);
+                    Instances.TaskQueueViewModel.AddLog(
+                        LocalizationHelper.GetStringFormat("Toolbox.MiniGame.SPA.RoundLog", subTaskDetails?["round"] ?? "?", string.Join(", ", deployed)),
+                        UiLogColor.Info);
+                    break;
+                }
+
+            case "SPALifecycleRecovery":
+                Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("Toolbox.MiniGame.SPA.RecoveryLog"), UiLogColor.Info);
+                break;
+
+            case "SPALifecycleCompleted":
+                Instances.TaskQueueViewModel.AddLog(
+                    LocalizationHelper.GetStringFormat(
+                        "Toolbox.MiniGame.SPA.ResultLog",
+                        LocalizationHelper.GetString((bool?)subTaskDetails?["result_completed"] == true ? "Toolbox.MiniGame.SPA.Victory" : "Toolbox.MiniGame.SPA.Defeat"),
+                        subTaskDetails?["passed_rounds"] ?? "?"),
+                    (bool?)subTaskDetails?["result_completed"] == true ? UiLogColor.Success : UiLogColor.Info);
+                break;
+
             case "StageDrops":
                 {
                     string allDrops = string.Empty;
@@ -3509,6 +3556,10 @@ public class AsstProxy
         {
             AsstSetConnectionExtrasLdPlayer(ldPlayer.Config);
         }
+        else if (SettingsViewModel.ConnectSettings.ExtraConfig is ModAvdExtra modAvd)
+        {
+            AsstSetConnectionExtrasModAvd(modAvd.Config);
+        }
 
         switch (SettingsViewModel.ConnectSettings.ConnectConfig)
         {
@@ -3752,6 +3803,9 @@ public class AsstProxy
 
         /// <summary>自定义任务s</summary>
         Custom,
+
+        /// <summary>卫戍协议完整流程。</summary>
+        StrongholdProtocol,
     }
 
     private readonly ObservableDictionary<AsstTaskId, (TaskType Type, TaskStatus Status)> _tasksStatus = [];

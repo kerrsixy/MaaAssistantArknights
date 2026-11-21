@@ -72,6 +72,7 @@ public static class LocalizationKeyExtensions
         TaskType.SwitchTheme => "TaskQueue.Task.SwitchTheme",
         TaskType.MiniGame => "Toolbox.MiniGame.Title",
         TaskType.Custom => "TaskQueue.Task.Custom",
+        TaskType.StrongholdProtocol => "TaskQueue.Task.StrongholdProtocol",
         TaskType.RecruitCalc => "Recruit.Recognition.Title",
         _ => taskType.ToString(),
     };

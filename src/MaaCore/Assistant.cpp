@@ -31,6 +31,7 @@
 #include "Task/Interface/SSSCopilotTask.h"
 #include "Task/Interface/SingleStepTask.h"
 #include "Task/Interface/StartUpTask.h"
+#include "Task/Interface/StrongholdProtocolTask.h"
 #include "Task/Interface/SwitchThemeTask.h"
 #include "Task/Interface/VideoRecognitionTask.h"
 #include "Utils/Logger.hpp"
@@ -198,6 +199,10 @@ bool asst::Assistant::set_instance_option(InstanceOptionKey key, const std::stri
             m_ctrler->set_touch_mode(TouchMode::MaaFwAdb);
             return true;
         }
+        else if (constexpr std::string_view ModAvdExtras = "ModAvdExtras"; value == ModAvdExtras) {
+            m_ctrler->set_touch_mode(TouchMode::ModAvdExtras);
+            return true;
+        }
 #if ASST_WITH_EMULATOR_EXTRAS
         else if (constexpr std::string_view MumuExtras = "MumuExtras"; value == MumuExtras) {
             m_ctrler->set_touch_mode(TouchMode::MumuExtras);
@@ -351,6 +356,7 @@ asst::Assistant::TaskId asst::Assistant::append_task(const std::string& type, co
     ASST_ASSISTANT_APPEND_TASK_FROM_STRING_IF_BRANCH(ReclamationTask)
     ASST_ASSISTANT_APPEND_TASK_FROM_STRING_IF_BRANCH(SwitchThemeTask)
     ASST_ASSISTANT_APPEND_TASK_FROM_STRING_IF_BRANCH(CustomTask)
+    ASST_ASSISTANT_APPEND_TASK_FROM_STRING_IF_BRANCH(StrongholdProtocolTask)
 #ifdef ASST_DEBUG
     ASST_ASSISTANT_APPEND_TASK_FROM_STRING_IF_BRANCH(DebugTask)
 #endif

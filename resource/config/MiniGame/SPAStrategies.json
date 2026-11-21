@@ -1,0 +1,616 @@
+{
+  "season": "规程·序列I",
+  "source": "https://prts.wiki/w/卫戍协议·规程/PRTS盟约记录",
+  "strategies": [
+    {
+      "id": "01",
+      "name": "众志合一",
+      "initiator": "阿米娅",
+      "initial_life": 25,
+      "alliance": null,
+      "effect": "被动效果：场上存在3、4或5种以上激活盟约时，所有干员攻击力、生命上限分别+20%/30%/40%",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_amiya"
+    },
+    {
+      "id": "02",
+      "name": "坚不可摧",
+      "initiator": "歌利亚",
+      "initial_life": 40,
+      "alliance": null,
+      "effect": "被动效果：初始目标生命值为40点",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_sarkazb"
+    },
+    {
+      "id": "03",
+      "name": "加急调派",
+      "initiator": "大帝",
+      "initial_life": 26,
+      "alliance": null,
+      "effect": "被动效果：我方干员每次部署后都会使自身在本场战斗内的再部署时间-50%",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_emperor"
+    },
+    {
+      "id": "04",
+      "name": "食腐之蝶",
+      "initiator": "卡莱莎",
+      "initial_life": 26,
+      "alliance": null,
+      "effect": "被动效果：我方干员被击倒时，场上剩余我方单位攻击力+20%(最大+200%，持续至被击倒或战斗结束)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_qalaisa"
+    },
+    {
+      "id": "05",
+      "name": "统御号令",
+      "initiator": "伊奥莱塔·罗素",
+      "initial_life": 29,
+      "alliance": null,
+      "effect": "被动效果：战斗开始时，场上每有1名精锐干员，精锐干员的攻击力、生命上限+10%",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_ioleta"
+    },
+    {
+      "id": "06",
+      "name": "意志鼓舞",
+      "initiator": "百炼嘉维尔",
+      "initial_life": 27,
+      "alliance": null,
+      "effect": "拖拽使用(消耗0)：选择一名我方干员，下次战斗开始时立即击倒并复活，并获得额外2次复活次数",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_survive"
+    },
+    {
+      "id": "07",
+      "name": "内部货源",
+      "initiator": "天空盒",
+      "initial_life": 28,
+      "alliance": null,
+      "effect": "点击使用(消耗0)：下一件购买的装备价格-1(最多减至0)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_price"
+    },
+    {
+      "id": "08",
+      "name": "纸片替身",
+      "initiator": "风丸",
+      "initial_life": 25,
+      "alliance": null,
+      "effect": "拖拽使用(消耗0)：选择一名调度中心内的干员，使其变为相同等阶的随机干员(每回合限2次)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_transfer"
+    },
+    {
+      "id": "09",
+      "name": "溃心领域",
+      "initiator": "妮芙",
+      "initial_life": 28,
+      "alliance": null,
+      "effect": "拖拽使用(消耗0)：选择一个可用地块，战斗开始后首次经过该地块的敌人获得恐惧，持续3秒(每回合限1次)；第4、8、12回合时升级，增加使用次数",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_dance"
+    },
+    {
+      "id": "10",
+      "name": "幻画为真",
+      "initiator": "夕",
+      "initial_life": 28,
+      "alliance": null,
+      "effect": "拖拽使用(消耗0)：选择一名我方干员，获得他的复制体，包括精锐状态和携带的装备(每场模拟限1次)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_copy"
+    },
+    {
+      "id": "11",
+      "name": "条文修正",
+      "initiator": "但书",
+      "initial_life": 26,
+      "alliance": null,
+      "effect": "第4回合解锁；拖拽使用(消耗0)：选择一名我方干员，使该干员已激活的所有盟约层数+9(冷却3回合)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_jenga"
+    },
+    {
+      "id": "12",
+      "name": "全场聚焦",
+      "initiator": "大嘴莫布",
+      "initial_life": 26,
+      "alliance": null,
+      "effect": "拖拽使用(消耗1)：选择一名我方干员，下次战斗开始时变为精锐干员，持续至战斗结束",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_evolve"
+    },
+    {
+      "id": "13",
+      "name": "集结指示",
+      "initiator": "杰西卡",
+      "initial_life": 22,
+      "alliance": null,
+      "effect": "被动效果：在第4、7、10、13回合进入休整期时获得1个<寻呼模块>；<寻呼模块>：装备时销毁，在调度中心出现至多3名拥有该干员第一盟约的其他干员，免费获取其中1名(等阶不高于当前调度中心)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_jesica"
+    },
+    {
+      "id": "14",
+      "name": "重点监护",
+      "initiator": "华法琳",
+      "initial_life": 24,
+      "alliance": null,
+      "effect": "被动效果：战斗开始时，使场上每个不同等阶的1个随机我方干员所属的已激活盟约层数+1；调度中心等级达到3级、5级时升级使盟约层数额外+1",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_takecare"
+    },
+    {
+      "id": "15",
+      "name": "药枚实验",
+      "initiator": "桑葚",
+      "initial_life": 24,
+      "alliance": null,
+      "effect": "拖拽使用(消耗0)：选择一名我方干员，在下次战斗开始时获得效果：每次攻击时有20%的概率获得1层护盾(最多1层)；第7回合时效果升级",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_shield"
+    },
+    {
+      "id": "16",
+      "name": "全力熔铸",
+      "initiator": "奥达",
+      "initial_life": 26,
+      "alliance": null,
+      "effect": "被动效果：在第3、6、9、12、14回合进入休整期时获得1件当前调度中心等级的随机装备",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_smith"
+    },
+    {
+      "id": "17",
+      "name": "以己之长",
+      "initiator": "陈",
+      "initial_life": 26,
+      "alliance": null,
+      "effect": "被动效果：所有干员造成的物理和法术伤害变为弱点伤害(根据敌人的防御力和法术抗性变更伤害类型)，精锐干员额外获得攻击力+16%，攻击速度+16",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_weakness"
+    },
+    {
+      "id": "18",
+      "name": "得闲饮茶",
+      "initiator": "老鲤",
+      "initial_life": 27,
+      "alliance": null,
+      "effect": "被动效果：第1、2回合的资金暂存至第3回合发放；第3回合进入休整期时，获得2、4阶随机干员各1名",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_lmlee"
+    },
+    {
+      "id": "19",
+      "name": "协力共进",
+      "initiator": "芬",
+      "initial_life": 24,
+      "alliance": null,
+      "effect": "被动效果：第8、10、12、14回合进入休整期时获得1个<信标>；<信标>：装备时销毁携带干员，在调度中心出现2名同等阶干员，免费获得其中1名；被销毁干员在下回合传递给对应盟约人数最多的队友",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_fang"
+    },
+    {
+      "id": "20",
+      "name": "外勤医疗",
+      "initiator": "Touch",
+      "initial_life": 28,
+      "alliance": null,
+      "effect": "被动效果：所有玩家场上出现一名<预备干员-医疗>；战斗开始时，若场上至少有2名精锐干员，则替换为<Touch>",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_amedic"
+    },
+    {
+      "id": "21",
+      "name": "暴躁铁皮",
+      "initiator": "森蚺",
+      "initial_life": 29,
+      "alliance": null,
+      "effect": "被动效果：第1回合获得1名可以装备4件装备的特殊干员<“暴躁铁皮”>",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_mech"
+    },
+    {
+      "id": "22",
+      "name": "宝藏探机",
+      "initiator": "寻宝人",
+      "initial_life": 22,
+      "alliance": null,
+      "effect": "拖拽使用(消耗1)：选择一个可用地块，部署1个<“模拟宝藏”>(冷却3回合)；<“模拟宝藏”>：被敌人触碰就会永久消失，战斗结束时若仍存在则获得额外1资金",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_treasure"
+    },
+    {
+      "id": "23",
+      "name": "至纯凝结",
+      "initiator": "缪尔赛思",
+      "initial_life": 28,
+      "alliance": null,
+      "effect": "拖拽使用(消耗0)：选择一名我方干员，立即使该干员晋升为精锐干员(每场模拟限1次)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_upgrade"
+    },
+    {
+      "id": "24",
+      "name": "消解空间",
+      "initiator": "Misery",
+      "initial_life": 27,
+      "alliance": null,
+      "effect": "拖拽使用(消耗0)：选择一名我方干员，下场战斗开始后首次受到伤害时使其击倒，并召唤整备区最右侧干员",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_breakaway"
+    },
+    {
+      "id": "25",
+      "name": "变形同构",
+      "initiator": "“变形者集群”",
+      "initial_life": 22,
+      "alliance": null,
+      "effect": "被动效果：每5回合获得1件特殊装备<变形同构体>；<变形同构体>：与特定装备一同装备时装备者将视为特定盟约成员",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_damaztic"
+    },
+    {
+      "id": "26",
+      "name": "私募基金",
+      "initiator": "小贾斯汀",
+      "initial_life": 23,
+      "alliance": null,
+      "effect": "点击使用(消耗0)：随机获得1-6资金(冷却回合数等同于获得资金)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_fund"
+    },
+    {
+      "id": "27",
+      "name": "御守之力",
+      "initiator": "铃兰",
+      "initial_life": 20,
+      "alliance": null,
+      "effect": "拖拽使用(消耗0)：选择一名我方干员，触发该干员的<获得时>类特质",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_gain"
+    },
+    {
+      "id": "28",
+      "name": "强制休整",
+      "initiator": "苏苏洛",
+      "initial_life": 21,
+      "alliance": null,
+      "effect": "拖拽使用(消耗0)：选择一名我方干员，使该干员的<休整期结束时>类特质本回合可以额外触发一次",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_prepfin"
+    },
+    {
+      "id": "29",
+      "name": "不稳定要素",
+      "initiator": "昆图斯",
+      "initial_life": 24,
+      "alliance": null,
+      "effect": "第4回合解锁；拖拽使用(消耗0)：选择一名我方干员，立即使其变为更高一阶的随机干员(最高不超过6阶)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_mess"
+    },
+    {
+      "id": "30",
+      "name": "献身护卫",
+      "initiator": "信仰搅拌机",
+      "initial_life": 27,
+      "alliance": null,
+      "effect": "第4回合解锁；点击使用(消耗0)：自身目标生命值降至与场上最低的玩家相同并获得等同损失生命值的资金(至多10资金)，在<休整期结束时>为该玩家回复等额目标生命值",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_protect"
+    },
+    {
+      "id": "31",
+      "name": "好多委托！",
+      "initiator": "“追随者们”",
+      "initial_life": 21,
+      "alliance": null,
+      "effect": "被动效果：每次进入休整期时，从2个随机指令中选择1个并替换当前指令",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_random"
+    },
+    {
+      "id": "32",
+      "name": "利滚利",
+      "initiator": "坎诺特",
+      "initial_life": 27,
+      "alliance": null,
+      "effect": "被动效果：每回合剩余的资金可以继承，剩余至少5资金时，每回合额外获得1资金",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_cannot"
+    },
+    {
+      "id": "33",
+      "name": "“神秘顾客”",
+      "initiator": "鸭爵",
+      "initial_life": 29,
+      "alliance": null,
+      "effect": "被动效果：从第5回合起，你和队友遭遇的部分敌人可能会替换为<鸭爵>、<高普尼克>、<流泪小子>、<圆仔>，击倒这些敌人可以获得1资金奖励(包括联防阶段)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_ducklord"
+    },
+    {
+      "id": "34",
+      "name": "最佳品味",
+      "initiator": "琳琅诗怀雅",
+      "initial_life": 24,
+      "alliance": null,
+      "effect": "消耗资金达到60时解锁；点击使用(消耗0)：随机获取当前调度中心内的1名干员；消耗资金达到120时升级为获取2名",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_rich"
+    },
+    {
+      "id": "35",
+      "name": "替身娃娃",
+      "initiator": "巫恋",
+      "initial_life": 25,
+      "alliance": null,
+      "effect": "被动效果：每回合首次出售初始干员时，改为与调度中心中随机1名干员交换",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_substitute"
+    },
+    {
+      "id": "36",
+      "name": "东之极道",
+      "initiator": "三船光平",
+      "initial_life": 22,
+      "alliance": null,
+      "effect": "拖拽使用(消耗0)：选择一名我方干员，将其出售并为所有已激活盟约叠加等同于该干员等阶的层数",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_sell"
+    },
+    {
+      "id": "37",
+      "name": "人才锁定",
+      "initiator": "雅拉",
+      "initial_life": 24,
+      "alliance": null,
+      "effect": "点击使用(消耗1)：刷新调度中心，必定包含1名比当前调度中心等级更高一阶(最高不超过6阶)的干员(每回合限3次)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_support"
+    },
+    {
+      "id": "38",
+      "name": "专享情报",
+      "initiator": "渡桥",
+      "initial_life": 30,
+      "alliance": null,
+      "effect": "点击使用(消耗3)：进行一次特殊刷新：此次刷新出现的干员优先为已部署在场上的干员(每场模拟限1次)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_high"
+    },
+    {
+      "id": "39",
+      "name": "精巧设计",
+      "initiator": "Mechanist",
+      "initial_life": 29,
+      "alliance": null,
+      "effect": "被动效果：每回合首次装备合并进阶时，在调度中心出现3件装备(可能出现更高一阶的装备)免费获取其中1件；点击使用(消耗0)：使调度中心出现1件新的装备并替换(每回合限2次)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_equipment"
+    },
+    {
+      "id": "40",
+      "name": "电气化！",
+      "initiator": "布丁",
+      "initial_life": 23,
+      "alliance": null,
+      "effect": "拖拽使用(消耗1)：选择调度中心的一件装备使其立刻销毁，并在下次战斗开始时使场上所有还有空栏位的干员暂时获得该装备直到战斗结束(无法对<装备时销毁>的装备使用)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_pudd"
+    },
+    {
+      "id": "41",
+      "name": "打包速递",
+      "initiator": "拜松",
+      "initial_life": 23,
+      "alliance": null,
+      "effect": "点击使用(消耗9)：获得当前调度中心中的所有干员，每回合休整期结束时指令消耗资金-1，使用后指令重置并可再次使用",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_closeout"
+    },
+    {
+      "id": "42",
+      "name": "优等生",
+      "initiator": "Pith",
+      "initial_life": 24,
+      "alliance": null,
+      "effect": "被动效果：第1回合获得1名可以造成神经、灼燃、凋亡损伤的特殊干员，其属于[调和]盟约；[调和]：激活时使场上核心盟约的激活人数+1，[调和]干员享受已激活的核心盟约的效果",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_pith"
+    },
+    {
+      "id": "43",
+      "name": "正直教官",
+      "initiator": "坚雷",
+      "initial_life": 25,
+      "alliance": null,
+      "effect": "拖拽使用(消耗0)：选择一名我方干员，使其在下场战斗中卫戍能力的叠层上限提升，数量等同于当前回合数",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_limit"
+    },
+    {
+      "id": "44",
+      "name": "二重奏",
+      "initiator": "复奏",
+      "initial_life": 24,
+      "alliance": null,
+      "effect": "被动效果：每回合首次晋升精锐干员时，获得1次额外的晋升奖励",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_bonus"
+    },
+    {
+      "id": "45",
+      "name": "黑白相易",
+      "initiator": "望",
+      "initial_life": 23,
+      "alliance": "炎",
+      "effect": "拖拽使用(消耗1)：选择一名我方干员移除，获得1名不高于该干员等阶的[炎]干员；<在场6名不同[炎]干员> 效果替换为战斗开始时收集[炎]干员部分属性召唤“炎佑”；<在场9名不同[炎]干员> 效果改为召唤两只“炎佑”",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_yan2"
+    },
+    {
+      "id": "46",
+      "name": "广交豪杰",
+      "initiator": "杜遥夜",
+      "initial_life": 26,
+      "alliance": "炎",
+      "effect": "点击使用(消耗1)：刷新调度中心，优先刷新出1名[炎]干员(每回合限2次)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_yan"
+    },
+    {
+      "id": "47",
+      "name": "沙洲梦魇",
+      "initiator": "娜仁图亚",
+      "initial_life": 24,
+      "alliance": "萨尔贡",
+      "effect": "被动效果：获得3名[萨尔贡]干员后使当前调度中心升级消耗资金-3，调度中心每个等级至多生效1次；<在场6名不同[萨尔贡]干员> 效果替换为[萨尔贡]干员开启技能会使所有[萨尔贡]干员攻击力增加",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_sargon"
+    },
+    {
+      "id": "48",
+      "name": "博学多通",
+      "initiator": "佩佩",
+      "initial_life": 23,
+      "alliance": "萨尔贡",
+      "effect": "被动效果：升级调度中心至2、4和6级后，获得1次特殊刷新：此次刷新出现的干员优先为[萨尔贡]干员",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_pepe"
+    },
+    {
+      "id": "49",
+      "name": "自发制造",
+      "initiator": "洛洛",
+      "initial_life": 25,
+      "alliance": "维多利亚",
+      "effect": "被动效果：每购买3名[维多利亚]干员，获得1件随机装备(等阶不高于当前调度中心)；<在场6名不同[维多利亚]干员> 效果替换为[维多利亚]干员技能开启后，周围八格干员同时享受该干员携带的装备效果，持续一定时间",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_victoria"
+    },
+    {
+      "id": "50",
+      "name": "人才盲盒",
+      "initiator": "哈洛德",
+      "initial_life": 23,
+      "alliance": "维多利亚",
+      "effect": "被动效果：从第4回合开始每2回合获得1名[维多利亚]干员(等阶不高于当前调度中心)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_harold"
+    },
+    {
+      "id": "51",
+      "name": "猎人战法",
+      "initiator": "歌蕾蒂娅",
+      "initial_life": 23,
+      "alliance": "阿戈尔",
+      "effect": "调度中心等级达到4级解锁；点击使用(消耗1)：获得1名[阿戈尔]干员(等阶不高于当前调度中心)；<在场6名不同[阿戈尔]干员> 效果替换为前3名[阿戈尔]干员首次被击倒时召唤整备区最右侧一名可部署至当前位置的[阿戈尔]干员",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_egir"
+    },
+    {
+      "id": "52",
+      "name": "崇高牺牲",
+      "initiator": "克莱门莎",
+      "initial_life": 26,
+      "alliance": "阿戈尔",
+      "effect": "被动效果：[阿戈尔]干员被击倒时，使已激活的[阿戈尔]盟约叠加等同于该干员等阶的层数",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_clementia"
+    },
+    {
+      "id": "53",
+      "name": "骑士团长",
+      "initiator": "焰尾",
+      "initial_life": 25,
+      "alliance": "卡西米尔",
+      "effect": "点击使用(消耗6)：获得1名[卡西米尔]干员(等阶不高于当前调度中心)，每回合休整期结束时指令消耗资金-2，使用后指令重置并可再次使用；<在场6名不同[卡西米尔]干员> 效果替换为[卡西米尔]干员阻挡时每2秒对周围敌人造成真实伤害并晕眩，未阻挡时攻击附带真实伤害",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_kazimier"
+    },
+    {
+      "id": "54",
+      "name": "业务指标",
+      "initiator": "玛恩纳",
+      "initial_life": 28,
+      "alliance": "卡西米尔",
+      "effect": "被动效果：每购买1名[卡西米尔]干员，下回合开始时资金+1，每回合至多3资金",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_mlynar"
+    },
+    {
+      "id": "55",
+      "name": "不融信念",
+      "initiator": "耶拉",
+      "initial_life": 23,
+      "alliance": "谢拉格",
+      "effect": "被动效果：在第4、7、10、13回合进入休整期时获得1个<谢拉格不融冰>；<谢拉格不融冰>：造成伤害时有12%概率对目标施加1.5秒的寒冷；<在场6名不同[谢拉格]干员> 效果替换为战场上每25秒吹过一阵寒风使敌人受到寒冷效果",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_kjerag2"
+    },
+    {
+      "id": "56",
+      "name": "雪域礼赠",
+      "initiator": "休露丝",
+      "initial_life": 23,
+      "alliance": "谢拉格",
+      "effect": "被动效果：每回合首次购买的[谢拉格]干员消耗资金为1",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_kjerag"
+    },
+    {
+      "id": "57",
+      "name": "量体裁衣",
+      "initiator": "裁度",
+      "initial_life": 26,
+      "alliance": "叙拉古",
+      "effect": "被动效果：每回合首次主动刷新后获得1资金；<在场6名不同[叙拉古]干员> 效果替换为[叙拉古]干员部署后进入隐匿状态，在隐匿状态和脱离隐匿10秒内对敌人攻击时有概率造成真实伤害并恐惧目标",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_siracusa"
+    },
+    {
+      "id": "58",
+      "name": "团伙行动",
+      "initiator": "贾维",
+      "initial_life": 24,
+      "alliance": "叙拉古",
+      "effect": "被动效果：每回合内主动刷新4次调度中心后，获得1名[叙拉古]干员(等阶不高于当前调度中心)，每回合至多触发1次",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_bond"
+    },
+    {
+      "id": "59",
+      "name": "流动乐章",
+      "initiator": "车尔尼",
+      "initial_life": 24,
+      "alliance": "莱塔尼亚",
+      "effect": "点击使用(消耗1)：获得1名[莱塔尼亚]干员(等阶不高于当前调度中心)，每次使用后指令消耗资金永久+1",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_lethania"
+    },
+    {
+      "id": "60",
+      "name": "无惧风雪",
+      "initiator": "怒潮凛冬",
+      "initial_life": 26,
+      "alliance": "乌萨斯",
+      "effect": "点击使用(消耗5)：获得1名[乌萨斯]干员(等阶不高于当前调度中心)，每次购买[乌萨斯]干员时指令消耗资金-1，使用后指令重置并可再次使用",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_ursus"
+    },
+    {
+      "id": "61",
+      "name": "出航时刻",
+      "initiator": "引星棘刺",
+      "initial_life": 23,
+      "alliance": "伊比利亚",
+      "effect": "[伊比利亚]盟约激活人数达到4时解锁；拖拽使用(消耗1)：选择一名调度中心内的干员，使其替换为不高于该干员等阶的[伊比利亚]干员(每回合限2次)",
+      "source": "PRTS current sequence I / wakingseasons current mirror",
+      "band_id": "band_iberia"
+    }
+  ]
+}

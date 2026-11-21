@@ -192,4 +192,7 @@ public enum AsstTaskType : byte
     /// 干员培养
     /// </summary>
     OperProgress,
+
+    /// <summary>卫戍协议完整单人流程。</summary>
+    StrongholdProtocol,
 }

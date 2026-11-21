@@ -1,0 +1,371 @@
+#include "SPARoundTaskPlugin.h"
+#include "SPAFormation.h"
+#include "SPAImageEvidence.h"
+
+#include "SPANumberOcr.h"
+#include "SPAObservation.h"
+#include "SPAPlanner.h"
+
+#include <chrono>
+#include <cmath>
+
+#include "Controller/Controller.h"
+#include "Vision/OCRer.h"
+
+bool asst::spa::RoundTaskPlugin::configure(
+    int round,
+    int remaining,
+    bool layout_reviewed,
+    bool wait_for_next,
+    int expected_funds,
+    bool spending_reviewed,
+    std::string spending_reason,
+    bool remaining_inferred,
+    bool joint_mode)
+{
+    if (round < 1 || round > 20 || remaining < 0 || remaining > 8 || !layout_reviewed || expected_funds < 0 ||
+        expected_funds > 999 || spending_reason.size() > 512 ||
+        (expected_funds > 0 && (!spending_reviewed || spending_reason.empty()))) {
+        return false;
+    }
+    m_round = round;
+    m_remaining = remaining;
+    m_wait_for_next = wait_for_next;
+    m_expected_funds = expected_funds;
+    m_spending_reviewed = spending_reviewed;
+    m_spending_reason = spending_reason;
+    m_remaining_inferred = remaining_inferred;
+    m_joint_mode = joint_mode;
+    return true;
+}
+
+bool asst::spa::RoundTaskPlugin::verify(AsstMsg msg, const json::value& details) const
+{
+    return msg == AsstMsg::SubTaskStart && details.get("subtask", std::string()) == "ProcessTask" &&
+           details.get("details", "task", std::string()) == "MiniGame@SPA@ReadyRound";
+}
+
+bool asst::spa::RoundTaskPlugin::on_run_fails()
+{
+    if (auto* process = dynamic_cast<ProcessTask*>(m_task_ptr)) {
+        process->override_next("MiniGame@SPA@ReadyRound", {});
+    }
+    return false;
+}
+
+bool asst::spa::RoundTaskPlugin::_run()
+{
+    m_battle_seen = false;
+    m_result_seen = false;
+    m_last_result.clear();
+    m_latest_primary_layers.reset();
+    m_latest_primary_layer_sample_enemies.reset();
+    m_latest_pact_layer_snapshot.clear();
+    m_session_interrupted = false;
+    m_next_round = -1;
+    if (m_round < 1) {
+        return false;
+    }
+    auto image = ctrler()->get_image();
+    if (image.empty() || image.cols != 1280 || image.rows != 720) {
+        return false;
+    }
+    OCRer ocr(image);
+    const auto recognized = ocr.analyze();
+    if (!recognized) {
+        return false;
+    }
+    std::vector<TextObservation> texts;
+    std::optional<Rect> ready;
+    const auto hidden_badge = m_round == HiddenCoreRound ? match_hidden_round_badge(image) : std::nullopt;
+    for (const auto& text : *recognized) {
+        if (!hidden_badge || !is_round_badge_position(text.rect.x, text.rect.y)) {
+            texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+        }
+        if (text.text == "准备就绪" && text.score >= 0.9 && text.rect.x > 1100 && text.rect.y < 150) {
+            ready = text.rect;
+        }
+    }
+    if (hidden_badge) {
+        texts.push_back(*hidden_badge);
+    }
+    const auto observed = observe_page(texts, {});
+    const auto funds = shop_number(image, Rect(1180, 510, 45, 40));
+    const auto round = hidden_badge && observed.bonus_round ? observed.round : preparation_round_number(image, m_round);
+    const auto counter = observe_deployment_counter(texts);
+    const auto remaining = remaining_deployment_number(image, texts);
+    const bool inferred_counter_visible =
+        m_remaining_inferred && m_remaining >= 0 && m_remaining <= 8 && !counter.contradictory && !remaining &&
+        !observed.remaining_deployment && std::any_of(texts.begin(), texts.end(), [](const auto& text) {
+            return text.score >= 0.85 && text.text.find("剩余可放置角色") != std::string::npos;
+        });
+    const bool remaining_ok = (remaining && *remaining == m_remaining) || inferred_counter_visible;
+    if (observed.page != Page::Preparation || observed.contradictory || !ready || !funds ||
+        *funds != m_expected_funds || !round || *round != m_round || !remaining_ok) {
+        LogError << "SPA ready preconditions differ from the reviewed formation and budget";
+        return false;
+    }
+    const bool hidden_core_preparation =
+        !m_joint_mode && hidden_badge && observed.bonus_round == HiddenRoundMode::Independent;
+    const bool preparation_frame_saved = save_evidence(image, utils::path("debug/SPA/before_ready"), true);
+    if (!ctrler()->click(*ready)) {
+        return false;
+    }
+    // The battle overlay can be shorter than one OCR interval.  A confirmed
+    // preparation click plus an observed round increment is still a valid
+    // round transition, but it must retain battle_seen=false in the receipt.
+    bool ready_clicked = true;
+
+    bool battle_seen = false;
+    auto last_recognized = std::chrono::steady_clock::now();
+    auto next_transition_capture = last_recognized;
+    auto next_battle_capture = last_recognized;
+    // The client has a bounded battle timer per round. A fixed 240-second
+    // watchdog made one stalled non-boss wave consume several minutes and
+    // then look like a global automation hang. Keep a generous transition
+    // margin, but stay tied to the round's known theoretical limit.
+    const int theoretical_limit = battle_time_limit_seconds(m_round, false);
+    const int watchdog_seconds = std::max(90, theoretical_limit + 45);
+    // Joint readiness is a vote. Waiting for the other players must not
+    // consume the battle watchdog or cause another click that revokes Ready.
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(m_joint_mode ? 240 : watchdog_seconds);
+    if (m_joint_mode) {
+        auto info = basic_info_with_what("SPAJointReadySubmitted");
+        info["details"] =
+            json::object { { "round", m_round }, { "battle_seen", false }, { "all_players_ready_verified", false } };
+        callback(AsstMsg::SubTaskExtraInfo, info);
+    }
+    while (!need_exit() && std::chrono::steady_clock::now() < deadline) {
+        if (!sleep(1000)) {
+            return false;
+        }
+        image = ctrler()->get_image();
+        ocr.set_image(image);
+        const auto current = ocr.analyze();
+        if (!current) {
+            continue;
+        }
+        texts.clear();
+        std::optional<Rect> confirm_ready;
+        for (const auto& text : *current) {
+            texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+            if (text.score >= 0.9 && text.text == "确认" && text.rect.x > 850 && text.rect.y > 400 &&
+                text.rect.y < 600) {
+                confirm_ready = text.rect;
+            }
+        }
+        // The client can show this modal even after the balance reached zero
+        // (for example when an unused instruction/equipment choice remains).
+        // Round entry has already passed the caller's spending review, so the
+        // confirmation itself must not be gated on a positive fund balance.
+        if (observe_ready_confirmation(texts) && confirm_ready) {
+            save_evidence(ctrler()->get_image(), utils::path("debug/SPA/ready_confirmation"), false);
+            if (!ctrler()->click(*confirm_ready) || !sleep(1000)) {
+                return false;
+            }
+            auto info = basic_info_with_what("SPARoundReadyConfirmed");
+            info["details"] = json::object { { "round", m_round },
+                                             { "funds", m_expected_funds },
+                                             { "spending_reviewed", true },
+                                             { "battle_seen", false } };
+            callback(AsstMsg::SubTaskExtraInfo, info);
+            continue;
+        }
+        const auto page = observe_page(texts, {});
+        if (page.page == Page::Spectating) {
+            return true; // The session executor restores the local battlefield.
+        }
+        if (page.page == Page::ReadyWaiting) {
+            last_recognized = std::chrono::steady_clock::now();
+            continue;
+        }
+        if (page.page == Page::AuthenticationExpired) {
+            m_session_interrupted = true;
+            auto info = basic_info_with_what("SPASessionRecoveryRequired");
+            info["details"] = json::object { { "round", m_round },
+                                             { "battle_seen", battle_seen },
+                                             { "phase", "authentication_expired" },
+                                             { "combat_result", "unverified" },
+                                             { "resumable", true },
+                                             { "run_victory_verified", false } };
+            callback(AsstMsg::SubTaskExtraInfo, info);
+            return true;
+        }
+        if (battle_seen && page.page != Page::Battle && std::chrono::steady_clock::now() >= next_transition_capture) {
+            save_evidence(ctrler()->get_image(), utils::path("debug/SPA/post_battle_page"), false);
+            next_transition_capture = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        }
+        if (page.contradictory) {
+            return false;
+        }
+        if (page.page == Page::ResultSummary) {
+            return true; // Let lifecycle advance to the verified team result.
+        }
+        if (page.page == Page::Result) {
+            m_result_seen = true;
+            const bool result_text_verified = settlement_text_verified(page);
+            const bool result_frame_saved =
+                result_text_verified && save_evidence(image, utils::path("debug/SPA/round_result_observation"), false);
+            auto info = basic_info_with_what("SPARoundResultObserved");
+            info["details"] = json::object { { "page", "result" },
+                                             { "round", m_round },
+                                             { "contradictory", page.contradictory },
+                                             { "result_completed", page.result_completed },
+                                             { "result_interrupted", page.result_interrupted },
+                                             { "result_text_verified", result_text_verified },
+                                             { "result_frame_saved", result_frame_saved },
+                                             { "result_joint", page.result_joint },
+                                             { "result_difficulty_known", page.result_difficulty.has_value() },
+                                             { "result_difficulty", page.result_difficulty.value_or(0) },
+                                             { "result_difficulty_name", page.result_difficulty_name },
+                                             { "passed_rounds_known", page.passed_rounds.has_value() },
+                                             { "passed_rounds", page.passed_rounds.value_or(0) },
+                                             { "battle_seen", battle_seen },
+                                             { "run_victory_verified", false },
+                                             { "return_home_verified", false } };
+            m_last_result = info["details"].as_object();
+            callback(AsstMsg::SubTaskExtraInfo, info);
+            return true;
+        }
+        if (page.page == Page::Battle) {
+            last_recognized = std::chrono::steady_clock::now();
+            if (!battle_seen) {
+                deadline = std::chrono::steady_clock::now() + std::chrono::seconds(watchdog_seconds);
+                auto info = basic_info_with_what("SPARoundStarted");
+                info["details"] = json::object { { "round", m_round }, { "layout_reviewed_by_caller", true } };
+                info["details"]["funds_before"] = m_expected_funds;
+                info["details"]["spending_reviewed_by_caller"] = m_spending_reviewed;
+                info["details"]["spending_reason"] = m_spending_reason;
+                info["details"]["hidden_core_preparation_verified"] =
+                    hidden_core_preparation && preparation_frame_saved;
+                callback(AsstMsg::SubTaskExtraInfo, info);
+                battle_seen = true;
+                m_battle_seen = true;
+            }
+            if (std::chrono::steady_clock::now() >= next_battle_capture) {
+                const bool battle_frame_saved = save_evidence(image, utils::path("debug/SPA/battle_sample"), false);
+                const auto life = defence_life_number(image);
+                auto info = basic_info_with_what("SPABattleSample");
+                info["details"] =
+                    json::object { { "round", m_round },
+                                   { "battle_frame_saved", battle_frame_saved },
+                                   { "theoretical_time_limit_seconds", battle_time_limit_seconds(m_round, false) },
+                                   { "life_known", life.has_value() },
+                                   { "life", life.value_or(0) },
+                                   { "enemies_total_known", page.enemies_total.has_value() },
+                                   { "enemies_total", page.enemies_total.value_or(0) },
+                                   { "enemies_resolved_known", page.enemies_resolved.has_value() },
+                                   { "enemies_resolved", page.enemies_resolved.value_or(0) },
+                                   { "unit_survival_verified", false } };
+                if (battle_frame_saved) {
+                    // Require an exact pact label and a same-frame counter.
+                    // The result page does not expose this battlefield HUD.
+                    OCRer pact_ocr(image, Rect(300, 94, 760, 54));
+                    std::vector<PactHudAnchor> anchors;
+                    std::vector<TextObservation> numbers;
+                    const auto pacts = pact_requirements();
+                    if (const auto known = pact_ocr.analyze()) {
+                        for (const auto& text : *known) {
+                            const int center = text.rect.x + text.rect.width / 2;
+                            numbers.push_back({ text.text, text.score, center, text.rect.y });
+                            if (text.score >= .90 && text.rect.width < 100 && text.rect.y >= 105 && text.rect.y < 145 &&
+                                center > 300 && center < 1050 &&
+                                std::any_of(
+                                    pacts.begin(),
+                                    pacts.end(),
+                                    [&](const auto& pact) { return pact.name == text.text; })) {
+                                anchors.push_back({ text.text, center, text.rect.y });
+                            }
+                        }
+                    }
+                    for (const auto& anchor : anchors) {
+                        if (const auto number = pact_hud_number(image, anchor.center_x)) {
+                            numbers.push_back({ std::to_string(number->first), number->second, anchor.center_x, 98 });
+                        }
+                    }
+                    auto layers = observe_pact_layer_numbers(anchors, numbers);
+                    std::erase_if(layers, [](const auto& item) { return item.second > 999; });
+                    if (!layers.empty()) {
+                        m_latest_pact_layer_snapshot = layers;
+                        json::object values;
+                        for (const auto& [pact, value] : layers) {
+                            values[pact] = value;
+                        }
+                        info["details"]["pact_layers"] = std::move(values);
+                    }
+                    if (const auto match = layers.find(m_primary_pact); match != layers.end()) {
+                        m_latest_primary_layers = match->second;
+                        m_latest_primary_layer_sample_enemies = page.enemies_resolved;
+                        info["details"]["primary_pact"] = m_primary_pact;
+                        info["details"]["primary_layers"] = match->second;
+                        info["details"]["primary_layers_source"] = "battle_hud";
+                    }
+                }
+                if (hidden_core_preparation) {
+                    json::array titles;
+                    for (const auto& text : texts) {
+                        if (std::isfinite(text.score) && text.score >= .85 && text.x >= 90 && text.x < 250 &&
+                            text.y >= 0 && text.y < 65) {
+                            auto title = text.text;
+                            std::erase(title, ' ');
+                            if (title.starts_with("规程等级")) {
+                                titles.emplace_back(std::move(title));
+                            }
+                        }
+                    }
+                    info["details"]["regulation_hud_titles"] = std::move(titles);
+                }
+                callback(AsstMsg::SubTaskExtraInfo, info);
+                next_battle_capture = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+            }
+            if (!m_wait_for_next) {
+                return true;
+            }
+        }
+        else if (page.page == Page::DataUpdated || page.page == Page::AuthenticationExpired) {
+            auto info = basic_info_with_what("SPARoundSessionRecoveryRequired");
+            info["details"] = json::object { { "round", m_round },
+                                             { "battle_seen", battle_seen },
+                                             { "combat_result", "unverified" },
+                                             { "resumable", true } };
+            callback(AsstMsg::SubTaskExtraInfo, info);
+            return true;
+        }
+        else if (
+            (page.page == Page::EquipmentSupply || page.page == Page::BountySelection ||
+             page.page == Page::TacticalDecision) &&
+            battle_seen) {
+            auto info = basic_info_with_what("SPARoundChoiceRequired");
+            info["details"] = json::object { { "after_round", m_round },
+                                             { "choice_kind",
+                                               page.page == Page::EquipmentSupply    ? "equipment_supply"
+                                               : page.page == Page::TacticalDecision ? "tactical_decision"
+                                                                                     : "bounty_selection" },
+                                             { "run_victory_verified", false } };
+            callback(AsstMsg::SubTaskExtraInfo, info);
+            return true;
+        }
+        else if (page.page == Page::Preparation && ready_clicked) {
+            const auto next_round = preparation_round_number(image, m_round + 1);
+            if (next_round && *next_round == m_round + 1) {
+                m_next_round = *next_round;
+                auto info = basic_info_with_what("SPARoundTransition");
+                info["details"] = json::object { { "from_round", m_round },
+                                                 { "to_round", *next_round },
+                                                 { "battle_seen", battle_seen },
+                                                 { "run_victory_verified", false } };
+                callback(AsstMsg::SubTaskExtraInfo, info);
+                return true;
+            }
+        }
+        else if (
+            page.page == Page::Unknown &&
+            std::chrono::steady_clock::now() - last_recognized >= std::chrono::seconds(30)) {
+            save_evidence(ctrler()->get_image(), utils::path("debug/SPA/round_transition"), false);
+            LogError << "SPA encountered an unrecognized stage; preserving the run for reconciliation";
+            return false;
+        }
+    }
+    LogError << "SPA round transition timed out or was interrupted";
+    return false;
+}

@@ -37,6 +37,7 @@ namespace MaaWpfGui.Configuration.Single.MaaTask;
 [JsonDerivedType(typeof(DepotMaintainTask), typeDiscriminator: nameof(DepotMaintainTask))]
 [JsonDerivedType(typeof(SwitchThemeTask), typeDiscriminator: nameof(SwitchThemeTask))]
 [JsonDerivedType(typeof(CustomTask), typeDiscriminator: nameof(CustomTask))]
+[JsonDerivedType(typeof(StrongholdProtocolTask), typeDiscriminator: nameof(StrongholdProtocolTask))]
 public class BaseTask : NotifyPropertyChangedWithValue
 {
     public string Name { get; set; } = string.Empty;

@@ -1,0 +1,36 @@
+{
+  "feature": "卫戍协议·规程",
+  "phase": 2,
+  "mode": "dynamic_full_run",
+  "defaults": {
+    "simulation_mode": "independent",
+    "difficulty": -1,
+    "strategy_policy": "default",
+    "pact_policy": "live_offered_cards",
+    "purchase_policy": "early_board_pairs_then_primary_roles",
+    "upgrade_policy": "observed_cost_and_combat_board",
+    "reward_policy": "lowest_feasible_bounty",
+    "wait_for_battle_transition": true,
+    "resume_on_login_expiry": true,
+    "resume_from_nonterminal_page": true,
+    "prioritize_unclaimed_badges": false,
+    "dynamic_decision_mode": true
+  },
+  "logging": {
+    "round_summary": true,
+    "strategy": true,
+    "roster": true,
+    "battle_outcome": true,
+    "checkpoint_after_each_page": true,
+    "noncombat_stop_is_failure": false
+  },
+  "implementation_status": {
+    "dynamic_pact_routing": "implemented_not_clear_validated",
+    "dynamic_strategy_scoring": "partial",
+    "equipment_synergy_scoring": "partial",
+    "battle_layer_loops": "incomplete",
+    "special_friendly_fire_loops": "incomplete",
+    "transform_equipment_planning": "incomplete",
+    "stable_max_difficulty_clear": "not_achieved"
+  }
+}
