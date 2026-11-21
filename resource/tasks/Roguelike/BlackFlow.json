@@ -120,9 +120,30 @@
         "action": "DoNothing",
         "next": [
             "BlackFlow@Roguelike@AccountHome",
-            "BlackFlow@Roguelike@AccountHome@QuickSwitch@ToHome#next",
-            "BlackFlow@Roguelike@AccountHome@ReturnButtons#next"
+            "BlackFlow@Roguelike@AccountMapReturn",
+            "BlackFlow@Roguelike@AccountHome@ReturnButtons#next",
+            "BlackFlow@Roguelike@AccountHome@QuickSwitch@ToHome#next"
         ]
+    },
+    "BlackFlow@Roguelike@ResumeSavedExploration": {
+        "Doc": "Assisted debug continuation accepts only an existing exploration or its map. Missing saved exploration must stop instead of abandoning or starting a new run.",
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@ResumeSavedContinue", "BlackFlow@Roguelike@NextLevel"]
+    },
+    "BlackFlow@Roguelike@ResumeSavedContinue": {
+        "baseTask": "BlackFlow@Roguelike@Continue",
+        "template": "BlackFlow@Roguelike@Continue.png",
+        "templThreshold": 0.9,
+        "next": ["BlackFlow@Roguelike@NextLevel"]
+    },
+    "BlackFlow@Roguelike@AccountMapReturn": {
+        "Doc": "Match the exact BlackFlow floor title before leaving the map for live account verification. This does not abandon the saved exploration.",
+        "baseTask": "BlackFlow@Roguelike@NextLevel",
+        "action": "ClickRect",
+        "specificRect": [12, 12, 58, 58],
+        "postDelay": 1000,
+        "next": ["BlackFlow@Roguelike@AccountBegin"]
     },
     "BlackFlow@Roguelike@AccountHome": {
         "baseTask": "Home",

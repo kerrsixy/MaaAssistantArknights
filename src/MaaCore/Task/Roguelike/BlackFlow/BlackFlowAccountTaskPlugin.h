@@ -19,5 +19,8 @@ private:
     bool m_verified = false;
     bool m_refresh_requested = true;
     std::string m_cache_file;
+#ifdef ASST_DEBUG
+    std::string m_resume_roster_file;
+#endif
 };
 }
