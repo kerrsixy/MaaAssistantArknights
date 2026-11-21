@@ -3203,6 +3203,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             state.get("round", -1) != m_last_economy_round) {
             m_last_economy_round = state.get("round", -1);
             m_shopping_complete = false;
+            m_purchase_reserved_after_sale.reset();
             m_spending_reviewed = false;
             m_spending_reason.clear();
             // The policy round is also updated before deployment planning.
@@ -3660,6 +3661,13 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         // ordinary scans and assignments until the bench trade is resolved.
         const bool prioritize_bench_space = confirmed_full_bench && available_funds > 0 && !field_finalization &&
                                             !equipment_capacity_blocked && !promotion_due;
+        // Keep the funds and the newly freed slot available until the live
+        // shop rechecks the card that justified this sale.
+        const bool resume_funded_purchase =
+            m_purchase_reserved_after_sale && m_purchase_reserved_after_sale->first == preparation_round &&
+            m_purchase_reserved_after_sale->second.price <= available_funds && !confirmed_full_bench &&
+            !m_bench_recount_pending && m_policy.bench_occupied >= 0 && m_unreconciled_sale.empty();
+        const bool defer_ordinary_equipment = prioritize_bench_space || resume_funded_purchase;
         auto scheduling = basic_info_with_what("SPAPreparationSchedulingObserved");
         scheduling["details"] = json::object {
             { "run_id", m_run_id },
@@ -3683,6 +3691,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             { "preparation_seconds_remaining_known", state.get("preparation_seconds_remaining_known", false) },
             { "field_work_due", field_work_due },
             { "ordinary_equipment_work_deferred_for_bench_space", prioritize_bench_space },
+            { "resume_purchase_after_verified_sale", resume_funded_purchase },
             { "replacement_reconciliation_pending", m_pending_field_replacement.has_value() }
         };
         if (!bench_capacity_full && (m_bench_recount_pending || m_policy.bench_occupied < 0)) {
@@ -3724,22 +3733,16 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             handle_full_field_replacement(state)) {
             continue;
         }
-        if (field_work_due && !prioritize_bench_space && refresh_equipment_inventory(state)) {
+        if (field_work_due && !defer_ordinary_equipment && refresh_equipment_inventory(state)) {
             continue;
         }
-        if (m_auto_run && handle_cash_equipment(state)) {
+        if (m_auto_run && !resume_funded_purchase &&
+            (handle_cash_equipment(state) || handle_delayed_cash_equipment(state) ||
+             handle_pact_recruitment_equipment(state) ||
+             (field_work_due && handle_direct_promotion_equipment(state)))) {
             continue;
         }
-        if (m_auto_run && handle_delayed_cash_equipment(state)) {
-            continue;
-        }
-        if (m_auto_run && handle_pact_recruitment_equipment(state)) {
-            continue;
-        }
-        if (m_auto_run && field_work_due && handle_direct_promotion_equipment(state)) {
-            continue;
-        }
-        if (m_auto_run && !prioritize_bench_space && handle_persistent_equipment(state)) {
+        if (m_auto_run && !defer_ordinary_equipment && handle_persistent_equipment(state)) {
             continue;
         }
         if (!m_unreconciled_sale.empty()) {

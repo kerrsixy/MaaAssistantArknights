@@ -55,14 +55,44 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
 
     def test_full_field_swap_waits_for_shop_review_but_reconciliation_does_not(self):
         boundary = self.session.split("const bool field_finalization =", 1)[1].split(
-            "if (field_work_due && refresh_equipment_inventory(state))", 1
+            "refresh_equipment_inventory(state)", 1
         )[0]
-        self.assertTrue(boundary.startswith(" m_shopping_complete || available_funds == 0;"))
+        self.assertTrue(
+            boundary.startswith(" m_shopping_complete || available_funds == 0;")
+        )
         self.assertIn(
             "((field_finalization && time_for_board_maintenance) || m_pending_field_replacement) &&\n"
             "            handle_full_field_replacement(state))",
             boundary,
         )
+
+    def test_funded_purchase_defers_equipment_until_live_quote_review(self):
+        before_shop, quote_review = self.session.split(
+            "bool purchase_reserved_after_sale = false;", 1
+        )
+        scheduling = before_shop.split("const bool resume_funded_purchase =", 1)[1]
+        self.assertIn(
+            "m_purchase_reserved_after_sale->first == preparation_round", scheduling
+        )
+        self.assertIn(
+            "m_purchase_reserved_after_sale->second.price <= available_funds",
+            scheduling,
+        )
+        self.assertIn("!m_bench_recount_pending", scheduling)
+        self.assertIn("prioritize_bench_space || resume_funded_purchase", scheduling)
+        self.assertIn(
+            "!defer_ordinary_equipment && refresh_equipment_inventory(state)",
+            scheduling,
+        )
+        self.assertIn(
+            "!defer_ordinary_equipment && handle_persistent_equipment(state)",
+            scheduling,
+        )
+        pending = quote_review.split("const int bench_before_funding", 1)[0]
+        self.assertIn("offer.right_slot == reserved.right_slot", pending)
+        self.assertIn("quoted->name == reserved.name", pending)
+        self.assertIn("quoted->price == reserved.price", pending)
+        self.assertIn("m_purchase_reserved_after_sale.reset()", pending)
 
 
 if __name__ == "__main__":
