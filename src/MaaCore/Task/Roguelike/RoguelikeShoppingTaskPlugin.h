@@ -47,5 +47,6 @@ private:
     std::shared_ptr<blackflow::BlackFlowSession> m_blackflow_session;
     std::optional<std::string> m_pending_purchase;
     mutable PendingWork m_pending = PendingWork::None;
+    bool m_shelf_scan_failed = false;
 };
 }

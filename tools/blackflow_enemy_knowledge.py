@@ -10,6 +10,7 @@ import re
 import time
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
@@ -112,6 +113,97 @@ def write_json(path, data):
     path.write_text(
         json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
+
+
+def collect_details(output):
+    """Archive every linked detail, keeping incomplete coverage explicit."""
+    write_json(
+        output / "details_manifest.json",
+        {"detail_sources_complete": False, "status": "collecting"},
+    )
+    index = json.loads((output / "category_index.json").read_text(encoding="utf-8"))
+    entries = {entry["title"]: entry for entry in index["entries"]}
+    if not index["verified_complete"] or len(entries) != index["expected_total"]:
+        raise ValueError("Detail collection requires a complete category index")
+    sources = output / "sources"
+    sources.mkdir(exist_ok=True)
+    destination = output / "enemy_details.json"
+    records = {}
+    # Previously archived leader revisions are also full detail sources.
+    for path in (output / "leaders.json", destination):
+        if not path.exists():
+            continue
+        for record in json.loads(path.read_text(encoding="utf-8")):
+            source = sources / record["source"]
+            if record["title"] in entries and source.is_file():
+                digest = hashlib.sha256(source.read_bytes()).hexdigest()
+                if not source.stat().st_size or record.get("sha256", digest) != digest:
+                    continue
+                records[record["title"]] = {
+                    **record,
+                    "sha256": digest,
+                }
+    missing = sorted(set(entries) - records.keys())
+    batches = [missing[i : i + 20] for i in range(0, len(missing), 20)]
+
+    def load_batch(titles):
+        response = api(
+            action="query",
+            prop="revisions",
+            titles="|".join(titles),
+            rvprop="ids|timestamp|content",
+            rvslots="main",
+        )
+        batch = []
+        for page in response["query"]["pages"].values():
+            title = page["title"]
+            if title not in titles or "revisions" not in page:
+                raise ValueError(
+                    f"Detail source missing or unexpectedly redirected: {title}"
+                )
+            revision = page["revisions"][0]
+            raw = revision["slots"]["main"]["*"]
+            filename = f"enemy_{page['pageid']}_{revision['revid']}.wikitext"
+            (sources / filename).write_text(raw, encoding="utf-8")
+            batch.append(
+                {
+                    **entries[title],
+                    "page_id": page["pageid"],
+                    "revision_id": revision["revid"],
+                    "revision_time": revision["timestamp"],
+                    "source": filename,
+                    "sha256": hashlib.sha256(raw.encode()).hexdigest(),
+                    "mechanics_review": "pending",
+                    "live_recognition_verified": False,
+                }
+            )
+        if {record["title"] for record in batch} != set(titles):
+            raise ValueError("Detail batch coverage mismatch")
+        return batch
+
+    failures = []
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        pending = {pool.submit(load_batch, batch): batch for batch in batches}
+        for future in as_completed(pending):
+            try:
+                for record in future.result():
+                    records[record["title"]] = record
+            except (OSError, ValueError, KeyError) as error:
+                failures.append({"titles": pending[future], "error": str(error)})
+            write_json(destination, [records[title] for title in sorted(records)])
+            print(f"full detail sources: {len(records)}/{len(entries)}", flush=True)
+    manifest = {
+        "retrieved_at": datetime.now(timezone.utc).isoformat(),
+        "expected_total": len(entries),
+        "detail_sources": len(records),
+        "detail_sources_complete": set(records) == set(entries),
+        "mechanics_review_complete": False,
+        "live_recognition_implemented": False,
+        "failures": failures,
+    }
+    write_json(output / "details_manifest.json", manifest)
+    if not manifest["detail_sources_complete"]:
+        raise ValueError(f"Incomplete enemy details: {len(records)}/{len(entries)}")
 
 
 def collect(output, refresh=True):
@@ -258,10 +350,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
+        "--details-only",
+        action="store_true",
+        help="Archive every linked enemy detail using the existing index",
+    )
+    parser.add_argument(
         "--refresh",
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Refresh category pages by default; --no-refresh reuses the archive",
     )
     args = parser.parse_args()
-    collect(args.output, refresh=args.refresh)
+    if args.details_only:
+        collect_details(args.output)
+    else:
+        collect(args.output, refresh=args.refresh)

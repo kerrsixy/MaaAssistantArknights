@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from blackflow_enemy_knowledge import CategoryPage, collect
+from blackflow_enemy_knowledge import CategoryPage, collect, collect_details
 from blackflow_stage_routes import export
 
 
@@ -20,6 +20,70 @@ def category(names, total, next_url=None):
 
 
 class EnemyKnowledgeTests(unittest.TestCase):
+    def test_nonleader_hyperlinks_have_full_revision_sources(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            index = {
+                "verified_complete": True,
+                "expected_total": 1,
+                "entries": [
+                    {
+                        "title": "雷遁忍者",
+                        "url": "https://wiki.biligame.com/arknights/雷遁忍者",
+                        "category_page": 9,
+                    }
+                ],
+            }
+            (root / "category_index.json").write_text(
+                json.dumps(index), encoding="utf-8"
+            )
+            revision = {
+                "query": {
+                    "pages": {
+                        "8": {
+                            "pageid": 8,
+                            "title": "雷遁忍者",
+                            "revisions": [
+                                {
+                                    "revid": 10,
+                                    "timestamp": "2026-11-21",
+                                    "slots": {
+                                        "main": {
+                                            "*": "{{Enemy/common|能力=遇到阻挡时起飞}}"
+                                        }
+                                    },
+                                }
+                            ],
+                        }
+                    }
+                }
+            }
+            with patch("blackflow_enemy_knowledge.api", return_value=revision) as fetch:
+                collect_details(root)
+            self.assertEqual(fetch.call_args.kwargs["titles"], "雷遁忍者")
+            record = json.loads(
+                (root / "enemy_details.json").read_text(encoding="utf-8")
+            )[0]
+            self.assertIn(
+                "遇到阻挡时起飞",
+                (root / "sources" / record["source"]).read_text(encoding="utf-8"),
+            )
+            manifest = json.loads((root / "details_manifest.json").read_text())
+            self.assertTrue(manifest["detail_sources_complete"])
+            self.assertFalse(manifest["mechanics_review_complete"])
+            # A damaged local source must be fetched again rather than accepted by its filename.
+            (root / "sources" / record["source"]).write_text(
+                "damaged", encoding="utf-8"
+            )
+            with patch("blackflow_enemy_knowledge.api", side_effect=OSError("offline")):
+                with self.assertRaisesRegex(ValueError, "Incomplete enemy details"):
+                    collect_details(root)
+            self.assertFalse(
+                json.loads(
+                    (root / "details_manifest.json").read_text(encoding="utf-8")
+                )["detail_sources_complete"]
+            )
+
     def test_category_ignores_navigation_and_external_pagination(self):
         page = CategoryPage(category(["甲", "乙"], 3, "/arknights/next"))
         self.assertEqual([entry["title"] for entry in page.entries], ["甲", "乙"])

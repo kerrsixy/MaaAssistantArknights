@@ -128,6 +128,26 @@
         "fullMatch": false,
         "next": ["BlackFlow@Roguelike@ScrapTradeDecision"]
     },
+    "BlackFlow@RoguelikeTraderShoppingOcr": {
+        "baseTask": "RoguelikeTraderShoppingOcr",
+        "roi": [406, 90, 825, 540]
+    },
+    "BlackFlow@Roguelike@ShopShelfUp": {
+        "algorithm": "JustReturn",
+        "action": "Swipe",
+        "specificRect": [1130, 230, 20, 20],
+        "rectMove": [1130, 570, 20, 20],
+        "specialParams": [400],
+        "postDelay": 300
+    },
+    "BlackFlow@Roguelike@ShopShelfDown": {
+        "algorithm": "JustReturn",
+        "action": "Swipe",
+        "specificRect": [1130, 570, 20, 20],
+        "rectMove": [1130, 230, 20, 20],
+        "specialParams": [400],
+        "postDelay": 300
+    },
     "BlackFlow@Roguelike@CancelNodeSelection": {
         "algorithm": "JustReturn",
         "sub": ["BlackFlow@Roguelike@CancelNodeSelectionClick*3"],
@@ -496,7 +516,8 @@
     },
     "BlackFlow@Roguelike@DropsFlag": {
         "template": "Roguelike@DropsFlag.png",
-        "baseTask": "BlackFlow@Roguelike@DropsFlag_default"
+        "baseTask": "BlackFlow@Roguelike@DropsFlag_default",
+        "onErrorNext": ["BlackFlow@Roguelike@RecoveryFailed"]
     },
     "BlackFlow@Roguelike@DropsFlag_default": {
         "template": "Roguelike@DropsFlag.png",
@@ -684,6 +705,7 @@
         "template": "BlackFlow@Roguelike@GamePassTheEndConfirm.png"
     },
     "BlackFlow@Roguelike@GetDrop": {
+        "onErrorNext": ["BlackFlow@Roguelike@RecoveryFailed"],
         "next": [
             "BlackFlow@Roguelike@GetDrop@(BlackFlow@Roguelike@CloseCollectionContinue)",
             "BlackFlow@Roguelike@GetDrop@(BlackFlow@Roguelike@CloseCollection)",
@@ -704,6 +726,7 @@
         "template": "BlackFlow@Roguelike@GetDrop.png"
     },
     "BlackFlow@Roguelike@GetDropSelect": {
+        "onErrorNext": ["BlackFlow@Roguelike@RecoveryFailed"],
         "template": "BlackFlow@Roguelike@GetDropSelect.png",
         "next": [
             "BlackFlow@Roguelike@GetDropSelect@(BlackFlow@Roguelike@CloseCollectionContinue)",
@@ -725,6 +748,7 @@
     },
     "BlackFlow@Roguelike@GetDrops": {
         "next": [
+            "BlackFlow@Roguelike@ChooseOperFlag",
             "BlackFlow@Roguelike@GetDrops@(BlackFlow@Roguelike@CloseCollectionContinue)",
             "BlackFlow@Roguelike@GetDrops@(BlackFlow@Roguelike@CloseCollection)",
             "BlackFlow@Roguelike@CloseEvent",

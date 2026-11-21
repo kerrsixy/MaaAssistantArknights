@@ -15,6 +15,7 @@
 #include "Vision/Matcher.h"
 #include "Vision/OCRer.h"
 #include "Vision/RegionOCRer.h"
+#include "Vision/Roguelike/BlackFlow/BlackFlowShopShelf.h"
 #include "Vision/Roguelike/RoguelikeParameterAnalyzer.h"
 
 bool asst::RoguelikeShoppingTaskPlugin::verify(AsstMsg msg, const json::value& details) const
@@ -56,6 +57,7 @@ void asst::RoguelikeShoppingTaskPlugin::reset_in_run_variables()
 {
     m_pending = PendingWork::None;
     m_pending_purchase.reset();
+    m_shelf_scan_failed = false;
 }
 
 bool asst::RoguelikeShoppingTaskPlugin::_run()
@@ -92,6 +94,11 @@ bool asst::RoguelikeShoppingTaskPlugin::_run()
     if (buy_once()) {
         return true;
     }
+    if (m_shelf_scan_failed) {
+        // An incomplete shelf observation must not be treated as a decision to leave or invest.
+        m_task_ptr->set_enable(false);
+        return false;
+    }
     const auto& theme = m_config->get_theme();
     if ((theme == RoguelikeTheme::Sami || theme == RoguelikeTheme::Sarkaz) &&
         // 界园可能没有免费刷新，先不进这里
@@ -127,11 +134,43 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
         status.shopping_sell_table = shopping ? shopping->get().sell_table : std::string();
     }
 
+    m_shelf_scan_failed = false;
     auto image = ctrler()->get_image();
+    const bool paged_shelf = theme == RoguelikeTheme::BlackFlow;
+    const blackflow::BlackFlowShopShelf::Observe observe_shelf = [&]() {
+        image = ctrler()->get_image();
+        return blackflow::BlackFlowShopShelf::recognize(image);
+    };
+    const blackflow::BlackFlowShopShelf::Scroll scroll_shelf = [&](bool down) {
+        return !need_exit() &&
+               ProcessTask(*this, { down ? "BlackFlow@Roguelike@ShopShelfDown" : "BlackFlow@Roguelike@ShopShelfUp" })
+                   .run();
+    };
+    std::optional<blackflow::ShopShelfInventory> shelf;
+    if (paged_shelf) {
+        shelf = blackflow::BlackFlowShopShelf::scan(observe_shelf, scroll_shelf);
+        auto info = basic_info_with_what("BlackFlowShoppingShelf");
+        info["details"]["complete"] = shelf.has_value();
+        info["details"]["observations"] = shelf ? shelf->observations : 0;
+        info["details"]["offers"] = json::array {};
+        if (shelf) {
+            for (const auto& offer : shelf->offers) {
+                info["details"]["offers"].as_array().emplace_back(
+                    json::object { { "name", offer.name }, { "price", offer.price.value_or(-1) } });
+            }
+        }
+        callback(AsstMsg::SubTaskExtraInfo, info);
+        if (!shelf) {
+            m_shelf_scan_failed = true;
+            return false;
+        }
+    }
     OCRer analyzer(image);
-    analyzer.set_task_info("RoguelikeTraderShoppingOcr");
-    if (!analyzer.analyze()) {
-        return false;
+    if (!paged_shelf) {
+        analyzer.set_task_info("RoguelikeTraderShoppingOcr");
+        if (!analyzer.analyze()) {
+            return false;
+        }
     }
 
     bool no_longer_buy = m_config->status().trader_no_longer_buy;
@@ -178,13 +217,23 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
         }
     }
 
-    const auto& raw_result = analyzer.get_result();
     std::vector<TextRect> result;
     std::unordered_map<std::string, int> offer_prices;
+    if (shelf) {
+        for (const auto& offer : shelf->offers) {
+            TextRect item;
+            item.text = offer.name;
+            item.rect = offer.rect;
+            result.emplace_back(std::move(item));
+            if (offer.price) {
+                offer_prices.emplace(offer.name, *offer.price);
+            }
+        }
+    }
     Matcher matcher_analyzer;
     matcher_analyzer.set_image(image);
     matcher_analyzer.set_task_info("RoguelikeTraderShopping");
-    for (auto& item : raw_result) {
+    for (auto& item : analyzer.get_result()) {
         matcher_analyzer.set_roi(item.rect.move({ -20, 130, 200, 80 }));
         if (matcher_analyzer.analyze()) {
             result.emplace_back(item);
@@ -299,7 +348,7 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
             }
         }
 
-        std::optional<int> price = goods.price;
+        std::optional<int> price = paged_shelf ? std::nullopt : goods.price;
         if (const auto displayed_price = offer_prices.find(find_it->text); displayed_price != offer_prices.end()) {
             price = displayed_price->second;
         }
@@ -412,7 +461,25 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
         // or 取消等等的逻辑
         Log.info("Ready to buy", goods.name);
         report_offer(goods.name, "selected_by_existing_priority_and_team_filters", price.value_or(-1));
-        ctrler()->click(find_it->rect);
+        Rect click_rect = find_it->rect;
+        if (shelf) {
+            const auto offer = std::ranges::find_if(shelf->offers, [&](const auto& entry) {
+                return entry.name == find_it->text && entry.price == price;
+            });
+            const auto fresh = offer == shelf->offers.end()
+                                   ? std::nullopt
+                                   : blackflow::BlackFlowShopShelf::seek(*offer, observe_shelf, scroll_shelf);
+            if (!fresh) {
+                report_offer(goods.name, "offer_changed_after_scroll", price.value_or(-1));
+                m_shelf_scan_failed = true;
+                return false;
+            }
+            click_rect = fresh->rect;
+        }
+        if (!ctrler()->click(click_rect)) {
+            m_shelf_scan_failed = paged_shelf;
+            return false;
+        }
         if (strategy_shopping && m_blackflow_session) {
             m_pending_purchase = goods.name;
         }
