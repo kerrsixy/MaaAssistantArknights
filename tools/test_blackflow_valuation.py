@@ -457,6 +457,82 @@ class ActualCatalogTests(unittest.TestCase):
         self.assertEqual(usable.decision, "buy")
         self.assertEqual(unusable.decision, "skip")
 
+    def test_real_ranged_voucher_rejects_defender_only_opportunity(self):
+        tank = candidate(role="TANK", hope_cost=1)
+        ctx = context(candidates=(tank,), team_best_power={"TANK": 0})
+        for suffix in ("", "_candle"):
+            with self.subTest(suffix=suffix):
+                result = self.actual(
+                    "rogue_6_recruit_ticket_double_3_vip" + suffix, ctx, 8
+                )
+                self.assertEqual(result.decision, "skip")
+                self.assertIsNone(result.selected_candidate_id)
+
+    def test_real_ranged_voucher_can_choose_either_allowed_profession(self):
+        for role in ("SNIPER", "MEDIC"):
+            for suffix in ("", "_candle"):
+                with self.subTest(role=role, suffix=suffix):
+                    op = candidate(role=role, hope_cost=4)
+                    ctx = context(hope=4, candidates=(op,), team_best_power={role: 0})
+                    result = self.actual(
+                        "rogue_6_recruit_ticket_double_3_vip" + suffix, ctx, 8
+                    )
+                    self.assertEqual(result.decision, "buy")
+                    self.assertEqual(result.selected_candidate_id, op.id)
+
+    def test_real_ranged_voucher_cannot_rank_outside_profession_above_medic(self):
+        tank = candidate(id="strong-tank", role="TANK", hope_cost=0, power_after=1)
+        medic = candidate(id="useful-medic", role="MEDIC", hope_cost=1, power_after=0.6)
+        ctx = context(candidates=(tank, medic), team_best_power={"TANK": 0, "MEDIC": 0})
+        result = self.actual("rogue_6_recruit_ticket_double_3_vip", ctx, 8)
+        self.assertEqual(result.decision, "buy")
+        self.assertEqual(result.selected_candidate_id, medic.id)
+
+    def test_real_limited_ranged_voucher_keeps_five_star_ceiling(self):
+        six_star = candidate(id="six-star", role="SNIPER", hope_cost=1)
+        five_star = candidate(
+            id="five-star", role="MEDIC", hope_cost=1, rarity=5, power_after=0.7
+        )
+        ctx = context(candidates=(six_star,), team_best_power={"SNIPER": 0, "MEDIC": 0})
+        for suffix in ("", "_candle"):
+            with self.subTest(suffix=suffix):
+                item_id = "rogue_6_recruit_ticket_5star_double_3_vip" + suffix
+                excluded = self.actual(item_id, ctx, 8)
+                self.assertEqual(excluded.decision, "skip")
+                self.assertIsNone(excluded.selected_candidate_id)
+                allowed = self.actual(
+                    item_id, replace(ctx, candidates=(six_star, five_star)), 8
+                )
+                self.assertEqual(allowed.decision, "buy")
+                self.assertEqual(allowed.selected_candidate_id, five_star.id)
+
+    def test_real_direct_upgrade_voucher_still_needs_observed_hope_cost(self):
+        item_id = "rogue_6_recruit_ticket_double_3_vip"
+        op = candidate(hope_cost=None)
+        ctx = context(hope=4, candidates=(op,), candidate_scan_complete=False)
+        unknown = self.actual(item_id, ctx, 8)
+        self.assertEqual(unknown.decision, "review")
+        self.assertIn("candidate_hope_cost_unverified", unknown.unknown)
+        self.assertIsNone(unknown.selected_candidate_id)
+        expensive = self.actual(
+            item_id,
+            replace(
+                ctx,
+                candidates=(replace(op, hope_cost=5),),
+                candidate_scan_complete=True,
+            ),
+            8,
+        )
+        self.assertEqual(expensive.decision, "skip")
+        self.assertIn("insufficient_hope_for_useful_candidate", expensive.denials)
+
+    def test_real_all_profession_dispatch_still_accepts_defender(self):
+        tank = candidate(role="TANK", hope_cost=1, rarity=5)
+        ctx = context(candidates=(tank,), team_best_power={"TANK": 0})
+        result = self.actual("rogue_6_recruit_ticket_5star", ctx, 8)
+        self.assertEqual(result.decision, "buy")
+        self.assertEqual(result.selected_candidate_id, tank.id)
+
     def test_all_actual_catalog_items_have_finite_partial_values_and_no_actions(self):
         ctx = context(
             sale_value_to_ingots=1,

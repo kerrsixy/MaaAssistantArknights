@@ -41,6 +41,15 @@ public:
         std::string battle_key,
         std::string* error = nullptr);
 
+    bool prepare(
+        const std::filesystem::path& template_manifest,
+        const std::filesystem::path& raw_level_path,
+        const Map::Level& current_level,
+        int bait_plan_index,
+        std::string battle_key,
+        int bait_attempt_limit,
+        std::string* error = nullptr);
+
     [[nodiscard]] bool allows_plan(int plan_index) const noexcept;
     void deployed(int plan_index, const battle::OperNameTag& oper, Point tile);
     [[nodiscard]] HunterPreludeDecision observe(
@@ -62,10 +71,13 @@ private:
     bool m_hunter_positive_verified = false;
     bool m_bait_consumed = false;
     bool m_bait_removal_verified = false;
+    bool m_replacement_bait_allowed = false;
     bool m_retreat_requested = false;
     bool m_main_released = false;
     bool m_contract_breached = false;
     int m_bait_plan_index = -1;
+    int m_bait_attempts = 0;
+    int m_bait_attempt_limit = 1;
     std::string m_battle_key;
     std::optional<battle::OperNameTag> m_bait;
     std::string m_failure_reason;

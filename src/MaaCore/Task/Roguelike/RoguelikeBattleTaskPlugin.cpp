@@ -320,6 +320,14 @@ bool asst::RoguelikeBattleTaskPlugin::calc_stage_info()
         if (opt->hunter_bait_plan) {
             auto opening = std::make_unique<blackflow::BlackFlowHunterPreludeController>();
             std::string error;
+            int bait_attempt_limit = 1;
+            for (const auto& [group, plans] : opt->deploy_plan) {
+                for (const auto& plan : plans) {
+                    if (plan.plan_index == *opt->hunter_bait_plan && plan.max_deployments != INT_MAX) {
+                        bait_attempt_limit = plan.max_deployments;
+                    }
+                }
+            }
             if (m_config->get_theme() != RoguelikeTheme::BlackFlow ||
                 !opening->prepare(
                     ResDir.get() / "template/Roguelike/BlackFlow/HunterPrelude/manifest.json",
@@ -327,6 +335,7 @@ bool asst::RoguelikeBattleTaskPlugin::calc_stage_info()
                     m_map_data,
                     *opt->hunter_bait_plan,
                     m_config->status().run_id + ":" + m_stage_name,
+                    bait_attempt_limit,
                     &error)) {
                 LogError << __FUNCTION__ << "Hunter opening initialization failed" << error;
                 if (check_in_battle()) {

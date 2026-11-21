@@ -3195,6 +3195,7 @@
         "action": "DoNothing",
         "roi": [1110, 5, 170, 85],
         "text": ["演化算子", "采集完成"],
+        "ocrReplace": [["^点亮完成$", "采集完成"]],
         "fullMatch": true
     },
     "BlackFlow@Roguelike@LifeGamePoints": {
