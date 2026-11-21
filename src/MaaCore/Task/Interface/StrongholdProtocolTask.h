@@ -165,6 +165,7 @@ private:
     std::set<int> m_passbook_attempted_rounds;
     int m_passbook_source_verified_round = -1;
     std::set<int> m_delayed_cash_equipment_attempted_rounds;
+    std::string m_delayed_cash_rejected_recipient;
     std::optional<json::object> m_pending_delayed_cash_equipment;
     std::set<int> m_pact_recruitment_attempted_rounds;
     std::string m_pending_pact_recruitment;

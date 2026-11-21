@@ -33,7 +33,8 @@ std::optional<TextObservation> match_hidden_round_badge(const cv::Mat& image);
 std::optional<int> preparation_round_number(const cv::Mat& image, int expected_round, double confidence = .40);
 std::optional<int> defence_life_number(const cv::Mat& image);
 // Read the complete title and training-level digits from one immutable frame.
-std::optional<OperatorCardObservation> selected_operator_card(const cv::Mat& image);
+std::optional<OperatorCardObservation>
+    selected_operator_card(const cv::Mat& image, std::string_view verified_panel_name = {});
 std::optional<int> shop_book_level(const cv::Mat& image, int upgrade_center);
 std::optional<int> remaining_deployment_number(const cv::Mat& image, const std::vector<TextObservation>& texts);
 }

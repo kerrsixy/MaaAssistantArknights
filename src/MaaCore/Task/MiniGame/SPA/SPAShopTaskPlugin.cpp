@@ -21,7 +21,8 @@
 
 namespace asst::spa
 {
-std::optional<OperatorCardObservation> selected_operator_card(const cv::Mat& image)
+std::optional<OperatorCardObservation>
+    selected_operator_card(const cv::Mat& image, std::string_view verified_panel_name)
 {
     if (image.size() != cv::Size(1280, 720) || image.type() != CV_8UC3) {
         return std::nullopt;
@@ -37,7 +38,7 @@ std::optional<OperatorCardObservation> selected_operator_card(const cv::Mat& ima
             texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
         }
     }
-    if (!operator_panel_identity(texts, names)) {
+    if (verified_panel_name.empty() && !operator_panel_identity(texts, names)) {
         return std::nullopt;
     }
     // Exclude both the class emblem and the small LV label. Including them
@@ -48,7 +49,7 @@ std::optional<OperatorCardObservation> selected_operator_card(const cv::Mat& ima
             texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
         }
     }
-    return observe_operator_card(texts, names);
+    return observe_operator_card(texts, names, verified_panel_name);
 }
 
 std::optional<int> defence_life_number(const cv::Mat& image)

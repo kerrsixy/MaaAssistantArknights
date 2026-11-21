@@ -143,9 +143,33 @@ bool asst::spa::verified_loading_page(const std::vector<TextObservation>& texts)
 
 std::optional<asst::spa::OperatorCardObservation> asst::spa::observe_operator_card(
     const std::vector<TextObservation>& texts,
-    const std::vector<std::string>& known_names)
+    const std::vector<std::string>& known_names,
+    std::string_view verified_panel_name)
 {
-    const auto name = operator_panel_identity(texts, known_names);
+    auto name = operator_panel_identity(texts, known_names);
+    if (!verified_panel_name.empty()) {
+        if (name && *name != verified_panel_name) {
+            return std::nullopt;
+        }
+        if (!name && std::find(known_names.begin(), known_names.end(), verified_panel_name) != known_names.end()) {
+            // The caller verified the full title on this same selection. A
+            // cropped, truncated title can corroborate it, but a different
+            // anchored catalogue name still invalidates the observation.
+            const auto anchored = [](const auto& text) {
+                return std::isfinite(text.score) && text.score >= .90 && text.x >= 0 && text.x < 40 && text.y >= 175 &&
+                       text.y <= 215;
+            };
+            const bool conflict = std::any_of(texts.begin(), texts.end(), [&](const auto& text) {
+                return anchored(text) && text.text != verified_panel_name &&
+                       std::find(known_names.begin(), known_names.end(), text.text) != known_names.end();
+            });
+            if (!conflict && std::any_of(texts.begin(), texts.end(), [&](const auto& text) {
+                    return anchored(text) && text.text.size() >= 6 && verified_panel_name.starts_with(text.text);
+                })) {
+                name = std::string(verified_panel_name);
+            }
+        }
+    }
     if (!name) {
         return std::nullopt;
     }

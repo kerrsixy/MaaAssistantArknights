@@ -268,6 +268,7 @@ std::vector<std::string> derive_support_pacts(
     {
         std::string name;
         int score = 0;
+        bool bench_counts = false;
     };
 
     std::vector<Candidate> candidates;
@@ -344,6 +345,12 @@ std::vector<std::string> derive_support_pacts(
         }
         const int already = static_cast<int>(owned_members.size());
         const int needed = std::max(0, rule.members - already);
+        if (!rule.bench_counts && policy.deployed_population >= 0 &&
+            needed > std::max(1, 8 - policy.deployed_population)) {
+            // Scarce deployment slots can be shared by an immediate bridge,
+            // but a pile of reserves cannot activate a new formation here.
+            continue;
+        }
         const bool guide_preferred = contains(guide_supports, rule.name);
         const bool route_preferred = guide_preferred || (route != route_profiles().end() &&
                                                          contains(route->second.preferred_support_pacts, rule.name));
@@ -381,7 +388,7 @@ std::vector<std::string> derive_support_pacts(
                           std::min(static_cast<int>(offer_members.size()), needed) * 700 + shared * 350 +
                           std::min(static_cast<int>(ready_reserves.size()), needed) * 450 +
                           (rule.bench_counts ? 150 : 0) + (route_preferred ? 300 : 0) + conditional_bonus;
-        candidates.push_back({ rule.name, score });
+        candidates.push_back({ rule.name, score, rule.bench_counts });
     }
     std::sort(candidates.begin(), candidates.end(), [](const auto& lhs, const auto& rhs) {
         if (lhs.score != rhs.score) {
@@ -390,10 +397,13 @@ std::vector<std::string> derive_support_pacts(
         return lhs.name < rhs.name;
     });
     std::vector<std::string> result;
+    bool selected_field_pact = false;
+    bool selected_bench_pact = false;
     for (const auto& candidate : candidates) {
-        result.emplace_back(candidate.name);
-        if (result.size() == 2) {
-            break;
+        bool& selected = candidate.bench_counts ? selected_bench_pact : selected_field_pact;
+        if (!selected) {
+            result.emplace_back(candidate.name);
+            selected = true;
         }
     }
     return result;

@@ -142,6 +142,13 @@ int main()
     const auto elite_chestnut =
         observe_operator_card({ { "褐果", .99, 2, 185 }, { "50", .99626, 111, 213 } }, form_names);
     assert(elite_chestnut && elite_chestnut->elite && elite_chestnut->training_level == 50);
+    const std::vector<std::string> promotion_panel_names { "摆渡人", "卡达" };
+    std::vector<TextObservation> truncated_promotion_title { { "摆渡", .999911, 14, 179 }, { "50", .996, 115, 217 } };
+    assert(!observe_operator_card(truncated_promotion_title, promotion_panel_names));
+    const auto retained_promotion = observe_operator_card(truncated_promotion_title, promotion_panel_names, "摆渡人");
+    assert(retained_promotion && retained_promotion->name == "摆渡人" && retained_promotion->elite);
+    truncated_promotion_title.push_back({ "卡达", .98, 14, 180 });
+    assert(!observe_operator_card(truncated_promotion_title, promotion_panel_names, "摆渡人"));
     const auto elite_shadow =
         observe_operator_card({ { "归溟幽灵鲨", .99, 2, 185 }, { "60", .999835, 111, 213 } }, form_names);
     assert(elite_shadow && elite_shadow->elite);
@@ -1437,6 +1444,21 @@ int main()
         replacement_support_pact_value({ christine }, victoria_supports, {}));
     victoria_support.disabled_pacts = { "奥术" };
     assert(planning_support_pacts(victoria_support, {}, operator_pacts()).empty());
+    PreparationPolicy sargon_support;
+    sargon_support.primary_pact = "萨尔贡";
+    sargon_support.shop_level = 5;
+    sargon_support.deployed_population = 8;
+    sargon_support.derive_support_pacts = true;
+    sargon_support.owned = { { "异客", { 1, false, false } },
+                             { "卡达", { 1, false, false } },
+                             { "卡涅利安", { 1, false, false } },
+                             { "陨星", { 1, false, false } } };
+    assert(planning_support_pacts(sargon_support, {}, operator_pacts()).empty());
+    sargon_support.owned.at("异客").deployed = true;
+    sargon_support.owned.at("卡涅利安").deployed = true;
+    const auto feasible_supports = planning_support_pacts(sargon_support, {}, operator_pacts());
+    assert(
+        feasible_supports.size() == 1 && (feasible_supports.front() == "奥术" || feasible_supports.front() == "迅捷"));
 
     assert(!choose_bench_capacity_trade(victoria_full, 13, victoria_shop, victoria_field, { "凯瑟琳", "涤火杰西卡" }));
     victoria_full.tactical_elite_purchase_pending = true;

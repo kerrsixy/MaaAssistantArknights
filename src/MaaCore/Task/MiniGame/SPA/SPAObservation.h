@@ -3,6 +3,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace asst::spa
@@ -56,8 +57,10 @@ struct OperatorCardObservation
 
 // Identity and numeric-only LV observations must come from the same selected
 // card frame. Unexpected/ambiguous levels remain unknown, not initial form.
-std::optional<OperatorCardObservation>
-    observe_operator_card(const std::vector<TextObservation>& texts, const std::vector<std::string>& known_names);
+std::optional<OperatorCardObservation> observe_operator_card(
+    const std::vector<TextObservation>& texts,
+    const std::vector<std::string>& known_names,
+    std::string_view verified_panel_name = {});
 
 std::optional<bool> observe_shop_toggle(const TextObservation& text);
 // Only a live preparation frame for the expected round may expand the shop.

@@ -1136,7 +1136,7 @@ bool asst::spa::SwapTaskPlugin::revalidate_promoted_pose(
             TemplResource::get_instance().get_templ("MiniGame@SPA@RetreatSelected.png"));
         save_evidence(selected_image, utils::path("debug/SPA/promoted_pose_probe"), false);
         if (expected_elite) {
-            card = selected_operator_card(selected_image);
+            card = selected_operator_card(selected_image, name);
         }
     }
     const bool form_verified = expected_elite && card && card->name == name && card->elite == *expected_elite;
@@ -2535,12 +2535,14 @@ bool asst::spa::SwapTaskPlugin::held_drag()
             }
         }
     }
+    bool cancelled_outside_targets = false;
     if (!ok && (m_find_equipment_source || m_replace_only)) {
         // The staging bench may itself contain an eligible operator. Releasing
         // a consumable there could use it despite a failed map preflight.
         // Move away from the field, inventory and trash before cancellation.
-        send(InputEvent::Type::TOUCH_MOVE, Point(20, 300));
-        send(InputEvent::Type::COMMIT);
+        const bool moved_to_cancel_point = send(InputEvent::Type::TOUCH_MOVE, Point(20, 300));
+        const bool cancel_position_committed = send(InputEvent::Type::COMMIT);
+        cancelled_outside_targets = moved_to_cancel_point && cancel_position_committed;
     }
     if (ok && m_deploy_only) {
         // Capture the actual final held frame, not just the staging overlay.
@@ -2551,15 +2553,14 @@ bool asst::spa::SwapTaskPlugin::held_drag()
         }
     }
     // Always release the contact, including cancellation and failed movement.
-    if (m_equip_only) {
-        // Record possible consumption before a release acknowledgment can be
-        // lost. Failed movement/cancellation may have left the held equipment
-        // over a recipient. This does not claim successful input or effect.
-        m_equipment_contact_attempted = true;
-    }
     const bool released = send(InputEvent::Type::TOUCH_UP);
     const bool committed = send(InputEvent::Type::COMMIT);
-    LogInfo << "SPA held drag end" << ok << released << committed;
+    if (m_equip_only) {
+        // An acknowledged release away from all targets leaves the item in
+        // inventory. Failure to acknowledge any part is still ambiguous.
+        m_equipment_contact_attempted = !(cancelled_outside_targets && released && committed);
+    }
+    LogInfo << "SPA held drag end" << ok << released << committed << cancelled_outside_targets;
     return ok && released && committed;
 }
 

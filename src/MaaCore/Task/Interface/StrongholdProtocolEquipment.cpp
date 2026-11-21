@@ -939,10 +939,16 @@ bool asst::StrongholdProtocolTask::handle_delayed_cash_equipment(const json::val
         return false;
     }
     const auto recipients = equipment_assignment_inputs().second;
-    const auto recipient = std::find_if(recipients.begin(), recipients.end(), [](const auto& target) {
+    const auto eligible = [](const auto& target) {
         return target.slots_known &&
                target.equipped.size() < static_cast<size_t>(spa::equipment_capacity(target.name, target.elite));
+    };
+    auto recipient = std::find_if(recipients.begin(), recipients.end(), [&](const auto& target) {
+        return target.name != m_delayed_cash_rejected_recipient && eligible(target);
     });
+    if (recipient == recipients.end()) {
+        recipient = std::find_if(recipients.begin(), recipients.end(), eligible);
+    }
     if (recipient == recipients.end()) {
         return false;
     }
@@ -995,6 +1001,7 @@ bool asst::StrongholdProtocolTask::handle_delayed_cash_equipment(const json::val
     const bool consumed = use.configure(options) && use.run();
     const bool contacted = use.equipment_contact_attempted() || use.equipment_committed();
     if (contacted) {
+        m_delayed_cash_rejected_recipient.clear();
         auto& pending = *m_pending_delayed_cash_equipment;
         pending["next_round_credit_quote"] = use.equipment_next_round_credit_quote();
         pending["input_committed"] = use.equipment_committed();
@@ -1004,6 +1011,9 @@ bool asst::StrongholdProtocolTask::handle_delayed_cash_equipment(const json::val
         m_equipment_inventory_dirty = true;
     }
     else {
+        if (use.equipment_stage() == "held_target") {
+            m_delayed_cash_rejected_recipient = recipient->name;
+        }
         m_pending_delayed_cash_equipment.reset();
     }
     auto& details = receipt["details"];

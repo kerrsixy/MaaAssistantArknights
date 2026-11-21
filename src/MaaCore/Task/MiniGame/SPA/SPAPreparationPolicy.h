@@ -65,9 +65,9 @@ struct PreparationPolicy
     int bench_occupied = 0;
     int minimum_recruit_price = 2;
     bool allow_refresh = true;
-    // When enabled, infer one or two secondary pacts from the operators that
-    // share members with the live primary pact.  Explicit support_pacts still
-    // take precedence; this flag is for the normal auto route.
+    // When enabled, infer one field secondary and one bench-active secondary
+    // where the live route and roster support them. Explicit support_pacts
+    // still take precedence; this flag is for the normal auto route.
     bool derive_support_pacts = false;
     // Keep re-ranking enabled after the first provisional faction choice.
     // This prevents an early opening preference from locking later shops.

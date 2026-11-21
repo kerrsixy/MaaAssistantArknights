@@ -224,6 +224,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
         m_pending_cash_equipment = spa::restored_cash_pending(*pending);
     }
     m_delayed_cash_equipment_attempted_rounds.clear();
+    m_delayed_cash_rejected_recipient.clear();
     m_pending_delayed_cash_equipment.reset();
     const int delayed_cash_attempt = params.get("delayed_cash_attempted_round", -1);
     if (delayed_cash_attempt != -1 && (delayed_cash_attempt < 1 || delayed_cash_attempt > 20)) {
