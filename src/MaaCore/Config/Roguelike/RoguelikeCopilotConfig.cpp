@@ -251,6 +251,19 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
         }
     }
 
+    if (json.contains("hunter_bait_plan")) {
+        const auto bait = json.find<int>("hunter_bait_plan");
+        const auto plans = json.find<json::array>("deploy_plan");
+        if (!bait || !plans || *bait < 0 || static_cast<size_t>(*bait) >= plans->size() || !data.deploy_plan_only ||
+            !data.reserve_deploy_cost ||
+            (json.contains("retreat_plan") &&
+             (!json.at("retreat_plan").is_array() || !json.at("retreat_plan").as_array().empty()))) {
+            LogError << __FUNCTION__ << "Invalid hunter opening plan" << stage_name;
+            return false;
+        }
+        data.hunter_bait_plan = *bait;
+    }
+
     if (auto opt = json.find<json::array>("retreat_plan")) {
         for (auto& retreat_info : opt.value()) {
             DeployInfoWithRank info;

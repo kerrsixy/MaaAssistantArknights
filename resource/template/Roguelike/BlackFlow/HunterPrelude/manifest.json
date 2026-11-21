@@ -1,5 +1,5 @@
 {
-    "schema_version": 2,
+    "schema_version": 3,
     "native_width": 1280,
     "native_height": 720,
     "reference_only": true,
@@ -27,18 +27,6 @@
             "roi": [655, 300, 65, 110],
             "min_correlation": 0.65,
             "min_luminance_ratio": 0.72
-        },
-        {
-            "file": "anchor2.png",
-            "roi": [480, 8, 70, 42],
-            "min_correlation": 0.9,
-            "min_luminance_ratio": 0.72
-        },
-        {
-            "file": "anchor3.png",
-            "roi": [676, 8, 38, 40],
-            "min_correlation": 0.9,
-            "min_luminance_ratio": 0.72
         }
     ],
     "lower_roi": [280, 285, 740, 275],
@@ -46,21 +34,17 @@
     "assets_sha256": {
         "anchor0.png": "61326ac28bc2f366ac80ea03aa168e3948f10634ae10796d0fa6a60bac97eb13",
         "anchor1.png": "96032e736385b4c6b7ecd611321803a9ae78a8bef85b874ed00d4e6194e0b7c5",
-        "anchor2.png": "55142b14bd8689957a92a41221711c74d68ffd4922ea38a454bc76460ef5e920",
-        "anchor3.png": "647735d42c38379d55f5429d04eae2c25fab523a1f19029d4c78ee33a4fd9f28",
         "face12.png": "31cd2ab918efa6bb81fe6348459da3cad0003726b1a3cc5bf10d7fa3b6c72e40",
         "spawn0_absent.png": "08db532e8ebf25e69471d31b9e5f9b770d6ffa0dfd0b8ef7bb0936ca7b4ff063",
         "spawn0_present.png": "ba920622c93c4efb30d3631d736d14e22cc03895c6d60dbd121ec4d67694064f",
         "spawn1_absent.png": "adf197de964659e140084ea737cd68926f14461c9165b0d9e5daf36f7f99bfea",
-        "spawn1_present.png": "fc8a5eed190f3258f64adf70500e213628e717487871beccc70d4128e6da1457"
+        "spawn1_present.png": "fc8a5eed190f3258f64adf70500e213628e717487871beccc70d4128e6da1457",
+        "upper_blue_mask.png": "05f7191db0dfea869ddbf078778bd042064374a2a91b6b432c082251acec989c",
+        "upper_blue_masked.png": "1c4d97bbad86a4281e47a9d326e89c32990d5699b6250512c88fa129119e0073",
+        "upper_full_guide.png": "00df3788f5a422797eb36607eaf3ea8610fc75f2924843caec3f853bc2132e85"
     },
-    "head_templates": ["face12.png"],
     "head_present_threshold": 0.68,
     "head_absent_threshold": 0.5,
-    "sink_head_rois": [
-        [835, 360, 80, 125],
-        [930, 420, 85, 140]
-    ],
     "min_clear_frames": 3,
     "min_clear_duration_ms": 600,
     "raw_spawn_contract": {
@@ -78,18 +62,422 @@
             "only verified stage/pixel geometry",
             "only native hunter appearance",
             "no unverified lower occlusions",
-            "no late hunter spawns allowed"
-        ]
+            "no late hunter spawns allowed",
+            "head envelope geometry is not an absence or posture-coverage certificate"
+        ],
+        "live_positive": "run20 debug/roguelike/2026.11.21-11.18.05.197_raw.png; blue-gate hunter must be Present/blocked"
     },
     "resource_relative_path": "template/Roguelike/BlackFlow/HunterPrelude/manifest.json",
     "runtime_contract": {
-        "field_coordinates": "native1280x720 verified stage view; projected lower ROI may widen but must contain reference envelope",
+        "field_coordinates": "head envelope [136,71,914,511] from native lowland roads/start/end/telout/telin/hole projection plus conservative head padding; field visibility remains independent",
         "normal_sampling_interval_ms": 1000,
         "max_observation_gap_ms": 2500,
         "min_empty_distinct_frames": 3,
         "min_empty_span_ms": 600,
         "retreat_requires": "two empty-spawn observations and positive lower hunter face, initial spawn window closed",
-        "clear_requires": "both empty spawns, unoccluded complete lower field, no strong or weak head matches, all observed track segments ended in verified pit head ROIs, timed absence",
-        "never_uses_kill_counter": true
+        "clear_requires": "previous positive hunter observation, verified closed spawn window, both fixed spawn regions empty, complete whole-field visibility without allied/UI occlusion, all upper/lower appearance domains below ambiguous threshold for distinct timed frames; approach/track count is diagnostic only",
+        "never_uses_kill_counter": true,
+        "full_field_visibility_required": true,
+        "approach_is_not_death_evidence": true
+    },
+    "battlefield_roi": [136, 71, 914, 511],
+    "head_profiles": [
+        {
+            "id": "lower-moving-face",
+            "file": "face12.png",
+            "domain": "lower",
+            "scales": [1.0],
+            "mirror": true
+        },
+        {
+            "id": "upper-stationary-and-walking-head",
+            "file": "upper_full_guide.png",
+            "domain": "upper",
+            "scales": [0.85, 1.0, 1.15],
+            "mirror": true,
+            "present_threshold": 0.75
+        },
+        {
+            "id": "upper-blue-approach-head-live",
+            "file": "upper_blue_masked.png",
+            "mask": "upper_blue_mask.png",
+            "domain": "upper",
+            "scales": [1.0],
+            "mirror": false,
+            "present_threshold": 0.8
+        }
+    ],
+    "approach_head_rois": [
+        [835, 360, 80, 125],
+        [930, 420, 85, 140]
+    ],
+    "sink_evidence_semantics": "Legacy sink_head_rois are approach zones only. Last head inside them is not proof of falling; full-field visible absence is independently required.",
+    "native_stage_geometry": {
+        "projection": "normal",
+        "canvas": [1280, 720],
+        "tile_projections": [
+            {
+                "pixel_x": 434,
+                "pixel_y": 255,
+                "x": 2,
+                "y": 2
+            },
+            {
+                "pixel_x": 599,
+                "pixel_y": 255,
+                "x": 4,
+                "y": 2
+            },
+            {
+                "x": 3,
+                "y": 4,
+                "pixel_x": 501,
+                "pixel_y": 384
+            },
+            {
+                "pixel_x": 865,
+                "pixel_y": 402,
+                "x": 7,
+                "y": 4
+            },
+            {
+                "pixel_x": 970,
+                "pixel_y": 485,
+                "x": 8,
+                "y": 5
+            },
+            {
+                "pixel_x": 855,
+                "pixel_y": 325,
+                "x": 7,
+                "y": 3
+            },
+            {
+                "pixel_x": 363,
+                "pixel_y": 191,
+                "x": 1,
+                "y": 1
+            },
+            {
+                "pixel_x": 442,
+                "pixel_y": 191,
+                "x": 2,
+                "y": 1
+            },
+            {
+                "pixel_x": 521,
+                "pixel_y": 191,
+                "x": 3,
+                "y": 1
+            },
+            {
+                "pixel_x": 600,
+                "pixel_y": 191,
+                "x": 4,
+                "y": 1
+            },
+            {
+                "pixel_x": 269,
+                "pixel_y": 255,
+                "x": 0,
+                "y": 2
+            },
+            {
+                "pixel_x": 352,
+                "pixel_y": 255,
+                "x": 1,
+                "y": 2
+            },
+            {
+                "pixel_x": 516,
+                "pixel_y": 255,
+                "x": 3,
+                "y": 2
+            },
+            {
+                "pixel_x": 681,
+                "pixel_y": 255,
+                "x": 5,
+                "y": 2
+            },
+            {
+                "pixel_x": 764,
+                "pixel_y": 255,
+                "x": 6,
+                "y": 2
+            },
+            {
+                "pixel_x": 846,
+                "pixel_y": 255,
+                "x": 7,
+                "y": 2
+            },
+            {
+                "pixel_x": 415,
+                "pixel_y": 402,
+                "x": 2,
+                "y": 4
+            },
+            {
+                "pixel_x": 595,
+                "pixel_y": 402,
+                "x": 4,
+                "y": 4
+            },
+            {
+                "pixel_x": 216,
+                "pixel_y": 485,
+                "x": 0,
+                "y": 5
+            },
+            {
+                "pixel_x": 310,
+                "pixel_y": 485,
+                "x": 1,
+                "y": 5
+            },
+            {
+                "pixel_x": 405,
+                "pixel_y": 485,
+                "x": 2,
+                "y": 5
+            },
+            {
+                "pixel_x": 499,
+                "pixel_y": 485,
+                "x": 3,
+                "y": 5
+            },
+            {
+                "pixel_x": 593,
+                "pixel_y": 485,
+                "x": 4,
+                "y": 5
+            },
+            {
+                "pixel_x": 687,
+                "pixel_y": 485,
+                "x": 5,
+                "y": 5
+            },
+            {
+                "pixel_x": 781,
+                "pixel_y": 485,
+                "x": 6,
+                "y": 5
+            },
+            {
+                "pixel_x": 875,
+                "pixel_y": 485,
+                "x": 7,
+                "y": 5
+            },
+            {
+                "pixel_x": 887,
+                "pixel_y": 577,
+                "x": 7,
+                "y": 6
+            }
+        ],
+        "pixel_tolerance": 3,
+        "spawn_roi_offsets_from_ground_center": [
+            [-50, -81, 115, 103],
+            [-53, -81, 115, 103]
+        ],
+        "bait_branch": "ordinary-bait-at-3,4; Wang branch unverified",
+        "ground_head_envelope": {
+            "foot_points": [
+                {
+                    "pixel_x": 363,
+                    "pixel_y": 191,
+                    "tile": "tile_road",
+                    "x": 1,
+                    "y": 1
+                },
+                {
+                    "pixel_x": 442,
+                    "pixel_y": 191,
+                    "tile": "tile_road",
+                    "x": 2,
+                    "y": 1
+                },
+                {
+                    "pixel_x": 521,
+                    "pixel_y": 191,
+                    "tile": "tile_road",
+                    "x": 3,
+                    "y": 1
+                },
+                {
+                    "pixel_x": 600,
+                    "pixel_y": 191,
+                    "tile": "tile_road",
+                    "x": 4,
+                    "y": 1
+                },
+                {
+                    "pixel_x": 269,
+                    "pixel_y": 255,
+                    "tile": "tile_telout",
+                    "x": 0,
+                    "y": 2
+                },
+                {
+                    "pixel_x": 352,
+                    "pixel_y": 255,
+                    "tile": "tile_road",
+                    "x": 1,
+                    "y": 2
+                },
+                {
+                    "pixel_x": 434,
+                    "pixel_y": 255,
+                    "tile": "tile_road",
+                    "x": 2,
+                    "y": 2
+                },
+                {
+                    "pixel_x": 516,
+                    "pixel_y": 255,
+                    "tile": "tile_road",
+                    "x": 3,
+                    "y": 2
+                },
+                {
+                    "pixel_x": 599,
+                    "pixel_y": 255,
+                    "tile": "tile_road",
+                    "x": 4,
+                    "y": 2
+                },
+                {
+                    "pixel_x": 681,
+                    "pixel_y": 255,
+                    "tile": "tile_road",
+                    "x": 5,
+                    "y": 2
+                },
+                {
+                    "pixel_x": 764,
+                    "pixel_y": 255,
+                    "tile": "tile_road",
+                    "x": 6,
+                    "y": 2
+                },
+                {
+                    "pixel_x": 846,
+                    "pixel_y": 255,
+                    "tile": "tile_road",
+                    "x": 7,
+                    "y": 2
+                },
+                {
+                    "pixel_x": 855,
+                    "pixel_y": 325,
+                    "tile": "tile_end",
+                    "x": 7,
+                    "y": 3
+                },
+                {
+                    "pixel_x": 415,
+                    "pixel_y": 402,
+                    "tile": "tile_road",
+                    "x": 2,
+                    "y": 4
+                },
+                {
+                    "pixel_x": 595,
+                    "pixel_y": 402,
+                    "tile": "tile_road",
+                    "x": 4,
+                    "y": 4
+                },
+                {
+                    "pixel_x": 865,
+                    "pixel_y": 402,
+                    "tile": "tile_hole",
+                    "x": 7,
+                    "y": 4
+                },
+                {
+                    "pixel_x": 216,
+                    "pixel_y": 485,
+                    "tile": "tile_start",
+                    "x": 0,
+                    "y": 5
+                },
+                {
+                    "pixel_x": 310,
+                    "pixel_y": 485,
+                    "tile": "tile_road",
+                    "x": 1,
+                    "y": 5
+                },
+                {
+                    "pixel_x": 405,
+                    "pixel_y": 485,
+                    "tile": "tile_road",
+                    "x": 2,
+                    "y": 5
+                },
+                {
+                    "pixel_x": 499,
+                    "pixel_y": 485,
+                    "tile": "tile_road",
+                    "x": 3,
+                    "y": 5
+                },
+                {
+                    "pixel_x": 593,
+                    "pixel_y": 485,
+                    "tile": "tile_road",
+                    "x": 4,
+                    "y": 5
+                },
+                {
+                    "pixel_x": 687,
+                    "pixel_y": 485,
+                    "tile": "tile_road",
+                    "x": 5,
+                    "y": 5
+                },
+                {
+                    "pixel_x": 781,
+                    "pixel_y": 485,
+                    "tile": "tile_road",
+                    "x": 6,
+                    "y": 5
+                },
+                {
+                    "pixel_x": 875,
+                    "pixel_y": 485,
+                    "tile": "tile_road",
+                    "x": 7,
+                    "y": 5
+                },
+                {
+                    "pixel_x": 970,
+                    "pixel_y": 485,
+                    "tile": "tile_hole",
+                    "x": 8,
+                    "y": 5
+                },
+                {
+                    "pixel_x": 887,
+                    "pixel_y": 577,
+                    "tile": "tile_telin",
+                    "x": 7,
+                    "y": 6
+                }
+            ],
+            "head_padding_from_ground_center": {
+                "left": 80,
+                "right": 80,
+                "top": 120,
+                "bottom": 5
+            },
+            "derived_roi": [136, 71, 914, 511],
+            "note": "Conservative envelope of all 26 native lowland road/start/end/telout/telin/hole tiles. Template visibility does not follow from geometry alone."
+        }
     }
 }
