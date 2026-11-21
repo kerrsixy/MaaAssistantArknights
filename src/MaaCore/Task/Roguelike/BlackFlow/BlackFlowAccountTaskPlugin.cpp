@@ -1,4 +1,5 @@
 #include "BlackFlowAccountTaskPlugin.h"
+#include "BlackFlowResumeRoster.h"
 
 #include "Config/Roguelike/BlackFlow/BlackFlowAccountProfile.h"
 #include "Controller/Controller.h"
@@ -11,6 +12,9 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::load_params(const json::value&
     m_refresh_requested = params.get("scan_account_modules", true);
     m_cache_file = params.get("account_cache_file", std::string {});
     m_verified = false;
+#ifdef ASST_DEBUG
+    m_resume_roster_file = params.get("blackflow_resume_roster_file", std::string {});
+#endif
     return m_config->get_theme() == RoguelikeTheme::BlackFlow;
 }
 
@@ -53,6 +57,32 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
     else {
         LogWarn << __FUNCTION__ << "Verified account cache is unavailable" << cache_path << cache_error;
     }
+#ifdef ASST_DEBUG
+    if (!m_resume_roster_file.empty()) {
+        const auto snapshot = json::open(utils::path(m_resume_roster_file));
+        const auto& bound_profile = m_config->account_profile();
+        const auto restored =
+            snapshot && bound_profile ? parse_resume_roster(*snapshot, *bound_profile, &cache_error) : std::nullopt;
+        if (!restored) {
+            LogError << __FUNCTION__ << "Refused assisted roster restoration" << m_resume_roster_file << cache_error;
+            m_task_ptr->set_enable(false);
+            return false;
+        }
+        m_config->status().opers = *restored;
+        auto restored_info = basic_info_with_what("BlackFlowRosterRestored");
+        json::array operators;
+        for (const auto& [name, strength] : *restored) {
+            operators.emplace_back(
+                json::object { { "name", name }, { "elite", strength.elite }, { "level", strength.level } });
+        }
+        restored_info["details"] = json::object { { "uid", account.uid() },
+                                                  { "client", client },
+                                                  { "source", m_resume_roster_file },
+                                                  { "operators", std::move(operators) },
+                                                  { "unattended_acceptance_eligible", false } };
+        callback(AsstMsg::SubTaskExtraInfo, restored_info);
+    }
+#endif
     m_verified = true;
     auto info = basic_info_with_what("BlackFlowAccountBound");
     info["details"] = json::object { { "client", client },

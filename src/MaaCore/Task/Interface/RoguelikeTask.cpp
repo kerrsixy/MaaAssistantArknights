@@ -285,6 +285,17 @@ bool asst::RoguelikeTask::set_params(const json::value& params)
         m_roguelike_task_ptr->override_next("BlackFlow@Roguelike@StashedRecruitOptionsReady", {});
         m_roguelike_task_ptr->override_next("BlackFlow@Roguelike@StashedRecruitMapReady", {});
     }
+    if (!params.get("blackflow_resume_roster_file", std::string()).empty()) {
+        if (theme != RoguelikeTheme::BlackFlow) {
+            return false;
+        }
+        // Verify the live UID before importing a debug roster. Resuming the
+        // saved exploration must recognize its floor before any routing cycle.
+        m_roguelike_task_ptr->set_tasks({ "BlackFlow@Roguelike@AccountBegin" });
+        m_roguelike_task_ptr->override_next(
+            "BlackFlow@Roguelike@Begin",
+            { "BlackFlow@Roguelike@ResumeSavedExploration" });
+    }
     if (!params.get("battle_resume_stage", std::string()).empty()) {
         if (theme != RoguelikeTheme::BlackFlow) {
             return false;
