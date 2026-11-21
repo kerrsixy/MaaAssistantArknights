@@ -145,6 +145,24 @@ bool asst::RoguelikeShoppingConfig::parse(const json::value& json)
             tables.ordinary_shop_extensions.emplace(table, std::move(names));
         }
     }
+    if (const auto exclusions = json.find_value("ordinary_shop_profile_exclusions")) {
+        if (!exclusions->is_object()) {
+            LogError << __FUNCTION__ << "Ordinary shop profile exclusions must be an object";
+            return false;
+        }
+        for (const auto& [profile, values] : exclusions->as_object()) {
+            if (profile.empty() || !values.is<std::vector<std::string>>()) {
+                LogError << __FUNCTION__ << "Invalid ordinary shop profile exclusions" << profile;
+                return false;
+            }
+            auto names = values.as<std::vector<std::string>>();
+            if (std::ranges::any_of(names, [](const auto& name) { return name.empty(); })) {
+                LogError << __FUNCTION__ << "Ordinary shop exclusion contains an empty name" << profile;
+                return false;
+            }
+            tables.ordinary_shop_profile_exclusions.emplace(profile, std::move(names));
+        }
+    }
     m_tables.insert_or_assign(theme, std::move(tables));
     return true;
 }
@@ -152,21 +170,28 @@ bool asst::RoguelikeShoppingConfig::parse(const json::value& json)
 std::vector<asst::RoguelikeGoods>
     asst::RoguelikeShoppingConfig::get_shop_goods(const std::string& theme, const std::string& table) const
 {
+    return get_shop_goods(theme, table, "");
+}
+
+std::vector<asst::RoguelikeGoods> asst::RoguelikeShoppingConfig::get_shop_goods(
+    const std::string& theme,
+    const std::string& table,
+    const std::string& profile) const
+{
     auto goods = get_goods(theme, table);
     if (!strategy_shopping_enabled(theme)) {
         return goods;
     }
     const auto& tables = m_tables.at(theme);
     const auto extension = tables.ordinary_shop_extensions.find(table);
-    if (extension == tables.ordinary_shop_extensions.end()) {
-        return goods;
-    }
     const auto append = [&](const RoguelikeGoods& item) {
         if (std::ranges::none_of(goods, [&](const auto& existing) { return existing.name == item.name; })) {
             goods.emplace_back(item);
         }
     };
-    for (const auto& source : extension->second) {
+    const auto sources =
+        extension == tables.ordinary_shop_extensions.end() ? std::vector<std::string> {} : extension->second;
+    for (const auto& source : sources) {
         if (source == "$scrap_market") {
             for (const auto& scrap : BlackFlowScrapMarket.items()) {
                 if (scrap.price) {
@@ -182,6 +207,14 @@ std::vector<asst::RoguelikeGoods>
                 append(item);
             }
         }
+    }
+    // Apply the selected strategy's exclusions after every extension has been
+    // merged, so a common fallback table cannot reintroduce another ending's item.
+    if (const auto excluded = tables.ordinary_shop_profile_exclusions.find(profile);
+        excluded != tables.ordinary_shop_profile_exclusions.end()) {
+        std::erase_if(goods, [&](const auto& item) {
+            return std::ranges::find(excluded->second, item.name) != excluded->second.end();
+        });
     }
     return goods;
 }

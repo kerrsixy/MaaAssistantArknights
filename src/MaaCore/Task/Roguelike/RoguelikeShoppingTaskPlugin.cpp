@@ -262,9 +262,11 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
     }
 
     // bool bought = false;
-    const auto all_goods = strategy_shopping
-                               ? RoguelikeShopping.get_shop_goods(theme, m_config->status().shopping_buy_table)
-                               : RoguelikeShopping.get_goods(theme);
+    const auto all_goods = strategy_shopping ? RoguelikeShopping.get_shop_goods(
+                                                   theme,
+                                                   m_config->status().shopping_buy_table,
+                                                   m_blackflow_session ? m_blackflow_session->profile() : std::string())
+                                             : RoguelikeShopping.get_goods(theme);
     // 钱包对所有主题都读：用户要求「商店购买顺序应先看手里有多少钱」。
     // 旧实现把 read_wallet 只在 strategy_shopping（仅 BlackFlow）下调用，傀影/水月等
     // 主题既不读余额也不校验价格，于是会出现「点开确认框才发现买不起」的死循环。

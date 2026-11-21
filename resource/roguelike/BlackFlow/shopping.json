@@ -1474,5 +1474,8 @@
     "ordinary_shop_extensions": {
         "default": ["final_relics", "$scrap_market"],
         "final_relics": ["$scrap_market"]
+    },
+    "ordinary_shop_profile_exclusions": {
+        "ending1": ["沙盘α", "沙盘β", "击坠“神明”", "湮没“光明”", "焚毁“文明”", "破碎噩兆"]
     }
 }
