@@ -3204,11 +3204,26 @@
         "text": ["生命游戏"],
         "fullMatch": true,
         "postDelay": 500,
-        "next": ["BlackFlow@Roguelike@LifeGamePageLabel"]
+        "next": ["BlackFlow@Roguelike@LifeGamePageLabel", "BlackFlow@Roguelike@LifeGameEntryWait"]
+    },
+    "BlackFlow@Roguelike@LifeGameEntryWait": {
+        "Doc": "入口点击后旧大厅帧可能仍在缓存中；只做有界等待，随后仍须由分析器核验真实页面、点数与采集数。",
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "postDelay": 300,
+        "maxTimes": 5,
+        "next": ["BlackFlow@Roguelike@LifeGamePageLabel", "#self"],
+        "exceededNext": ["BlackFlow@Roguelike@LifeGameEntryWaitExhausted"]
+    },
+    "BlackFlow@Roguelike@LifeGameEntryWaitExhausted": {
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "next": []
     },
     "BlackFlow@Roguelike@LifeGameClose": {
         "algorithm": "JustReturn",
         "action": "ClickRect",
+        "requiredPage": "BlackFlow@Roguelike@LifeGamePageLabel",
         "specificRect": [20, 15, 50, 45],
         "postDelay": 400,
         "next": ["BlackFlow@Roguelike@LifeGameLobbyVerified"]
