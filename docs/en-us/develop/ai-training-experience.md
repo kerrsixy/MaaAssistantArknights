@@ -336,3 +336,13 @@ Account-entry handoff evidence: `D:/dsh/明日方舟/日志/blackflow_official_d
 ### 2026-11-22 Phase31: Bounded floor-introduction retry
 
 - Phase30 live recognition found both floor2 title and quote, but the introduction remained after one click and the old chain failed without retrying. Animation versus input loss is not established. Retry only while both guards remain visible, retain the two-click limit, and use normal map entry after transition; exhaustion remains a failure. Each floor image set passes16 native checks with zero connections or inputs. Live continuation and routing convergence remain unverified. Preserve the saved exploration and classify restoration as assisted. EW remains current, Wang an offline dynamic-vision backup; N8 victory, stableN10 and an unattended first ending remain unachieved.
+
+### 2026-11-22 Phase32: Persistent terrain occupancy and dynamic Wang limits
+
+- Reusable roadblock card cooldown does not prove that placed terrain disappeared. Retain each occupied tile without registering terrain as a same-name combat unit or skill timer. Fourteen native checks with real BattleData cover two barriers, repeated cooldowns, Mechanist, its directional worker and battle reset: baseline six failures, candidate zero, no connections or inputs. Destruction recognition, generic terrain selection and route planning remain unresolved.
+
+- Assisted run26 passed the three floor3 battles and reached floor5. Bounded introduction retry now reaches the live map. The original recurring preview destination was not revisited, so its live convergence remains unproven. This continuation is not unattended acceptance; N8 victory, stable N10 and an unattended first ending remain unachieved. Keep running core29 immutable.
+
+- Wang must choose pieces from successive battlefield observations rather than fixed video coordinates. Require current enemies, piece occupancy, run skill, stock, cost, legal tiles and trigger versus damage geometry. The offline evaluator passes29 replays including changed enemy positions, occlusion and stale evidence. A real detector, motion prediction and verified deployment loop are not implemented. EW remains the current opener.
+
+- At this checkpoint floor5 repeatedly previewed a blocked move without progressing. Cooperatively stopped with the exploration preserved; no settlement or victory. Diagnose this routing failure before continuation.
