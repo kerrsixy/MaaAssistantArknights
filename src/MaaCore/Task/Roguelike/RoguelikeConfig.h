@@ -187,6 +187,10 @@ public:
 
     int get_difficulty() const { return m_difficulty; }
 
+    void set_observed_difficulty(std::optional<int> difficulty) { m_observed_difficulty = difficulty; }
+
+    std::optional<int> get_observed_difficulty() const { return m_observed_difficulty; }
+
     void set_squad(std::string squad) { m_squad = std::move(squad); }
 
     const std::string& get_squad() const { return m_squad; }
@@ -229,7 +233,9 @@ private:
     std::shared_ptr<const blackflow::BlackFlowAccountProfile> m_account_profile;
     RoguelikeMode m_mode = RoguelikeMode::Exp; // 模式
     int m_difficulty = 0;                      // 难度
-    std::string m_squad;                       // 分队
+    std::optional<int>
+        m_observed_difficulty; // Actual difficulty read from the game, separate from the requested value.
+    std::string m_squad;       // 分队
 
     // ------------------ 开局 ------------------
     bool m_start_with_elite_two = false;      // 在刷开局模式下凹开局干员精二直升

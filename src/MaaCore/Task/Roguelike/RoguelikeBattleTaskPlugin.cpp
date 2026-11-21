@@ -381,7 +381,13 @@ void asst::RoguelikeBattleTaskPlugin::cache_oper_elite_status()
 {
     const auto& oper_list = m_config->status().opers;
     for (const auto& oper : m_cur_deployment_opers) {
-        m_oper_elite.emplace(oper.name, oper_list.contains(oper.name) ? oper_list.at(oper.name).elite : 0);
+        if (const auto status = oper_list.find(oper.name);
+            status != oper_list.end() && status->second.elite >= 0 && status->second.elite <= 2) {
+            m_oper_elite.insert_or_assign(oper.name, status->second.elite);
+        }
+        else {
+            m_oper_elite.erase(oper.name);
+        }
     }
 }
 
@@ -440,6 +446,46 @@ bool asst::RoguelikeBattleTaskPlugin::get_position_full(battle::LocationType loc
 bool asst::RoguelikeBattleTaskPlugin::get_position_full(const battle::DeploymentOper& oper) const
 {
     return get_position_full(BattleData.get_location_type(oper.role, oper.name));
+}
+
+bool asst::RoguelikeBattleTaskPlugin::deployment_requirements_met(
+    const battle::DeploymentOper& oper,
+    const battle::roguelike::DeployInfoWithRank& plan) const
+{
+    if ((plan.exclude_starting_core && oper.name == m_config->get_core_char()) ||
+        std::ranges::find(plan.excluded_operator_names, oper.name) != plan.excluded_operator_names.end()) {
+        return false;
+    }
+    if (plan.required_attack_tiles.empty()) {
+        return true;
+    }
+    const auto elite = m_oper_elite.find(oper.name);
+    const auto props = BattleData.find_first_oper(oper.role, oper.name);
+    if (elite == m_oper_elite.end() || elite->second < 0 || elite->second > 2 || !props ||
+        props->sub_role == battle::SubRole::Unknown || props->sub_role == battle::SubRole::Support_Bard ||
+        (oper.role == battle::Role::Medic && props->sub_role != battle::SubRole::Medic_IncantationMedic) ||
+        BattleData.get_range(oper.role, oper.name, elite->second) == BattleDataConfig::EmptyRange) {
+        return false;
+    }
+    const auto range = get_attack_range(oper, resolve_deploy_direction(oper, plan.location, plan.direction));
+    return std::ranges::all_of(plan.required_attack_tiles, [&](const Point& target) {
+        return std::ranges::find(range, target - plan.location) != range.end();
+    });
+}
+
+int asst::RoguelikeBattleTaskPlugin::preferred_deployment_coverage(
+    const battle::DeploymentOper& oper,
+    const battle::roguelike::DeployInfoWithRank& plan) const
+{
+    const auto elite = m_oper_elite.find(oper.name);
+    if (plan.preferred_attack_tiles.empty() || elite == m_oper_elite.end() || elite->second < 0 || elite->second > 2 ||
+        BattleData.get_range(oper.role, oper.name, elite->second) == BattleDataConfig::EmptyRange) {
+        return 0;
+    }
+    const auto range = get_attack_range(oper, resolve_deploy_direction(oper, plan.location, plan.direction));
+    return static_cast<int>(std::ranges::count_if(plan.preferred_attack_tiles, [&](const Point& target) {
+        return std::ranges::find(range, target - plan.location) != range.end();
+    }));
 }
 
 bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
@@ -548,6 +594,9 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                          std::ranges::find(info.operator_names, oper.name) == info.operator_names.end())) {
                         continue;
                     }
+                    if (!deployment_requirements_met(oper, info)) {
+                        continue;
+                    }
                     if (m_kills < info.kill_lower_bound) {
                         LogDebug << "    deploy info" << oper.name << "in group" << group_name << "is waiting.";
                         is_success = true; // 如果发现了待命干员，此函数最终返回true
@@ -568,6 +617,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                         recruit_info.order_in_group.empty() ? INT_MAX : recruit_info.order_in_group.at(group_id);
                     deploy_plan.rank = info.rank;
                     deploy_plan.plan_index = info.plan_index;
+                    deploy_plan.preferred_coverage = preferred_deployment_coverage(oper, info);
                     deploy_plan.placed = info.location;
                     deploy_plan.direction = info.direction;
                     // 带上部署费用，供同 rank 同位次时按低费优先排序使用。
@@ -606,8 +656,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
     }
     // 部署位预留策略：记录「优先级更高但费用不足」的待命项，
     // 非开局阶段遇到优先级更低的项时先跳过，把部署位留给待命项。
-    int best_waiting_rank = INT_MAX;
-    std::string best_waiting_name;
+    const DeployPlanInfo* best_waiting_plan = nullptr;
     const bool early_phase = m_kills < 30;
     // 保命优先：场上还没有医疗时，医疗干员不参与「留位」跳过，费用一够就下。
     // 依据（用户实测）：领地意识等图有远程/爆炸原石虫，没有医疗时前期就会漏怪。
@@ -635,9 +684,8 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                     "with rank",
                     deploy_plan.rank,
                     "but now waiting for cost, try next.");
-                if (deploy_plan.rank < best_waiting_rank) {
-                    best_waiting_rank = deploy_plan.rank;
-                    best_waiting_name = deploy_plan.oper_name;
+                if (best_waiting_plan == nullptr || deploy_plan < *best_waiting_plan) {
+                    best_waiting_plan = &deploy_plan;
                 }
                 continue;
             }
@@ -648,17 +696,11 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
             // 但也不能一味等：场上人数不足 3 时先把人放下，否则前期就漏怪。
             if ((m_reserve_deploy_cost ||
                  (!is_nameless_deployable(deploy_plan.oper_name) && !early_phase && m_used_tiles.size() >= 3)) &&
-                deploy_plan.rank > best_waiting_rank &&
+                best_waiting_plan != nullptr && *best_waiting_plan < deploy_plan &&
                 !(!m_reserve_deploy_cost && need_medic && deploy_plan.role == battle::Role::Medic)) {
-                Log.info(
-                    "reserve slot: skip",
-                    deploy_plan.oper_name,
-                    "rank",
-                    deploy_plan.rank,
-                    "waiting for",
-                    best_waiting_name,
-                    "rank",
-                    best_waiting_rank);
+                LogInfo << __FUNCTION__ << "Reserve deployment cost" << deploy_plan.oper_name << "rank"
+                        << deploy_plan.rank << "waiting for" << best_waiting_plan->oper_name << "rank"
+                        << best_waiting_plan->rank;
                 continue;
             }
             const auto direction = resolve_deploy_direction(*oper_it, deploy_plan.placed, deploy_plan.direction);

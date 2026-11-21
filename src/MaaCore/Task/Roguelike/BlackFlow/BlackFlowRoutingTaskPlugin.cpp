@@ -84,6 +84,7 @@ bool BlackFlowRoutingTaskPlugin::_run()
         return true;
     }
 
+    m_session->set_observed_difficulty(m_config->get_observed_difficulty());
     const RoutingCycleOutcome cycle =
         work == PendingWork::ResumePendingMove ? execute_pending_routing_cycle(*m_session, *m_port)
         : work == PendingWork::ReplanCurrentMap || m_replan_current_map ? execute_replanning_cycle(*m_session, *m_port)

@@ -200,6 +200,33 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
                 return false;
             }
             info.operator_names = deploy_info.get("operator_names", std::vector<std::string> {});
+            info.excluded_operator_names = deploy_info.get("excluded_operator_names", std::vector<std::string> {});
+            info.exclude_starting_core = deploy_info.get("exclude_starting_core", false);
+            const auto read_attack_tiles = [&](const std::string& key, std::vector<Point>& result) {
+                if (!deploy_info.contains(key)) {
+                    return true;
+                }
+                const auto values = deploy_info.find<json::array>(key);
+                if (!values) {
+                    return false;
+                }
+                for (const auto& value : *values) {
+                    if (!value.is_array() || value.as_array().size() != 2 || !value[0].is<int>() ||
+                        !value[1].is<int>() || value[0].as_integer() < 0 || value[1].as_integer() < 0) {
+                        return false;
+                    }
+                    const Point point(value[0].as_integer(), value[1].as_integer());
+                    if (std::ranges::find(result, point) == result.end()) {
+                        result.push_back(point);
+                    }
+                }
+                return true;
+            };
+            if (!read_attack_tiles("required_attack_tiles", info.required_attack_tiles) ||
+                !read_attack_tiles("preferred_attack_tiles", info.preferred_attack_tiles)) {
+                LogError << __FUNCTION__ << "Invalid deployment attack targets" << stage_name;
+                return false;
+            }
             info.location = Point(deploy_info["location"][0].as_integer(), deploy_info["location"][1].as_integer());
             const std::string& direction_str = deploy_info.get("direction", "none");
             if (auto iter = DeployDirectionMapping.find(direction_str); iter != DeployDirectionMapping.end()) {

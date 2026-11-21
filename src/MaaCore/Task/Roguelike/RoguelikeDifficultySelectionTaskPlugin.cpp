@@ -9,6 +9,8 @@
 
 bool asst::RoguelikeDifficultySelectionTaskPlugin::load_params([[maybe_unused]] const json::value& params)
 {
+    m_config->set_observed_difficulty(std::nullopt);
+    m_current_difficulty = -1;
     const RoguelikeMode mode = m_config->get_mode();
 
     // 深入调查和月度小队模式不需要选择难度
@@ -92,6 +94,7 @@ bool asst::RoguelikeDifficultySelectionTaskPlugin::_run()
 int asst::RoguelikeDifficultySelectionTaskPlugin::detect_current_difficulty() const
 {
     LogTraceFunction;
+    m_config->set_observed_difficulty(std::nullopt);
 
     const cv::Mat image = ctrler()->get_image();
     OCRer analyzer(image);
@@ -104,6 +107,11 @@ int asst::RoguelikeDifficultySelectionTaskPlugin::detect_current_difficulty() co
             Log.error("Failed to convert difficulty text to number. Text =", text);
             return -1;
         }
+        if (difficulty < 0 || difficulty > 20) {
+            LogWarn << __FUNCTION__ << "Difficulty OCR is outside the supported range" << difficulty;
+            return -1;
+        }
+        m_config->set_observed_difficulty(difficulty);
         return difficulty;
     }
     else {
@@ -120,8 +128,7 @@ int asst::RoguelikeDifficultySelectionTaskPlugin::detect_current_difficulty_with
         if (difficulty >= 0) {
             break;
         }
-        LogWarn << __FUNCTION__ << "| failed to detect current difficulty, retry:" << retry + 1 << "/"
-                << max_retry + 1;
+        LogWarn << __FUNCTION__ << "| failed to detect current difficulty, retry:" << retry + 1 << "/" << max_retry + 1;
     }
     return difficulty;
 }

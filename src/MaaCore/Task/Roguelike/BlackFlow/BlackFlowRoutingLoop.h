@@ -50,6 +50,7 @@ bool refresh_with_retries(Session& session, IBlackFlowTaskPort& port, std::strin
         BlackFlowObservationRequest request;
         request.floor = *current_floor;
         request.attempt_count = attempt + 1;
+        request.verified_difficulty = session.observed_difficulty();
         BlackFlowPerceptionSnapshot snapshot;
         std::string current_error;
         if (port.refresh(request, snapshot, &current_error) && session.update(snapshot, &current_error)) {
