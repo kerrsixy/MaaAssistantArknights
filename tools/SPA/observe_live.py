@@ -19,7 +19,7 @@ from spa_staged_acceptance import audit_run
 from spa_device_guard import authorize_client
 from spa_host_completion import audit_host_completion, require_host_completion
 from spa_relocation import relocation_options, relocation_verified
-from spa_task_timeout import task_timeout_seconds
+from spa_task_timeout import AutoPreparationProgress, task_timeout_seconds
 
 
 def main():
@@ -400,6 +400,12 @@ def main():
             merged["roster"] = policy.get("roster", [])
         persist_json("recovery-state.json", merged)
 
+    progress = (
+        AutoPreparationProgress(policy.get("run_count", 1))
+        if args.task == "auto-preparation"
+        else None
+    )
+
     @Asst.CallBackType
     def callback(message, details, _):
         value = json.loads(details.decode("utf-8"))
@@ -411,6 +417,8 @@ def main():
             journal.write(json.dumps(event, ensure_ascii=False) + "\n")
             journal.flush()
             os.fsync(journal.fileno())
+        if progress is not None:
+            progress.observe(value, time.monotonic())
         context_update = setup_context_receipt(
             value.get("what", ""), value.get("details", {})
         )
@@ -844,9 +852,12 @@ def main():
             raise RuntimeError("SPA observer task did not start")
         # The native task owns all games in a batch. A single game's completion
         # callback must not end host waiting while the parent task is running.
-        # Its per-game budget was scaled and validated before connecting.
-        deadline = time.monotonic() + task_timeout
-        while instance.running() and time.monotonic() < deadline:
+        # Within automatic runs, new verified round/battle evidence can
+        # finish an in-flight game beyond the original batch time allowance.
+        base_deadline = time.monotonic() + task_timeout
+        while instance.running() and time.monotonic() < (
+            progress.deadline(base_deadline) if progress is not None else base_deadline
+        ):
             time.sleep(0.2)
         if instance.running():
             # The native setup chain can finish its clicks and hand control to

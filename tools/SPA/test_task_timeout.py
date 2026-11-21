@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import observe_live
-from spa_task_timeout import task_timeout_seconds
+from spa_task_timeout import AutoPreparationProgress, task_timeout_seconds
 
 
 class WaitFinished(Exception):
@@ -84,7 +84,7 @@ class TaskTimeoutTests(unittest.TestCase):
             self.assertEqual(stopped.exception.code, 2)
             adb.assert_not_called()
 
-    def fake_wait(self, count, completion_time):
+    def fake_wait(self, count, completion_time, scripted=(), step_seconds=3000):
         """Run the real main/callback/wait path with no DLL or device access."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -94,8 +94,14 @@ class TaskTimeoutTests(unittest.TestCase):
             clock = [0.0]
             emitted = []
             callback = []
+            pending = iter(scripted)
+            next_scripted = next(pending, None)
 
             def running():
+                nonlocal next_scripted
+                while next_scripted is not None and next_scripted[0] <= clock[0]:
+                    callback[0](20003, json.dumps(next_scripted[1]).encode(), None)
+                    next_scripted = next(pending, None)
                 # Per-game callbacks occur while the native parent remains busy.
                 for game in range(1, min(int(clock[0] // 3600), count) + 1):
                     if game not in emitted:
@@ -131,7 +137,7 @@ class TaskTimeoutTests(unittest.TestCase):
                     return host
 
             def sleep(_):
-                clock[0] += 3000
+                clock[0] += step_seconds
 
             package = "com.hypergryph.arknights.bilibili"
             adb_results = [
@@ -181,6 +187,57 @@ class TaskTimeoutTests(unittest.TestCase):
         self.assertIsInstance(error, RuntimeError)
         self.assertIn("timed out", str(error))
         self.assertEqual(elapsed, 24_000)
+
+    @staticmethod
+    def native_event(
+        what, details, source="asst::StrongholdProtocolTask", execution="game-1"
+    ):
+        return {
+            "what": what,
+            "class": source,
+            "host_session_id": "same-host",
+            "run_execution_id": execution,
+            "details": details,
+        }
+
+    def test_verified_round_advance_keeps_active_game_past_two_hours(self):
+        started = self.native_event("SPARunExecutionStarted", {})
+        next_round = self.native_event(
+            "SPAAutomationBattleObserved",
+            {
+                "round": 13,
+                "next_round": 14,
+                "battle_started": True,
+                "next_round_ready": True,
+            },
+        )
+        error, elapsed, _, _ = self.fake_wait(
+            1, 7800, [(0, started), (6800, next_round)], step_seconds=100
+        )
+        self.assertIsInstance(error, WaitFinished)
+        self.assertEqual(elapsed, 7800)
+
+    def test_unscoped_and_repeated_frames_do_not_extend_stalled_game(self):
+        progress = AutoPreparationProgress(1)
+        progress.observe(self.native_event("SPARunExecutionStarted", {}), 0)
+        battle = self.native_event(
+            "SPABattleSample",
+            {
+                "round": 14,
+                "battle_frame_saved": True,
+                "life_known": True,
+                "enemies_total_known": True,
+            },
+            source="asst::spa::RoundTaskPlugin",
+        )
+        progress.observe(battle, 7100)
+        self.assertEqual(progress.deadline(7200), 8300)
+        progress.observe(battle, 7900)
+        progress.observe(
+            self.native_event("SPARunExecutionStarted", {}, execution="game-2"), 8100
+        )
+        progress.observe({**battle, "run_execution_id": "game-2"}, 8200)
+        self.assertEqual(progress.deadline(7200), 8300)
 
 
 if __name__ == "__main__":
