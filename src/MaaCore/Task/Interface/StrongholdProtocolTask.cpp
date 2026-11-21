@@ -1567,9 +1567,17 @@ std::pair<std::vector<asst::spa::ReplacementMember>, std::vector<asst::spa::Repl
                 field.push_back(replacement_member(name, owned));
             }
             else {
+                // Equipment membership belongs to this verified field body.
+                // A hypothetical recruit or same-name bench copy inherits none.
+                const auto added_pacts = field_added_pacts(name);
                 const auto [begin, end] = m_auto_deploy_positions.equal_range(name);
                 for (auto item = begin; item != end; ++item) {
                     auto placed = replacement_member(name, owned);
+                    for (const auto& pact : added_pacts) {
+                        if (std::ranges::find(placed.pacts, pact) == placed.pacts.end()) {
+                            placed.pacts.push_back(pact);
+                        }
+                    }
                     placed.x = item->second.first;
                     placed.y = item->second.second;
                     // All owned copies are accounted for on the field, so
@@ -1844,7 +1852,8 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
             }
             const auto facing = m_committed_facings.find(placed->second);
             member.facing = facing == m_committed_facings.end() ? '\0' : facing->second;
-            prospective.push_back({ member.name, true, {}, m_policy.owned.at(member.name).elite });
+            prospective.push_back(
+                { member.name, true, field_added_pacts(member.name), m_policy.owned.at(member.name).elite });
             others.push_back(std::move(member));
         }
         if (target && others.size() == 7) {
@@ -5492,7 +5501,6 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             }
         }
 
-        int primary_members = 0;
         std::vector<spa::GrowthSource> sources;
         const int field_population =
             state.get("remaining_deployment_known", false) ? 8 - state.get("remaining_deployment", 8) : -1;
@@ -5550,13 +5558,25 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                     }));
             }
         }
+        std::vector<spa::RosterUnit> modeled_roster;
+        modeled_roster.reserve(m_policy.owned.size());
+        std::set<std::string> primary_field_members;
+        for (const auto& [name, unit] : m_policy.owned) {
+            auto added_pacts = field_added_pacts(name);
+            const auto native_pacts = catalog.find(name);
+            if (unit.deployed &&
+                ((native_pacts != catalog.end() &&
+                  std::ranges::find(native_pacts->second, m_policy.primary_pact) != native_pacts->second.end()) ||
+                 std::ranges::find(added_pacts, m_policy.primary_pact) != added_pacts.end())) {
+                primary_field_members.insert(name);
+            }
+            modeled_roster.push_back({ name, unit.deployed, std::move(added_pacts), unit.elite });
+        }
         std::optional<int> ursus_population;
         if (m_policy.primary_pact == "乌萨斯" && field_poses_complete) {
             ursus_population = static_cast<int>(
                 std::count_if(m_auto_deploy_positions.begin(), m_auto_deploy_positions.end(), [&](const auto& member) {
-                    const auto traits = catalog.find(member.first);
-                    return traits != catalog.end() &&
-                           std::find(traits->second.begin(), traits->second.end(), "乌萨斯") != traits->second.end();
+                    return primary_field_members.contains(member.first);
                 }));
         }
         json::object population_counts;
@@ -5586,19 +5606,6 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 }
                 sources.push_back(std::move(source));
             }
-            if (!unit.deployed) {
-                continue;
-            }
-            const auto found = catalog.find(name);
-            if (found != catalog.end() &&
-                std::find(found->second.begin(), found->second.end(), m_policy.primary_pact) != found->second.end()) {
-                ++primary_members;
-            }
-        }
-        std::vector<spa::RosterUnit> modeled_roster;
-        modeled_roster.reserve(m_policy.owned.size());
-        for (const auto& [name, unit] : m_policy.owned) {
-            modeled_roster.push_back({ name, unit.deployed, field_added_pacts(name), unit.elite });
         }
         const auto modeled_formation = spa::evaluate_formation(
             modeled_roster,
@@ -5651,7 +5658,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         auto assessment = basic_info_with_what("SPAAutomationGrowthAssessment");
         assessment["details"] = json::object {
             { "primary_pact", m_policy.primary_pact },
-            { "deployed_primary_members", primary_members },
+            { "deployed_primary_members", primary_field_members.size() },
             { "primary_active_by_formation", primary_active_by_formation },
             { "external_activation_matches", external_activation_matches },
             { "primary_active_verified", primary_active_verified },

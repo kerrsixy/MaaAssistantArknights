@@ -1,4 +1,5 @@
 #include "Task/MiniGame/SPA/SPAEquipmentPolicy.h"
+#include "Task/MiniGame/SPA/SPAReplacementPolicy.h"
 
 #include <algorithm>
 #include <cassert>
@@ -8,7 +9,10 @@
 
 int main()
 {
+    using asst::spa::choose_replacement;
     using asst::spa::equipment_added_pacts;
+    using asst::spa::PlacementRole;
+    using asst::spa::ReplacementMember;
 
     const std::vector<std::string> egir { "变形同构体", "阿戈尔重刃" };
     assert(equipment_added_pacts(egir).empty());
@@ -27,6 +31,15 @@ int main()
     std::reverse(four.begin(), four.end());
     assert((equipment_added_pacts(four, true) == std::vector<std::string> { "乌萨斯" }));
     assert(equipment_added_pacts(four, false).empty());
+
+    const ReplacementMember summer { "烈夏", PlacementRole::Ranged, { "乌萨斯" }, 200, 500, 260 };
+    const ReplacementMember converter { "折桠", PlacementRole::Frontline, { "乌萨斯" }, 200, 600, 330 };
+    ReplacementMember bearer { "机械师", PlacementRole::Frontline, equipment_added_pacts(four, true), 400, 700, 330,
+                               true };
+    const ReplacementMember tempting_replacement { "拜松", PlacementRole::Frontline, { "炎" }, 12'000 };
+    assert(!choose_replacement("乌萨斯", { summer, converter, bearer }, { tempting_replacement }).found);
+    bearer.pacts = equipment_added_pacts(four, false);
+    assert(choose_replacement("乌萨斯", { summer, converter, bearer }, { tempting_replacement }).outgoing == "机械师");
 
     // Repeated physical selectors agree; they do not create extra pact
     // memberships. This input requires a complete physical slot observation.
