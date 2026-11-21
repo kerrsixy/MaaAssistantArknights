@@ -132,6 +132,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_shop_review_after_replacements = false;
     m_last_coin_review_after_deployment_round = -1;
     m_last_economy_round = -1;
+    m_last_ursus_battle_with_layer_growth = -1;
     m_joint_preparation_deadline = {};
     m_supply_confirmation_after_round = params.get("supply_confirmation_after_round", -1);
     m_previous_round_life.reset();
@@ -1533,8 +1534,8 @@ int asst::StrongholdProtocolTask::replacement_lineup_context_value(
     if (spa::kjerag_freeze_pair_available(context, true)) {
         value += 1800;
     }
-    if (context.primary_pact == "乌萨斯" && context.round < m_expected_boss_round &&
-        spa::replacement_primary_members(scored, context.primary_pact) >= 3) {
+    const int ursus_members = context.primary_pact == "乌萨斯" ? spa::replacement_primary_members(scored, "乌萨斯") : 0;
+    if (ursus_members >= 3 && context.round < m_expected_boss_round) {
         const int population = static_cast<int>(std::count_if(scored.begin(), scored.end(), [&](const auto& unit) {
             return std::find(unit.pacts.begin(), unit.pacts.end(), context.primary_pact) != unit.pacts.end();
         }));
@@ -1544,10 +1545,15 @@ int asst::StrongholdProtocolTask::replacement_lineup_context_value(
             const auto forms = spa::owned_form_counts(context.owned.at(unit.name));
             sources.push_back({ unit.name, forms && forms->initial == 0 && forms->elite > 0, true, population });
         }
-        const auto cycle = spa::assess_ursus_layer_cycle(sources);
-        // Preserve a viable injection/conversion pair when its immediate
-        // combat roles and lane coverage still permit this replacement.
-        value += cycle.converted_from_opening * 100;
+        const auto cycle = spa::assess_ursus_layer_cycle(sources, ursus_members);
+        // A recent wave with observed layer growth justifies comparing a
+        // one-defeat scenario. It does not prove who defeated an enemy, how
+        // many temporary layers were earned, or what the next wave will yield.
+        const bool use_defeat_scenario =
+            context.last_round_life_loss == 0 && m_last_ursus_battle_with_layer_growth == context.round - 1;
+        const int converted =
+            use_defeat_scenario ? cycle.converted_with_one_qualifying_defeat : cycle.converted_from_opening;
+        value += converted * 100;
     }
     return value;
 }
@@ -4962,6 +4968,12 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             round.track_primary_pact(m_policy.primary_pact);
             const bool round_ok = round.run();
             m_lifecycle_battle_seen = m_lifecycle_battle_seen || round.battle_seen();
+            const int fought_round = state.get("round", -1);
+            if (round_ok && fought_round > 0 && round.next_round() == fought_round + 1 &&
+                m_policy.primary_pact == "乌萨斯" && primary_active_for_battle &&
+                round.primary_layers_increased_during_battle()) {
+                m_last_ursus_battle_with_layer_growth = fought_round;
+            }
             if (round.session_interrupted()) {
                 // Emit the actual authentication page so the host reattaches
                 // this checkpoint after login, without calling it a battle loss.
@@ -5601,7 +5613,8 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         for (const auto& [name, unit] : m_policy.owned) {
             if (unit.copies > 0 || unit.elite) {
                 spa::GrowthSource source { name, unit.elite, unit.deployed };
-                if (m_policy.primary_pact == "乌萨斯" && (name == "烈夏" || name == "折桠" || name == "乌啾")) {
+                if (m_policy.primary_pact == "乌萨斯" &&
+                    (name == "烈夏" || name == "折桠" || name == "乌啾" || name == "塔露拉")) {
                     const auto forms = spa::owned_form_counts(unit);
                     source.elite = forms && forms->initial == 0 && forms->elite > 0;
                     if (name == "乌啾" && unit.deployed) {
@@ -5657,7 +5670,8 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             round,
             m_expected_boss_round,
             primary_active_verified,
-            sources);
+            sources,
+            ursus_population ? std::optional(static_cast<int>(primary_field_members.size())) : std::nullopt);
         json::array engines;
         for (const auto& name : growth.engine_names) {
             engines.emplace_back(name);
@@ -5700,6 +5714,13 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             { "ursus_conversion_capacity_per_preparation", growth.ursus_cycle.conversion_capacity },
             { "ursus_conversion_population_unknown", growth.ursus_cycle.conversion_population_unknown },
             { "ursus_converted_opening_layers_if_unchanged", growth.ursus_converted_opening_layers_if_unchanged },
+            { "ursus_minimum_temporary_layers_per_qualifying_defeat",
+              growth.ursus_cycle.minimum_temporary_layers_per_qualifying_defeat },
+            { "ursus_converted_with_one_qualifying_defeat", growth.ursus_cycle.converted_with_one_qualifying_defeat },
+            { "ursus_recent_battle_layer_increase_observed", m_last_ursus_battle_with_layer_growth == round - 1 },
+            { "ursus_one_defeat_scenario_available_for_replacement",
+              m_policy.primary_pact == "乌萨斯" && primary_active_verified && round < m_expected_boss_round &&
+                  m_policy.last_round_life_loss == 0 && m_last_ursus_battle_with_layer_growth == round - 1 },
             { "unmodeled_sources", growth.unmodeled_sources },
             { "engine_names", std::move(engines) },
             { "forecast_is_scenario", true },

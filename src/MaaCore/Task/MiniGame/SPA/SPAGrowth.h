@@ -102,12 +102,16 @@ struct UrsusLayerCycle
     int opening_temporary_layers = 0;
     int conversion_capacity = 0;
     int converted_from_opening = 0;
+    int minimum_temporary_layers_per_qualifying_defeat = 0;
+    int converted_with_one_qualifying_defeat = 0;
     bool conversion_population_unknown = false;
 };
 
 // One unchanged field from battle start through the next preparation.
-// Excludes kills, per-battle caps from other traits, and conditional buffs.
-UrsusLayerCycle assess_ursus_layer_cycle(const std::vector<GrowthSource>& sources);
+// A single qualifying defeat is a separate scenario, not an assumed outcome.
+UrsusLayerCycle assess_ursus_layer_cycle(
+    const std::vector<GrowthSource>& sources,
+    std::optional<int> distinct_ursus_members = std::nullopt);
 
 struct GrowthProjection
 {
@@ -135,5 +139,6 @@ GrowthProjection project_primary_growth(
     int round,
     int boss_round,
     bool active,
-    const std::vector<GrowthSource>& deployed);
+    const std::vector<GrowthSource>& deployed,
+    std::optional<int> distinct_ursus_members = std::nullopt);
 }

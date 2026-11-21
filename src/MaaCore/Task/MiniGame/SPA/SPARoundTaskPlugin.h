@@ -26,6 +26,12 @@ public:
 
     std::optional<int> latest_primary_layers() const { return m_latest_primary_layers; }
 
+    bool primary_layers_increased_during_battle() const
+    {
+        return m_first_primary_layers && m_latest_primary_layers &&
+               *m_latest_primary_layers > *m_first_primary_layers;
+    }
+
     std::optional<int> latest_primary_layer_sample_enemies() const { return m_latest_primary_layer_sample_enemies; }
 
     const std::map<std::string, int>& latest_pact_layer_snapshot() const { return m_latest_pact_layer_snapshot; }
@@ -48,6 +54,7 @@ protected:
 
 private:
     std::string m_primary_pact;
+    std::optional<int> m_first_primary_layers;
     std::optional<int> m_latest_primary_layers;
     std::optional<int> m_latest_primary_layer_sample_enemies;
     std::map<std::string, int> m_latest_pact_layer_snapshot;

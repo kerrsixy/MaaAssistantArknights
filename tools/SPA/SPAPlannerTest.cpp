@@ -5449,6 +5449,31 @@ int main()
         { { "折桠", false }, { "烈夏", true }, { "乌啾", true, true, 4 } });
     assert(combined_conversion.ursus_cycle.conversion_capacity == 10);
     assert(combined_conversion.ursus_converted_opening_layers_if_unchanged == 8);
+    const std::vector<GrowthSource> ursus_conversion_field {
+        { "烈夏", true },
+        { "折桠", false },
+        { "乌啾", true, true, 6 },
+        { "塔露拉", false },
+    };
+    const auto six_distinct = assess_ursus_layer_cycle(ursus_conversion_field, 6);
+    assert(six_distinct.minimum_temporary_layers_per_qualifying_defeat == 6);
+    assert(six_distinct.conversion_capacity == 14 && six_distinct.converted_from_opening == 8);
+    assert(six_distinct.converted_with_one_qualifying_defeat == 14);
+    const auto six_bodies_five_distinct = assess_ursus_layer_cycle(ursus_conversion_field, 5);
+    assert(six_bodies_five_distinct.conversion_capacity == 14);
+    assert(six_bodies_five_distinct.minimum_temporary_layers_per_qualifying_defeat == 4);
+    assert(six_bodies_five_distinct.converted_with_one_qualifying_defeat == 12);
+    assert(assess_ursus_layer_cycle(ursus_conversion_field).converted_with_one_qualifying_defeat == 12);
+    auto elite_talulah = ursus_conversion_field;
+    elite_talulah.back().elite = true;
+    assert(assess_ursus_layer_cycle(elite_talulah, 5).minimum_temporary_layers_per_qualifying_defeat == 6);
+    assert(assess_ursus_layer_cycle(elite_talulah, 6).minimum_temporary_layers_per_qualifying_defeat == 8);
+    elite_talulah.back().deployed = false;
+    assert(assess_ursus_layer_cycle(elite_talulah, 5).minimum_temporary_layers_per_qualifying_defeat == 2);
+    assert(assess_ursus_layer_cycle(elite_talulah, 6).minimum_temporary_layers_per_qualifying_defeat == 4);
+    const auto one_defeat_forecast = project_primary_growth("乌萨斯", 13, 14, true, ursus_conversion_field, 6);
+    assert(one_defeat_forecast.ursus_converted_opening_layers_if_unchanged == 8);
+    assert(one_defeat_forecast.ursus_cycle.converted_with_one_qualifying_defeat == 14);
     const std::vector<GrowthSource> unknown_conversion { { "烈夏", false }, { "乌啾", true } };
     const auto unknown_ursus = project_primary_growth("乌萨斯", 13, 14, true, unknown_conversion);
     assert(

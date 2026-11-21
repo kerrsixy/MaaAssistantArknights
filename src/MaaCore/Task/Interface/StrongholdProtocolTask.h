@@ -228,6 +228,7 @@ private:
     json::array deployment_point_snapshot() const;
     json::array field_position_snapshot() const;
     spa::PreparationPolicy m_policy;
+    int m_last_ursus_battle_with_layer_growth = -1;
     std::vector<std::string> m_enabled_core_pacts;
     bool m_dynamic_primary_pact = false;
     std::string m_run_id;

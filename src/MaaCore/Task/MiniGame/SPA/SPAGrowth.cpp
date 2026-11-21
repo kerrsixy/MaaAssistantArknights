@@ -71,9 +71,15 @@ bool asst::spa::is_primary_growth_engine(const std::string& name, const std::str
            std::find(found->second.pacts.begin(), found->second.pacts.end(), pact) != found->second.pacts.end();
 }
 
-asst::spa::UrsusLayerCycle asst::spa::assess_ursus_layer_cycle(const std::vector<GrowthSource>& sources)
+asst::spa::UrsusLayerCycle asst::spa::assess_ursus_layer_cycle(
+    const std::vector<GrowthSource>& sources,
+    std::optional<int> distinct_ursus_members)
 {
     UrsusLayerCycle cycle;
+    // The second pact tier uses six different operators. 乌啾 counts bodies;
+    // it can therefore gain capacity without changing the defeat reward.
+    const bool advanced_pact = distinct_ursus_members && *distinct_ursus_members >= 6 && *distinct_ursus_members <= 8;
+    cycle.minimum_temporary_layers_per_qualifying_defeat = advanced_pact ? 4 : 2;
     std::set<std::string> modeled;
     for (const auto& unit : sources) {
         if (!unit.deployed || !modeled.insert(unit.name).second) {
@@ -86,6 +92,9 @@ asst::spa::UrsusLayerCycle asst::spa::assess_ursus_layer_cycle(const std::vector
         const auto& profile = found->second;
         if (std::find(profile.pacts.begin(), profile.pacts.end(), "乌萨斯") == profile.pacts.end()) {
             continue;
+        }
+        if (unit.name == "塔露拉") {
+            cycle.minimum_temporary_layers_per_qualifying_defeat = 4 + 2 * unit.elite + 2 * advanced_pact;
         }
         const int gain = unit.elite ? profile.elite_gain : profile.normal_gain;
         if (profile.kind == GrowthKind::TemporaryInjection && profile.phase == GrowthPhase::BattleStart) {
@@ -104,6 +113,9 @@ asst::spa::UrsusLayerCycle asst::spa::assess_ursus_layer_cycle(const std::vector
         }
     }
     cycle.converted_from_opening = std::min(cycle.opening_temporary_layers, cycle.conversion_capacity);
+    cycle.converted_with_one_qualifying_defeat = std::min(
+        cycle.opening_temporary_layers + cycle.minimum_temporary_layers_per_qualifying_defeat,
+        cycle.conversion_capacity);
     return cycle;
 }
 
@@ -112,7 +124,8 @@ asst::spa::GrowthProjection asst::spa::project_primary_growth(
     int round,
     int boss_round,
     bool active,
-    const std::vector<GrowthSource>& deployed)
+    const std::vector<GrowthSource>& deployed,
+    std::optional<int> distinct_ursus_members)
 {
     GrowthProjection result;
     if (pact.empty() || round < 1 || boss_round < round || boss_round > 20 || deployed.size() > 20) {
@@ -129,7 +142,7 @@ asst::spa::GrowthProjection asst::spa::project_primary_growth(
     result.preparation_ends = boss_round - round + 1;
     result.completed_battles_before_boss = boss_round - round;
     if (pact == "乌萨斯" && active) {
-        result.ursus_cycle = assess_ursus_layer_cycle(deployed);
+        result.ursus_cycle = assess_ursus_layer_cycle(deployed, distinct_ursus_members);
         result.ursus_converted_opening_layers_if_unchanged =
             result.ursus_cycle.converted_from_opening * result.completed_battles_before_boss;
     }

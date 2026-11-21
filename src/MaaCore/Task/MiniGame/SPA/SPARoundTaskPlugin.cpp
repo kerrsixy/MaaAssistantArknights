@@ -58,6 +58,7 @@ bool asst::spa::RoundTaskPlugin::_run()
     m_battle_seen = false;
     m_result_seen = false;
     m_last_result.clear();
+    m_first_primary_layers.reset();
     m_latest_primary_layers.reset();
     m_latest_primary_layer_sample_enemies.reset();
     m_latest_pact_layer_snapshot.clear();
@@ -294,6 +295,9 @@ bool asst::spa::RoundTaskPlugin::_run()
                         info["details"]["pact_layers"] = std::move(values);
                     }
                     if (const auto match = layers.find(m_primary_pact); match != layers.end()) {
+                        if (!m_first_primary_layers) {
+                            m_first_primary_layers = match->second;
+                        }
                         m_latest_primary_layers = match->second;
                         m_latest_primary_layer_sample_enemies = page.enemies_resolved;
                         info["details"]["primary_pact"] = m_primary_pact;
