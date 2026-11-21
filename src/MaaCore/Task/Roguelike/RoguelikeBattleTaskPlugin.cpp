@@ -484,6 +484,11 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_requirements_met(
     const battle::DeploymentOper& oper,
     const battle::roguelike::DeployInfoWithRank& plan) const
 {
+    if (std::ranges::any_of(plan.exclusive_locations, [&](const Point& location) {
+            return m_used_tiles.contains(location);
+        })) {
+        return false;
+    }
     if ((plan.exclude_starting_core && oper.name == m_config->get_core_char()) ||
         std::ranges::find(plan.excluded_operator_names, oper.name) != plan.excluded_operator_names.end()) {
         return false;
@@ -619,7 +624,8 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                 continue;
             }
             for (const auto& info : plan_iter->second) {
-                if (limit_reached(info) || m_kills < info.kill_lower_bound || m_kills > info.kill_upper_bound) {
+                if (limit_reached(info) || m_kills < info.kill_lower_bound || m_kills > info.kill_upper_bound ||
+                    !deployment_requirements_met(oper, info)) {
                     continue;
                 }
                 DeployPlanInfo deploy_plan;
@@ -628,6 +634,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                 deploy_plan.oper_order_in_group = 0;
                 deploy_plan.rank = info.rank;
                 deploy_plan.plan_index = info.plan_index;
+                deploy_plan.prefer_group_order = info.prefer_group_order;
                 deploy_plan.placed = info.location;
                 deploy_plan.direction = info.direction;
                 deploy_plan.cost = oper.cost;
@@ -690,6 +697,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                     deploy_plan.rank = info.rank;
                     deploy_plan.plan_index = info.plan_index;
                     deploy_plan.preferred_coverage = preferred_deployment_coverage(oper, info);
+                    deploy_plan.prefer_group_order = info.prefer_group_order;
                     deploy_plan.placed = info.location;
                     deploy_plan.direction = info.direction;
                     // 带上部署费用，供同 rank 同位次时按低费优先排序使用。

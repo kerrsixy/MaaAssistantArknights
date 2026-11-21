@@ -202,7 +202,12 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
             info.operator_names = deploy_info.get("operator_names", std::vector<std::string> {});
             info.excluded_operator_names = deploy_info.get("excluded_operator_names", std::vector<std::string> {});
             info.exclude_starting_core = deploy_info.get("exclude_starting_core", false);
-            const auto read_attack_tiles = [&](const std::string& key, std::vector<Point>& result) {
+            if (deploy_info.contains("prefer_group_order") && !deploy_info.at("prefer_group_order").is<bool>()) {
+                LogError << __FUNCTION__ << "Invalid deployment group-order preference" << stage_name;
+                return false;
+            }
+            info.prefer_group_order = deploy_info.get("prefer_group_order", false);
+            const auto read_tile_locations = [&](const std::string& key, std::vector<Point>& result) {
                 if (!deploy_info.contains(key)) {
                     return true;
                 }
@@ -222,9 +227,10 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
                 }
                 return true;
             };
-            if (!read_attack_tiles("required_attack_tiles", info.required_attack_tiles) ||
-                !read_attack_tiles("preferred_attack_tiles", info.preferred_attack_tiles)) {
-                LogError << __FUNCTION__ << "Invalid deployment attack targets" << stage_name;
+            if (!read_tile_locations("required_attack_tiles", info.required_attack_tiles) ||
+                !read_tile_locations("preferred_attack_tiles", info.preferred_attack_tiles) ||
+                !read_tile_locations("exclusive_locations", info.exclusive_locations)) {
+                LogError << __FUNCTION__ << "Invalid deployment tile constraints" << stage_name;
                 return false;
             }
             info.location = Point(deploy_info["location"][0].as_integer(), deploy_info["location"][1].as_integer());

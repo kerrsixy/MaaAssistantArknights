@@ -624,6 +624,8 @@ struct DeployInfoWithRank
     bool exclude_starting_core = false;
     std::vector<Point> required_attack_tiles;
     std::vector<Point> preferred_attack_tiles;
+    std::vector<Point> exclusive_locations;
+    bool prefer_group_order = false;
     Point location;
     DeployDirection direction = DeployDirection::None;
     int rank = 0;

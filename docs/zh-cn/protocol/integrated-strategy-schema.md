@@ -1003,4 +1003,6 @@ MAA 使用以下方法识别和处理通宝：
 | `deploy_plan[].operator_names` | 条目级；默认空，非空时只允许名单中的干员。 |
 | `deploy_plan[].minimum_elite` | 条目级；默认 `0`，范围 `0..2`，要求明确的精英阶段证据。 |
 | `deploy_plan[].max_deployments` | 条目级；默认不限，填写时必须为正整数。同一条目的所有分组共享确认成功次数，下一场清空。 |
+| `deploy_plan[].exclusive_locations` | 条目级；默认空。坐标列表中的任意位置被占用时跳过本条，适用于不同落点之间的互斥替代。坐标必须为两个非负整数，重复坐标去重。它只使用当前占格证据，不表示危险范围识别。 |
+| `deploy_plan[].prefer_group_order` | 条目级；默认 `false`，同排名候选沿用低费优先。设为 `true` 时先按既有组内顺序，再比费用；已知正费用优先于未知费用。不会改变指令与分组之间的优先级，也不是动态伤害评分。 |
 | `force_deploy_direction[].operator_names` | 方向约束内；默认空，非空时必须同时满足职业和干员名单。 |
