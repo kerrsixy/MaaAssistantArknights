@@ -130,6 +130,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     }
     m_shopping_complete = false;
     m_shop_review_after_replacements = false;
+    m_shop_reviewed_last_ordinary_coin = false;
     m_last_coin_review_after_deployment_round = -1;
     m_last_economy_round = -1;
     m_last_ursus_battle_with_layer_growth = -1;
@@ -2069,9 +2070,10 @@ void asst::StrongholdProtocolTask::commit_full_field_replacement(
         }
     }
     m_last_remaining_deployment = 0;
-    // Reevaluate the unchanged shop once the locked lineup has settled.
-    // During an opening pivot, reread the shop after every verified change.
-    m_shop_review_after_replacements = m_shopping_complete && m_policy.primary_locked_after_activation;
+    // A reviewed last coin without an observed free refresh can wait for
+    // the completed lineup. The fresh end-of-batch scan still reads the badge.
+    m_shop_review_after_replacements =
+        m_shopping_complete && (m_policy.primary_locked_after_activation || m_shop_reviewed_last_ordinary_coin);
     m_shopping_complete = m_shop_review_after_replacements;
     m_spending_reviewed = false;
     m_spending_reason.clear();
@@ -3224,6 +3226,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             m_last_economy_round = state.get("round", -1);
             m_shopping_complete = false;
             m_shop_review_after_replacements = false;
+            m_shop_reviewed_last_ordinary_coin = false;
             m_purchase_reserved_after_sale.reset();
             m_spending_reviewed = false;
             m_spending_reason.clear();
@@ -3754,18 +3757,6 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             handle_full_field_replacement(state)) {
             continue;
         }
-        if (m_shop_review_after_replacements) {
-            m_shop_review_after_replacements = false;
-            m_shopping_complete = false;
-            if (available_funds > 0) {
-                auto review = basic_info_with_what("SPAShopReviewReopenedAfterReplacements");
-                review["details"] = json::object { { "round", preparation_round },
-                                                   { "funds", available_funds },
-                                                   { "shop_offers_require_fresh_observation", true } };
-                callback(AsstMsg::SubTaskExtraInfo, review);
-                continue;
-            }
-        }
         if (field_work_due && !defer_ordinary_equipment && refresh_equipment_inventory(state)) {
             continue;
         }
@@ -3777,6 +3768,21 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         }
         if (m_auto_run && !defer_ordinary_equipment && handle_persistent_equipment(state)) {
             continue;
+        }
+        if (m_shop_review_after_replacements) {
+            m_shop_review_after_replacements = false;
+            // An inventory scan or a reconciled cash effect may already
+            // have opened shopping. One observation covers both reasons.
+            const bool reopen = m_shopping_complete && available_funds > 0;
+            m_shopping_complete = false;
+            if (reopen) {
+                auto review = basic_info_with_what("SPAShopReviewReopenedAfterReplacements");
+                review["details"] = json::object { { "round", preparation_round },
+                                                   { "funds", available_funds },
+                                                   { "shop_offers_require_fresh_observation", true } };
+                callback(AsstMsg::SubTaskExtraInfo, review);
+                continue;
+            }
         }
         if (!m_unreconciled_sale.empty()) {
             m_blocked_purchases.emplace(state.get("round", -1), m_unreconciled_sale);
@@ -6272,6 +6278,8 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                           spa::round_balance_review_reason(m_selected_strategy_id, funds)
                                     : spa::round_balance_review_reason(m_selected_strategy_id, funds);
             m_shopping_complete = true;
+            m_shop_reviewed_last_ordinary_coin = m_policy.dynamic_decision_mode && funds == 1 &&
+                                                ordinary_balance_rule_known && m_policy.free_refreshes == 0;
             if (funds == 1 && ordinary_balance_rule_known && m_policy.dynamic_decision_mode && field_population >= 0 &&
                 field_population < 8 && round > 0 && round < m_expected_boss_round &&
                 state.get("free_refreshes_known", false) &&

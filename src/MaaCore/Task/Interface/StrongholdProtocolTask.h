@@ -66,6 +66,7 @@ private:
     void refresh_mode_pact_restrictions();
     bool m_shopping_complete = false;
     bool m_shop_review_after_replacements = false;
+    bool m_shop_reviewed_last_ordinary_coin = false;
     int m_last_coin_review_after_deployment_round = -1;
     int m_last_economy_round = -1;
     spa::PreparationDeadline m_joint_preparation_deadline;

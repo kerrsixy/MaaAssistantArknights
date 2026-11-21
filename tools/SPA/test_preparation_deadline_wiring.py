@@ -94,13 +94,14 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
         self.assertIn("quoted->price == reserved.price", pending)
         self.assertIn("m_purchase_reserved_after_sale.reset()", pending)
 
-    def test_committed_replacements_share_one_shop_review_for_a_locked_route(self):
+    def test_replacements_share_one_shop_review_after_equipment_and_last_coin_review(self):
         source = TASK.read_text(encoding="utf-8")
         commit = source.split(
             "void asst::StrongholdProtocolTask::commit_full_field_replacement(", 1
         )[1].split("bool asst::StrongholdProtocolTask::handle_promotion_page(", 1)[0]
         self.assertIn(
-            "m_shopping_complete && m_policy.primary_locked_after_activation", commit
+            "m_shopping_complete && (m_policy.primary_locked_after_activation || m_shop_reviewed_last_ordinary_coin)",
+            commit,
         )
         self.assertIn("m_shopping_complete = m_shop_review_after_replacements;", commit)
         self.assertIn("m_spending_reviewed = false;", commit)
@@ -108,18 +109,23 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
         after_replacement = self.session.split(
             "handle_full_field_replacement(state))", 1
         )[1]
-        no_pending_work = after_replacement.split(
+        equipment_and_cash, reopening = after_replacement.split(
             "if (m_shop_review_after_replacements)", 1
-        )[0]
-        self.assertIn("continue;", no_pending_work)
-        reopening = after_replacement.split("if (m_shop_review_after_replacements)", 1)[
-            1
-        ]
-        reopening = reopening.split("refresh_equipment_inventory(state)", 1)[0]
+        )
+        self.assertIn("refresh_equipment_inventory(state)", equipment_and_cash)
+        self.assertIn("handle_cash_equipment(state)", equipment_and_cash)
+        self.assertIn("continue;", equipment_and_cash)
+        reopening = reopening.split("if (!m_unreconciled_sale.empty())", 1)[0]
         self.assertIn("m_shop_review_after_replacements = false;", reopening)
         self.assertIn("m_shopping_complete = false;", reopening)
-        self.assertIn("if (available_funds > 0)", reopening)
+        self.assertIn("const bool reopen = m_shopping_complete && available_funds > 0;", reopening)
         self.assertIn("continue;", reopening)
+        last_coin_review = self.session.split("m_shop_reviewed_last_ordinary_coin = m_policy.dynamic_decision_mode", 1)[
+            1
+        ].split(";", 1)[0]
+        self.assertIn("funds == 1", last_coin_review)
+        self.assertIn("ordinary_balance_rule_known", last_coin_review)
+        self.assertIn("m_policy.free_refreshes == 0", last_coin_review)
 
 
 if __name__ == "__main__":
