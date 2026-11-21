@@ -3,6 +3,7 @@
 #include <map>
 #include <meojson/json.hpp>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -114,6 +115,7 @@ struct PreparationPolicy
     bool one_coin_bank_allowed = false;
     // Scenario horizon only: a later preparation is planned, not guaranteed.
     int economy_scenario_horizon_round = 0;
+    std::set<std::string> released_transitions;
     // Deterministic phase-one shop upgrade schedule.  Dynamic mode may leave
     // this empty and decide from the live economy instead.
     std::vector<int> basic_upgrade_rounds;
@@ -148,6 +150,7 @@ struct PreparationChoice
     bool free_refresh = false;
     bool is_equipment = false;
     bool banked_value_purchase = false;
+    int growth_score = 0;
 };
 
 struct DynamicPactSignal

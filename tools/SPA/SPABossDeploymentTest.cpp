@@ -87,6 +87,17 @@ int main()
     assert(region(fixed, true, "m01", 9, { { 10, 3 }, { 13, 3 } }).empty());
     const auto terrain = terrain_layout_model("m01", true);
     assert(terrain);
+    // The regulation 4 round-14 Cocoon was advertised without a variant.
+    // Both client variants translate to the same cell on the registered map.
+    const auto cocoon = boss_objective("假想敌：茧", terrain->lanes.front().path.back(), 4);
+    assert(cocoon.known && cocoon.stationary_route && !cocoon.variant_known);
+    assert(cocoon.possible_cells == cells);
+    const auto cocoon_footprint = estimate_solo_stationary_boss_footprint(cocoon);
+    assert(cocoon_footprint.size() == 15);
+    assert(cocoon_footprint.front() == BoardCell(8, 2) && cocoon_footprint.back() == BoardCell(12, 4));
+    assert(estimate_solo_stationary_boss_footprint(moving_objective).empty());
+    assert(estimate_solo_stationary_boss_footprint(boss_objective("假想敌：管", { 2, 4 }, 14)).empty());
+    assert(estimate_solo_stationary_boss_footprint(boss_objective("Unknown", { 2, 4 }, 4)).empty());
     const std::map<std::string, PlacementRole> roles {
         { "乌啾", PlacementRole::Healer },    { "冻河", PlacementRole::Ranged }, { "折桠", PlacementRole::Frontline },
         { "烈夏", PlacementRole::Frontline }, { "真理", PlacementRole::Ranged }, { "空弦", PlacementRole::Ranged },

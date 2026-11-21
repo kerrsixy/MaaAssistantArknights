@@ -63,7 +63,7 @@ inline std::optional<std::string> choose_full_bench_sale(
     const auto rules = pact_requirements();
     const auto& growth = growth_profiles();
     std::optional<std::string> result;
-    int lowest_tier = 7;
+    std::pair<int, int> best_sale_priority { 2, 7 };
     for (const auto& [name, owned] : policy.owned) {
         if (is_strategy_core(policy.selected_strategy_id, name) ||
             std::find(protected_names.begin(), protected_names.end(), name) != protected_names.end() ||
@@ -82,7 +82,6 @@ inline std::optional<std::string> choose_full_bench_sale(
         if (facts == OperatorCatalogue.end() || memberships == pacts.end() || facts->sale_has_side_effect ||
             facts->trait_mentions_bench || facts->price <= 0 ||
             (!policy.primary_locked_after_activation && !fund_planned_card && facts->tier >= policy.shop_level) ||
-            facts->tier >= lowest_tier ||
             std::find(memberships->second.begin(), memberships->second.end(), policy.primary_pact) !=
                 memberships->second.end()) {
             continue;
@@ -99,8 +98,11 @@ inline std::optional<std::string> choose_full_bench_sale(
         if (const auto source = growth.find(name); source != growth.end() && source->second.works_on_bench) {
             continue;
         }
-        result = name;
-        lowest_tier = facts->tier;
+        const std::pair priority { policy.released_transitions.contains(name) ? 0 : 1, facts->tier };
+        if (priority < best_sale_priority) {
+            result = name;
+            best_sale_priority = priority;
+        }
     }
     return result;
 }
@@ -201,7 +203,7 @@ inline std::optional<FundingPurchase> choose_funding_purchase(
     const std::vector<ShopOffer>& offers,
     const std::map<std::string, std::vector<std::string>>& pacts)
 {
-    if (funds < 0 || policy.primary_pact.empty() || policy.primary_pact == "auto" || policy.bench_occupied < 1 ||
+    if (funds < 0 || policy.primary_pact.empty() || policy.primary_pact == "auto" || policy.bench_occupied < 0 ||
         std::find(policy.disabled_pacts.begin(), policy.disabled_pacts.end(), policy.primary_pact) !=
             policy.disabled_pacts.end()) {
         return std::nullopt;
@@ -224,16 +226,26 @@ inline std::optional<FundingPurchase> choose_funding_purchase(
     const auto rules = pact_requirements();
     const auto rule =
         std::find_if(rules.begin(), rules.end(), [&](const auto& item) { return item.name == policy.primary_pact; });
+    auto funded_policy = policy;
+    // A single verified sale can both fund the purchase and free its bench slot.
+    funded_policy.bench_occupied = std::min(policy.bench_occupied, 9);
     // Evaluate the smallest visible shortfall first. At each budget, let
     // the normal purchase planner compare the card with already affordable options.
     for (const int budget : funding_budgets) {
-        const auto choice = choose_preparation(policy, budget, offers, pacts);
+        const auto choice = choose_preparation(funded_policy, budget, offers, pacts);
         const auto membership = pacts.find(choice.name);
         if (choice.action != PreparationAction::Buy || choice.price <= funds ||
             (!choice.selected_pact.empty() && choice.selected_pact != policy.primary_pact) ||
-            membership == pacts.end() ||
-            std::find(membership->second.begin(), membership->second.end(), policy.primary_pact) ==
-                membership->second.end()) {
+            membership == pacts.end()) {
+            continue;
+        }
+        const auto improvement = policy.full_field_offer_improvements.find(choice.name);
+        if (choice.price - funds == 1 && improvement != policy.full_field_offer_improvements.end() &&
+            improvement->second > 0) {
+            return FundingPurchase { { choice.name, choice.price, choice.right_slot }, 1 };
+        }
+        if (std::find(membership->second.begin(), membership->second.end(), policy.primary_pact) ==
+            membership->second.end()) {
             continue;
         }
         const auto owned = policy.owned.find(choice.name);

@@ -187,6 +187,26 @@ inline BossObjective boss_objective(
     return result;
 }
 
+// Use a shared spawn only for a registered solo board. This is a planning
+// estimate from the client route and the stationary five-by-three rule.
+inline std::vector<BoardCell> estimate_solo_stationary_boss_footprint(const BossObjective& objective)
+{
+    if (!objective.stationary_route || objective.possible_cells.size() != 1) {
+        return {};
+    }
+    const auto [center_col, center_row] = objective.possible_cells.front();
+    if (center_col < 2 || center_col > 10 || center_row < 1 || center_row > 3) {
+        return {};
+    }
+    std::vector<BoardCell> cells;
+    for (int row = center_row - 1; row <= center_row + 1; ++row) {
+        for (int col = center_col - 2; col <= center_col + 2; ++col) {
+            cells.emplace_back(col, row);
+        }
+    }
+    return cells;
+}
+
 inline bool current_hidden_boss_enemy(const std::string& id)
 {
     return std::any_of(SeasonBossCatalogue.begin(), SeasonBossCatalogue.end(), [&](const auto& boss) {

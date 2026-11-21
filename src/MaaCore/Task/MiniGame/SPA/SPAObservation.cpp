@@ -265,6 +265,26 @@ bool asst::spa::operator_title_contains_rank_artifact(
     return matching == 1;
 }
 
+std::optional<double>
+    asst::spa::single_operator_title_confidence(const std::vector<TextObservation>& texts, const std::string& expected)
+{
+    if (expected.size() != 3 || (static_cast<unsigned char>(expected.front()) & 0xf0) != 0xe0) {
+        return std::nullopt;
+    }
+    std::optional<double> result;
+    for (const auto& text : texts) {
+        if (!std::isfinite(text.score) || text.score < .70 || text.x < 0 || text.x >= 40 || text.y < 175 ||
+            text.y > 207 || text.text.empty()) {
+            continue;
+        }
+        if (text.text != expected || result) {
+            return std::nullopt;
+        }
+        result = text.score;
+    }
+    return result;
+}
+
 bool asst::spa::bench_replacement_title_needs_settle(
     const std::vector<TextObservation>& texts,
     const std::string& expected_name)
@@ -281,6 +301,13 @@ bool asst::spa::bench_capacity_warning(const TextObservation& text)
            text.y <= 515 &&
            (text.text.find("整备区已达上限") != std::string::npos || text.text.find("干员已满") != std::string::npos ||
             text.text.find("无法继续调度干员") != std::string::npos);
+}
+
+bool asst::spa::equipment_capacity_warning(const TextObservation& text)
+{
+    return std::isfinite(text.score) && text.score >= .85 && text.x >= 440 && text.x <= 850 && text.y >= 475 &&
+           text.y <= 515 &&
+           (text.text.find("装备已满") != std::string::npos || text.text.find("无法继续购买装备") != std::string::npos);
 }
 
 bool asst::spa::selected_purchase_unavailable(const std::vector<TextObservation>& texts, int slot)
@@ -640,11 +667,11 @@ bool asst::spa::deployment_source_is_bench(int x, int y)
 
 std::optional<int> asst::spa::shop_column_from_right(int name_x)
 {
-    if (name_x < 125 || name_x >= 1100) {
+    constexpr int left_edge = 125, slot_width = 162, slots = 6;
+    if (name_x < left_edge || name_x >= left_edge + slot_width * slots) {
         return std::nullopt;
     }
-    const int column = (1110 - name_x) / 164;
-    return column <= 5 ? std::optional(column) : std::nullopt;
+    return slots - 1 - (name_x - left_edge) / slot_width;
 }
 
 std::optional<int> asst::spa::equipment_supply_slot(int title_x)

@@ -1090,7 +1090,7 @@ static int known_primary_acquisition_layers(const PreparationPolicy& policy, con
 {
     const auto observed = policy.observed_pact_layers.find(policy.primary_pact);
     if (!policy.growth_primary_active_verified || observed == policy.observed_pact_layers.end() ||
-        observed->second < 0 || observed->second >= 500) {
+        observed->second < 0 || observed->second >= 999) {
         return 0;
     }
     const auto effects = acquired_effects(name, policy.tactical_elite_purchase_pending, policy.shop_level);
@@ -1103,7 +1103,7 @@ static int known_primary_acquisition_layers(const PreparationPolicy& policy, con
             }
         }
     }
-    return layers;
+    return std::min(layers, 999 - observed->second);
 }
 
 static bool first_fitting_growth_purchase(const PreparationPolicy& policy, const std::string& name, int layers)
@@ -1117,6 +1117,19 @@ static bool first_fitting_growth_purchase(const PreparationPolicy& policy, const
     }
     const auto fit = policy.full_field_offer_improvements.find(name);
     return policy.deployed_population < 8 || (fit != policy.full_field_offer_improvements.end() && fit->second > 0);
+}
+
+static int preparation_growth_weight(const PreparationPolicy& policy)
+{
+    if (!policy.dynamic_decision_mode || policy.boss_preparation || policy.round < 1) {
+        return 0;
+    }
+    const int opportunities = std::clamp(policy.growth_scenario_horizon_round - policy.round - 1, 0, 7);
+    const auto observed = policy.observed_pact_layers.find(policy.primary_pact);
+    const int layer_need =
+        observed == policy.observed_pact_layers.end() ? 750 : 1000 - std::clamp(observed->second, 0, 999);
+    const int pressure = std::clamp(policy.last_round_life_loss, 0, 10) * 7;
+    return 800 * opportunities * layer_need / 1000 * (100 - pressure) / 100;
 }
 
 static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
@@ -1225,6 +1238,13 @@ static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
     if (!current_purchase || can_open_and_recruit) {
         return std::nullopt;
     }
+    if (purchase.growth_score > 0 &&
+        (policy.shop_discount_wait_level != policy.shop_level || policy.shop_discount_wait_round == policy.round)) {
+        return ShopUpgradeHold { "Fund " + purchase.name + " for the current growth window before another book",
+                                 {},
+                                 0,
+                                 std::max(0, upgrade_price - 1) };
+    }
     if (!purchase.is_equipment && purchase.selected_pact == policy.primary_pact &&
         first_fitting_growth_purchase(policy, purchase.name, known_primary_acquisition_layers(policy, purchase.name))) {
         // This card improves the field and has a deterministic on-acquisition
@@ -1279,6 +1299,39 @@ bool asst::spa::should_upgrade_dynamic_shop(
                                       package->total_cost };
         }
         return false;
+    }
+    const auto retention = round_balance_retention(policy.selected_strategy_id, funds);
+    if (policy.shop_level <= 2 && retention && !retention->carries && upgrade_price > 0 && policy.early_board_ready &&
+        policy.last_round_life_loss == 0 && !policy.boss_preparation && policy.round > 0 &&
+        policy.round < policy.economy_scenario_horizon_round) {
+        if (policy.shop_discount_wait_level == policy.shop_level && policy.shop_discount_wait_round == policy.round) {
+            return false;
+        }
+        if (policy.shop_discount_wait_level != policy.shop_level && policy.bench_occupied >= 0 &&
+            policy.deployed_population + policy.bench_occupied <= 6) {
+            const int budget_after_upgrade = funds - upgrade_price;
+            const auto first = choose_preparation(policy, budget_after_upgrade, offers, pacts);
+            if (first.action == PreparationAction::Buy && first.price > 0 && !first.banked_value_purchase &&
+                budget_after_upgrade - first.price == 1 && !policy.owned.contains(first.name)) {
+                auto second_offers = offers;
+                std::erase_if(second_offers, [&](const auto& offer) { return offer.name == first.name; });
+                auto projected = policy;
+                projected.owned.emplace(first.name, OwnedOperator { 1, false, false });
+                ++projected.bench_occupied;
+                const auto second = choose_preparation(projected, funds - first.price, second_offers, pacts);
+                if (second.action == PreparationAction::Buy && second.price > 1 &&
+                    !policy.owned.contains(second.name) && belongs_to_planned_lineup(second.name, policy, pacts)) {
+                    if (hold) {
+                        *hold = ShopUpgradeHold { "Develop the current field with " + first.name + " and " +
+                                                      second.name + " before paying for the next book",
+                                                  {},
+                                                  0,
+                                                  std::max(0, upgrade_price - 1) };
+                    }
+                    return false;
+                }
+            }
+        }
     }
     if (auto timing = plan_shop_upgrade_hold(policy, funds, upgrade_price, offers, pacts)) {
         if (hold) {
@@ -1545,6 +1598,7 @@ struct ScoredShopPurchase
     const ShopOffer* offer;
     int score;
     bool support = false;
+    int growth_score = 0;
 };
 
 static bool can_recruit_after_paid_refresh(
@@ -1556,13 +1610,15 @@ static bool can_recruit_after_paid_refresh(
     if (after_refresh < policy.minimum_recruit_price) {
         return false;
     }
-    if (after_refresh != 1 || !policy.dynamic_decision_mode) {
+    const bool planning_growth =
+        preparation_growth_weight(policy) > 0 && !policy.primary_pact.empty() && policy.primary_pact != "auto";
+    if (!policy.dynamic_decision_mode || (after_refresh != 1 && !planning_growth)) {
         return true;
     }
-    // A one-gold remainder is only a recruitment budget when the route
-    // still has a known one-price target in an accessible shop tier.
+    // The visible book and post-refresh budget must reach a usable card on
+    // this route. A future book's stacker or carry gets no credit here.
     return std::any_of(OperatorCatalogue.begin(), OperatorCatalogue.end(), [&](const auto& card) {
-        if (card.price != 1 || card.tier > policy.shop_level) {
+        if (card.price <= 0 || card.price > after_refresh || card.tier > policy.shop_level) {
             return false;
         }
         const std::string name(card.name);
@@ -1815,6 +1871,7 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
     const ShopOffer* best = nullptr;
     int best_score = 0;
     bool best_is_support = false;
+    int best_growth_score = 0;
     std::vector<ScoredShopPurchase> eligible_purchases;
 
     std::vector<std::string> current_field;
@@ -1834,6 +1891,10 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
             return (entry.second.copies > 0 || entry.second.elite) && (entry.first == "旅骨" || entry.first == "棘刺");
         });
     const auto requirements = pact_requirements();
+    const auto primary_requirement = std::find_if(requirements.begin(), requirements.end(), [&](const auto& rule) {
+        return rule.name == resolved.primary_pact;
+    });
+    const int growth_weight = preparation_growth_weight(resolved);
     std::set<int> slots;
     const ShopOffer* best_unaffordable = nullptr;
     int best_unaffordable_score = 0;
@@ -1974,33 +2035,60 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
             first_fitting_growth_purchase(resolved, offer.name, acquisition_layers) ? 450 : 0;
         const bool enables_sale_growth =
             has_iberia_sale_engine && copies == 0 && has_iberia_sale_price_trait(offer.name);
+        const auto fit = resolved.full_field_offer_improvements.find(offer.name);
+        const bool fieldable = (resolved.deployed_population >= 0 && resolved.deployed_population < 8) ||
+                               (fit != resolved.full_field_offer_improvements.end() && fit->second > 0) ||
+                               (owned != resolved.owned.end() && owned->second.deployed && completes_promotion);
+        const auto profile = growth_profiles().find(offer.name);
+        const bool can_contribute = fieldable || (profile != growth_profiles().end() && profile->second.works_on_bench);
+        // Positional or enemy-event recipients still matter, but their
+        // application is less certain than a self-contained layer source.
+        const int engine_relevance = engine && can_contribute && (copies == 0 || completes_promotion)
+                                         ? (profile->second.dynamic_recipients ? 60 : 100)
+                                         : 0;
+        const bool advances_activation = primary && copies == 0 && fieldable &&
+                                         primary_requirement != requirements.end() &&
+                                         primary_owned < primary_requirement->members;
+        const int growth_relevance = std::max(
+            { engine_relevance,
+              advances_activation ? 85 : 0,
+              can_contribute && copies == 0 && (growth_support > 0 || completes_support || enables_sale_growth) ? 80
+                                                                                                                : 0,
+              first_growth_recruit_bonus > 0 ? 70 : 0 });
+        const int growth_score = growth_weight * growth_relevance / 100;
         const int score =
-            promotion_bonus + std::min(acquisition_layers * 100, 1000) + first_growth_recruit_bonus +
+            growth_score + promotion_bonus + std::min(acquisition_layers * 100, 1000) + first_growth_recruit_bonus +
             (enables_sale_growth ? 1250 : 0) +
             (primary
                  ? (carry ? (copies == 0 && (current_roles.output_owned == 0 || missing_terminal) ? 4000 : 500) : 0) +
                        (engine ? (copies == 0 && current_roles.growth_engine_owned == 0 ? 3000 : 1000) : 0) +
                        (copies == 0 ? new_member_priority : 20)
                  : std::max(growth_support, 1500 * completes_support) + (preferred_support ? 250 : 0));
-        eligible_purchases.push_back({ &offer, score, !primary });
+        eligible_purchases.push_back({ &offer, score, !primary, growth_score });
         if (!best || score > best_score || (score == best_score && offer.price < best->price)) {
             best = &offer;
             best_score = score;
             best_is_support = !primary;
+            best_growth_score = growth_score;
         }
     }
     if (best) {
-        const ScoredShopPurchase best_purchase { best, best_score, best_is_support };
+        const ScoredShopPurchase best_purchase { best, best_score, best_is_support, best_growth_score };
         const auto& budgeted = prefer_spending_last_coin(best_purchase, eligible_purchases, resolved, funds, 0);
         return { PreparationAction::Buy,
                  budgeted.offer->name,
                  budgeted.offer->price,
                  budgeted.offer->right_slot,
-                 budgeted.offer != best ? "Use the final ordinary coin on equally ranked, visible purchases"
+                 budgeted.offer != best      ? "Use the final ordinary coin on equally ranked, visible purchases"
+                 : budgeted.growth_score > 0 ? "Fund actionable pact growth in the remaining preparation window"
                  : budgeted.support
                      ? "Recruit a useful growth helper or a distinct configured support-pact member"
                      : "Prioritize primary-pact activation, a verified growth formula and the configured carry",
-                 resolved.primary_pact };
+                 resolved.primary_pact,
+                 false,
+                 false,
+                 false,
+                 budgeted.growth_score };
     }
     if (best_unaffordable && resolved.allow_freeze && !resolved.shop_frozen_this_round &&
         std::none_of(offers.begin(), offers.end(), [&](const auto& offer) {

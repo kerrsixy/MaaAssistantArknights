@@ -1001,6 +1001,11 @@ int main()
     assert(bench_capacity_warning(full_bench_toast));
     assert(!bench_capacity_warning({ full_bench_toast.text, .98, 495, 654 }));
     assert(!bench_capacity_warning({ "装备区已达上限，无法完成购买", .98, 495, 490 }));
+    const TextObservation full_equipment_toast { "装备已满，无法继续购买装备", .98, 506, 489 };
+    assert(equipment_capacity_warning(full_equipment_toast));
+    assert(!bench_capacity_warning(full_equipment_toast));
+    assert(!equipment_capacity_warning(full_bench_toast));
+    assert(!equipment_capacity_warning({ full_equipment_toast.text, .98, 506, 654 }));
     assert(selected_purchase_unavailable({ { "无法购买", .97, 330, 655 } }, 4));
     assert(!selected_purchase_unavailable({ { "无法购买", .97, 330, 655 } }, 3));
     assert(!selected_purchase_unavailable({ { "无法购买", .97, 330, 655 }, { "确认购买", .98, 334, 655 } }, 4));
@@ -1032,6 +1037,13 @@ int main()
     assert(!operator_title_contains_rank_artifact({ { "余烬", .99, 10, 181 } }, "余"));
     assert(!operator_title_contains_rank_artifact({ { "余M", .95, 12, 665 } }, "余"));
     assert(!operator_title_contains_rank_artifact({ { "余M", .95, 10, 181 }, { "黍", .98, 10, 187 } }, "余"));
+    const std::vector<TextObservation> weak_dusk { { "夕", .749195, 12, 181 }, { "LV 1", .836404, 94, 216 } };
+    const std::vector<TextObservation> settled_dusk { { "夕", .897747, 14, 182 }, { "LV", .999747, 94, 217 } };
+    assert(single_operator_title_confidence(weak_dusk, "夕") == .749195);
+    assert(single_operator_title_confidence(settled_dusk, "夕") == .897747);
+    assert(!single_operator_title_confidence(weak_dusk, "余"));
+    assert(!single_operator_title_confidence({ { "夕", .897, 14, 665 } }, "夕"));
+    assert(!single_operator_title_confidence({ { "夕", .897, 14, 182 }, { "余", .98, 13, 182 } }, "夕"));
 
     assert(!promotion_short_title_confirmation(d3_dusk_confirmation, "夕", 2));
 
@@ -1464,7 +1476,15 @@ int main()
     const std::vector<ShopOffer> activation_shop { { "归溟幽灵鲨", 3, 0 } };
     const auto funding = choose_funding_purchase(activation_funding, 2, activation_shop, activation_catalog);
     assert(funding && funding->offer.name == "归溟幽灵鲨" && funding->deficit == 1);
+    auto full_bench_funding = activation_funding;
+    full_bench_funding.bench_occupied = 10;
+    const auto funded_slot = choose_funding_purchase(full_bench_funding, 2, activation_shop, activation_catalog);
+    assert(funded_slot && funded_slot->offer.name == "归溟幽灵鲨" && funded_slot->deficit == 1);
     assert(choose_full_bench_sale(activation_funding, {}, funding->deficit) == "杰克");
+    auto coin_only_funding = activation_funding;
+    coin_only_funding.bench_occupied = 0;
+    coin_only_funding.owned.erase("杰克");
+    assert(choose_funding_purchase(coin_only_funding, 2, activation_shop, activation_catalog)->deficit == 1);
     assert(!choose_funding_purchase(activation_funding, 3, activation_shop, activation_catalog));
     assert(!choose_full_bench_sale(activation_funding, { "杰克" }, funding->deficit));
     activation_funding.owned["杰克"].copies = 2;
@@ -1499,6 +1519,8 @@ int main()
     const auto unrelated_sale = choose_full_bench_sale(pending_swap_bench, { "奥尔佳", "杰克" });
     assert(unrelated_sale && *unrelated_sale != "奥尔佳" && *unrelated_sale != "杰克");
     assert(!pending_swap_bench.owned.at(*unrelated_sale).deployed);
+    pending_swap_bench.released_transitions = { "霜叶", "奥尔佳", "杰克" };
+    assert(choose_full_bench_sale(pending_swap_bench, { "奥尔佳", "杰克" }) == "霜叶");
     auto all_reserved = pending_swap_bench;
     all_reserved.owned = { { "奥尔佳", { 1, false, false } }, { "杰克", { 1, true, true } } };
     assert(!choose_full_bench_sale(all_reserved, { "奥尔佳", "杰克" }));
@@ -1989,6 +2011,12 @@ int main()
     freeze_field[2].facing = 'W';
     assert(freeze_growth_coverage(freeze_field, freeze_lanes, cold_sources, stackers) == 1);
     assert(freeze_growth_coverage(freeze_field, freeze_lanes, { "初雪" }, stackers) == 0);
+    auto conditional_field = freeze_field;
+    conditional_field[1].id = "圣聆初雪";
+    conditional_field[1].damage_output = true;
+    assert(
+        freeze_growth_coverage(conditional_field, freeze_lanes, {}, { "圣聆初雪" }, { { "圣聆初雪", { { 1, 0 } } } }) ==
+        1);
     freeze_field[3].range_known = false;
     assert(freeze_growth_coverage(freeze_field, freeze_lanes, cold_sources, stackers) == 0);
     freeze_field[2].facing = 'E';
@@ -2325,6 +2353,20 @@ int main()
     }
     assert(!choose_replacement("萨尔贡", activated_board, { { "主输出", PlacementRole::Ranged, { "其他阵营" }, 9000 } })
                 .found);
+    const std::vector<ReplacementMember> dusk_lineup {
+        { "卡达", PlacementRole::Ranged, { "奥术" }, 0, 740, 235, true },
+        { "黍", PlacementRole::Frontline, { "炎", "远见" }, 0, 800, 235, true },
+        { "余", PlacementRole::Frontline, { "炎", "坚守" }, 0, 870, 235, false }
+    };
+    const std::vector<ReplacementMember> dusk { { "夕", PlacementRole::Ranged, { "炎", "奥术" }, 0 } };
+    const auto evaluate_dusk = [](const auto& lineup) {
+        if (std::ranges::none_of(lineup, [](const auto& member) { return member.name == "夕"; })) {
+            return 0;
+        }
+        return std::ranges::any_of(lineup, [](const auto& member) { return member.name == "黍"; }) ? 1000 : 1500;
+    };
+    assert(choose_replacement("炎", dusk_lineup, dusk, {}, evaluate_dusk).outgoing == "卡达");
+    assert(choose_replacement("炎", dusk_lineup, dusk, {}, evaluate_dusk, {}, { "奥术" }).outgoing == "黍");
     const std::vector<ReplacementMember> two_blockers {
         { "上路", PlacementRole::Frontline, { "萨尔贡" }, 100, 800, 235, true },
         { "下路", PlacementRole::Frontline, { "萨尔贡" }, 100, 800, 437, true }
@@ -3495,6 +3537,10 @@ int main()
     assert(shop_column_from_right(973) == 0);
     assert(shop_column_from_right(645) == 2);
     assert(shop_column_from_right(318) == 4);
+    // Both names came from the same round-14 scan. Nightingale's label
+    // starts just inside the fifth slot from the left.
+    assert(shop_column_from_right(638) == 2);
+    assert(shop_column_from_right(778) == 1);
     assert(!shop_column_from_right(20));
     const auto catalog = operator_pacts();
     const auto requirements = pact_requirements();
@@ -4046,6 +4092,47 @@ int main()
     discount_window.round = 9;
     assert(should_upgrade_dynamic_shop(discount_window, 6, 5, available_healer, catalog, &upgrade_hold));
 
+    // Regulation 4, round 3. The book-I upgrade and one 2-gold recruit
+    // leave one coin. The visible shop can instead develop two field roles.
+    auto early_budget = discount_window;
+    early_budget.primary_pact = "乌萨斯";
+    early_budget.selected_strategy_id = "band_price";
+    early_budget.shop_level = 1;
+    early_budget.round = 3;
+    early_budget.deployed_population = 4;
+    early_budget.bench_occupied = 0;
+    early_budget.primary_locked_after_activation = false;
+    early_budget.dynamic_primary_pact = true;
+    early_budget.disabled_pacts = { "维多利亚", "莱塔尼亚", "炎", "叙拉古", "助力", "聚合" };
+    early_budget.enabled_core_pacts.clear();
+    for (const auto& rule : pact_requirements()) {
+        if (rule.core &&
+            std::ranges::find(early_budget.disabled_pacts, rule.name) == early_budget.disabled_pacts.end()) {
+            early_budget.enabled_core_pacts.push_back(rule.name);
+        }
+    }
+    early_budget.owned = { { "折桠", { 1, false, true } },
+                           { "摆渡人", { 1, false, true } },
+                           { "灰喉", { 1, false, true } },
+                           { "角峰", { 1, false, true } } };
+    early_budget.early_board_scores = { { "卡达", 1600 }, { "烈夏", 500 }, { "角峰", 500 } };
+    const std::vector<ShopOffer> early_quotes { { "角峰", 2, 2 }, { "烈夏", 2, 1 }, { "卡达", 2, 0 } };
+    assert(!should_upgrade_dynamic_shop(early_budget, 6, 3, early_quotes, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->next_round_upgrade_price == 2);
+    assert(
+        upgrade_hold->reason.find("卡达") != std::string::npos &&
+        upgrade_hold->reason.find("烈夏") != std::string::npos);
+    early_budget.shop_discount_wait_level = 1;
+    early_budget.shop_discount_wait_round = 3;
+    assert(!should_upgrade_dynamic_shop(early_budget, 4, 3, { { "烈夏", 2, 1 } }, catalog));
+    assert(should_upgrade_dynamic_shop(early_budget, 4, 0, { { "烈夏", 2, 1 } }, catalog));
+    early_budget.round = 4;
+    assert(should_upgrade_dynamic_shop(early_budget, 7, 2, {}, catalog));
+    early_budget.round = 3;
+    early_budget.shop_discount_wait_level = 0;
+    early_budget.selected_strategy_id = "band_cannot";
+    assert(should_upgrade_dynamic_shop(early_budget, 6, 3, early_quotes, catalog));
+
     // Recorded regulation-3 round-7 shop and roster. The positive and zero
     // outcomes isolate the live replacement review input to the policy.
     auto kjerag_market = discount_window;
@@ -4427,6 +4514,28 @@ int main()
     sargon_shop.owned["鸿雪"] = { 1, false, true };
     sargon_buy = choose_preparation(sargon_shop, 4, { { "泡泡", 2, 0 }, { "佩佩", 4, 1 } }, catalog);
     assert(sargon_buy.name == "泡泡");
+    auto sargon_growth = sargon_shop;
+    sargon_growth.owned.erase("鸿雪");
+    sargon_growth.carries = { "异客" };
+    sargon_growth.round = 6;
+    sargon_growth.growth_scenario_horizon_round = 14;
+    sargon_growth.deployed_population = 5;
+    sargon_growth.early_board_ready = true;
+    sargon_growth.last_round_life_loss = 0;
+    sargon_growth.observed_pact_layers = { { "萨尔贡", 43 } };
+    const std::vector<ShopOffer> growth_or_output { { "泡泡", 3, 0 }, { "异客", 4, 1 } };
+    const auto grow_first = choose_preparation(sargon_growth, 4, growth_or_output, catalog);
+    assert(grow_first.name == "泡泡" && grow_first.growth_score > 0);
+    const auto affordable_output = choose_preparation(sargon_growth, 4, { { "异客", 4, 1 } }, catalog);
+    assert(affordable_output.name == "异客" && affordable_output.growth_score == 0);
+    sargon_growth.boss_preparation = true;
+    assert(choose_preparation(sargon_growth, 4, growth_or_output, catalog).name == "异客");
+    sargon_growth.boss_preparation = false;
+    sargon_growth.observed_pact_layers["萨尔贡"] = 780;
+    assert(choose_preparation(sargon_growth, 4, growth_or_output, catalog).name == "异客");
+    sargon_growth.observed_pact_layers["萨尔贡"] = 43;
+    sargon_growth.last_round_life_loss = 10;
+    assert(choose_preparation(sargon_growth, 4, growth_or_output, catalog).name == "异客");
     auto harmony_shop = dynamic_decision;
     harmony_shop.primary_pact = "维多利亚";
     harmony_shop.dynamic_primary_pact = false;
@@ -4562,6 +4671,15 @@ int main()
     assert(!choose_equipment(toy_buy, { expensive_toy }).buy);
     toy_buy.round = 14;
     assert(!choose_equipment(toy_buy, { toy_profile }).buy);
+    // A second toy bought in round five is evaluated from its distinct
+    // equip window in round six, after the preceding receipt is settled.
+    auto held_toy = toy_buy;
+    held_toy.funds = 1;
+    held_toy.round = 6;
+    held_toy.boss_round = 7;
+    assert(choose_equipment(held_toy, { toy_profile }).buy);
+    held_toy.boss_round = held_toy.round;
+    assert(!choose_equipment(held_toy, { toy_profile }).buy);
     const auto recurring_toy =
         *std::find_if(equipment_profiles().begin(), equipment_profiles().end(), [](const auto& item) {
             return item.name == "精打细算玩偶";
@@ -4599,6 +4717,17 @@ int main()
     assert(choose_equipment_assignment(assignment_context, { "乌萨斯呼吸器" }, equipment_team).recipient == "泡泡");
     assert(choose_equipment_assignment(assignment_context, { "护盾无人机" }, equipment_team).recipient == "夜莺");
     assert(choose_equipment_assignment(assignment_context, { "精准狙击镜" }, equipment_team).recipient == "空弦");
+    auto kjerag_equipment = assignment_context;
+    kjerag_equipment.kjerag_freeze_growth_active = true;
+    EquipmentRecipient kjera { .name = "耶拉", .slots_known = true, .attacks = true, .max_range_distance = 3 };
+    EquipmentRecipient gnosis { .name = "灵知", .slots_known = true, .attacks = true, .freeze_skill_engine = true };
+    auto pramanix = gnosis;
+    pramanix.name = "圣聆初雪";
+    pramanix.carry = true;
+    assert(choose_equipment_assignment(kjerag_equipment, { "谢拉格不融冰" }, { pramanix, kjera }).recipient == "耶拉");
+    assert(choose_equipment_assignment(kjerag_equipment, { "可靠怀表" }, { pramanix, gnosis }).recipient == "圣聆初雪");
+    pramanix.equipped = { "维式重锤", "谢拉格不融冰" };
+    assert(choose_equipment_assignment(kjerag_equipment, { "可靠怀表" }, { pramanix, gnosis }).recipient == "灵知");
     auto egir_output_gear = equipment_sniper;
     egir_output_gear.name = "克莱门莎";
     egir_output_gear.carry = true;
@@ -4689,6 +4818,26 @@ int main()
     assert(!safe_identity_tag_recipient("烈夏", "炎", false, {}));
     assert(!safe_identity_tag_recipient("烈夏", "乌萨斯", false, { "维式重锤", "坚守盾牌" }));
     assert(!safe_identity_tag_recipient("烈夏", "乌萨斯", false, { "变形同构体" }));
+    EquipmentRecipient greythroat;
+    greythroat.name = "灰喉";
+    greythroat.slots_known = true;
+    EquipmentRecipient leto;
+    leto.name = "烈夏";
+    leto.slots_known = true;
+    const auto tag_fallback =
+        choose_identity_tag_target("乌萨斯", {}, {}, { { "精准", 2 }, { "不屈", 1 } }, { greythroat }, true);
+    assert(tag_fallback && tag_fallback->recipient == "灰喉" && tag_fallback->pact == "精准");
+    const auto tag_primary = choose_identity_tag_target(
+        "乌萨斯",
+        { "精准" },
+        {},
+        { { "精准", 2 }, { "乌萨斯", 0 } },
+        { greythroat, leto },
+        true);
+    assert(tag_primary && tag_primary->recipient == "烈夏" && tag_primary->pact == "乌萨斯");
+    assert(!choose_identity_tag_target("乌萨斯", {}, {}, { { "精准", 2 } }, { greythroat }, false));
+    assert(!choose_identity_tag_target("乌萨斯", {}, { "精准" }, { { "精准", 2 } }, { greythroat }, true));
+    assert(!choose_identity_tag_target("乌萨斯", {}, {}, { { "精准", 998 } }, { greythroat }, true));
     const std::string mech_recipient = "“暴躁铁皮”";
     const std::vector<TextObservation> empty_mech_panel { { mech_recipient, .99, 15, 190 } };
     const auto empty_mech_items = equipment_panel_items(empty_mech_panel, mech_recipient);
@@ -5101,6 +5250,37 @@ int main()
         {},
         rest_pair);
     assert(boss_instead.preparation_growth_preference_improvement == 0);
+    {
+        const std::vector<BoardCell> cells { { 2, 0 }, { 1, 2 }, { 2, 2 }, { 4, 2 } };
+        const std::vector<DeploymentLane> lanes { { "boss-map-lane", { { 3, 0 }, { 2, 0 }, { 1, 0 } }, 0, 1 } };
+        DeploymentUnit blocker { .id = "blocker", .cell = { 2, 0 }, .block_count = 3, .frontline = true };
+        blocker.placement_cells = { blocker.cell };
+        blocker.movable = false;
+        DeploymentUnit blaze { .id = "烛煌",
+                               .cell = { 4, 2 },
+                               .facing = 'W',
+                               .damage_output = true,
+                               .range_known = true };
+        const auto stats = season_combat_stats(blaze.id, true);
+        const auto skill = conditional_skill_attack_window(blaze.id, true, 30);
+        assert(stats && skill.possible);
+        blaze.local_range.assign(stats->basic_range.begin(), stats->basic_range.end());
+        blaze.placement_cells = { blaze.cell };
+        blaze.boss_skill_attack_range.assign(skill.attack_range.begin(), skill.attack_range.end());
+        blaze.boss_skill_attack_uptime_percent = static_cast<int>(skill.active_seconds * 100 / 30);
+        DeploymentUnit shu { .id = "黍", .cell = { 1, 2 }, .block_count = 3, .frontline = true };
+        shu.placement_cells = { { 1, 2 }, { 2, 2 } };
+        const auto heal = season_default_skill(shu.id, true);
+        assert(heal && !heal->declared_range.empty());
+        shu.boss_skill_healing_range.assign(heal->declared_range.begin(), heal->declared_range.end());
+        const std::vector<DeploymentUnit> formation { blocker, blaze, shu };
+        const std::vector<BoardCell> boss { { 8, 2 } };
+        const auto plan = propose_deployment(formation, lanes, cells, 1000, {}, boss);
+        assert(plan.units[1].facing == 'E' && plan.units[2].cell == BoardCell(2, 2));
+        assert(plan.boss_estimated_attack_improvement > 0 && plan.boss_supported_attack_improvement > 0);
+        assert(stationary_boss_attackers(plan.units, boss) == 0);
+        assert(deployment_change_worth_input(plan, sequence_deployment(formation, plan.units)));
+    }
     const auto retain_route = propose_deployment(
         early_blocker.units,
         { route_cases.front() },

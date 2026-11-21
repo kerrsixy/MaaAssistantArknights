@@ -132,6 +132,7 @@ asst::spa::EquipmentAssignment asst::spa::choose_equipment_assignment(
 {
     EquipmentAssignment best;
     for (const auto& name : candidates) {
+        const bool freeze_gear = name == "谢拉格不融冰";
         const auto item =
             std::find_if(equipment_profiles().begin(), equipment_profiles().end(), [&](const auto& profile) {
                 return profile.name == name;
@@ -153,7 +154,8 @@ asst::spa::EquipmentAssignment asst::spa::choose_equipment_assignment(
                  (!target.deliberate_redeploy || !context.growth_battle_available)) ||
                 (item->role == EquipmentRole::Defense && !target.frontline && name != "雪祀之衣" && name != "伪装服") ||
                 (item->role == EquipmentRole::Growth && !target.active_own_pact) ||
-                (item->role == EquipmentRole::SkillRecovery && !target.skill_growth_engine) ||
+                (item->role == EquipmentRole::SkillRecovery && !target.skill_growth_engine &&
+                 !target.freeze_skill_engine) ||
                 (item->role == EquipmentRole::Control && !target.attacks)) {
                 continue;
             }
@@ -162,6 +164,7 @@ asst::spa::EquipmentAssignment asst::spa::choose_equipment_assignment(
                 ((name == "虹彩活血饮料" || name == "汲取者之镰") && context.field_has_healer) ||
                 (name == "虹彩活血饮料" && !target.frontline) ||
                 (name == "精准狙击镜" && (!target.attacks || target.max_range_distance < 3)) ||
+                (name == "天马之枪" && !target.attacks) ||
                 (name == "炎国短刀" && !target.skill_growth_engine && !target.carry) ||
                 ((name == "伊比利亚骨刺刀" || name == "多功能补剂" || name == "谢拉格不融冰" || name == "动能单手弩" ||
                   name == "动能轰击弩" || name == "汲取者之喙" || name == "汲取者之镰") &&
@@ -174,6 +177,12 @@ asst::spa::EquipmentAssignment asst::spa::choose_equipment_assignment(
                 continue;
             }
             int score = item->score + (target.carry ? 70 : 0);
+            if (freeze_gear && context.kjerag_freeze_growth_active) {
+                score += target.name == "耶拉" ? 120 : target.max_range_distance * 8;
+            }
+            if (item->role == EquipmentRole::SkillRecovery && target.freeze_skill_engine) {
+                score += 90;
+            }
             score += item->role == EquipmentRole::Defense && target.frontline ? 60 : 0;
             score += item->role == EquipmentRole::Sustain && target.healer ? 50 : 0;
             score += item->role == EquipmentRole::SkillRecovery && target.skill_growth_engine ? 90 : 0;
@@ -234,6 +243,46 @@ bool asst::spa::safe_identity_tag_recipient(
                equipped.begin(),
                equipped.end(),
                [](const auto& item) { return equipment_title_matches("变形同构体", item); });
+}
+
+std::optional<asst::spa::IdentityTagTarget> asst::spa::choose_identity_tag_target(
+    const std::string& primary,
+    const std::vector<std::string>& support_pacts,
+    const std::vector<std::string>& disabled_pacts,
+    const std::map<std::string, int>& observed_layers,
+    const std::vector<EquipmentRecipient>& recipients,
+    bool allow_observed_secondary)
+{
+    static const auto catalog = operator_pacts();
+    std::optional<IdentityTagTarget> best;
+    int best_score = 0;
+    for (const auto& recipient : recipients) {
+        const auto membership = catalog.find(recipient.name);
+        if (!recipient.slots_known || membership == catalog.end()) {
+            continue;
+        }
+        for (const auto& pact : membership->second) {
+            const auto layers = observed_layers.find(pact);
+            if (layers == observed_layers.end() || layers->second < 0 || layers->second > 996 ||
+                std::ranges::find(disabled_pacts, pact) != disabled_pacts.end() ||
+                !safe_identity_tag_recipient(recipient.name, pact, recipient.elite, recipient.equipped)) {
+                continue;
+            }
+            const int priority = pact == primary                                                 ? 3
+                                 : std::ranges::find(support_pacts, pact) != support_pacts.end() ? 2
+                                 : allow_observed_secondary && layers->second > 0                ? 1
+                                                                                                 : 0;
+            if (priority == 0 || (!allow_observed_secondary && pact != primary)) {
+                continue;
+            }
+            const int score = priority * 10 + (recipient.carry ? 2 : 0) + (recipient.active_own_pact ? 1 : 0);
+            if (score > best_score) {
+                best = IdentityTagTarget { recipient.name, pact };
+                best_score = score;
+            }
+        }
+    }
+    return best;
 }
 
 bool asst::spa::is_recurring_cash_equipment(std::string_view name)
@@ -334,7 +383,7 @@ const std::vector<asst::spa::EquipmentProfile>& asst::spa::equipment_profiles()
             { "不退者力场", 3, EquipmentRole::Defense, false, false, 22, 5 },
             { "驱逐者瓦斯", 3, EquipmentRole::Damage, false, false, 24, 5 },
             { "投机骰子", 3, EquipmentRole::Economy, false, false, 20, 5 },
-            { "天马之枪", 3, EquipmentRole::Damage, false, false, 24, 6 },
+            { "天马之枪", 3, EquipmentRole::Damage, false, false, 50, 6 },
             { "人事部文档", 4, EquipmentRole::Economy, false, false, 20, 6 },
             { "变形同构体", 3, EquipmentRole::Unknown, false, false, 8, 6 },
             { "动能加速器", 3, EquipmentRole::Damage, false, false, 24, 6 },
@@ -431,6 +480,9 @@ asst::spa::EquipmentDecision
             }
         }
         int score = offer.score;
+        if (context.freeze_engine_assignment) {
+            score += 25 + std::min(rounds_left, 5) * 7;
+        }
         if (profitable_toy) {
             score += 15;
         }

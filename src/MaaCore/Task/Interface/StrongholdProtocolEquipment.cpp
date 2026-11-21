@@ -134,7 +134,7 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
 {
     const int round = state.get("round", -1);
     const int remaining = state.get("remaining_deployment", -1);
-    if (round < 1 || remaining != 0 || !m_auto_run || m_decision_only || m_stop_before_battle ||
+    if (round < 1 || remaining < 0 || remaining > 8 || !m_auto_run || m_decision_only || m_stop_before_battle ||
         m_mode == "joint" && state.get("preparation_seconds_remaining", 0) < 30 || m_pending_spatial_orientation ||
         m_pending_field_replacement || m_field_checkpoint_loaded ||
         m_growth_population_poses != m_auto_deploy_positions ||
@@ -179,6 +179,7 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
             terrain->buildable,
             m_population_grid_members,
             spa::active_preparation_lanes(*terrain, round));
+        std::erase_if(targets, [&](const auto& cell) { return m_confirmed_summon_cells.contains({ round, cell }); });
         if (owner_name == "白铁") {
             std::map<spa::BoardCell, int> charging_allies;
             for (const auto& ally : m_population_grid_members) {
@@ -215,9 +216,18 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
             continue;
         }
         m_preparation_summon_attempts.emplace(round, summon);
-        const auto placement =
-            deploy
-                .deploy_preparation_summon(summon, observed.second, targets, round, state.get("funds", -1), remaining);
+        std::optional<spa::BoardCell> verified_cell;
+        const auto placement = deploy.deploy_preparation_summon(
+            summon,
+            observed.second,
+            targets,
+            round,
+            state.get("funds", -1),
+            remaining,
+            verified_cell);
+        if (verified_cell) {
+            m_confirmed_summon_cells.emplace(round, *verified_cell);
+        }
         auto receipt = basic_info_with_what("SPAPreparationSummonPlacement");
         receipt["details"] = json::object { { "name", summon },
                                             { "owner", verified_owner.name },
@@ -225,6 +235,8 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
                                             { "candidate_cells", targets.size() },
                                             { "drop_attempted", placement.has_value() },
                                             { "field_title_verified", placement.value_or(false) },
+                                            { "placed_col", verified_cell ? verified_cell->first : -1 },
+                                            { "placed_row", verified_cell ? verified_cell->second : -1 },
                                             { "deployment_capacity_effect_known", placement.value_or(false) },
                                             { "ordinary_operator_population_consumed",
                                               placement.value_or(false) ? json::value(false) : json::value(nullptr) } };
@@ -291,6 +303,12 @@ std::pair<asst::spa::EquipmentAssignmentContext, std::vector<asst::spa::Equipmen
         spa::enabled_formation_pacts(m_enabled_core_pacts, m_policy.disabled_pacts));
     spa::EquipmentAssignmentContext context;
     context.growth_battle_available = m_expected_boss_round > 0 && m_policy.round < m_expected_boss_round;
+    context.kjerag_freeze_growth_active =
+        std::find(formation.active_pacts.begin(), formation.active_pacts.end(), "谢拉格") !=
+            formation.active_pacts.end() &&
+        std::any_of(roster.begin(), roster.end(), [](const auto& unit) {
+            return unit.deployed && (unit.name == "初雪" || unit.name == "圣聆初雪");
+        });
     std::vector<spa::EquipmentRecipient> recipients;
     std::set<std::string> special_hammers;
     const int field_frontliners =
@@ -344,6 +362,7 @@ std::pair<asst::spa::EquipmentAssignmentContext, std::vector<asst::spa::Equipmen
              (props->role != battle::Role::Medic || props->sub_role == battle::SubRole::Medic_IncantationMedic));
         target.carry = strategy_mech || spa::is_primary_output_candidate(name, m_policy.primary_pact) ||
                        std::find(m_policy.carries.begin(), m_policy.carries.end(), name) != m_policy.carries.end();
+        target.freeze_skill_engine = context.kjerag_freeze_growth_active && (name == "灵知" || name == "圣聆初雪");
         if (const auto growth = spa::growth_profiles().find(name); growth != spa::growth_profiles().end()) {
             target.skill_growth_engine = growth->second.kind == spa::GrowthKind::CappedConditional &&
                                          growth->second.phase == spa::GrowthPhase::BattleEvent &&
@@ -757,22 +776,24 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
         }
     }
     auto assignment = spa::choose_equipment_assignment(context, candidates, recipients);
-    const auto layers = m_policy.observed_pact_layers.find(m_policy.primary_pact);
+    std::optional<spa::IdentityTagTarget> identity_tag_target;
     if (std::find(candidates.begin(), candidates.end(), "随身身份牌") != candidates.end() &&
-        layers != m_policy.observed_pact_layers.end() && layers->second >= 0 && layers->second <= 996 &&
         (m_mode != "joint" || state.get("preparation_seconds_remaining", 0) >= 25)) {
-        const auto tag_recipient = std::find_if(recipients.begin(), recipients.end(), [&](const auto& unit) {
-            return unit.slots_known &&
-                   spa::safe_identity_tag_recipient(unit.name, m_policy.primary_pact, unit.elite, unit.equipped);
-        });
-        if (tag_recipient != recipients.end()) {
-            assignment = { true, "随身身份牌", tag_recipient->name, 42 };
+        identity_tag_target = spa::choose_identity_tag_target(
+            m_policy.primary_pact,
+            m_policy.support_pacts,
+            m_policy.disabled_pacts,
+            m_policy.observed_pact_layers,
+            recipients,
+            true);
+        if (identity_tag_target) {
+            assignment = { true, "随身身份牌", identity_tag_target->recipient, 42 };
         }
     }
     if (!assignment.found) {
         return false;
     }
-    const bool identity_tag = assignment.equipment == "随身身份牌";
+    const bool identity_tag = identity_tag_target.has_value();
     m_persistent_equipment_attempts.emplace(round, assignment.equipment);
     const auto target = m_auto_deploy_positions.find(assignment.recipient)->second;
     json::array field;
@@ -799,7 +820,7 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
                                  { "target_equipment_known", true },
                                  { "target_elite", m_policy.owned.at(assignment.recipient).elite },
                                  { "expected_equipment", m_equipped_items.at(assignment.recipient) },
-                                 { "identity_tag_pact", identity_tag ? m_policy.primary_pact : std::string() },
+                                 { "identity_tag_pact", identity_tag ? identity_tag_target->pact : std::string() },
                                  { "target_x", target.first },
                                  { "target_y", target.second },
                                  { "drag_target_x", target.first },
@@ -817,6 +838,7 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
         if (!identity_tag) {
             m_equipped_items.at(assignment.recipient).push_back(assignment.equipment);
         }
+        m_equipment_capacity_blocked_round = -1;
         m_equipment_candidates.erase(assignment.equipment);
         m_equipment_inventory_dirty = true;
     }
@@ -835,19 +857,21 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
     }
     auto receipt =
         basic_info_with_what(verified ? "SPAAutomationEquipmentReconciled" : "SPAEquipmentAssignmentDeferred");
-    receipt["details"] = json::object { { "run_id", m_run_id },
-                                        { "round", round },
-                                        { "equipment", assignment.equipment },
-                                        { "operator", assignment.recipient },
-                                        { "score", assignment.score },
-                                        { "input_committed", equip.equipment_committed() },
-                                        { "verification_stage", equip.equipment_stage() },
-                                        { "equipped_verified", verified && !identity_tag },
-                                        { "consumable_effect_verified", verified && identity_tag },
-                                        { "equipment_candidates", equipment_candidates_snapshot() },
-                                        { "equipment_slots", equipment_slots_snapshot() },
-                                        { "roster", roster_snapshot() },
-                                        { "inventory_complete", false } };
+    receipt["details"] =
+        json::object { { "run_id", m_run_id },
+                       { "round", round },
+                       { "equipment", assignment.equipment },
+                       { "operator", assignment.recipient },
+                       { "identity_tag_pact", identity_tag ? identity_tag_target->pact : std::string() },
+                       { "score", assignment.score },
+                       { "input_committed", equip.equipment_committed() },
+                       { "verification_stage", equip.equipment_stage() },
+                       { "equipped_verified", verified && !identity_tag },
+                       { "consumable_effect_verified", verified && identity_tag },
+                       { "equipment_candidates", equipment_candidates_snapshot() },
+                       { "equipment_slots", equipment_slots_snapshot() },
+                       { "roster", roster_snapshot() },
+                       { "inventory_complete", false } };
     receipt["details"]["redeployment_growth_candidate"] =
         std::any_of(recipients.begin(), recipients.end(), [&](const auto& target) {
             return target.name == assignment.recipient && target.deliberate_redeploy;
@@ -1065,8 +1089,8 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(const json::value& stat
     const int round = state.get("round", -1);
     const bool boss = state.get("preparation_boss_bar_visible", false) ||
                       (m_spatial_boss_phase && m_spatial_boss_phase_round == round);
-    const bool coin = funding_deficit == 0 && m_equipment_candidates.contains("盟约之币") &&
-                      m_cash_equipment_acquired_round != round && !m_cash_equipment_attempted_rounds.contains(round);
+    const bool coin = (boss || funding_deficit > 0) && funding_deficit <= 2 &&
+                      m_equipment_candidates.contains("盟约之币") && !m_cash_equipment_attempted_rounds.contains(round);
     const bool passbook = !coin && (boss || funding_deficit > 0) && m_equipment_candidates.contains("定期存折") &&
                           !m_passbook_attempted_rounds.contains(round);
     if (!m_policy.dynamic_decision_mode || m_decision_only || !(coin || passbook) || round < 1 || round > 20 ||

@@ -34,6 +34,8 @@ public:
 
     bool bench_capacity_rejection_verified() const { return m_bench_capacity_rejection_verified; }
 
+    bool equipment_capacity_rejection_verified() const { return m_equipment_capacity_rejection_verified; }
+
     bool supply_confirmation_issued() const { return m_supply_confirmation_issued; }
 
     bool verify(AsstMsg msg, const json::value& details) const override;
@@ -44,7 +46,7 @@ protected:
 
 private:
     bool require_input_reconciliation(std::string_view event, std::string_view reason, bool confirmation_issued);
-    bool reconcile_bench_capacity_rejection(const cv::Mat& frame, const std::vector<TextObservation>& detail, int slot);
+    bool reconcile_capacity_rejection(const cv::Mat& frame, const std::vector<TextObservation>& detail, int slot);
     bool run_strategy_refresh(const cv::Mat& image);
     bool run_equipment_discount(const cv::Mat& image);
     std::string m_name;
@@ -69,5 +71,6 @@ private:
     bool m_fast_mode = false;
     bool m_input_reconciliation_required = false;
     bool m_bench_capacity_rejection_verified = false;
+    bool m_equipment_capacity_rejection_verified = false;
 };
 }

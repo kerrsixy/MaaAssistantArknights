@@ -134,15 +134,16 @@ inline int
 }
 
 // Count the contact and immediate approach cells monitored by a freeze
-// stacker and covered by a different cold source. This is range geometry,
+// stacker and covered by a freeze source. Skill coverage is conditional. This is geometry,
 // not a prediction of skill casts, status immunity or actual stack gain.
 inline int freeze_growth_coverage(
     const std::vector<DeploymentUnit>& units,
     const std::vector<DeploymentLane>& lanes,
     const std::set<std::string>& cold_sources,
-    const std::set<std::string>& stackers)
+    const std::set<std::string>& stackers,
+    const std::map<std::string, std::vector<BoardCell>>& conditional_sources = {})
 {
-    if (cold_sources.empty() || stackers.empty()) {
+    if ((cold_sources.empty() && conditional_sources.empty()) || stackers.empty()) {
         return 0;
     }
     std::set<BoardCell> engagement;
@@ -165,10 +166,21 @@ inline int freeze_growth_coverage(
             continue;
         }
         for (const auto cell : engagement) {
-            if (range_covers(stacker, cell) &&
-                std::any_of(units.begin(), units.end(), [&](const auto& source) {
-                    return source.id != stacker.id && cold_sources.contains(source.id) && source.damage_output &&
-                           range_covers(source, cell);
+            if (range_covers(stacker, cell) && std::any_of(units.begin(), units.end(), [&](const auto& source) {
+                    if (!source.damage_output || !source.range_known) {
+                        return false;
+                    }
+                    if (cold_sources.contains(source.id) && range_covers(source, cell)) {
+                        return true;
+                    }
+                    const auto skill = conditional_sources.find(source.id);
+                    return skill != conditional_sources.end() && grid_range_covers(
+                                                                     source.cell.first,
+                                                                     source.cell.second,
+                                                                     source.facing,
+                                                                     cell.first,
+                                                                     cell.second,
+                                                                     skill->second);
                 })) {
                 ++coverage;
             }

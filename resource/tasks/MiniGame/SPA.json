@@ -87,7 +87,7 @@
         "text": ["独立模拟"],
         "roi": [980, 585, 300, 135],
         "action": "ClickSelf",
-        "postDelay": 550,
+        "postDelay": 2600,
         "next": ["MiniGame@SPA@SelectDifficulty"]
     },
     "MiniGame@SPA@SelectDifficulty": {
@@ -610,7 +610,7 @@
     "MiniGame@SPA@LifecycleTerminalBanner": {
         "algorithm": "OcrDetect",
         "text": ["卫戍协议", "卫成协议"],
-        "roi": [995, 195, 220, 95],
+        "roi": [1020, 105, 160, 175],
         "action": "ClickSelf",
         "postDelay": 900,
         "next": ["MiniGame@SPA@LifecycleDispatch"]

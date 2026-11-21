@@ -72,7 +72,8 @@ public:
         const std::vector<std::pair<int, int>>& targets,
         int round,
         int funds,
-        int remaining);
+        int remaining,
+        std::optional<std::pair<int, int>>& verified_cell);
 
     void use_bench_identity_hints(std::vector<InventoryOperatorHint>& hints) { m_bench_identity_hints = &hints; }
 

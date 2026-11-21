@@ -1,4 +1,5 @@
 #pragma once
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -57,6 +58,7 @@ struct EquipmentContext
     // Set only by the single-body projection scheduler after recipient,
     // initial form, free slot and a positive modeled benefit are available.
     bool direct_promotion_usable = false;
+    bool freeze_engine_assignment = false;
 };
 
 struct EquipmentDecision
@@ -116,6 +118,7 @@ struct EquipmentRecipient
     int max_range_distance = 0;
     bool deliberate_redeploy = false;
     bool elite = false;
+    bool freeze_skill_engine = false;
 };
 
 struct EquipmentAssignmentContext
@@ -125,6 +128,7 @@ struct EquipmentAssignmentContext
     bool elemental_source_known = false;
     int special_hammer_types = 0;
     bool growth_battle_available = true;
+    bool kjerag_freeze_growth_active = false;
 };
 
 struct EquipmentAssignment
@@ -134,6 +138,20 @@ struct EquipmentAssignment
     std::string recipient;
     int score = 0;
 };
+
+struct IdentityTagTarget
+{
+    std::string recipient;
+    std::string pact;
+};
+
+std::optional<IdentityTagTarget> choose_identity_tag_target(
+    const std::string& primary,
+    const std::vector<std::string>& support_pacts,
+    const std::vector<std::string>& disabled_pacts,
+    const std::map<std::string, int>& observed_layers,
+    const std::vector<EquipmentRecipient>& recipients,
+    bool allow_observed_secondary);
 
 // Persistent items only. Candidate names are inventory hints; source identity,
 // target identity, available slots and the post-drop item need live checks.

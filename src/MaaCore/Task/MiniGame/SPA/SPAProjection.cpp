@@ -642,7 +642,7 @@ std::optional<cv::Rect> asst::spa::preparation_boss_health_bar(const cv::Mat& im
     if (image.empty() || image.size() != cv::Size(1280, 720) || image.type() != CV_8UC3) {
         return std::nullopt;
     }
-    const cv::Rect region(80, 150, 1120, 340);
+    const cv::Rect region(0, 150, image.cols, 340);
     cv::Mat hsv, red, wrap, labels, stats, centers;
     cv::cvtColor(image(region), hsv, cv::COLOR_BGR2HSV);
     cv::inRange(hsv, cv::Scalar(0, 120, 110), cv::Scalar(10, 255, 255), red);
@@ -657,7 +657,11 @@ std::optional<cv::Rect> asst::spa::preparation_boss_health_bar(const cv::Mat& im
     std::optional<cv::Rect> result;
     for (int index = 1; index < count; ++index) {
         const int width = stats.at<int>(index, cv::CC_STAT_WIDTH), height = stats.at<int>(index, cv::CC_STAT_HEIGHT);
-        if (width < 140 || width > 230 || height < 4 || height > 12 || width < height * 15) {
+        // Some bosses use a second, much wider bar. Its full span is visible
+        // near the screen edge in the expanded preparation camera.
+        const bool standard = width >= 140 && width <= 230;
+        const bool wide = width >= 370 && width <= 430;
+        if ((!standard && !wide) || height < 4 || height > 12 || width < height * 15) {
             continue;
         }
         if (result) {

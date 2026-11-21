@@ -196,6 +196,12 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
         request.boss_opening_only = !boss.known && !request.boss_cells.empty();
         request.stationary_boss = boss.stationary_route;
         request.boss_movement_waypoints = boss.movement_waypoints;
+        if (request.boss_cells.empty()) {
+            request.boss_cells = spa::estimate_solo_stationary_boss_footprint(boss);
+            if (!request.boss_cells.empty()) {
+                boss_target_source = "stationary_footprint_from_registered_solo_spawn";
+            }
+        }
         if (request.boss_cells.empty() && boss.known && !boss.possible_cells.empty()) {
             request.boss_cells = boss.possible_cells;
             request.boss_cells_are_alternatives = !boss.variant_known;

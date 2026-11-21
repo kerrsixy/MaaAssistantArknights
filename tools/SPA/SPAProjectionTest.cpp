@@ -937,6 +937,23 @@ int main()
     cv::rectangle(fake_spawns, cv::Rect(930, 170, 90, 75), cv::Scalar(0, 0, 255), 3);
     cv::rectangle(fake_spawns, cv::Rect(930, 350, 90, 75), cv::Scalar(0, 0, 255), 3);
     assert(!preparation_boss_health_bar(fake_spawns));
+    // Reproduce the wide Quintus bar's measured extent in the expanded
+    // preparation camera and its mirror at the opposite screen edge.
+    auto wide_preview = blank.clone();
+    const cv::Rect wide_bar(867, 366, 407, 6);
+    cv::rectangle(wide_preview, wide_bar, cv::Scalar(38, 31, 213), cv::FILLED);
+    const auto detected_wide = preparation_boss_health_bar(wide_preview);
+    assert(
+        detected_wide && std::abs(detected_wide->x - wide_bar.x) <= 1 && std::abs(detected_wide->y - wide_bar.y) <= 1 &&
+        detected_wide->size() == wide_bar.size());
+    cv::flip(wide_preview, wide_preview, 1);
+    const auto mirrored_wide = preparation_boss_health_bar(wide_preview);
+    assert(mirrored_wide && std::abs(mirrored_wide->x - (1280 - wide_bar.br().x)) <= 1);
+    cv::rectangle(wide_preview, cv::Rect(867, 366, 407, 6), cv::Scalar(38, 31, 213), cv::FILLED);
+    assert(!preparation_boss_health_bar(wide_preview));
+    auto broad_stripe = blank.clone();
+    cv::rectangle(broad_stripe, cv::Rect(650, 366, 600, 6), cv::Scalar(38, 31, 213), cv::FILLED);
+    assert(!preparation_boss_health_bar(broad_stripe));
 
     const auto east_patch = cv::imread("spa-deployed-east.png");
     assert(!east_patch.empty());

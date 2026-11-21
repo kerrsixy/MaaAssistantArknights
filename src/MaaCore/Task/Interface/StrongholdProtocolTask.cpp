@@ -137,7 +137,6 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_replacement_round = -1;
     m_failed_replacements.clear();
     m_visited_replacement_lineups.clear();
-    m_replacement_source_context.clear();
     m_unavailable_replacement_sources.clear();
     m_pending_field_replacement.reset();
     m_blocked_purchases.clear();
@@ -177,6 +176,8 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_equipment_inventory_scan_rounds.clear();
     m_observed_bench_summons.clear();
     m_preparation_summon_attempts.clear();
+    m_confirmed_summon_cells.clear();
+    m_equipment_capacity_blocked_round = -1;
     m_inventory_operator_hints.clear();
     m_persistent_equipment_attempts.clear();
     m_cash_equipment_attempted_rounds.clear();
@@ -1396,6 +1397,7 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
     }
     else {
         m_policy.owned.erase(*selected);
+        m_policy.released_transitions.erase(*selected);
     }
     if (capacity_trade) {
         m_purchase_reserved_after_sale = std::pair(round, capacity_trade->purchase);
@@ -1678,12 +1680,6 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
         // The ordinary full-bench sale step follows this function.
         return false;
     }
-    const auto source_context = roster_snapshot().to_string() + equipment_slots_snapshot().to_string() +
-                                equipment_candidates_snapshot().to_string() + std::to_string(m_policy.bench_occupied);
-    if (source_context != m_replacement_source_context) {
-        m_replacement_source_context = source_context;
-        m_unavailable_replacement_sources.clear();
-    }
     // A failed exchange can require source/panel recovery. Bound that work
     // within a preparation phase, rather than probing every bench/field pair.
     if (m_failed_replacements.size() >= 3) {
@@ -1733,8 +1729,14 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
     const auto evaluate = [this](const auto& lineup) {
         return replacement_lineup_context_value(lineup);
     };
-    auto choice =
-        spa::choose_replacement(m_policy.primary_pact, field, bench, blocked, evaluate, m_visited_replacement_lineups);
+    auto choice = spa::choose_replacement(
+        m_policy.primary_pact,
+        field,
+        bench,
+        blocked,
+        evaluate,
+        m_visited_replacement_lineups,
+        m_policy.disabled_pacts);
     std::string target_failure_key;
     while (choice.found) {
         target_failure_key = failure_key(choice);
@@ -1750,7 +1752,8 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
             bench,
             blocked,
             evaluate,
-            m_visited_replacement_lineups);
+            m_visited_replacement_lineups,
+            m_policy.disabled_pacts);
     }
     if (!choice.found) {
         return false;
@@ -1892,8 +1895,8 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
         if (!drop_issued && exchange->bench_source_search_exhausted()) {
             // Changing the outgoing target cannot reveal a source that the
             // same visible bench scan just failed to identify. Try other
-            // sources now; any inventory change or next round clears this
-            // bounded observation cache. This never removes an owned unit.
+            // sources now; only a fresh copy of this unit or a new round
+            // warrants repeating its unrecognized bench scan.
             m_unavailable_replacement_sources.insert(choice.incoming);
         }
         if (drop_issued) {
@@ -1913,6 +1916,7 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
             json::object { { "round", round },
                            { "incoming", choice.incoming },
                            { "outgoing", choice.outgoing },
+                           { "source_probe_exhausted", exchange->bench_source_search_exhausted() },
                            { "committed_but_unreconciled", drop_issued },
                            { "verification_only_retry_available", m_pending_field_replacement.has_value() },
                            { "run_id", m_run_id },
@@ -1967,6 +1971,10 @@ void asst::StrongholdProtocolTask::commit_full_field_replacement(
     }
     m_policy.owned.at(incoming).deployed = true;
     m_policy.owned.at(outgoing).deployed = m_auto_deploy_positions.contains(outgoing);
+    m_policy.released_transitions.erase(incoming);
+    if (!m_policy.owned.at(outgoing).deployed) {
+        m_policy.released_transitions.insert(outgoing);
+    }
     m_growth_population_poses.clear();
     m_row_growth_populations.clear();
     m_population_grid_members.clear();
@@ -1995,17 +2003,19 @@ void asst::StrongholdProtocolTask::commit_full_field_replacement(
     m_spending_reviewed = false;
     m_spending_reason.clear();
     auto receipt = basic_info_with_what("SPAReplacementReconciled");
-    receipt["details"] = json::object { { "run_id", m_run_id },
-                                        { "round", round },
-                                        { "incoming", incoming },
-                                        { "outgoing", outgoing },
-                                        { "bench_occupied", m_policy.bench_occupied },
-                                        { "remaining_deployment", 0 },
-                                        { "roster", roster_snapshot() },
-                                        { "used_deploy_points", deployment_point_snapshot() },
-                                        { "field_positions", field_position_snapshot() },
-                                        { "pending_replacement", nullptr },
-                                        { "run_victory_verified", false } };
+    receipt["details"] =
+        json::object { { "run_id", m_run_id },
+                       { "round", round },
+                       { "incoming", incoming },
+                       { "outgoing", outgoing },
+                       { "outgoing_available_for_sale_review", m_policy.released_transitions.contains(outgoing) },
+                       { "bench_occupied", m_policy.bench_occupied },
+                       { "remaining_deployment", 0 },
+                       { "roster", roster_snapshot() },
+                       { "used_deploy_points", deployment_point_snapshot() },
+                       { "field_positions", field_position_snapshot() },
+                       { "pending_replacement", nullptr },
+                       { "run_victory_verified", false } };
     callback(AsstMsg::SubTaskExtraInfo, receipt);
 }
 
@@ -2353,6 +2363,7 @@ bool asst::StrongholdProtocolTask::handle_promotion_page()
     }
     record_acquired_equipment_hints(selected_name, false, m_policy.round);
     m_recent_bench_acquisition = selected_name;
+    m_unavailable_replacement_sources.erase(selected_name);
     m_bench_recount_pending = true;
     auto confirmed = basic_info_with_what("SPAPromotionReconciled");
     confirmed["details"] =
@@ -3554,27 +3565,40 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         // immediately; it must never be stranded behind this scheduling gate.
         const bool confirmed_full_bench =
             bench_capacity_full || (!m_bench_recount_pending && m_policy.bench_occupied == 10);
+        const int available_funds = state.get("funds", -1);
+        const int free_field_slots = state.get("remaining_deployment", -1);
+        const bool equipment_capacity_blocked = m_equipment_capacity_blocked_round == state.get("round", 0);
+        const bool field_finalization = m_shopping_complete || available_funds == 0;
         const bool field_work_due =
-            m_shopping_complete || state.get("funds", -1) == 0 || confirmed_full_bench ||
+            field_finalization || confirmed_full_bench || equipment_capacity_blocked ||
             (m_pending_direct_promotion && !m_direct_promotion_observed_rounds.contains(state.get("round", -1)) &&
              (m_pending_direct_promotion->get("effect_timing", std::string()) == "on_equip" ||
               (m_pending_direct_promotion->get("effect_timing", std::string()) == "next_round_start" &&
                state.get("round", -1) > m_pending_direct_promotion->get("contact_round", -1))));
         auto scheduling = basic_info_with_what("SPAPreparationSchedulingObserved");
-        scheduling["details"] =
-            json::object { { "run_id", m_run_id },
-                           { "round", state.get("round", -1) },
-                           { "funds", state.get("funds", -1) },
-                           { "shopping_complete", m_shopping_complete },
-                           { "bench_capacity_full", confirmed_full_bench },
-                           { "bench_capacity_source", bench_capacity_full ? "live_warning" : "reconciled_roster" },
-                           { "equipment_capacity_known", false },
-                           { "equipment_capacity_full", nullptr },
-                           { "deadline_emergency", nullptr },
-                           { "preparation_seconds_remaining_known",
-                             state.get("preparation_seconds_remaining_known", false) },
-                           { "field_work_due", field_work_due },
-                           { "replacement_reconciliation_pending", m_pending_field_replacement.has_value() } };
+        scheduling["details"] = json::object {
+            { "run_id", m_run_id },
+            { "round", state.get("round", -1) },
+            { "funds", available_funds },
+            { "phase",
+              m_pending_field_replacement  ? "reconcile_field_transaction"
+              : field_finalization         ? "finalize_formation"
+              : confirmed_full_bench       ? "make_bench_space"
+              : equipment_capacity_blocked ? "make_equipment_space"
+                                           : "shop" },
+            { "free_field_slots", free_field_slots },
+            { "free_bench_slots",
+              !m_bench_recount_pending && m_policy.bench_occupied >= 0 ? 10 - m_policy.bench_occupied : -1 },
+            { "shopping_complete", m_shopping_complete },
+            { "bench_capacity_full", confirmed_full_bench },
+            { "bench_capacity_source", bench_capacity_full ? "live_warning" : "reconciled_roster" },
+            { "equipment_capacity_known", equipment_capacity_blocked },
+            { "equipment_capacity_full", equipment_capacity_blocked ? json::value(true) : json::value(nullptr) },
+            { "deadline_emergency", nullptr },
+            { "preparation_seconds_remaining_known", state.get("preparation_seconds_remaining_known", false) },
+            { "field_work_due", field_work_due },
+            { "replacement_reconciliation_pending", m_pending_field_replacement.has_value() }
+        };
         if (!bench_capacity_full && (m_bench_recount_pending || m_policy.bench_occupied < 0)) {
             scheduling["details"]["bench_capacity_full"] = nullptr;
             scheduling["details"]["bench_capacity_source"] = "unknown";
@@ -4405,7 +4429,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                    { "replacement_reconciliation_pending", m_pending_field_replacement.has_value() } };
                 callback(AsstMsg::SubTaskExtraInfo, objective);
             }
-            if (handle_preparation_summons(state)) {
+            if ((m_shopping_complete || available_funds == 0) && handle_preparation_summons(state)) {
                 continue;
             }
             if (m_auto_run && (m_shopping_complete || state.get("funds", -1) == 0) &&
@@ -5051,7 +5075,9 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                             scanned["price_unknown"] = false;
                             auto priced = *profile;
                             priced.price = *price;
-                            equipment_offers.push_back(priced);
+                            if (!equipment_capacity_blocked) {
+                                equipment_offers.push_back(priced);
+                            }
                             equipment_slots.emplace(name, *slot);
                         }
                     }
@@ -5383,7 +5409,8 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                   { incoming },
                                   m_failed_replacements,
                                   [this](const auto& lineup) { return replacement_lineup_context_value(lineup); },
-                                  m_visited_replacement_lineups)
+                                  m_visited_replacement_lineups,
+                                  m_policy.disabled_pacts)
                             : spa::ReplacementChoice {};
                     m_policy.full_field_offer_improvements[offer.name] = exchange.found ? exchange.improvement : 0;
                 }
@@ -5727,10 +5754,13 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             m_purchase_reserved_after_sale.reset();
         }
         const int bench_before_funding = m_policy.bench_occupied;
-        if (const auto funding = purchase_reserved_after_sale
-                                     ? std::nullopt
-                                     : spa::choose_funding_purchase(m_policy, funds, offers, catalog);
-            funding && handle_full_bench_sale(state, funding->deficit)) {
+        const auto funding = purchase_reserved_after_sale
+                                 ? std::nullopt
+                                 : spa::choose_funding_purchase(m_policy, funds, offers, catalog);
+        if (funding && handle_cash_equipment(state, funding->deficit)) {
+            continue;
+        }
+        if (funding && handle_full_bench_sale(state, funding->deficit)) {
             const bool sale_verified = m_policy.bench_occupied == bench_before_funding - 1;
             if (sale_verified) {
                 m_purchase_reserved_after_sale = std::pair(round, funding->offer);
@@ -5743,9 +5773,6 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                                { "purchase_committed", false },
                                                { "reobserve_shop_before_purchase", true } };
             callback(AsstMsg::SubTaskExtraInfo, funded);
-            continue;
-        }
-        else if (funding && handle_cash_equipment(state, funding->deficit)) {
             continue;
         }
         if (decision.action == spa::PreparationAction::Freeze && m_policy.primary_locked_after_activation) {
@@ -5787,23 +5814,23 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         const auto prospective_equipment_price = [&](int quoted_price) {
             return discount_ready && quoted_price > 0 ? quoted_price - 1 : quoted_price;
         };
+        std::optional<spa::IdentityTagTarget> identity_tag_target;
         if ((decision.action == spa::PreparationAction::Review || decision.action == spa::PreparationAction::Freeze ||
              before_refresh || decision.banked_value_purchase) &&
             (funds > 0 || review_free_equipment) && !equipment_offers.empty()) {
             // Operators remain the first purchase. A reviewed, affordable
             // persistent item is preferable to discarding the final coin.
             const auto [assignment_context, recipients] = equipment_assignment_inputs();
-            const auto primary_layers = m_policy.observed_pact_layers.find(m_policy.primary_pact);
-            const bool identity_tag_usable = !m_equipment_candidates.contains("随身身份牌") &&
-                                             primary_layers != m_policy.observed_pact_layers.end() &&
-                                             primary_layers->second >= 0 && primary_layers->second <= 996 &&
-                                             std::any_of(recipients.begin(), recipients.end(), [&](const auto& unit) {
-                                                 return unit.slots_known && spa::safe_identity_tag_recipient(
-                                                                                unit.name,
-                                                                                m_policy.primary_pact,
-                                                                                unit.elite,
-                                                                                unit.equipped);
-                                             });
+            if (!m_equipment_candidates.contains("随身身份牌") &&
+                (m_mode != "joint" || state.get("preparation_seconds_remaining", 0) >= 25)) {
+                identity_tag_target = spa::choose_identity_tag_target(
+                    m_policy.primary_pact,
+                    m_policy.support_pacts,
+                    m_policy.disabled_pacts,
+                    m_policy.observed_pact_layers,
+                    recipients,
+                    (ordinary_balance_rule_known && funds == 1) || review_free_equipment);
+            }
             const auto pager_target = std::find_if(recipients.begin(), recipients.end(), [&](const auto& target) {
                 return spa::safe_pact_recruitment_recipient(
                     target.name,
@@ -5822,15 +5849,30 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                                  ? round
                                              : m_expected_boss_round > 0 ? m_expected_boss_round
                                                                          : 20;
-            spa::EquipmentContext toy_context;
-            toy_context.funds = funds;
-            toy_context.round = round;
-            toy_context.boss_round = equipment_boss_round;
-            toy_context.shop_level = m_policy.shop_level;
-            toy_context.target_deployed = toy_target != recipients.end();
-            const bool toy_usable = toy_target != recipients.end() && m_expected_boss_round > round &&
-                                    !m_pending_delayed_cash_equipment &&
-                                    !m_delayed_cash_equipment_attempted_rounds.contains(round);
+            const bool delayed_cash_ready =
+                !m_pending_delayed_cash_equipment && !m_delayed_cash_equipment_attempted_rounds.contains(round);
+            const bool hold_one_cash_toy = ordinary_balance_rule_known && funds == 1 &&
+                                           m_pending_delayed_cash_equipment &&
+                                           m_pending_delayed_cash_equipment->get("source_round", -1) == round &&
+                                           m_pending_delayed_cash_equipment->get("consumption_verified", false);
+            const auto profitable_toy_use_round = [&](const spa::EquipmentProfile& item,
+                                                      int price) -> std::optional<int> {
+                if (toy_target == recipients.end() || m_expected_boss_round <= round ||
+                    m_equipment_candidates.contains(item.name) ||
+                    (!delayed_cash_ready && !(hold_one_cash_toy && item.name == "见钱眼开玩偶"))) {
+                    return std::nullopt;
+                }
+                spa::EquipmentContext context;
+                context.funds = funds;
+                context.round = delayed_cash_ready ? round : round + 1;
+                context.boss_round = equipment_boss_round;
+                context.shop_level = m_policy.shop_level;
+                context.target_deployed = true;
+                auto offer = item;
+                offer.price = price;
+                return spa::profitable_next_round_cash_offer(context, offer) ? std::optional(context.round)
+                                                                             : std::nullopt;
+            };
             // Shop quality is not known here, so reserve a future round for
             // normal projection. The actual complete effect is re-read on use.
             const auto projection_target = direct_promotion_recipient();
@@ -5845,14 +5887,19 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                       !m_equipment_candidates.contains(item.name) &&
                                       spa::profitable_passbook_purchase(round, equipment_boss_round, quoted_price);
                 const bool pager = item.name == "寻呼模块" && pager_usable;
-                auto priced_item = item;
-                priced_item.price = quoted_price;
-                const bool toy = toy_usable && spa::profitable_next_round_cash_offer(toy_context, priced_item);
+                const bool toy = profitable_toy_use_round(item, quoted_price).has_value();
                 const bool projection = projection_usable && item.name == "博士投影";
-                const bool tag = identity_tag_usable && item.name == "随身身份牌" && quoted_price <= 1;
+                const bool tag = identity_tag_target && item.name == "随身身份牌" && quoted_price <= 1;
                 const bool reviewed_egir_blade = item.name == "阿戈尔重刃" && m_policy.primary_pact == "阿戈尔";
+                const bool boss_damage = equipment_boss_round == round && item.role == spa::EquipmentRole::Damage;
+                const bool freeze_equipment =
+                    assignment_context.kjerag_freeze_growth_active &&
+                    (item.name == "谢拉格不融冰" || item.role == spa::EquipmentRole::SkillRecovery);
+                const bool uses_expiring_balance =
+                    ordinary_balance_rule_known && quoted_price > 0 && quoted_price == funds && !decision.free_refresh;
                 return (before_refresh && !refresh_strands_last_coin && !bank_coin && !pager && !reviewed_egir_blade &&
-                        !toy && !projection && !passbook) ||
+                        !toy && !projection && !passbook && !uses_expiring_balance && !boss_damage &&
+                        !freeze_equipment) ||
                        (item.consumable && !bank_coin && !pager && !toy && !projection && !tag && !passbook) ||
                        item.role == spa::EquipmentRole::Unknown ||
                        (!bank_coin && !pager && !toy && !projection && !tag && !passbook &&
@@ -5882,19 +5929,28 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                     context.target_is_carry = target->carry;
                     context.primary_active = target->active_own_pact;
                     context.intentional_redeploy_loop = target->deliberate_redeploy;
+                    context.freeze_engine_assignment =
+                        assignment_context.kjerag_freeze_growth_active &&
+                        (offer.name == "谢拉格不融冰" ||
+                         (offer.role == spa::EquipmentRole::SkillRecovery && target->freeze_skill_engine));
                 }
                 else if (offer.name == "寻呼模块" && pager_usable) {
                     context.primary_active = pager_target->active_own_pact;
                     context.target_is_carry = pager_target->carry;
                 }
-                else if (spa::is_deferred_cash_equipment(offer.name) && toy_usable) {
+                else if (spa::is_deferred_cash_equipment(offer.name)) {
+                    const auto use_round = profitable_toy_use_round(offer, prospective_equipment_price(offer.price));
+                    if (!use_round) {
+                        continue;
+                    }
                     context.target_deployed = true;
+                    context.round = *use_round;
                 }
                 else if (offer.name == "博士投影" && projection_usable) {
                     context.target_deployed = true;
                     context.direct_promotion_usable = true;
                 }
-                else if (offer.name == "随身身份牌" && identity_tag_usable) {
+                else if (offer.name == "随身身份牌" && identity_tag_target) {
                     context.target_deployed = true;
                 }
                 else if (!spa::is_immediate_cash_equipment(offer.name)) {
@@ -5924,7 +5980,8 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                     gear.name == "盟约之币"   ? "Use the verified Pact Coin purchase/redeem value"
                     : gear.name == "定期存折" ? "Buy the passbook while projected round accrual exceeds its price"
                     : spa::is_deferred_cash_equipment(gear.name)
-                        ? "Use the consumed toy when verified future income outweighs its price"
+                        ? (delayed_cash_ready ? "Convert this purchase into future income with a verified toy use"
+                                              : "Spend the final expiring coin on a second toy for a later preparation")
                     : refresh_strands_last_coin
                         ? "Buy usable equipment before a paid refresh leaves only one ordinary coin"
                     : before_refresh
@@ -5934,16 +5991,26 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 decision.banked_value_purchase = false;
             }
         }
+        std::string full_bench_refresh_quote_source;
         if (decision.action == spa::PreparationAction::Review && confirmed_full_bench && field_poses_complete &&
             ordinary_balance_rule_known && m_policy.dynamic_decision_mode && m_policy.allow_refresh &&
             !m_policy.shop_frozen_this_round && !m_pending_field_replacement && !m_pending_spatial_orientation &&
             !m_bench_recount_pending && (m_mode != "joint" || state.get("preparation_seconds_remaining", 0) >= 30) &&
             !m_full_bench_refresh_attempts.contains(round)) {
             const bool free_refresh = state.get("free_refreshes_known", false) && m_policy.free_refreshes > 0;
-            const int refresh_price = state.get("paid_refresh_price", -1);
-            if (free_refresh || (state.get("paid_refresh_price_known", false) && refresh_price > 0 &&
-                                 funds >= refresh_price + m_policy.minimum_recruit_price)) {
+            const bool observed_paid_quote = state.get("paid_refresh_price_known", false);
+            const int refresh_price = observed_paid_quote ? state.get("paid_refresh_price", -1) : 1;
+            const bool can_pay =
+                !free_refresh && refresh_price > 0 && funds >= refresh_price + m_policy.minimum_recruit_price;
+            // The whole-screen OCR misses the small price badge on busy
+            // boards. Reuse the same crop that the executor verifies again.
+            const bool paid_refresh =
+                can_pay && (observed_paid_quote || spa::paid_shop_refresh_price(image) == refresh_price);
+            if (free_refresh || paid_refresh) {
                 m_full_bench_refresh_attempts.insert(round);
+                full_bench_refresh_quote_source = free_refresh          ? "free_counter"
+                                                  : observed_paid_quote ? "observer"
+                                                                        : "price_badge_crop";
                 decision = { spa::PreparationAction::Refresh,
                              "刷新",
                              free_refresh ? 0 : refresh_price,
@@ -5978,8 +6045,12 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                                 modeled_formation.active_pacts.end(),
                                                 m_policy.primary_pact) != modeled_formation.active_pacts.end() },
             { "name", decision.name },
+            { "identity_tag_target_pact",
+              decision.is_equipment && decision.name == "随身身份牌" && identity_tag_target ? identity_tag_target->pact
+                                                                                            : std::string() },
             { "is_equipment", decision.is_equipment },
             { "cost", decision.price },
+            { "preparation_growth_score", decision.growth_score },
             { "reason", decision.reason },
             { "decision_only", m_decision_only },
             { "action",
@@ -5988,6 +6059,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
               : decision.action == spa::PreparationAction::Freeze  ? "freeze"
                                                                    : "review" },
             { "free_refresh", decision.free_refresh },
+            { "full_bench_refresh_quote_source", full_bench_refresh_quote_source },
             { "banked_value_purchase", decision.banked_value_purchase },
             { "banking_board_verified", m_policy.one_coin_bank_allowed },
             { "economy_scenario_horizon_round", m_policy.economy_scenario_horizon_round },
@@ -6141,6 +6213,13 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                     ? shop.configure_freeze(funds, round)
                                     : shop.configure_refresh(decision.price, funds, round);
         if (!configured || !shop.run()) {
+            if (shop.equipment_capacity_rejection_verified() && decision.is_equipment) {
+                m_equipment_capacity_blocked_round = round;
+                m_equipment_inventory_dirty = true;
+                m_equipment_inventory_scan_rounds.erase(round);
+                m_cached_deployment_observation.reset();
+                continue;
+            }
             if (shop.bench_capacity_rejection_verified() && !decision.is_equipment) {
                 m_policy.bench_occupied = 10;
                 m_bench_recount_pending = false;
@@ -6164,6 +6243,10 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                                    { "payment_verified", false },
                                                    { "resumable", true } };
                 callback(AsstMsg::SubTaskExtraInfo, failed);
+                continue;
+            }
+            if (!full_bench_refresh_quote_source.empty() && !need_exit()) {
+                // Reobserve the shop and wallet after this one bounded try.
                 continue;
             }
             return false;
@@ -6199,6 +6282,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             m_policy.owned[decision.name] = *purchased_owned;
             m_policy.tactical_elite_purchase_pending = false;
             m_recent_bench_acquisition = decision.name;
+            m_unavailable_replacement_sources.erase(decision.name);
             ++m_policy.bench_occupied;
             record_acquired_equipment_hints(decision.name, purchased_elite, round);
             const auto promotion_override = m_policy.promotion_copies.find(decision.name);

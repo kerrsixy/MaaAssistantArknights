@@ -44,6 +44,8 @@ bool verified_pact_setup_page(const std::vector<TextObservation>& texts);
 std::optional<std::string>
     operator_panel_identity(const std::vector<TextObservation>& texts, const std::vector<std::string>& known_names);
 bool operator_title_contains_rank_artifact(const std::vector<TextObservation>& texts, const std::string& expected);
+std::optional<double>
+    single_operator_title_confidence(const std::vector<TextObservation>& texts, const std::string& expected);
 
 struct OperatorCardObservation
 {
@@ -63,6 +65,7 @@ std::optional<TextObservation> shop_expansion_control(const std::vector<TextObse
 // A unique, readable confirmation in the selected card column is required.
 std::optional<TextObservation> purchase_confirmation_control(const std::vector<TextObservation>& texts, int slot);
 bool bench_capacity_warning(const TextObservation& text);
+bool equipment_capacity_warning(const TextObservation& text);
 bool bench_replacement_title_needs_settle(const std::vector<TextObservation>& texts, const std::string& expected_name);
 bool selected_purchase_unavailable(const std::vector<TextObservation>& texts, int slot);
 // A reward-card selection opens its operator panel; it is not a purchase.

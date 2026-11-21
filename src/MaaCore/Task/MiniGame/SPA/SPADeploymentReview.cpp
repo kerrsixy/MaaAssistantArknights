@@ -306,6 +306,62 @@ int asst::spa::stationary_boss_attack_weight(
     return weight;
 }
 
+namespace
+{
+using namespace asst::spa;
+
+int boss_attack_coverage_weight(const DeploymentUnit& unit, const std::vector<BoardCell>& cells)
+{
+    if (!unit.damage_output || unit.healer || !unit.holds_position) {
+        return 0;
+    }
+    const auto& [col, row] = unit.cell;
+    const bool basic = can_attack_boss(unit, cells);
+    const bool skill = !unit.boss_skill_attack_range.empty() && std::any_of(cells.begin(), cells.end(), [&](auto cell) {
+        return cell == unit.cell ||
+               grid_range_covers(col, row, unit.facing, cell.first, cell.second, unit.boss_skill_attack_range);
+    });
+    const int uptime = std::clamp(unit.boss_skill_attack_uptime_percent, 0, 100);
+    return unit.boss_basic_attack_weight * (basic * (100 - uptime) + skill * uptime);
+}
+
+std::pair<int, int>
+    boss_attack_weights(const std::vector<DeploymentUnit>& units, const std::vector<BoardCell>& boss_cells)
+{
+    int total_weight = 0;
+    int healed_weight = 0;
+    if (boss_cells.empty()) {
+        return { total_weight, healed_weight };
+    }
+    for (const auto& attacker : units) {
+        const int attack_weight = boss_attack_coverage_weight(attacker, boss_cells);
+        if (attack_weight <= 0) {
+            continue;
+        }
+        total_weight += attack_weight;
+        const auto& [target_col, target_row] = attacker.cell;
+        const bool covered = std::any_of(units.begin(), units.end(), [&](const auto& support) {
+            if (support.id == attacker.id || (!attacker.accepts_direct_healing && !support.provides_regeneration)) {
+                return false;
+            }
+            return (support.healer && range_covers(support, attacker.cell)) ||
+                   (support.holds_position && !support.boss_skill_healing_range.empty() &&
+                    grid_range_covers(
+                        support.cell.first,
+                        support.cell.second,
+                        support.facing,
+                        target_col,
+                        target_row,
+                        support.boss_skill_healing_range));
+        });
+        if (covered) {
+            healed_weight += attack_weight;
+        }
+    }
+    return { total_weight, healed_weight };
+}
+}
+
 int asst::spa::boss_movement_attack_weight(
     const std::vector<DeploymentUnit>& units,
     const std::vector<BoardCell>& waypoints)
@@ -363,6 +419,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         int exposed_support = 0;
         int boss_movement_cost = 0;
         int boss_opening_cost = 0;
+        int boss_unhealed_attack_cost = 0;
         int lane_problem_count = 0;
         int lost_block_capacity = 0;
         int preparation_growth_cost = 0;
@@ -391,6 +448,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
             lane_problems += static_cast<int>(lane.problems.size());
             uncovered_approach += lane.required_approach_cells - lane.covered_approach_cells;
         }
+        const auto [boss_opening_weight, boss_supported_weight] = boss_attack_weights(candidate, opening_boss_cells);
         // Preparation-only growth can break a tie in survival coverage.
         // Preserve the original coverage ordering when there is no growth
         // objective. A pair cannot trade away a lane, a healing check or
@@ -398,7 +456,8 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         return CandidateScore { unblocked,
                                 review.exposed_support_units,
                                 -boss_movement_attack_weight(candidate, boss_movement_waypoints),
-                                -stationary_boss_attack_weight(candidate, opening_boss_cells),
+                                -boss_opening_weight,
+                                -boss_supported_weight,
                                 prioritize_growth ? lane_problems : 0,
                                 prioritize_growth
                                     ? std::max(0, initial.balanced_block_capacity - review.balanced_block_capacity)
@@ -461,7 +520,11 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
                                initial_score.approach_penalty - best_score.approach_penalty;
     result.blocking_capacity_improvement = initial_score.block_capacity_cost - best_score.block_capacity_cost;
     result.boss_movement_coverage_improvement = initial_score.boss_movement_cost - best_score.boss_movement_cost;
-    result.boss_coverage_improvement = initial_score.boss_opening_cost - best_score.boss_opening_cost;
+    result.boss_coverage_improvement = stationary_boss_attack_weight(result.units, opening_boss_cells) -
+                                       stationary_boss_attack_weight(units, opening_boss_cells);
+    result.boss_estimated_attack_improvement = initial_score.boss_opening_cost - best_score.boss_opening_cost;
+    result.boss_supported_attack_improvement =
+        initial_score.boss_unhealed_attack_cost - best_score.boss_unhealed_attack_cost;
     result.preparation_growth_preference_improvement =
         initial_score.preparation_growth_cost - best_score.preparation_growth_cost;
     result.preference_improvement = initial_score.placement_preference_cost - best_score.placement_preference_cost;
@@ -500,7 +563,8 @@ bool asst::spa::deployment_change_worth_input(const DeploymentProposal& proposal
     }
     if (proposal.unblocked_lanes_improvement > 0 || proposal.score_improvement > 0 ||
         proposal.blocking_capacity_improvement > 0 || proposal.boss_coverage_improvement > 0 ||
-        proposal.boss_movement_coverage_improvement > 0) {
+        proposal.boss_movement_coverage_improvement > 0 || proposal.boss_estimated_attack_improvement > 0 ||
+        proposal.boss_supported_attack_improvement > 0) {
         return true;
     }
     // One additional covered approach cell is worth 200 preference points;

@@ -90,10 +90,11 @@ bool reread_single_operator_title(
     const std::vector<asst::spa::TextObservation>& original,
     const std::string& expected)
 {
-    if (!asst::spa::operator_title_contains_rank_artifact(original, expected)) {
+    if (!asst::spa::operator_title_contains_rank_artifact(original, expected) &&
+        !asst::spa::single_operator_title_confidence(original, expected)) {
         return false;
     }
-    asst::OCRer exact(image, asst::Rect(6, 173, 36, 35));
+    asst::OCRer exact(image, asst::Rect(6, 173, 39, 41));
     const auto glyph = exact.analyze();
     return glyph && glyph->size() == 1 && glyph->front().text == expected && glyph->front().score >= .90 &&
            glyph->front().rect.x < 40 && glyph->front().rect.y >= 175 && glyph->front().rect.y <= 207;
@@ -775,6 +776,7 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(
         }
         cv::Mat image;
         bool readable_title_seen = false;
+        std::optional<double> previous_single_name;
         int frame_limit = 2;
         for (int frame = 0; frame < frame_limit; ++frame) {
             image = ctrler()->get_image();
@@ -787,9 +789,17 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(
                 }
                 auto identity = operator_panel_identity(observations, known_names);
                 const auto& expected = replacement_bench_name.empty() ? m_name : replacement_bench_name;
-                if (!identity && reread_single_operator_title(image, observations, expected)) {
+                const auto single_name = single_operator_title_confidence(observations, expected);
+                // Keep the same selected panel open. A one-character name
+                // needs a second exact read, including one near the normal
+                // threshold, before it can authorize any action.
+                const bool confirmed_single_name =
+                    previous_single_name && single_name && std::max(*previous_single_name, *single_name) >= .88;
+                if (!identity &&
+                    (confirmed_single_name || reread_single_operator_title(image, observations, expected))) {
                     identity = expected;
                 }
+                previous_single_name = single_name;
                 if (identity) {
                     m_selected_panel_evidence.remember_recognized_title(image);
                     if (*identity == m_name && !selected_form_matches(image, *identity)) {
@@ -809,7 +819,7 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(
                 // A partial title grants one more fresh read of this same
                 // selected panel. Verification still requires the normal
                 // confidence threshold and no competing recognized identity.
-                if (bench_replacement_title_needs_settle(observations, replacement_bench_name)) {
+                if (single_name || bench_replacement_title_needs_settle(observations, replacement_bench_name)) {
                     frame_limit = 3;
                 }
             }
@@ -1778,8 +1788,10 @@ std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(
     const std::vector<BoardCell>& targets,
     int round,
     int funds,
-    int remaining)
+    int remaining,
+    std::optional<BoardCell>& verified_cell)
 {
+    verified_cell.reset();
     if (deployable_summon_owner(name).empty() || targets.empty() || m_registered_grid_reference.empty() ||
         !deployment_source_is_bench(bench_hint.x, bench_hint.y) || round < 1 || funds < 0 || remaining < 0 ||
         remaining > 8) {
@@ -1905,6 +1917,7 @@ std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(
     const auto placed = bench_identity(Point(cvRound(point.front().x), cvRound(point.front().y) - 14));
     const bool preparation_restored = close_selection() && preparation_matches();
     if (placed && *placed == name && preparation_restored) {
+        verified_cell = chosen;
         save_evidence(after, utils::path("debug/SPA/summon_on_field"), false);
         return true;
     }

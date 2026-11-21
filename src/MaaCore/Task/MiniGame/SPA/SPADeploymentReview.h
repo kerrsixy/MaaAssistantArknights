@@ -31,6 +31,9 @@ struct DeploymentUnit
     // tile throughout a wave. Keep physical block_count for consumption.
     bool holds_position = true;
     int boss_basic_attack_weight = 1;
+    std::vector<BoardCell> boss_skill_attack_range;
+    int boss_skill_attack_uptime_percent = 0;
+    std::vector<BoardCell> boss_skill_healing_range;
 };
 
 struct DeploymentLane
@@ -85,6 +88,8 @@ struct DeploymentProposal
     int boss_coverage_improvement = 0;
     int boss_movement_coverage_improvement = 0;
     int preparation_growth_preference_improvement = 0;
+    int boss_estimated_attack_improvement = 0;
+    int boss_supported_attack_improvement = 0;
 };
 
 // Distinct friendly patients covered by a different healer's measured range.

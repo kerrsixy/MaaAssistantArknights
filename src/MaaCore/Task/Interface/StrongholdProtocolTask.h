@@ -73,6 +73,8 @@ private:
     bool handle_preparation_summons(const json::value& state);
     std::map<std::string, std::pair<int, Point>> m_observed_bench_summons;
     std::set<std::pair<int, std::string>> m_preparation_summon_attempts;
+    std::set<std::pair<int, spa::BoardCell>> m_confirmed_summon_cells;
+    int m_equipment_capacity_blocked_round = -1;
     bool m_equipment_inventory_dirty = true;
     std::set<int> m_equipment_inventory_scan_rounds;
     std::vector<spa::InventoryOperatorHint> m_inventory_operator_hints;
@@ -197,7 +199,6 @@ private:
     int m_replacement_round = -1;
     std::set<std::tuple<std::string, std::string, int, int>> m_failed_replacements;
     std::set<spa::ReplacementLineup> m_visited_replacement_lineups;
-    std::string m_replacement_source_context;
     std::set<std::string> m_unavailable_replacement_sources;
     json::array roster_snapshot() const;
     json::array failed_spatial_action_snapshot() const;

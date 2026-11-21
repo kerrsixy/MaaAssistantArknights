@@ -1,5 +1,6 @@
 #include "SPAShopTaskPlugin.h"
 #include "SPABountyPolicy.h"
+#include "SPAEquipmentCatalogue.h"
 
 #include "SPAImageEvidence.h"
 #include "SPANumberOcr.h"
@@ -372,6 +373,12 @@ bool asst::spa::ShopTaskPlugin::configure_tactical(std::string name, bool confir
     return true;
 }
 
+std::optional<int> asst::spa::paid_shop_refresh_price(const cv::Mat& image)
+{
+    const auto price = shop_number(image, Rect(1180, 414, 30, 30));
+    return price == 1 ? price : std::nullopt;
+}
+
 bool asst::spa::ShopTaskPlugin::configure_refresh(int price, int funds, int round)
 {
     // Price 1 is the normal button cost; price 0 is a verified free-refresh
@@ -621,8 +628,8 @@ bool asst::spa::ShopTaskPlugin::run_equipment_discount(const cv::Mat& image)
             }
         }
     }
-    const bool identity = description.find("天空盒") != std::string::npos &&
-                          description.find("内部货源") != std::string::npos;
+    const bool identity =
+        description.find("天空盒") != std::string::npos && description.find("内部货源") != std::string::npos;
     if (!ctrler()->click(view) || !sleep(300)) {
         return false;
     }
@@ -643,13 +650,13 @@ bool asst::spa::ShopTaskPlugin::run_equipment_discount(const cv::Mat& image)
     }
     auto receipt = basic_info_with_what("SPAStrategyEquipmentDiscountOutcome");
     receipt["details"] = json::object { { "strategy_id", "band_price" },
-                                         { "round", m_round },
-                                         { "name", m_name },
-                                         { "slot", m_slot },
-                                         { "base_price", base_price },
-                                         { "observed_price", after.value_or(-1) },
-                                         { "effect_verified", after == m_price },
-                                         { "purchase_committed", false } };
+                                        { "round", m_round },
+                                        { "name", m_name },
+                                        { "slot", m_slot },
+                                        { "base_price", base_price },
+                                        { "observed_price", after.value_or(-1) },
+                                        { "effect_verified", after == m_price },
+                                        { "purchase_committed", false } };
     callback(AsstMsg::SubTaskExtraInfo, receipt);
     return after == m_price;
 }
@@ -756,7 +763,7 @@ bool asst::spa::ShopTaskPlugin::_run()
                 for (const auto& text : *recognized) {
                     texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
                 }
-                if (reconcile_bench_capacity_rejection(selected, texts, m_slot)) {
+                if (reconcile_capacity_rejection(selected, texts, m_slot)) {
                     return false;
                 }
                 if (const auto control = purchase_confirmation_control(texts, m_slot)) {
@@ -1330,8 +1337,7 @@ bool asst::spa::ShopTaskPlugin::_run()
         return true;
     }
     if (m_refresh) {
-        const auto price = shop_number(image, Rect(1180, 414, 30, 30));
-        if (m_price == 1 && (!price || *price != m_price)) {
+        if (m_price == 1 && paid_shop_refresh_price(image) != m_price) {
             LogError << "SPA refresh price was not verified";
             return false;
         }
@@ -1521,7 +1527,7 @@ bool asst::spa::ShopTaskPlugin::_run()
             identity = true;
         }
     }
-    if (reconcile_bench_capacity_rejection(image, detail_texts, slot)) {
+    if (reconcile_capacity_rejection(image, detail_texts, slot)) {
         return false;
     }
     if (const auto control = purchase_confirmation_control(detail_texts, slot)) {
@@ -1606,31 +1612,38 @@ bool asst::spa::ShopTaskPlugin::_run()
     return true;
 }
 
-bool asst::spa::ShopTaskPlugin::reconcile_bench_capacity_rejection(
+bool asst::spa::ShopTaskPlugin::reconcile_capacity_rejection(
     const cv::Mat& frame,
     const std::vector<TextObservation>& detail,
     int slot)
 {
-    if (m_price <= 0 || !selected_purchase_unavailable(detail, slot)) {
+    if (!selected_purchase_unavailable(detail, slot)) {
+        return false;
+    }
+    const bool equipment = std::any_of(EquipmentCatalogue.begin(), EquipmentCatalogue.end(), [&](const auto& item) {
+        return item.name == m_name;
+    });
+    if (!equipment && m_price <= 0) {
         return false;
     }
     OCRer toast(frame, Rect(440, 472, 450, 47));
     const auto recognized = toast.analyze();
-    if (!recognized ||
-        std::none_of(
-            recognized->begin(),
-            recognized->end(),
-            [](const auto& text) {
-                return bench_capacity_warning({ text.text, text.score, text.rect.x, text.rect.y });
-            }) ||
+    const auto warning = equipment ? equipment_capacity_warning : bench_capacity_warning;
+    const bool clipped_warning =
+        recognized && std::any_of(recognized->begin(), recognized->end(), [&](const auto& text) {
+            return warning({ text.text, text.score, text.rect.x, text.rect.y });
+        });
+    if ((!clipped_warning && std::none_of(detail.begin(), detail.end(), warning)) ||
         shop_number(frame, Rect(1180, 510, 45, 40)) != m_funds) {
         return false;
     }
     if (!ctrler()->click(Point(1040, 80)) || !sleep(m_fast_mode ? 250 : 450)) {
         return false;
     }
-    m_bench_capacity_rejection_verified = true;
-    auto info = basic_info_with_what("SPAShopPurchaseRejectedByBenchCapacity");
+    m_bench_capacity_rejection_verified = !equipment;
+    m_equipment_capacity_rejection_verified = equipment;
+    auto info = basic_info_with_what(
+        equipment ? "SPAShopPurchaseRejectedByEquipmentCapacity" : "SPAShopPurchaseRejectedByBenchCapacity");
     info["details"] = json::object { { "name", m_name },
                                      { "round", m_round },
                                      { "funds", m_funds },
