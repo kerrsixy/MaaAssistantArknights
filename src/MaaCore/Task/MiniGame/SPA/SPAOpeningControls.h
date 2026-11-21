@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <optional>
 #include <string_view>
+#include <vector>
 
 #include "MaaUtils/NoWarningCV.hpp"
 
@@ -26,6 +27,22 @@ inline std::optional<int> opening_strategy_countdown_seconds(std::string_view te
 inline int opening_strategy_inspection_seconds(std::optional<int> countdown)
 {
     return std::clamp(countdown.value_or(24) - 8, 0, 38);
+}
+
+// Catalogue order provides a first-viewport hint. Every slot remains a
+// candidate because a client filter can change which cards appear.
+inline std::vector<int> opening_strategy_probe_order(int visible_slots, int preferred_slot)
+{
+    std::vector<int> slots;
+    if (preferred_slot >= 0 && preferred_slot < visible_slots) {
+        slots.push_back(preferred_slot);
+    }
+    for (int index = 0; index < visible_slots; ++index) {
+        if (slots.empty() || slots.front() != index) {
+            slots.push_back(index);
+        }
+    }
+    return slots;
 }
 
 inline bool strategy_unavailable_label(std::string_view compact_text)

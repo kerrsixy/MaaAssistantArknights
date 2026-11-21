@@ -2628,6 +2628,12 @@ int main()
     assert(opening_strategy_inspection_seconds(opening_strategy_countdown_seconds("07")) == 0);
     assert(!opening_strategy_countdown_seconds("2/3"));
     assert(opening_strategy_inspection_seconds(std::nullopt) == 16);
+    const auto nymph_first = opening_strategy_probe_order(16, 8);
+    assert(nymph_first.size() == 16 && nymph_first.front() == 8 && nymph_first.back() == 15);
+    assert(std::count(nymph_first.begin(), nymph_first.end(), 8) == 1);
+    assert((opening_strategy_probe_order(4, 8) == std::vector<int> { 0, 1, 2, 3 }));
+    assert((opening_strategy_probe_order(4, 0) == std::vector<int> { 0, 1, 2, 3 }));
+    assert(opening_strategy_probe_order(0, 0).empty());
     assert(strategy_unavailable_label("已被选择"));
     assert(strategy_unavailable_label("该策略已被选择"));
     assert(strategy_unavailable_label("未解锁"));

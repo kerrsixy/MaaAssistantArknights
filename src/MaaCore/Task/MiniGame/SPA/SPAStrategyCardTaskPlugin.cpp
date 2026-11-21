@@ -264,7 +264,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         return marker;
     };
     int selected_strategy_index = m_strategy_index;
-    std::optional<Rect> default_selected_card;
+    std::optional<Rect> selected_card;
     bool specific_selected = false;
     std::string expected_default_identity;
     int inspected_strategy_cards = 0;
@@ -292,9 +292,12 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         const auto opening_context = m_context_provider ? m_context_provider() : OpeningStrategyContext {};
         const bool requested_mode_available = strategy_available_in_mode(m_requested_strategy, opening_context.mode);
         int requested_scrolls = 0;
-        // Search only by the observed right-hand title/leader. Slot indices
-        // cannot identify a strategy across account pools and scrolling.
-        const auto deadline = std::min(inspection_deadline, selection_started + std::chrono::seconds(24));
+        int requested_probes = 0;
+        const int catalogue_hint =
+            wanted == identities.end() ? -1 : static_cast<int>(std::distance(identities.begin(), wanted));
+        // Leave time for the default chooser if the requested card cannot be
+        // verified. Within this budget, finish a visible viewport before panning.
+        const auto deadline = inspection_deadline - std::chrono::seconds(5);
         cv::Mat last_marker;
         bool requested_unavailable = false;
         for (int page = 0; wanted != identities.end() && requested_mode_available && page < 7 && !need_exit() &&
@@ -310,13 +313,15 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                 break;
             }
             const int slots = rows.empty() ? 16 : std::min(16, static_cast<int>(rows.size()) * 4);
-            const auto page_deadline = std::min(deadline, std::chrono::steady_clock::now() + std::chrono::seconds(5));
-            for (int index = 0; index < slots && !need_exit() && std::chrono::steady_clock::now() < page_deadline;
-                 ++index) {
+            for (const int index : opening_strategy_probe_order(slots, page == 0 ? catalogue_hint : -1)) {
+                if (need_exit() || std::chrono::steady_clock::now() >= deadline) {
+                    break;
+                }
                 const auto slot = slot_at(index, rows, details_open);
                 if (!ctrler()->click(slot) || !sleep(100)) {
                     return false;
                 }
+                ++requested_probes;
                 const auto panel_image = ctrler()->get_image();
                 OCRer panel(panel_image, Rect(970, 320, 310, 400));
                 bool identity = false, unavailable = false, occupied = false;
@@ -361,10 +366,20 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                     specific_selected = true;
                     selected_strategy_index = index;
                     m_selected_strategy_index = index;
+                    selected_card = selected_slot;
+                    auto match = basic_info_with_what("SPAStrategyRequestedMatch");
+                    match["details"] = json::object { { "requested_strategy", m_requested_strategy },
+                                                      { "catalogue_hint", catalogue_hint },
+                                                      { "viewport", page },
+                                                      { "slot", index },
+                                                      { "probed_cards", requested_probes },
+                                                      { "confirmation_issued", false } };
+                    callback(AsstMsg::SubTaskExtraInfo, match);
                     break;
                 }
             }
-            if (!specific_selected && !requested_unavailable && page < 6) {
+            if (!specific_selected && !requested_unavailable && page < 6 &&
+                std::chrono::steady_clock::now() < deadline && !need_exit()) {
                 last_marker = viewport_marker(ctrler()->get_image());
                 if (!scroll(true)) {
                     return false;
@@ -382,6 +397,9 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                                      ? "Requested strategy was not selectable in the verified opening pool"
                                      : "Requested strategy is unavailable in this simulation mode" },
                                { "requested_mode", opening_context.mode },
+                               { "probed_cards", requested_probes },
+                               { "explicitly_unavailable", requested_unavailable },
+                               { "search_time_exhausted", std::chrono::steady_clock::now() >= deadline },
                                { "unlock_requirement", unlock ? std::string(unlock->description) : std::string() },
                                { "fallback", "default" },
                                { "badge_priority", false },
@@ -605,7 +623,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
             (!rows.empty() && selected_strategy_index / 4 >= static_cast<int>(rows.size()))) {
             return false;
         }
-        default_selected_card = slot_at(selected_strategy_index, rows, details_open);
+        selected_card = slot_at(selected_strategy_index, rows, details_open);
         selected_badge_known = selected.badge_known;
         selected_completed = selected.completed;
         auto preference = basic_info_with_what("SPAStrategyCardPriority");
@@ -635,7 +653,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         callback(AsstMsg::SubTaskExtraInfo, preference);
     }
     const auto [x, y, width, height] = opening_strategy_card_rect(selected_strategy_index, details_open);
-    const Rect card = default_selected_card.value_or(Rect(x, y, width, height));
+    const Rect card = selected_card.value_or(Rect(x, y, width, height));
     // The selection click is synchronous on the client. Polling the next
     // frame below is enough; a full one-second delay made this stage feel
     // frozen on fast emulators and multiplied when ProcessTask retried.
@@ -678,8 +696,9 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
             confirm_rect = text.rect;
         }
     }
+    const auto& expected_identity = specific_selected ? m_requested_strategy : expected_default_identity;
     bool selected_tile_verified = false;
-    if (!expected_default_identity.empty()) {
+    if (!expected_identity.empty()) {
         // The highlighted border belongs to the post-click grid. A scroll
         // or a newly opened detail panel can shift that grid after the click.
         const auto fresh_rows = opening_strategy_rows(selected_image, edge, true);
@@ -693,9 +712,9 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
             matching_tiles == 1 || (fresh_rows.empty() && opening_strategy_cell_selected(selected_image, card));
     }
     if (selected_identity_conflict ||
-        (!expected_default_identity.empty() &&
-         (!selected_identity || selected_identity->band_id != expected_default_identity || !selected_tile_verified))) {
-        LogError << "SPA strategy confirmation did not match the planned slot and identity" << expected_default_identity
+        (!expected_identity.empty() &&
+         (!selected_identity || selected_identity->band_id != expected_identity || !selected_tile_verified))) {
+        LogError << "SPA strategy confirmation did not match the planned slot and identity" << expected_identity
                  << (selected_identity ? selected_identity->band_id : "") << card << selected_tile_verified;
         return false;
     }

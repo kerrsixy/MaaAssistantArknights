@@ -103,7 +103,10 @@ bool asst::CustomTask::set_params(const json::value& params)
                 const auto spa = nested ? nested->find<json::object>("spa") : std::nullopt;
                 const int strategy_index = spa ? spa->get("strategy_index", -1) : -1;
                 auto plugin = m_custom_task_ptr->register_plugin<spa::StrategyCardTaskPlugin>();
-                if (!plugin->configure(strategy_index, spa ? spa->get("prefer_unclaimed_strategy", true) : true)) {
+                if (!plugin->configure(
+                        strategy_index,
+                        spa ? spa->get("prefer_unclaimed_strategy", true) : true,
+                        spa ? spa->get("strategy_id", std::string()) : std::string())) {
                     LogError << "SPA strategy card configuration is invalid";
                     return false;
                 }
