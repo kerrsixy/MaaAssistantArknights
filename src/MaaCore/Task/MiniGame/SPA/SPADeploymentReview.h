@@ -34,6 +34,7 @@ struct DeploymentUnit
     std::vector<BoardCell> boss_skill_attack_range;
     int boss_skill_attack_uptime_percent = 0;
     std::vector<BoardCell> boss_skill_healing_range;
+    bool facing_known = true;
 };
 
 struct DeploymentLane

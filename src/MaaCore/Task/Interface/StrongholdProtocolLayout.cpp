@@ -188,7 +188,8 @@ asst::spa::DeploymentUnit asst::StrongholdProtocolTask::describe_deployed_unit(
     }
     unit.holds_position = spa::default_skill_holds_position(member.name, elite);
     unit.facing = member.facing ? member.facing : 'E';
-    unit.range_known = member.facing && !range.empty();
+    unit.facing_known = member.facing != '\0';
+    unit.range_known = !range.empty() && (unit.facing_known || boss_round);
     unit.healer = unit.range_known && member.role == spa::PlacementRole::Healer;
     unit.damage_output = unit.range_known && member.role != spa::PlacementRole::Healer;
     if (const auto props = BattleData.find_first_oper(battle::Role::Unknown, member.name, true)) {
@@ -293,14 +294,16 @@ void asst::StrongholdProtocolTask::review_boss_opening_coverage(const json::valu
                     range.emplace_back(point.x, point.y);
                 }
             }
-            units.push_back(describe_deployed_unit(member, range, false));
+            units.push_back(describe_deployed_unit(member, range, true));
         }
     }
-    const bool coverage_known =
-        board_known && !target.cells.empty() && units.size() == m_population_grid_members.size() &&
-        std::all_of(units.begin(), units.end(), [](const auto& unit) { return unit.range_known; });
-    const int count = coverage_known ? spa::stationary_boss_attackers(units, target.cells) : -1;
-    const int weight = coverage_known ? spa::stationary_boss_attack_weight(units, target.cells) : -1;
+    const bool coverage_available =
+        board_known && !target.cells.empty() && units.size() == m_population_grid_members.size();
+    const bool coverage_known = coverage_available && std::ranges::all_of(units, [](const auto& unit) {
+        return unit.range_known && unit.facing_known;
+    });
+    const int count = coverage_available ? spa::stationary_boss_attackers(units, target.cells) : -1;
+    const int weight = coverage_available ? spa::stationary_boss_attack_weight(units, target.cells) : -1;
     auto objective = basic_info_with_what("SPABossPreparationObjectiveReviewed");
     objective["details"] =
         json::object { { "round", round },
@@ -308,10 +311,14 @@ void asst::StrongholdProtocolTask::review_boss_opening_coverage(const json::valu
                        { "boss_target_source", target.source },
                        { "registered_board_known", board_known },
                        { "boss_attackers_known", coverage_known && target.measured },
-                       { "boss_opening_attackers", target.measured ? count : -1 },
-                       { "boss_opening_basic_attack_weight", target.measured ? weight : -1 },
-                       { "estimated_boss_opening_attackers", !target.measured ? count : -1 },
-                       { "estimated_boss_opening_basic_attack_weight", !target.measured ? weight : -1 },
+                       { "boss_opening_attackers", target.measured && coverage_known ? count : -1 },
+                       { "boss_opening_basic_attack_weight", target.measured && coverage_known ? weight : -1 },
+                       { "boss_opening_attackers_lower_bound", target.measured ? count : -1 },
+                       { "boss_opening_basic_attack_weight_lower_bound", target.measured ? weight : -1 },
+                       { "estimated_boss_opening_attackers", !target.measured && coverage_known ? count : -1 },
+                       { "estimated_boss_opening_basic_attack_weight", !target.measured && coverage_known ? weight : -1 },
+                       { "estimated_boss_opening_attackers_lower_bound", !target.measured ? count : -1 },
+                       { "estimated_boss_opening_basic_attack_weight_lower_bound", !target.measured ? weight : -1 },
                        { "skill_uptime_or_consumption_applied", false },
                        { "boss_defeat_verified", false },
                        { "replacement_reconciliation_pending", m_pending_field_replacement.has_value() } };

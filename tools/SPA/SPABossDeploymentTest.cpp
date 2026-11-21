@@ -274,6 +274,18 @@ int main()
     const std::vector<BoardCell> firing_terrain { guard.cell, medic.cell, { 4, 2 }, { 3, 3 } };
     assert(boss_movement_attack_weight({ covered_attacker }, boss_firing_cells) == 500);
     assert(boss_movement_attack_weight({ medic, covered_attacker }, boss_firing_cells) == 2500);
+    auto unobserved_facing = covered_attacker;
+    unobserved_facing.facing_known = false;
+    unobserved_facing.movable = false;
+    assert(!range_covers(unobserved_facing, { 5, 2 }));
+    assert(stationary_boss_attackers({ unobserved_facing }, boss_firing_cells) == 0);
+    assert(stationary_boss_attackers({ unobserved_facing }, { { 4, 2 } }) == 1);
+    const std::vector<BoardCell> surrounding_footprint { { 5, 2 }, { 4, 3 }, { 3, 2 }, { 4, 1 } };
+    assert(stationary_boss_attackers({ unobserved_facing }, surrounding_footprint) == 1);
+    assert(stationary_boss_attack_weight({ unobserved_facing }, surrounding_footprint) == 500);
+    auto unknown_medic = medic;
+    unknown_medic.facing_known = false;
+    assert(boss_movement_attack_weight({ unknown_medic, covered_attacker }, boss_firing_cells) == 500);
     auto skill_attacker = covered_attacker;
     skill_attacker.local_range = { { 0, 1 } };
     skill_attacker.boss_skill_attack_range = { { 1, 0 } };
@@ -281,6 +293,8 @@ int main()
     assert(boss_movement_attack_weight({ skill_attacker }, boss_firing_cells) == 200);
     assert(boss_movement_attack_weight({ medic, skill_attacker }, boss_firing_cells) == 1000);
     assert(boss_movement_attack_weight({ medic, skill_attacker }, {}) == 0);
+    skill_attacker.facing_known = false;
+    assert(boss_movement_attack_weight({ medic, skill_attacker }, boss_firing_cells) == 0);
     const auto sustain_plan = propose_deployment(
         { guard, medic, covered_attacker, uncovered_attacker },
         one_lane,

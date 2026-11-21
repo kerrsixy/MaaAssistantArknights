@@ -5,17 +5,32 @@
 #include <limits>
 #include <set>
 #include <span>
+#include <string_view>
 #include <tuple>
+
+namespace
+{
+using namespace asst::spa;
+
+bool covers_for_known_or_all_facings(
+    const DeploymentUnit& unit,
+    std::span<const BoardCell> targets,
+    const std::vector<BoardCell>& range,
+    bool own_cell_is_target = false)
+{
+    const auto covers = [&](char facing) {
+        return std::ranges::any_of(targets, [&](const auto target) {
+            return (own_cell_is_target && unit.cell == target) ||
+                   grid_range_covers(unit.cell.first, unit.cell.second, facing, target.first, target.second, range);
+        });
+    };
+    return unit.facing_known ? covers(unit.facing) : std::ranges::all_of(std::string_view("ESWN"), covers);
+}
+}
 
 bool asst::spa::range_covers(const DeploymentUnit& unit, BoardCell target)
 {
-    return unit.range_known && grid_range_covers(
-                                   unit.cell.first,
-                                   unit.cell.second,
-                                   unit.facing,
-                                   target.first,
-                                   target.second,
-                                   unit.local_range);
+    return unit.range_known && covers_for_known_or_all_facings(unit, std::span(&target, 1), unit.local_range);
 }
 
 asst::spa::DeploymentReview asst::spa::review_deployment(
@@ -251,6 +266,7 @@ std::optional<asst::spa::DeploymentStep> asst::spa::repair_healing_coverage(
     std::optional<DeploymentStep> best;
     auto candidate = healer;
     candidate.range_known = true;
+    candidate.facing_known = true;
     for (const auto& cell : legal_cells) {
         const bool moving = cell != healer.cell;
         if (moving && (std::any_of(units.begin(), units.end(), [&](const auto& unit) { return unit.cell == cell; }) ||
@@ -282,9 +298,8 @@ std::optional<asst::spa::DeploymentStep> asst::spa::repair_healing_coverage(
 static bool can_attack_boss(const asst::spa::DeploymentUnit& unit, std::span<const asst::spa::BoardCell> boss_cells)
 {
     return unit.damage_output && !unit.healer && unit.holds_position &&
-           std::any_of(boss_cells.begin(), boss_cells.end(), [&](const auto cell) {
-               return asst::spa::boss_attack_overlaps_cell(unit, cell);
-           });
+           (unit.range_known ? covers_for_known_or_all_facings(unit, boss_cells, unit.local_range, true)
+                             : std::ranges::find(boss_cells, unit.cell) != boss_cells.end());
 }
 
 int asst::spa::stationary_boss_attackers(
@@ -317,12 +332,9 @@ int boss_attack_coverage_weight(const DeploymentUnit& unit, std::span<const Boar
     if (!unit.damage_output || unit.healer || !unit.holds_position) {
         return 0;
     }
-    const auto& [col, row] = unit.cell;
     const bool basic = can_attack_boss(unit, cells);
-    const bool skill = !unit.boss_skill_attack_range.empty() && std::any_of(cells.begin(), cells.end(), [&](auto cell) {
-        return cell == unit.cell ||
-               grid_range_covers(col, row, unit.facing, cell.first, cell.second, unit.boss_skill_attack_range);
-    });
+    const bool skill = !unit.boss_skill_attack_range.empty() &&
+                       covers_for_known_or_all_facings(unit, cells, unit.boss_skill_attack_range, true);
     const int uptime = std::clamp(unit.boss_skill_attack_uptime_percent, 0, 100);
     return unit.boss_basic_attack_weight * (basic * (100 - uptime) + skill * uptime);
 }
@@ -340,20 +352,14 @@ std::pair<int, int> boss_attack_weights(const std::vector<DeploymentUnit>& units
             continue;
         }
         total_weight += attack_weight;
-        const auto& [target_col, target_row] = attacker.cell;
         const bool covered = std::any_of(units.begin(), units.end(), [&](const auto& support) {
             if (support.id == attacker.id || (!attacker.accepts_direct_healing && !support.provides_regeneration)) {
                 return false;
             }
             return (support.healer && range_covers(support, attacker.cell)) ||
                    (support.holds_position && !support.boss_skill_healing_range.empty() &&
-                    grid_range_covers(
-                        support.cell.first,
-                        support.cell.second,
-                        support.facing,
-                        target_col,
-                        target_row,
-                        support.boss_skill_healing_range));
+                    covers_for_known_or_all_facings(
+                        support, std::span(&attacker.cell, 1), support.boss_skill_healing_range));
         });
         if (covered) {
             healed_weight += attack_weight;
