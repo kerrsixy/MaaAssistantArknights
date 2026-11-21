@@ -782,8 +782,8 @@ asst::spa::PageObservation
         return result;
     }
     const bool tactical_title = std::any_of(texts.begin(), texts.end(), [](const auto& text) {
-        return std::isfinite(text.score) && text.score >= .85 && text.text == "战术决策" && text.x >= 140 &&
-               text.x < 380 && text.y < 90;
+        return std::isfinite(text.score) && text.score >= .85 && (text.text == "战术决策" || text.text == "战术決策") &&
+               text.x >= 140 && text.x < 380 && text.y < 90;
     });
     if (tactical_title && (has("选定后将无法更改") || has("倒计时结束仍未选定将自动分配")) && has("进行协同调整")) {
         result.page = Page::TacticalDecision;

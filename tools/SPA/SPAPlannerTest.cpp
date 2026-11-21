@@ -3679,6 +3679,23 @@ int main()
     }
     assert(observe_page(tactical_texts, identities).page == Page::TacticalDecision);
     assert(observe_page({ { "战术决策", .99, 176, 30 } }, identities).page != Page::TacticalDecision);
+    // The same R8 reward was repeatedly OCR'd with 決 while its cards and
+    // confirmation warning stayed readable.
+    std::vector<TextObservation> r8_tactical_texts {
+        { "战术決策", .914029, 176, 30 },
+        { "进行协同调整，做好迎战准备。", .999950, 368, 35 },
+        { "选定后将无法更改", .999861, 366, 56 },
+        { "补给", .998558, 281, 285 },
+        { "你接下来的2次刷新变为免费（可叠", .978436, 182, 357 },
+        { "加），若存在其他队友则他们也获得", .978910, 184, 382 },
+    };
+    assert(observe_page(r8_tactical_texts, identities).page == Page::TacticalDecision);
+    assert(choose_tactical_adjustment(observe_tactical_offers(r8_tactical_texts), "乌萨斯", { "乌萨斯" }, 8) == 0);
+    r8_tactical_texts[0].y = 200;
+    assert(observe_page(r8_tactical_texts, identities).page != Page::TacticalDecision);
+    r8_tactical_texts[0].y = 30;
+    r8_tactical_texts.erase(r8_tactical_texts.begin() + 2);
+    assert(observe_page(r8_tactical_texts, identities).page != Page::TacticalDecision);
     const auto tactical_offers = observe_tactical_offers(tactical_texts);
     assert(
         tactical_offers.size() == 3 && tactical_offers[0].title == "锏的盟誓" &&
