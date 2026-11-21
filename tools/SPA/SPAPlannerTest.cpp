@@ -1872,6 +1872,32 @@ int main()
     }
     const auto sand_terrain = terrain_layout_model("m01", false);
     assert(sand_terrain);
+    // Live round 12: the wolf was identified on the bench, but the east-facing
+    // Vigil's only buildable cells in range were occupied by allies.
+    std::vector<GridPlacementMember> wolf_blocked_field {
+        { 7, 1, PlacementRole::Ranged, "伺夜", 'E' },    { 8, 2, PlacementRole::Ranged, "奥斯塔", 'N' },
+        { 8, 1, PlacementRole::Frontline, "忍冬", 'E' }, { 8, 4, PlacementRole::Frontline, "慕斯", 'E' },
+        { 8, 3, PlacementRole::Ranged, "折光", 'E' },    { 7, 2, PlacementRole::Ranged, "灰喉" },
+        { 6, 1, PlacementRole::Ranged, "空弦", 'E' },    { 6, 2, PlacementRole::Healer, "纯烬艾雅法拉", 'E' },
+    };
+    const auto wolf_owner_stats = season_combat_stats("伺夜", false);
+    assert(wolf_owner_stats);
+    const std::vector<BoardCell> wolf_owner_range(
+        wolf_owner_stats->basic_range.begin(),
+        wolf_owner_stats->basic_range.end());
+    const auto wolf_targets = [&] {
+        return summon_placement_cells(
+            "狼群",
+            wolf_blocked_field.front(),
+            wolf_owner_range,
+            sand_terrain->buildable,
+            wolf_blocked_field,
+            {});
+    };
+    assert(wolf_targets().empty());
+    wolf_blocked_field[1].col = 7;
+    wolf_blocked_field[1].row = 3;
+    assert((wolf_targets() == std::vector<BoardCell> { { 8, 2 } }));
     const auto sand_lanes = active_preparation_lanes(*sand_terrain, 5);
     const auto uncovered_in_sand = uncovered_healable_allies(sand_field).size();
     const auto sand_repair =

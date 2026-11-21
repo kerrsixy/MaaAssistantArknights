@@ -12,6 +12,7 @@
 #include "Task/MiniGame/SPA/SPAProjection.h"
 #include "Task/MiniGame/SPA/SPASpatialActionDeadline.h"
 #include "Task/MiniGame/SPA/SPASpatialGrowthPolicy.h"
+#include "Task/MiniGame/SPA/SPASummonPolicy.h"
 #include "Task/MiniGame/SPA/SPASwapTaskPlugin.h"
 #include "Task/MiniGame/SPA/SPATerrainModel.h"
 #include "Vision/OCRer.h"
@@ -391,9 +392,23 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     for (const auto& pact : std::set<std::string>(active_pacts.begin(), active_pacts.end())) {
         pact_context += "#" + pact;
     }
+    std::map<std::string, std::string> position_bound_summons;
+    std::string summon_context;
+    for (const auto& [summon, observed] : m_observed_bench_summons) {
+        const auto rule = spa::summon_rule(summon);
+        if (observed.first != round || !rule || !rule->preparation_executor ||
+            (rule->placement != spa::SummonPlacement::OwnerFront && rule->placement != spa::SummonPlacement::OwnerRange)) {
+            continue;
+        }
+        const std::string owner(rule->owner);
+        if (m_auto_deploy_positions.count(owner) == 1) {
+            position_bound_summons.emplace(owner, summon);
+            summon_context += "#summon:" + summon;
+        }
+    }
     const auto context = roster_snapshot().to_string() + equipment_slots_snapshot().to_string() + m_spatial_map_id +
                          (m_spatial_boss_phase ? "#boss" : "#normal") + "#round" + std::to_string(round) + "#" +
-                         m_policy.primary_pact + pact_context + boss_context;
+                         m_policy.primary_pact + pact_context + boss_context + summon_context;
     const auto target_snapshot = [](const std::vector<spa::DeploymentUnit>& units) {
         json::array result;
         for (const auto& unit : units) {
@@ -411,7 +426,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
             auto invalidated = basic_info_with_what("SPADynamicLayoutPlanInvalidated");
             invalidated["details"] =
                 json::object { { "round", round },
-                               { "reason", "Round, roster, equipment, pacts, map or measured boss region changed" },
+                               { "reason", "Round, roster, equipment, pacts, summon, map or boss region changed" },
                                { "input_issued", false } };
             callback(AsstMsg::SubTaskExtraInfo, invalidated);
         }
@@ -528,6 +543,28 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         }
         return grid;
     };
+    const auto placeable_summons = [&](const std::vector<spa::DeploymentUnit>& candidate,
+                                       const std::vector<spa::GridPlacementMember>& grid) {
+        if (position_bound_summons.empty()) {
+            return 0;
+        }
+        int count = 0;
+        for (std::size_t index = 0; index < grid.size(); ++index) {
+            const auto& owner = grid[index];
+            const auto summon = position_bound_summons.find(owner.name);
+            if (summon != position_bound_summons.end() && !spa::summon_placement_cells(
+                                                               summon->second,
+                                                               owner,
+                                                               candidate[index].local_range,
+                                                               terrain->buildable,
+                                                               grid,
+                                                               {})
+                                                               .empty()) {
+                ++count;
+            }
+        }
+        return count;
+    };
     std::set<std::string> cold_sources;
     std::set<std::string> freeze_stackers;
     std::map<std::string, std::vector<spa::BoardCell>> skill_freeze_sources;
@@ -587,7 +624,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         const int freeze_coverage =
             spa::freeze_growth_coverage(candidate, m_layout_lanes, cold_sources, freeze_stackers, skill_freeze_sources);
         return engagement - uncovered * 550 + spa::spatial_formation_value(grid, active_pacts, m_policy.primary_pact) +
-               freeze_coverage * 900;
+               freeze_coverage * 900 + placeable_summons(candidate, grid) * 900;
     };
     std::function<int(const std::vector<spa::DeploymentUnit>&)> preparation_growth;
     if (!boss_round && round < m_expected_boss_round && m_policy.last_round_life_loss == 0 &&
@@ -645,6 +682,8 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         { "boss_basic_attack_weight_after", spa::stationary_boss_attack_weight(proposal.units, boss_cells) },
         { "boss_damage_verified", false },
         { "spatial_preference_improvement", proposal.preference_improvement },
+        { "position_bound_summons_placeable_before", placeable_summons(current, layout_grid(current)) },
+        { "position_bound_summons_placeable_after", placeable_summons(proposal.units, layout_grid(proposal.units)) },
         { "freeze_growth_coverage_before",
           spa::freeze_growth_coverage(current, m_layout_lanes, cold_sources, freeze_stackers, skill_freeze_sources) },
         { "freeze_growth_coverage_after",
