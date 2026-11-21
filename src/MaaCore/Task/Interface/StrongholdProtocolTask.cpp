@@ -695,6 +695,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     }
     m_spatial_boss_phase = false;
     m_spatial_boss_phase_round = 0;
+    m_spatial_boss_hidden_variant.reset();
     m_boss_attackable_cells.clear();
     m_boss_attackable_map_id.clear();
     m_boss_attackable_round = 0;
@@ -3069,19 +3070,36 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         if (state_storage.get("page", std::string()) == "preparation") {
             const int observed_round = state_storage.get("round", 0);
             const bool boss_bar_visible = state_storage.get("preparation_boss_bar_visible", false);
-            const bool scheduled_boss = state_storage.get("round_known", false) &&
+            const bool round_known = state_storage.get("round_known", false);
+            std::optional<bool> variant;
+            if (round_known) {
+                variant = spa::independent_boss_variant_for_preparation(
+                    m_mode,
+                    observed_round,
+                    m_expected_boss_round,
+                    m_difficulty,
+                    state_storage.get("bonus_round", false),
+                    state_storage.get("round_source", std::string()));
+            }
+            const bool hidden_core = variant.value_or(false);
+            const bool scheduled_boss = round_known &&
                                         spa::scheduled_independent_boss_preparation(
                                             m_mode,
                                             observed_round,
                                             m_expected_boss_round,
                                             m_difficulty,
                                             m_advertised_boss_family);
-            if (boss_bar_visible || scheduled_boss) {
+            if (boss_bar_visible || scheduled_boss || hidden_core) {
                 if (!m_spatial_boss_phase || m_spatial_boss_phase_round != observed_round) {
+                    m_spatial_boss_hidden_variant.reset();
                     auto phase = basic_info_with_what("SPABossPreparationPhaseObserved");
                     phase["details"] = json::object {
                         { "round", observed_round },
-                        { "source", boss_bar_visible ? "visible_health_bar" : "verified_independent_schedule" },
+                        { "source",
+                          hidden_core       ? "independent_hidden_core_phase"
+                          : boss_bar_visible ? "visible_health_bar"
+                                             : "verified_independent_schedule" },
+                        { "catalogue_hidden_variant", variant ? json::value(*variant) : json::value(nullptr) },
                         { "boss_family_name", m_advertised_boss_family },
                         { "attackable_region_measured", false }
                     };
@@ -3089,9 +3107,13 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 }
                 m_spatial_boss_phase = true;
                 m_spatial_boss_phase_round = observed_round;
+                if (variant.has_value()) {
+                    m_spatial_boss_hidden_variant = variant;
+                }
             }
-            else if (state_storage.get("round_known", false) && observed_round != m_spatial_boss_phase_round) {
+            else if (round_known && observed_round != m_spatial_boss_phase_round) {
                 m_spatial_boss_phase = false;
+                m_spatial_boss_hidden_variant.reset();
             }
             if (state_storage.get("remaining_deployment_known", false)) {
                 const int remaining = state_storage.get("remaining_deployment", -1);

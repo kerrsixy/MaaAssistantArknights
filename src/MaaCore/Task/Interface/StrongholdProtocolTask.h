@@ -158,6 +158,7 @@ private:
     bool m_stop_before_battle = false;
     std::string m_spatial_deferral_context;
     int m_spatial_boss_phase_round = 0;
+    std::optional<bool> m_spatial_boss_hidden_variant;
     std::vector<std::pair<int, int>> m_boss_attackable_cells;
     std::string m_boss_attackable_map_id;
     int m_boss_attackable_round = 0;

@@ -245,8 +245,11 @@ asst::StrongholdProtocolTask::BossOpeningTarget asst::StrongholdProtocolTask::bo
     if (m_mode == "independent") {
         const auto terrain = spa::terrain_layout_model(m_spatial_map_id, true);
         if (terrain && !terrain->lanes.empty() && !terrain->lanes.front().path.empty()) {
-            const auto boss =
-                spa::boss_objective(m_advertised_boss_family, terrain->lanes.front().path.back(), m_difficulty);
+            const auto boss = spa::boss_objective(
+                m_advertised_boss_family,
+                terrain->lanes.front().path.back(),
+                m_difficulty,
+                m_spatial_boss_hidden_variant);
             target.movement_waypoints = boss.movement_waypoints;
             if (target.cells.empty()) {
                 target.cells = spa::estimate_solo_boss_opening_cells(boss);
@@ -309,6 +312,9 @@ void asst::StrongholdProtocolTask::review_boss_opening_coverage(const json::valu
         json::object { { "round", round },
                        { "boss_region_verified", target.measured },
                        { "boss_target_source", target.source },
+                       { "catalogue_hidden_variant",
+                         m_spatial_boss_hidden_variant ? json::value(*m_spatial_boss_hidden_variant)
+                                                       : json::value(nullptr) },
                        { "registered_board_known", board_known },
                        { "boss_attackers_known", coverage_known && target.measured },
                        { "boss_opening_attackers", target.measured && coverage_known ? count : -1 },
@@ -385,7 +391,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     m_layout_lanes = spa::active_preparation_lanes(*terrain, round);
     m_deployable_cells = terrain->buildable;
     m_dynamic_layout_observed = true;
-    const auto boss_mobility = spa::boss_family_mobility(m_advertised_boss_family);
+    const auto boss_mobility = spa::boss_family_mobility(m_advertised_boss_family, m_spatial_boss_hidden_variant);
     const auto boss_target = boss_opening_target(round);
     const auto& boss_cells = boss_target.cells;
     const auto& movement_waypoints = boss_target.movement_waypoints;

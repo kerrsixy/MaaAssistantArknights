@@ -165,7 +165,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
             spa::registered_grid_projection(m_spatial_grid_reference, frame, m_spatial_grid_projection);
         boss_bar_verified = projection.has_value();
         if (projection && m_mode == "independent") {
-            boss = spa::boss_objective(m_advertised_boss_family, request.home, m_difficulty);
+            boss = spa::boss_objective(m_advertised_boss_family, request.home, m_difficulty, m_spatial_boss_hidden_variant);
         }
         if (projection) {
             if (const auto red_region = spa::boss_attackable_region(frame, *visible_bar)) {
@@ -473,6 +473,9 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
                              : request.boss_opening_only ? "boss_opening_attack"
                                                          : "home_defense" },
                            { "boss_family_name", m_advertised_boss_family },
+                           { "catalogue_hidden_variant",
+                             m_spatial_boss_hidden_variant ? json::value(*m_spatial_boss_hidden_variant)
+                                                           : json::value(nullptr) },
                            { "boss_health_bar_verified", boss_bar_verified },
                            { "boss_variant_verified", boss.variant_known },
                            { "possible_boss_cells", std::move(boss_cells) },

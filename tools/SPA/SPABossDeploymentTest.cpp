@@ -64,6 +64,27 @@ int main()
     assert(!scheduled_independent_boss_preparation("independent", 14, 14, 4, ""));
     assert(!scheduled_independent_boss_preparation("independent", 14, 14, 0, "矩兽"));
     assert(!scheduled_independent_boss_preparation("joint", 14, 14, 4, "矩兽"));
+    const auto solo_normal = independent_boss_variant_for_preparation("independent", 14, 14, 14, false, "numeric_badge");
+    const auto solo_hidden =
+        independent_boss_variant_for_preparation("independent", 15, 14, 14, true, "independent_hidden_core_phase");
+    assert(solo_normal == false);
+    assert(solo_hidden == true);
+    assert(independent_boss_variant_for_preparation(
+               "independent", 15, 14, 5, true, "independent_hidden_core_phase") == true);
+    assert(!independent_boss_variant_for_preparation("independent", 15, 14, 4, true, "independent_hidden_core_phase"));
+    assert(!independent_boss_variant_for_preparation("independent", 15, 14, 14, false, "numeric_badge"));
+    assert(!independent_boss_variant_for_preparation("independent", 15, 14, 14, true, "joint_risk_bonus_phase"));
+    assert(!independent_boss_variant_for_preparation("joint", 15, 14, 14, true, "independent_hidden_core_phase"));
+    assert(!independent_boss_variant_for_preparation("independent", 13, 14, 14, false, "numeric_badge"));
+    const auto normal_pipe = boss_objective("假想敌：管", { 2, 4 }, 14, solo_normal);
+    const auto hidden_pipe = boss_objective("假想敌：管", { 2, 4 }, 14, solo_hidden);
+    assert(normal_pipe.variant_known && hidden_pipe.variant_known);
+    assert((normal_pipe.possible_cells == std::vector<BoardCell> { { 10, 3 } }));
+    assert((hidden_pipe.possible_cells == std::vector<BoardCell> { { 9, 3 } }));
+    assert(estimate_solo_stationary_boss_footprint(normal_pipe).size() == 15);
+    assert(estimate_solo_stationary_boss_footprint(hidden_pipe).size() == 15);
+    assert(!boss_objective("“萨米的意志”", { 2, 4 }, 14, solo_hidden).known);
+    assert(!boss_family_mobility("“萨米的意志”", solo_hidden).known);
     const auto d4_m01_boss = boss_objective("矩兽", { 2, 4 }, 4);
     assert((estimate_solo_boss_opening_cells(d4_m01_boss) == std::vector<BoardCell> { { 10, 2 } }));
     assert(!d4_m01_boss.movement_waypoints.empty());

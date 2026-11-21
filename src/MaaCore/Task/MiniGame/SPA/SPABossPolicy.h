@@ -69,12 +69,14 @@ struct BossFamilyMobility
 
 // Family classification only. It establishes neither the current variant,
 // difficulty, health nor a screen/grid location.
-inline BossFamilyMobility boss_family_mobility(const std::string& family)
+inline BossFamilyMobility boss_family_mobility(
+    const std::string& family,
+    std::optional<bool> hidden_variant = std::nullopt)
 {
     BossFamilyMobility result;
     bool all_stationary = true;
     for (const auto& boss : SeasonBossCatalogue) {
-        if (boss.family_name == family) {
+        if (boss.family_name == family && (!hidden_variant || boss.hidden == *hidden_variant)) {
             result.known = true;
             all_stationary = all_stationary && boss.stationary_route;
         }
@@ -144,6 +146,29 @@ inline bool scheduled_independent_boss_preparation(
            std::any_of(SeasonBossCatalogue.begin(), SeasonBossCatalogue.end(), [&](const auto& boss) {
                return boss.family_name == verified_family && boss.hp_by_difficulty[difficulty - 1] > 0;
            });
+}
+
+// Bind a catalogue variant to a recognized solo phase, never to a numeric
+// late round alone. The observed region remains the opening-position proof.
+inline std::optional<bool> independent_boss_variant_for_preparation(
+    std::string_view mode,
+    int round,
+    int scheduled_boss_round,
+    int difficulty,
+    bool bonus_round,
+    std::string_view round_source)
+{
+    if (mode != "independent" || difficulty < 1 || difficulty > 20) {
+        return std::nullopt;
+    }
+    if (round == HiddenCoreRound && bonus_round && difficulty >= 5 &&
+        round_source == "independent_hidden_core_phase") {
+        return true;
+    }
+    if (!bonus_round && round >= 2 && round < HiddenCoreRound && round == scheduled_boss_round) {
+        return false;
+    }
+    return std::nullopt;
 }
 
 inline BossObjective boss_objective(
