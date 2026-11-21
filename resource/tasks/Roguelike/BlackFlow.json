@@ -121,6 +121,7 @@
         "algorithm": "JustReturn",
         "action": "DoNothing",
         "next": [
+            "BlackFlow@Roguelike@AccountDailySupply",
             "BlackFlow@Roguelike@AccountHome",
             "BlackFlow@Roguelike@AccountFloorIntro",
             "BlackFlow@Roguelike@AccountMapReturn",
@@ -197,7 +198,13 @@
     "BlackFlow@Roguelike@AccountRead": {
         "algorithm": "JustReturn",
         "action": "DoNothing",
-        "next": ["BlackFlow@Roguelike"]
+        "next": ["BlackFlow@Roguelike@AccountDailySupply", "BlackFlow@Roguelike"]
+    },
+    "BlackFlow@Roguelike@AccountDailySupply": {
+        "baseTask": "BlackFlow@Roguelike@BeginRecovery_DailySupply",
+        "maxTimes": 2,
+        "postDelay": 500,
+        "next": ["BlackFlow@Roguelike@AccountBegin"]
     },
     "BlackFlow@Roguelike@ScrapTradePageFallback": {
         "Doc": "B 服新版行商顶部购买按钮作为页面识别锚点；命中后交回行商决策插件。",
