@@ -2670,6 +2670,24 @@ int main()
     assert(opening_strategy_inspection_seconds(opening_strategy_countdown_seconds("20")) == 12);
     assert(opening_strategy_inspection_seconds(opening_strategy_countdown_seconds("07")) == 0);
     assert(!opening_strategy_countdown_seconds("2/3"));
+    cv::Mat opening_clock(720, 1280, CV_8UC3, cv::Scalar(0, 0, 0));
+    const auto light_segment = [&](int digit_x, const cv::Rect& relative_area) {
+        opening_clock(relative_area + cv::Point(digit_x, 0)).setTo(cv::Scalar(160, 220, 20));
+    };
+    assert(!opening_strategy_display_countdown(opening_clock));
+    // Replicate the lit segment pattern observed on the 69-second opening frame.
+    for (int x : { 1133, 1165 }) {
+        light_segment(x, { 7, 25, 12, 5 });
+        light_segment(x, { 22, 56, 4, 10 });
+        light_segment(x, { 7, 68, 12, 4 });
+        light_segment(x, { 0, 33, 5, 10 });
+        light_segment(x, { 7, 47, 12, 5 });
+    }
+    light_segment(1133, { 0, 56, 5, 10 });
+    light_segment(1165, { 22, 33, 4, 10 });
+    assert(opening_strategy_display_countdown(opening_clock) == 69);
+    light_segment(1133, { 22, 33, 2, 10 });
+    assert(!opening_strategy_display_countdown(opening_clock));
     assert(opening_strategy_inspection_seconds(std::nullopt) == 16);
     const auto nymph_first = opening_strategy_probe_order(16, 8);
     assert(nymph_first.size() == 16 && nymph_first.front() == 8 && nymph_first.back() == 15);

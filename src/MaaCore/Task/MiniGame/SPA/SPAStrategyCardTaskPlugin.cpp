@@ -204,7 +204,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         return false;
     }
     save_evidence(image, utils::path("debug/SPA/strategy_opening"), false);
-    std::optional<int> countdown_seconds;
+    auto countdown_seconds = opening_strategy_display_countdown(image);
     for (const auto& text : *recognized) {
         if (text.score >= .9 && text.rect.x >= 1100 && text.rect.x < 1235 && text.rect.y < 72 &&
             text.rect.height >= 28) {
@@ -232,6 +232,21 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         }
         const int y = rows.at(index / 4);
         return Rect(x, y, width, std::min(128, 705 - y));
+    };
+    const auto selected_tile_matches = [&](const cv::Mat& frame, int index, const Rect& clicked_slot) {
+        // Opening the details panel can move the entire grid. Verify the
+        // highlight against the same column on the post-click frame.
+        const auto rows = opening_strategy_rows(frame, edge, true);
+        const int x = opening_strategy_card_rect(index % 4, true)[0];
+        if (rows.empty()) {
+            return opening_strategy_cell_selected(
+                frame,
+                Rect(x, clicked_slot.y, clicked_slot.width, clicked_slot.height));
+        }
+        return std::count_if(rows.begin(), rows.end(), [&](int y) {
+                   return std::abs(y - clicked_slot.y) < 65 &&
+                          opening_strategy_cell_selected(frame, Rect(x, y, 125, 128));
+               }) == 1;
     };
     const auto scroll = [&](bool down) {
         const int x = details_open ? 865 : 1115;
@@ -310,7 +325,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                     return false;
                 }
                 ++requested_probes;
-                const auto panel_image = ctrler()->get_image();
+                auto panel_image = ctrler()->get_image();
                 OCRer panel(panel_image, Rect(970, 320, 310, 400));
                 bool identity = false, unavailable = false, occupied = false;
                 bool confirmation = false;
@@ -335,11 +350,28 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                     }
                 }
                 const auto selected_slot = slot_at(index, rows, details_open);
-                if (!opening_strategy_cell_selected(panel_image, selected_slot)) {
+                bool highlighted = identity ? selected_tile_matches(panel_image, index, slot)
+                                            : opening_strategy_cell_selected(panel_image, selected_slot);
+                bool enabled = highlighted && strategy_confirmation_enabled_on_frame(panel_image);
+                const bool selection_reobserved = identity && confirmation && !unavailable && !enabled && sleep(180);
+                if (selection_reobserved) {
+                    // The title can become readable before the grid finishes sliding.
+                    // Let the original selection settle before considering another card.
+                    panel_image = ctrler()->get_image();
+                    highlighted = selected_tile_matches(panel_image, index, slot);
+                    enabled = highlighted && strategy_confirmation_enabled_on_frame(panel_image);
+                }
+                if (!highlighted) {
+                    if (identity && confirmation) {
+                        save_evidence(
+                            panel_image,
+                            utils::path("debug/SPA/strategy_requested_highlight_unverified"),
+                            false);
+                    }
                     report_occupied(observed_identity, occupied);
                     continue;
                 }
-                unavailable = unavailable || !strategy_confirmation_enabled_on_frame(panel_image);
+                unavailable = unavailable || !enabled;
                 report_occupied(observed_identity, occupied);
                 if (page == 0 && observed_identity) {
                     first_page_observations[index] = { observed_identity->band_id, confirmation && !unavailable };
@@ -361,6 +393,8 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                                                       { "viewport", page },
                                                       { "slot", index },
                                                       { "probed_cards", requested_probes },
+                                                      { "countdown_seconds", countdown_seconds.value_or(-1) },
+                                                      { "selection_reobserved", selection_reobserved },
                                                       { "confirmation_issued", false } };
                     callback(AsstMsg::SubTaskExtraInfo, match);
                     break;
@@ -382,10 +416,12 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                 json::object { { "requested_strategy", m_requested_strategy },
                                { "reason",
                                  requested_mode_available
-                                     ? "Requested strategy was not selectable in the verified opening pool"
+                                     ? "Could not verify a selectable requested card within the opening search"
                                      : "Requested strategy is unavailable in this simulation mode" },
                                { "requested_mode", opening_context.mode },
                                { "probed_cards", requested_probes },
+                               { "viewport_scrolls", requested_scrolls },
+                               { "countdown_seconds", countdown_seconds.value_or(-1) },
                                { "explicitly_unavailable", requested_unavailable },
                                { "search_time_exhausted", std::chrono::steady_clock::now() >= deadline },
                                { "unlock_requirement", unlock ? std::string(unlock->description) : std::string() },
@@ -685,20 +721,8 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         }
     }
     const auto& expected_identity = specific_selected ? m_requested_strategy : expected_default_identity;
-    bool selected_tile_verified = false;
-    if (!expected_identity.empty()) {
-        // The highlighted border belongs to the post-click grid. A scroll
-        // or a newly opened detail panel can shift that grid after the click.
-        const auto fresh_rows = opening_strategy_rows(selected_image, edge, true);
-        const int column = selected_strategy_index % 4;
-        const int x_after = opening_strategy_card_rect(column, true)[0];
-        const int matching_tiles = static_cast<int>(std::count_if(fresh_rows.begin(), fresh_rows.end(), [&](int y) {
-            return std::abs(y - card.y) < 65 &&
-                   opening_strategy_cell_selected(selected_image, Rect(x_after, y, 125, 128));
-        }));
-        selected_tile_verified =
-            matching_tiles == 1 || (fresh_rows.empty() && opening_strategy_cell_selected(selected_image, card));
-    }
+    const bool selected_tile_verified =
+        !expected_identity.empty() && selected_tile_matches(selected_image, selected_strategy_index, card);
     if (selected_identity_conflict ||
         (!expected_identity.empty() &&
          (!selected_identity || selected_identity->band_id != expected_identity || !selected_tile_verified))) {

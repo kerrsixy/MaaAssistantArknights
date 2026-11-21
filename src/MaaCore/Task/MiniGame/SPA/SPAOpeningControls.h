@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <optional>
 #include <string_view>
 #include <vector>
@@ -27,6 +28,40 @@ inline std::optional<int> opening_strategy_countdown_seconds(std::string_view te
 inline int opening_strategy_inspection_seconds(std::optional<int> countdown)
 {
     return std::clamp(countdown.value_or(24) - 8, 0, 38);
+}
+
+inline std::optional<int> opening_strategy_display_countdown(const cv::Mat& frame)
+{
+    if (frame.size() != cv::Size(1280, 720) || frame.type() != CV_8UC3) {
+        return std::nullopt;
+    }
+    // Clockwise from the top bar, with the middle bar last.
+    const std::array<cv::Rect, 7> segments { cv::Rect(7, 25, 12, 5), cv::Rect(22, 33, 5, 10), cv::Rect(22, 56, 5, 10),
+                                             cv::Rect(7, 68, 12, 4), cv::Rect(0, 56, 5, 10),  cv::Rect(0, 33, 5, 10),
+                                             cv::Rect(7, 47, 12, 5) };
+    constexpr std::array digit_masks { 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f };
+    int seconds = 0;
+    for (const int x : { 1133, 1165 }) {
+        int mask = 0;
+        for (std::size_t i = 0; i < segments.size(); ++i) {
+            const auto area = segments[i] + cv::Point(x, 0);
+            cv::Mat cyan;
+            cv::inRange(frame(area), cv::Scalar(105, 155, 0), cv::Scalar(255, 255, 95), cyan);
+            const auto lit = cv::countNonZero(cyan);
+            if (lit * 4 >= area.area() * 3) {
+                mask |= 1 << i;
+            }
+            else if (lit * 5 > area.area()) {
+                return std::nullopt;
+            }
+        }
+        const auto digit = std::find(digit_masks.begin(), digit_masks.end(), mask);
+        if (digit == digit_masks.end()) {
+            return std::nullopt;
+        }
+        seconds = seconds * 10 + static_cast<int>(digit - digit_masks.begin());
+    }
+    return seconds;
 }
 
 // Catalogue order provides a first-viewport hint. Every slot remains a
