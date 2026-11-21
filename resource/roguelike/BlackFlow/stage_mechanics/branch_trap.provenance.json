@@ -1,0 +1,9 @@
+{
+    "source": "https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/levels/obt/roguelike/ro6/level_rogue6_2-5.json",
+    "retrieval": "archived source already retrieved through explicit Clash proxy",
+    "original_sha256": "3919f7eec43ce5ab19e98770020bc1f4ef7beccd96e22200e13e2a0bad1f6f10",
+    "packaged_sha256": "926fec82616939e3119befb0ab11fc95753b86a7e7e096f85f431ee6694ca95e",
+    "native_coordinates": "top-left (x,y); mapData.map rows already index raw tile storage in reverse; route.startPosition.row requires6-row",
+    "mechanism": "all enemy_2135_shkrbt spawns in opening wave zero-time fragment; raw full data is inspected at runtime; optional spawn counts are not release conditions",
+    "live_acceptance": false
+}

@@ -36,15 +36,18 @@ struct HunterPreludeFrameContext
     // and the entire lower search field is visible without allied sprite or UI occlusion.
     bool spawn_window_closed_verified = false;
     bool lower_visibility_verified = false;
+    bool battlefield_visibility_verified = false;
     std::uint64_t observed_at_ms = 0;
     // Native pixel rectangles projected from spawn tiles. Empty uses the explicit reference geometry.
     std::vector<Rect> spawn_rois;
     Rect lower_search_roi;
+    Rect battlefield_search_roi;
     std::vector<Rect> occlusion_rois;
     std::vector<Rect> sink_head_rois;
     // Allied bait sprites may hide heads locally. Positive evidence elsewhere can permit
     // retreat, but any such mask prevents whole-lower-field absence certification.
     std::vector<Rect> lower_unit_occlusion_rois;
+    std::vector<Rect> battlefield_unit_occlusion_rois;
 };
 
 struct HunterPreludeObservation
@@ -52,6 +55,10 @@ struct HunterPreludeObservation
     bool frame_observable = false;
     std::array<HunterSpawnObservation, 2> spawns;
     HunterPresence lower_presence = HunterPresence::Unknown;
+    HunterPresence battlefield_presence = HunterPresence::Unknown;
+    double battlefield_best_candidate_score = -1.0;
+    Rect battlefield_best_candidate_rect;
+    std::vector<Rect> battlefield_head_candidates;
     double lower_best_candidate_score = -1.0;
     Rect lower_best_candidate_rect;
     int distinct_empty_spawn_frames = 0;
@@ -60,10 +67,12 @@ struct HunterPreludeObservation
     std::vector<Rect> lower_head_candidates;
     // Track segments may split after uncertainty; this is never a hunter or kill count.
     int observed_tracks = 0;
+    // Legacy result alias is approach evidence only, never a fall or kill count.
     int tracks_last_seen_at_sink = 0;
+    int tracks_last_seen_at_approach = 0;
     int distinct_empty_lower_frames = 0;
-    // Conditional on verified stage/spawn window, complete lower visibility, tracked sink
-    // endpoints, unambiguous local-template absence, and sufficient distinct timed frames.
+    // Requires complete upper-plus-lower visibility and timed absence. Approach-zone
+    // history is an additional conservative check, not an independent death certificate.
     bool full_search_coverage_verified = false;
     bool all_hunters_cleared = false;
     std::vector<std::string> reasons;
@@ -98,15 +107,24 @@ private:
     struct Track
     {
         Rect last_head;
-        bool last_seen_at_sink = false;
+        bool last_seen_at_approach = false;
         int missing_frames = 0;
+    };
+
+    struct HeadProfile
+    {
+        std::string id;
+        std::string domain;
+        cv::Mat image;
+        cv::Mat mask;
+        double present_threshold = 0.68;
     };
 
     bool m_loaded = false;
     std::array<SpawnModel, 2> m_spawns;
     std::vector<Anchor> m_anchors;
-    std::vector<cv::Mat> m_head_templates;
-    std::vector<Rect> m_sink_rois;
+    std::vector<HeadProfile> m_head_profiles;
+    std::vector<Rect> m_approach_rois;
     std::vector<Track> m_tracks;
     double m_head_present_threshold = 0.68;
     double m_head_absent_threshold = 0.50;
@@ -116,6 +134,7 @@ private:
     std::uint64_t m_empty_lower_start_ms = 0;
     std::uint64_t m_last_observed_at_ms = 0;
     Rect m_lower_roi;
+    Rect m_battlefield_roi;
     std::string m_battle_key;
     std::uint64_t m_last_sequence = 0;
     bool m_has_sequence = false;

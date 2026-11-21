@@ -3,6 +3,7 @@
 #include "RoguelikeBattleTaskPlugin.h"
 
 #include <chrono>
+#include <fstream>
 #include <future>
 #include <ranges>
 #include <vector>
@@ -14,10 +15,13 @@
 #include "Config/Roguelike/RoguelikeRecruitConfig.h"
 #include "Config/TaskData.h"
 #include "Controller/Controller.h"
+#include "MaaUtils/ImageIo.h"
 #include "RoguelikeDeploymentBudget.h"
 #include "RoguelikeSummonPolicy.h"
 #include "Task/ProcessTask.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowHunterPreludeController.h"
 #include "Utils/Logger.hpp"
+#include "Utils/WorkingDir.hpp"
 #include "Vision/Matcher.h"
 #include "Vision/OCRer.h"
 #include "Vision/RegionOCRer.h"
@@ -35,6 +39,8 @@ asst::RoguelikeBattleTaskPlugin::RoguelikeBattleTaskPlugin(
     BattleHelper(inst)
 {
 }
+
+asst::RoguelikeBattleTaskPlugin::~RoguelikeBattleTaskPlugin() = default;
 
 bool asst::RoguelikeBattleTaskPlugin::verify(AsstMsg msg, const json::value& details) const
 {
@@ -141,12 +147,18 @@ bool asst::RoguelikeBattleTaskPlugin::_run()
     auto start_time = std::chrono::steady_clock::now();
     cv::Mat image, image_prev;
     while (!need_exit()) {
+        const auto iteration_started = std::chrono::steady_clock::now();
         // 不在战斗场景，且已使用过了干员，说明已经打完了，就结束循环
         image = ctrler()->get_image();
-        if (!do_once(image, image_prev) && !m_first_deploy) {
+        if (!do_once(image, image_prev) && (!m_first_deploy || m_hunter_prelude != nullptr)) {
             break;
         }
         image_prev = std::move(image);
+
+        if (m_waiting_for_manual_resume) {
+            start_time += std::chrono::steady_clock::now() - iteration_started;
+            continue;
+        }
 
         auto duration = std::chrono::steady_clock::now() - start_time;
         if (!timeout && duration > 8min) {
@@ -305,6 +317,26 @@ bool asst::RoguelikeBattleTaskPlugin::calc_stage_info()
                                                .ban_medic = opt->force_ban_medic };
         m_deploy_plan = opt->deploy_plan;
         m_retreat_plan = opt->retreat_plan;
+        if (opt->hunter_bait_plan) {
+            auto opening = std::make_unique<blackflow::BlackFlowHunterPreludeController>();
+            std::string error;
+            if (m_config->get_theme() != RoguelikeTheme::BlackFlow ||
+                !opening->prepare(
+                    ResDir.get() / "template/Roguelike/BlackFlow/HunterPrelude/manifest.json",
+                    ResDir.get() / "roguelike/BlackFlow/stage_mechanics/branch_trap.json",
+                    m_map_data,
+                    *opt->hunter_bait_plan,
+                    m_config->status().run_id + ":" + m_stage_name,
+                    &error)) {
+                LogError << __FUNCTION__ << "Hunter opening initialization failed" << error;
+                if (check_in_battle()) {
+                    pause();
+                }
+                m_task_ptr->set_enable(false);
+                return false;
+            }
+            m_hunter_prelude = std::move(opening);
+        }
     }
     if (m_homes.empty()) {
         for (const auto& [loc, side] : m_normal_tile_info) {
@@ -488,6 +520,45 @@ int asst::RoguelikeBattleTaskPlugin::preferred_deployment_coverage(
     }));
 }
 
+bool asst::RoguelikeBattleTaskPlugin::observe_hunter_prelude(const cv::Mat& image, bool normal_battle)
+{
+    const auto observed_ms = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+            .count());
+    const auto decision =
+        m_hunter_prelude
+            ->observe(image, normal_battle && m_in_battle, m_battlefield_opers, m_cur_deployment_opers, observed_ms);
+    m_hunter_main_allowed = decision.main_allowed;
+    auto info = basic_info_with_what("BlackFlowHunterPrelude");
+    info["details"] = json::object {
+        { "stage", m_stage_name },
+        { "sequence", ++m_hunter_observation_sequence },
+        { "kills", m_kills },
+        { "cost", m_cost },
+        { "main_allowed", decision.main_allowed },
+        { "retreat_requested", decision.retreat_bait.has_value() },
+        { "observation", decision.diagnostics },
+    };
+    callback(AsstMsg::SubTaskExtraInfo, info);
+    LogInfo << __FUNCTION__ << "Hunter opening observation" << info["details"].to_string();
+    if (m_hunter_observation_sequence <= 90 || decision.retreat_bait || decision.main_allowed) {
+        const auto directory = UserDir.get() / "BlackFlowEvidence" / "hunter_prelude";
+        std::error_code error;
+        std::filesystem::create_directories(directory, error);
+        if (!error) {
+            const auto name = std::to_string(observed_ms) + "-" + std::to_string(m_hunter_observation_sequence);
+            std::ofstream(directory / (name + ".json"), std::ios::binary) << info.format();
+            MAA_NS::imwrite(directory / (name + ".png"), image);
+        }
+    }
+    if (decision.retreat_bait) {
+        const bool sent = retreat_oper(*decision.retreat_bait);
+        LogInfo << __FUNCTION__ << "Bait withdrawal action" << *decision.retreat_bait << sent;
+        return true;
+    }
+    return false;
+}
+
 bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
 {
     Log.info("deploy diag: cur_opers", m_cur_deployment_opers.size(), "homes", m_homes.size());
@@ -509,7 +580,8 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
     std::vector<DeployPlanInfo> deploy_plan_list;
     const auto limit_reached = [&](const auto& info) {
         const auto count = m_plan_deployment_counts.find(info.plan_index);
-        return count != m_plan_deployment_counts.end() && count->second >= info.max_deployments;
+        return (count != m_plan_deployment_counts.end() && count->second >= info.max_deployments) ||
+               (m_hunter_prelude && !m_hunter_prelude->allows_plan(info.plan_index));
     };
     // 获取当前肉鸽的分组信息[干员组1名称,干员组2名称,...]
     const auto& groups = RoguelikeRecruit.get_group_names(m_config->get_theme());
@@ -710,6 +782,9 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
             }
             ++m_plan_deployment_counts[deploy_plan.plan_index];
             battle::OperNameTag oper_tag { deploy_plan.role, deploy_plan.oper_name };
+            if (m_hunter_prelude) {
+                m_hunter_prelude->deployed(deploy_plan.plan_index, oper_tag, deploy_plan.placed);
+            }
             // 预设部署也必须登记到防线追踪，退场后才能触发紧急补位。
             if (!m_homes.empty()) {
                 const auto previous_home = m_cur_home_index;
@@ -818,23 +893,54 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
             Log.info("battle snap: avail", m_cur_deployment_opers.size(), "kills", m_kills);
         }
     }
-    check_drone_tiles();
 
     // 注：战斗界面无「目标生命值」显示，血量采集已移至地图阶段（见 TODO）
 
     thread_local auto prev_frame_time = std::chrono::steady_clock::time_point {};
     static const auto min_frame_interval =
         std::chrono::milliseconds(Config.get_options().roguelike_fight_screencap_interval);
+    const auto frame_interval = m_hunter_prelude && !m_hunter_main_allowed
+                                    ? std::min(min_frame_interval, std::chrono::milliseconds(200))
+                                    : min_frame_interval;
 
     // prevent our program from consuming too much CPU
-    if (const auto now = std::chrono::steady_clock::now(); prev_frame_time > now - min_frame_interval) [[unlikely]] {
+    if (const auto now = std::chrono::steady_clock::now(); prev_frame_time > now - frame_interval) [[unlikely]] {
         Log.debug("Sleeping for framerate limit");
-        std::this_thread::sleep_for(min_frame_interval - (now - prev_frame_time));
+        std::this_thread::sleep_for(frame_interval - (now - prev_frame_time));
     }
 
     prev_frame_time = std::chrono::steady_clock::now();
 
-    if (!m_first_deploy) {
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+        Matcher running(image);
+        running.set_task_info("BattleOfficiallyBegin");
+        if (!running.analyze()) {
+            OCRer paused(image);
+            paused.set_roi({ 450, 270, 400, 150 });
+            paused.set_required({ "PAUSE", "暂停中" });
+            if (paused.analyze()) {
+                if (!m_waiting_for_manual_resume) {
+                    LogInfo << __FUNCTION__ << "Observed paused battle; waiting without game input";
+                    auto info = basic_info_with_what("BlackFlowBattlePaused");
+                    info["details"] = json::object { { "stage", m_stage_name }, { "waiting_for_resume", true } };
+                    callback(AsstMsg::SubTaskExtraInfo, info);
+                }
+                m_waiting_for_manual_resume = true;
+                if (m_hunter_prelude && !m_hunter_main_allowed) {
+                    observe_hunter_prelude(image, false);
+                }
+                return true;
+            }
+        }
+        if (m_waiting_for_manual_resume) {
+            LogInfo << __FUNCTION__ << "Observed battle leave pause without automation input";
+            m_waiting_for_manual_resume = false;
+        }
+    }
+
+    check_drone_tiles();
+
+    if (!m_first_deploy && (!m_hunter_prelude || m_hunter_main_allowed)) {
         use_all_ready_skill(image);
     }
 
@@ -862,12 +968,15 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
     pre_battlefield = m_battlefield_opers;
 
     if (!update_deployment(false, image, true)) {
-        return false;
+        return check_in_battle(image);
     }
     update_cost(image, image_prev);
     update_kills(image, image_prev);
     // 漏怪 / 崩盘诊断：只记录，不干预部署
     diagnose_battle_progress();
+    if (m_hunter_prelude && !m_hunter_main_allowed && observe_hunter_prelude(image)) {
+        return true;
+    }
 
     std::unordered_set<std::string> cur_cooling;
     size_t cur_available_count = 0;   // without drones
@@ -1390,6 +1499,10 @@ void asst::RoguelikeBattleTaskPlugin::clear()
     m_deploy_plan_only = false;
     m_reserve_deploy_cost = false;
     m_plan_deployment_counts.clear();
+    m_hunter_prelude.reset();
+    m_hunter_main_allowed = false;
+    m_hunter_observation_sequence = 0;
+    m_waiting_for_manual_resume = false;
     m_retreat_plan.clear();
     m_deployed_time.clear();
 

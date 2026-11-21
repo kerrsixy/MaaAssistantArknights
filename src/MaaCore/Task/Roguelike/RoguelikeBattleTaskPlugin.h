@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <queue>
 #include <stack>
 
@@ -12,6 +13,11 @@
 
 namespace asst
 {
+namespace blackflow
+{
+class BlackFlowHunterPreludeController;
+}
+
 class RoguelikeBattleTaskPlugin : public AbstractRoguelikeTaskPlugin, private BattleHelper
 {
     using Time_Point = std::chrono::time_point<std::chrono::system_clock>;
@@ -25,7 +31,7 @@ public:
         std::string_view task_chain,
         const std::shared_ptr<RoguelikeConfig>& roguelike_config_ptr,
         const std::shared_ptr<RoguelikeControlTaskPlugin>& control);
-    virtual ~RoguelikeBattleTaskPlugin() override = default;
+    virtual ~RoguelikeBattleTaskPlugin() override;
 
     virtual bool verify(AsstMsg msg, const json::value& details) const override;
     bool load_params(const json::value& params) override;
@@ -95,6 +101,7 @@ protected:
     int preferred_deployment_coverage(
         const battle::DeploymentOper& oper,
         const battle::roguelike::DeployInfoWithRank& plan) const;
+    bool observe_hunter_prelude(const cv::Mat& image, bool normal_battle = true);
     bool calc_stage_info();
 
     void all_melee_retreat();
@@ -155,6 +162,10 @@ protected:
     bool m_allow_to_use_dice = true;
     bool m_deploy_plan_only = false;
     bool m_reserve_deploy_cost = false;
+    std::unique_ptr<blackflow::BlackFlowHunterPreludeController> m_hunter_prelude;
+    bool m_hunter_main_allowed = false;
+    std::uint64_t m_hunter_observation_sequence = 0;
+    bool m_waiting_for_manual_resume = false;
     std::unordered_map<int, int> m_plan_deployment_counts;
     std::unordered_set<Point> m_blacklist_location;
     std::unordered_map<Point, battle::TileAvailability> m_dynamic_tile_observation;

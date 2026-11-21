@@ -653,6 +653,7 @@ struct CombatData
     bool use_dice_stage = true;
     bool deploy_plan_only = false;
     bool reserve_deploy_cost = false;
+    std::optional<int> hunter_bait_plan;
     int stop_deploy_blocking_num = INT_MAX;
     int force_deploy_air_defense_num = 0;
     bool force_ban_medic = false;
