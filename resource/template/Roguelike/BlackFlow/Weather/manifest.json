@@ -1,0 +1,242 @@
+{
+    "schema_version": 1,
+    "native_size": [1280, 720],
+    "glyph_roi": [530, 8, 51, 52],
+    "glyph_minimum_score": 0.76,
+    "glyph_minimum_margin": 0.15,
+    "glyphs": [
+        {
+            "icon_id": "rogue_6_weather_1",
+            "category": "eutopia_ideology",
+            "file": "rogue_6_weather_1.png",
+            "sha256": "c972835a698d10fa5d0e7084f0f9394d9ab071cb6d52e78190dde3190057df9e",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “黑流地脉”.png",
+            "source_url": "https://media.prts.wiki/9/99/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E9%BB%91%E6%B5%81%E5%9C%B0%E8%84%89%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "rogue_6_weather_2",
+            "category": "eutopia_ideology",
+            "file": "rogue_6_weather_2.png",
+            "sha256": "1fdd94f4f34023fba53d634081d5a4cf5ed9e52c3ce19da0b0649bfe72fe6bb3",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “倾斜沙丘”.png",
+            "source_url": "https://media.prts.wiki/b/bf/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E5%80%BE%E6%96%9C%E6%B2%99%E4%B8%98%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "rogue_6_weather_3",
+            "category": "eutopia_ideology",
+            "file": "rogue_6_weather_3.png",
+            "sha256": "ea5bafddc8c5c15bf554a6a6c888e1f0194b53c0e878bf65dba78b0f98b8571b",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “去温栏”.png",
+            "source_url": "https://media.prts.wiki/2/26/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E5%8E%BB%E6%B8%A9%E6%A0%8F%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "rogue_6_weather_4",
+            "category": "eutopia_ideology",
+            "file": "rogue_6_weather_4.png",
+            "sha256": "a143b554148d69d7195bde8376b35eaf813ee36ab4e1631938b79c9601f497d1",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “微型胶囊”.png",
+            "source_url": "https://media.prts.wiki/b/bf/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E5%BE%AE%E5%9E%8B%E8%83%B6%E5%9B%8A%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "rogue_6_weather_5",
+            "category": "eutopia_ideology",
+            "file": "rogue_6_weather_5.png",
+            "sha256": "a6a948ffa21fb397b1ddab6fc35d1845e661c08ecce472ed32048702d4d69b5f",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “储藏室”.png",
+            "source_url": "https://media.prts.wiki/c/c7/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E5%82%A8%E8%97%8F%E5%AE%A4%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "rogue_6_weather_6",
+            "category": "eutopia_ideology",
+            "file": "rogue_6_weather_6.png",
+            "sha256": "4cc3034999ad9b1a110bdcfc0fc0ac99adb5da1617bbbe640e5042b47c8f01e7",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “易碎同盟”.png",
+            "source_url": "https://media.prts.wiki/e/e4/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E6%98%93%E7%A2%8E%E5%90%8C%E7%9B%9F%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "rogue_6_weather_7",
+            "category": "eutopia_ideology",
+            "file": "rogue_6_weather_7.png",
+            "sha256": "1d93fd1ccdedc5c21a6989d0a43a2356020236753eb5d333566a2bcaa8488d4e",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “停止点”.png",
+            "source_url": "https://media.prts.wiki/f/f7/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E5%81%9C%E6%AD%A2%E7%82%B9%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "rogue_6_weather_8",
+            "category": "eutopia_ideology",
+            "file": "rogue_6_weather_8.png",
+            "sha256": "08159d0422293951560a90c7286bb2ddb3f1db55e71564be178deac0087b489b",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “希望的沃土”.png",
+            "source_url": "https://media.prts.wiki/6/66/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E5%B8%8C%E6%9C%9B%E7%9A%84%E6%B2%83%E5%9C%9F%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "rogue_6_weather_9",
+            "category": "eutopia_ideology",
+            "file": "rogue_6_weather_9.png",
+            "sha256": "b51aa56d989995c5ec91c5be5c33d47cae38e911b4382712862cbf9bc5eb94d3",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “弥散虚雾”.png",
+            "source_url": "https://media.prts.wiki/5/5d/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E5%BC%A5%E6%95%A3%E8%99%9A%E9%9B%BE%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "rogue_6_weather_10",
+            "category": "eutopia_ideology",
+            "file": "rogue_6_weather_10.png",
+            "sha256": "1fe8efc26a0a2124a6f5ed489048bad8271ac3d2e239b000e5bafcafeb591bd0",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “美丽新大地”.png",
+            "source_url": "https://media.prts.wiki/6/65/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E7%BE%8E%E4%B8%BD%E6%96%B0%E5%A4%A7%E5%9C%B0%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "rogue_6_subweather_1",
+            "category": "eutopia_policy",
+            "file": "rogue_6_subweather_1.png",
+            "sha256": "80f27753b1adbed4a9374d447c55862b65dbf260878386c7ea5f634b3f0e375a",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 改良.png",
+            "source_url": "https://media.prts.wiki/1/13/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E6%94%B9%E8%89%AF.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "rogue_6_subweather_2",
+            "category": "eutopia_policy",
+            "file": "rogue_6_subweather_2.png",
+            "sha256": "d35bbb55f72defaa1b5de5a9e1728fcb2906e32fe69c1364683f13eacbfb48eb",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 修正.png",
+            "source_url": "https://media.prts.wiki/b/be/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E4%BF%AE%E6%AD%A3.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "rogue_6_subweather_3",
+            "category": "eutopia_policy",
+            "file": "rogue_6_subweather_3.png",
+            "sha256": "cfb32d2485bcb6580968b4932f171ad96969fc0bcf1f85e55382f6b4a02035be",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 激进.png",
+            "source_url": "https://media.prts.wiki/0/0a/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E6%BF%80%E8%BF%9B.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "rogue_6_subweather_4",
+            "category": "eutopia_policy",
+            "file": "rogue_6_subweather_4.png",
+            "sha256": "a9d7f899d9a434cf55784e8b59198e44dae2715019c89e36fcc12d2289819cb6",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 增益.png",
+            "source_url": "https://media.prts.wiki/d/dd/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E5%A2%9E%E7%9B%8A.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "variation_1",
+            "category": "utopia_variation",
+            "file": "variation_1.png",
+            "sha256": "8fbe198c48d2423adee786e88097ec5523b6b9694bd84aa49ab696b3776b4217",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “巨人摇篮”.png",
+            "source_url": "https://media.prts.wiki/d/d8/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E5%B7%A8%E4%BA%BA%E6%91%87%E7%AF%AE%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "variation_2",
+            "category": "utopia_variation",
+            "file": "variation_2.png",
+            "sha256": "13a8eee9019f23a005df338e58f8a74f47bd1741f4a4e21ad34de3f567df72cc",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “迪斯科狂热”.png",
+            "source_url": "https://media.prts.wiki/a/a6/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E8%BF%AA%E6%96%AF%E7%A7%91%E7%8B%82%E7%83%AD%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "variation_3",
+            "category": "utopia_variation",
+            "file": "variation_3.png",
+            "sha256": "1b9f08c0fa25f73104be88ec1e098d133f63b173ce48cb5461c9bd07fb091a15",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “已知浩劫”.png",
+            "source_url": "https://media.prts.wiki/4/44/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E5%B7%B2%E7%9F%A5%E6%B5%A9%E5%8A%AB%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "variation_4",
+            "category": "utopia_variation",
+            "file": "variation_4.png",
+            "sha256": "6cf64f75f1bd15df21a80dfb24b607d321c11069a4e827b259982ba48f35e79d",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “孤立石林”.png",
+            "source_url": "https://media.prts.wiki/6/6c/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E5%AD%A4%E7%AB%8B%E7%9F%B3%E6%9E%97%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "variation_5",
+            "category": "utopia_variation",
+            "file": "variation_5.png",
+            "sha256": "222b627470dcd8c87d53224f8dc31ee5601ab669d464983d8063d18abd152163",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “全知者盲区”.png",
+            "source_url": "https://media.prts.wiki/d/d0/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E5%85%A8%E7%9F%A5%E8%80%85%E7%9B%B2%E5%8C%BA%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "variation_6",
+            "category": "utopia_variation",
+            "file": "variation_6.png",
+            "sha256": "80ad85c51dcc357f9f6898be64558a227ebdc4be28d4d496a33a88ddc22304f0",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “未亡者遗怨”.png",
+            "source_url": "https://media.prts.wiki/4/47/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E6%9C%AA%E4%BA%A1%E8%80%85%E9%81%97%E6%80%A8%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "variation_7",
+            "category": "utopia_variation",
+            "file": "variation_7.png",
+            "sha256": "fa6bbe57f635a56f97e6d823bf190918cd642bbc753c3381ed988d9388d0abdc",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “源石之城”.png",
+            "source_url": "https://media.prts.wiki/9/94/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E6%BA%90%E7%9F%B3%E4%B9%8B%E5%9F%8E%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "variation_8",
+            "category": "utopia_variation",
+            "file": "variation_8.png",
+            "sha256": "1b4a63057d7f438ceff9501aa07e2fe13ed65d2d85707a8ddc8de2a9458e9051",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “消耗螺旋”.png",
+            "source_url": "https://media.prts.wiki/0/04/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E6%B6%88%E8%80%97%E8%9E%BA%E6%97%8B%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        },
+        {
+            "icon_id": "variation_9",
+            "category": "utopia_variation",
+            "file": "variation_9.png",
+            "sha256": "1325b32bf3c9924e026ee71ad3b8665286c7429a9625fbb42a157fd3f3c6340d",
+            "source_title": "文件:沉沦者的黑流树海 乌托邦幸福论 “换心联结”.png",
+            "source_url": "https://media.prts.wiki/9/90/%E6%B2%89%E6%B2%A6%E8%80%85%E7%9A%84%E9%BB%91%E6%B5%81%E6%A0%91%E6%B5%B7_%E4%B9%8C%E6%89%98%E9%82%A6%E5%B9%B8%E7%A6%8F%E8%AE%BA_%E2%80%9C%E6%8D%A2%E5%BF%83%E8%81%94%E7%BB%93%E2%80%9D.png",
+            "association_is_not_tooltip_confirmation": true
+        }
+    ],
+    "map_anchors": [
+        {
+            "file": "map_eye.png",
+            "search_roi": [16, 465, 74, 155],
+            "threshold": 0.86,
+            "derived_roi": [35, 495, 38, 38],
+            "source_image_sha256": "9457a4dc0001c0306aaaecf5a67d5dac2d52054f0366a3121716335b0a4ba14f"
+        },
+        {
+            "file": "map_magnifier.png",
+            "search_roi": [16, 465, 74, 155],
+            "threshold": 0.86,
+            "derived_roi": [36, 556, 38, 38],
+            "source_image_sha256": "9457a4dc0001c0306aaaecf5a67d5dac2d52054f0366a3121716335b0a4ba14f"
+        }
+    ],
+    "source_ring": {
+        "file": "source_ring_candidate.png",
+        "inner_radius": 35,
+        "outer_radius": 78,
+        "source_image": "D:\\dsh\\明日方舟\\日志\\难图\\地图\\甜美的伤口_2层_20261121_run20\\原图.png",
+        "source_image_sha256": "9457a4dc0001c0306aaaecf5a67d5dac2d52054f0366a3121716335b0a4ba14f",
+        "human_label_row": 2,
+        "human_label_column": 2,
+        "single_frame_template_is_not_confirmation": true
+    }
+}

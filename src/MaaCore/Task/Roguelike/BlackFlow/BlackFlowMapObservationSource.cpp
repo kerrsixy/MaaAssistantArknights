@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -54,111 +55,127 @@ bool write_image_if_present(const std::filesystem::path& path, const cv::Mat& im
     return true;
 }
 
-std::optional<std::vector<cv::Point>> detect_temporal_buff_scope(
-    const cv::Mat& image,
-    const std::deque<cv::Mat>& frames,
+void dashed_weather_rect(cv::Mat& image, const cv::Rect& rect, const cv::Scalar& color)
+{
+    constexpr int dash = 8;
+    for (int x = rect.x; x < rect.x + rect.width; x += dash * 2) {
+        cv::line(image, { x, rect.y }, { std::min(x + dash, rect.x + rect.width), rect.y }, color, 2);
+        cv::line(
+            image,
+            { x, rect.y + rect.height },
+            { std::min(x + dash, rect.x + rect.width), rect.y + rect.height },
+            color,
+            2);
+    }
+    for (int y = rect.y; y < rect.y + rect.height; y += dash * 2) {
+        cv::line(image, { rect.x, y }, { rect.x, std::min(y + dash, rect.y + rect.height) }, color, 2);
+        cv::line(
+            image,
+            { rect.x + rect.width, y },
+            { rect.x + rect.width, std::min(y + dash, rect.y + rect.height) },
+            color,
+            2);
+    }
+}
+
+void draw_weather_overlay(
+    cv::Mat& image,
+    const WeatherRecognitionResult& weather,
     const std::vector<perception::Node>& nodes)
 {
-    if (frames.size() < 4 || image.empty() || nodes.empty()) {
-        return std::nullopt;
+    if (image.empty()) {
+        return;
     }
-    cv::Mat mean = cv::Mat::zeros(image.size(), CV_32F);
-    for (const auto& frame : frames) {
-        cv::Mat f;
-        frame.convertTo(f, CV_32F);
-        mean += f;
-    }
-    mean /= static_cast<float>(frames.size());
-    cv::Mat variance = cv::Mat::zeros(image.size(), CV_32F);
-    for (const auto& frame : frames) {
-        cv::Mat f;
-        frame.convertTo(f, CV_32F);
-        cv::Mat d = f - mean;
-        variance += d.mul(d);
-    }
-    variance /= static_cast<float>(frames.size());
-    std::vector<double> x_positions;
-    std::vector<double> y_positions;
-    std::vector<double> horizontal_gaps;
-    for (const auto& node : nodes) {
-        x_positions.push_back(node.visual_center.x);
-        y_positions.push_back(node.visual_center.y);
-    }
-    std::ranges::sort(x_positions);
-    std::ranges::sort(y_positions);
-    for (std::size_t index = 1; index < x_positions.size(); ++index) {
-        const double gap = x_positions[index] - x_positions[index - 1];
-        if (gap > 1.0) {
-            horizontal_gaps.push_back(gap);
+    const cv::Scalar color = weather.scope_known ? cv::Scalar(80, 220, 80) : cv::Scalar(0, 180, 255);
+    std::vector<double> pitches;
+    for (const auto& first : nodes) {
+        for (const auto& second : nodes) {
+            if (first.row == second.row && second.column > first.column) {
+                const double pitch = (second.center.x - first.center.x) / (second.column - first.column);
+                if (pitch > 0.0) {
+                    pitches.push_back(pitch);
+                }
+            }
         }
     }
-    if (horizontal_gaps.empty()) {
-        return std::nullopt;
-    }
-    std::ranges::sort(horizontal_gaps);
-    const double pitch = horizontal_gaps[horizontal_gaps.size() / 2];
-    const double x_cut = x_positions[static_cast<std::size_t>((x_positions.size() - 1) * 0.70)];
-    const int left = std::max(0, static_cast<int>(std::lround(x_cut - 0.60 * pitch)));
-    const int right = std::min(image.cols, static_cast<int>(std::lround(x_positions.back() + 0.60 * pitch)));
-    const int top = std::max(0, static_cast<int>(std::lround(y_positions.front() - 0.60 * pitch)));
-    const int bottom = std::min(image.rows, static_cast<int>(std::lround(y_positions.back() + 0.60 * pitch)));
-    if (left >= right || top >= bottom) {
-        return std::nullopt;
-    }
-
-    cv::Mat flat = variance.reshape(1, 1), sorted;
-    cv::sort(flat, sorted, cv::SORT_ASCENDING);
-    const auto index =
-        std::min(static_cast<std::size_t>(sorted.total() - 1), static_cast<std::size_t>(sorted.total() * 0.90));
-    cv::Mat mask;
-    cv::threshold(variance, mask, sorted.at<float>(0, static_cast<int>(index)), 255.0, cv::THRESH_BINARY);
-    mask.convertTo(mask, CV_8U);
-    cv::Mat roi_mask = cv::Mat::zeros(mask.size(), CV_8U);
-    roi_mask(cv::Rect(left, top, right - left, bottom - top)).setTo(255);
-    mask &= roi_mask;
-    const int kernel_size = std::max(3, static_cast<int>(std::lround(pitch * 0.25)) | 1);
-    cv::morphologyEx(
-        mask,
-        mask,
-        cv::MORPH_CLOSE,
-        cv::getStructuringElement(cv::MORPH_ELLIPSE, { kernel_size, kernel_size }));
-
-    cv::Mat labels, stats, centroids;
-    const int component_count = cv::connectedComponentsWithStats(mask, labels, stats, centroids, 8, CV_32S);
-    int best_label = 0;
-    std::size_t best_nodes = 0;
-    int best_area = 0;
-    for (int label = 1; label < component_count; ++label) {
-        std::size_t covered = 0;
-        for (const auto& node : nodes) {
-            const int x = std::clamp(static_cast<int>(std::lround(node.visual_center.x)), 0, labels.cols - 1);
-            const int y = std::clamp(static_cast<int>(std::lround(node.visual_center.y)), 0, labels.rows - 1);
-            covered += labels.at<int>(y, x) == label ? 1U : 0U;
+    std::ranges::sort(pitches);
+    const int half = pitches.empty() ? 40 : static_cast<int>(pitches[pitches.size() / 2] * 0.44);
+    const auto& cells = weather.scope_known ? weather.affected_cells : weather.candidate_affected_cells;
+    for (const auto& cell : cells) {
+        const auto node = std::ranges::find_if(nodes, [&](const auto& item) {
+            return item.row == cell.row && item.column == cell.column;
+        });
+        if (node == nodes.end()) {
+            continue;
         }
-        const int area = stats.at<int>(label, cv::CC_STAT_AREA);
-        if (covered > best_nodes || (covered == best_nodes && area > best_area)) {
-            best_label = label;
-            best_nodes = covered;
-            best_area = area;
+        const cv::Rect region = cv::Rect(
+                                    static_cast<int>(std::lround(node->center.x)) - half,
+                                    static_cast<int>(std::lround(node->center.y)) - half,
+                                    half * 2,
+                                    half * 2) &
+                                cv::Rect(0, 0, image.cols, image.rows);
+        if (region.empty()) {
+            continue;
+        }
+        cv::Mat tint(region.size(), image.type(), color);
+        cv::addWeighted(image(region), 0.87, tint, 0.13, 0.0, image(region));
+        if (weather.scope_known) {
+            cv::rectangle(image, region, color, 2);
+        }
+        else {
+            dashed_weather_rect(image, region, color);
         }
     }
-    if (best_label == 0 || best_nodes == 0) {
-        return std::nullopt;
+    if (weather.selected_source) {
+        const auto& source = *weather.selected_source;
+        const bool confirmed = source.state == WeatherSourceState::PreviewConfirmed;
+        const cv::Point center(
+            source.icon_rect.x + source.icon_rect.width / 2,
+            source.icon_rect.y + source.icon_rect.height / 2);
+        cv::circle(image, center, 44, color, 3, cv::LINE_AA);
+        cv::putText(
+            image,
+            confirmed ? "SOURCE CONFIRMED" : "SOURCE CANDIDATE",
+            { std::max(0, center.x - 90), std::max(20, center.y - 50) },
+            cv::FONT_HERSHEY_SIMPLEX,
+            0.43,
+            color,
+            1,
+            cv::LINE_AA);
     }
-    cv::Mat selected = labels == best_label;
-    std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(selected, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-    if (contours.empty()) {
-        return std::nullopt;
+    std::string label = "WX UNKNOWN | SCOPE UNKNOWN";
+    if (weather.main_weather.metadata) {
+        label = std::string(
+                    weather.main_weather.state == WeatherIdentityState::TooltipConfirmed ? "WX CONFIRMED "
+                                                                                         : "WX CANDIDATE ") +
+                weather.main_weather.metadata->icon_id;
+        label += weather.scope_known ? " | SCOPE CONFIRMED" : " | SCOPE UNKNOWN";
     }
-    return *std::ranges::max_element(contours, [](const auto& lhs, const auto& rhs) {
-        return cv::contourArea(lhs) < cv::contourArea(rhs);
-    });
+    cv::putText(image, label, { 25, 150 }, cv::FONT_HERSHEY_SIMPLEX, 0.55, color, 2, cv::LINE_AA);
+    if (!cells.empty() && !weather.scope_known) {
+        cv::putText(
+            image,
+            "DASHED RANGE = CANDIDATE; NOT USED AS ROUTING FACT",
+            { 25, 173 },
+            cv::FONT_HERSHEY_SIMPLEX,
+            0.46,
+            color,
+            1,
+            cv::LINE_AA);
+    }
 }
+
 } // namespace
 
 bool BlackFlowMapObservationSource::prepare(std::string* error)
 {
+    if (!m_weather_initialization_attempted) {
+        m_weather_initialization_attempted = true;
+        m_weather_analyzer.load(
+            ResDir.get() / "roguelike/BlackFlow/weather_catalog.json",
+            ResDir.get() / "template/Roguelike/BlackFlow/Weather/manifest.json",
+            &m_weather_initialization_error);
+    }
     if (m_analyzer != nullptr) {
         return true;
     }
@@ -198,8 +215,11 @@ void BlackFlowMapObservationSource::release() noexcept
     m_accumulated_recognition_us = 0;
     m_last_attempt_count = 0;
     m_last_retry_count = 0;
-    m_temporal_gray_frames.clear();
-    m_last_temporal_gray.release();
+    m_weather_analyzer = {};
+    m_weather_initialization_attempted = false;
+    m_weather_initialization_error.clear();
+    m_last_weather = {};
+    m_last_weather_us = 0;
 }
 
 bool BlackFlowMapObservationSource::recognize(
@@ -245,20 +265,6 @@ bool BlackFlowMapObservationSource::recognize(
     };
 
     try {
-        cv::Mat gray;
-        cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-        if (!m_last_temporal_gray.empty() && m_last_temporal_gray.size() == gray.size()) {
-            cv::Mat delta;
-            cv::absdiff(gray, m_last_temporal_gray, delta);
-            if (cv::mean(delta)[0] > 18.0) {
-                m_temporal_gray_frames.clear();
-            }
-        }
-        m_last_temporal_gray = gray.clone();
-        m_temporal_gray_frames.push_back(gray);
-        while (m_temporal_gray_frames.size() > 8) {
-            m_temporal_gray_frames.pop_front();
-        }
         if (m_analyzer == nullptr && !prepare(error)) {
             result.error = m_initialization_error;
             result.captured_bgr = image.clone();
@@ -319,12 +325,45 @@ bool BlackFlowMapObservationSource::recognize(
         next.graph_connected = result.edge_detection.graph_connected;
         next.current_marker_temporary_id = result.node_detection.current_marker_node_id;
         next.current_marker_score = result.node_detection.current_marker_score;
-        const auto buff_scope = detect_temporal_buff_scope(image, m_temporal_gray_frames, result.node_detection.nodes);
-        if (buff_scope.has_value()) {
-            // Temporal motion supplies a diagnostic candidate, not a verified
-            // weather boundary or evidence that nodes outside it are unaffected.
-            next.floor_buff_id = "temporal_buff_scope_candidate";
+        WeatherFrameContext weather_context;
+        weather_context.frame_sequence = next.sequence;
+        weather_context.rows = result.rows;
+        weather_context.columns = result.columns;
+        weather_context.map_geometry_verified = true;
+        weather_context.verified_difficulty = request.verified_difficulty;
+        // No run identity, live tooltip or source-preview evidence is supplied
+        // here yet. Do not fabricate temporal confirmation or semantic facts.
+        for (const auto& node : result.node_detection.nodes) {
+            weather_context.nodes.push_back(
+                { { node.row, node.column },
+                  visual_rect(node, result.normalized_bgr.size()),
+                  node.type,
+                  node.exists,
+                  std::nullopt });
         }
+        const auto weather_started = std::chrono::steady_clock::now();
+        WeatherRecognitionResult weather;
+        if (m_weather_analyzer.loaded()) {
+            weather = m_weather_analyzer.analyze(result.normalized_bgr, weather_context);
+        }
+        else {
+            weather.reasons.push_back("Weather resources unavailable: " + m_weather_initialization_error);
+        }
+        next.weather_recognition_us =
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - weather_started)
+                .count();
+        m_accumulated_recognition_us += next.weather_recognition_us;
+        next.recognition_us = m_accumulated_recognition_us;
+        next.weather = weather;
+        if (weather.main_weather.state == WeatherIdentityState::TooltipConfirmed && weather.main_weather.metadata) {
+            const auto& metadata = *weather.main_weather.metadata;
+            next.floor_buff_id = metadata.id;
+            next.floor_buff_name = metadata.name;
+            next.floor_buff_type = metadata.type;
+            next.floor_buff_effect = metadata.body;
+            next.floor_buff_positive = metadata.positive;
+        }
+        next.floor_buff_scope_confirmed = weather.scope_known;
 
         next.nodes.reserve(result.node_detection.nodes.size());
         for (const auto& node : result.node_detection.nodes) {
@@ -343,7 +382,9 @@ bool BlackFlowMapObservationSource::recognize(
                     node.marker_display_name,
                     node.marker_score,
                     false,
-                    buff_scope.has_value() && cv::pointPolygonTest(*buff_scope, node.visual_center, false) >= 0.0,
+                    weather.scope_known &&
+                        std::ranges::find(weather.affected_cells, WeatherCell { node.row, node.column }) !=
+                            weather.affected_cells.end(),
                     std::nullopt,
                 });
         }
@@ -365,6 +406,8 @@ bool BlackFlowMapObservationSource::recognize(
         observed_facts = observed_floor_buff_facts(next);
         observation = std::move(next);
         m_last_accepted_observation_id = observation.observation_id;
+        m_last_weather = std::move(weather);
+        m_last_weather_us = observation.weather_recognition_us;
         m_last_result = std::move(result);
         return true;
     }
@@ -381,7 +424,9 @@ bool BlackFlowMapObservationSource::recognize(
     }
     record_timing();
     set_error(error, result.error);
-    m_last_result = std::move(result);
+    if (!m_last_result.ok || m_last_result.node_detection.current_marker_node_id < 0) {
+        m_last_result = std::move(result);
+    }
     observation = std::move(next);
     return false;
 }
@@ -422,6 +467,9 @@ bool BlackFlowMapObservationSource::persist_diagnostics(const DiagnosticArtifact
         snapshot["recognition_retry_count"] = m_last_retry_count;
         snapshot["recognition_screenshot_us"] = m_accumulated_screenshot_us;
         snapshot["recognition_us"] = m_accumulated_recognition_us;
+        snapshot["weather_recognition_us"] = m_last_weather_us;
+        snapshot["weather_observation_id"] = m_last_accepted_observation_id;
+        snapshot["weather_recognition"] = m_last_weather.to_json();
         snapshot["recognition_floor"] = m_last_result.floor;
         snapshot["recognition_floor_source"] = "next_level_ocr";
         snapshot["route_status"] = request.snapshot.contains("planned_route_steps") ? "planned" : "pending";
@@ -434,12 +482,22 @@ bool BlackFlowMapObservationSource::persist_diagnostics(const DiagnosticArtifact
             return false;
         }
         snapshot_file << json::value(std::move(snapshot)).format();
+        std::ofstream weather_file(directory / "weather_recognition.json", std::ios::binary);
+        if (!weather_file) {
+            set_error(error, "failed to create BlackFlow weather diagnostic snapshot");
+            return false;
+        }
+        json::object weather_snapshot = m_last_weather.to_json().as_object();
+        weather_snapshot["observation_id"] = m_last_accepted_observation_id;
+        weather_snapshot["recognition_us"] = m_last_weather_us;
+        weather_file << json::value(std::move(weather_snapshot)).format();
         if (request.include_images) {
-            cv::Mat overlay = m_last_result.overlay_bgr;
+            cv::Mat overlay = m_last_result.overlay_bgr.clone();
             if (overlay.empty()) {
                 overlay = m_analyzer != nullptr ? m_analyzer->draw_overlay(m_last_result)
                                                 : m_last_result.captured_bgr.clone();
             }
+            draw_weather_overlay(overlay, m_last_weather, m_last_result.node_detection.nodes);
             // 同一层固定保留三张图：地图原图、识别/Buff 叠加图、路线规划图。
             // 当前路线规划图以识别叠加图为底，后续规划步骤会继续在该图上补线。
             if (!write_image_if_present(directory / "map_original.png", m_last_result.captured_bgr, error) ||

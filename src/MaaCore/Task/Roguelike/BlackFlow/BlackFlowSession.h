@@ -195,6 +195,10 @@ public:
 
     void set_difficulty_level(int level) noexcept { m_difficulty_level = level; }
 
+    void set_observed_difficulty(std::optional<int> level) noexcept { m_observed_difficulty = level; }
+
+    [[nodiscard]] std::optional<int> observed_difficulty() const noexcept { return m_observed_difficulty; }
+
     void set_cultivation_target(CultivatedAnimalType target) noexcept { m_cultivation_target = target; }
 
     void set_cultivated_animal_types(std::vector<CultivatedAnimalType> types);
@@ -301,6 +305,7 @@ private:
     std::string m_start_squad;
     std::string m_start_roles;
     int m_difficulty_level = 0;
+    std::optional<int> m_observed_difficulty;
     CultivatedAnimalType m_cultivation_target = CultivatedAnimalType::Cat;
     std::vector<CultivatedAnimalType> m_cultivated_animal_types;
     std::vector<CultivatedAnimalType> m_cultivation_targets;

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "BlackFlowModel.h"
+#include "Vision/Roguelike/BlackFlow/BlackFlowWeatherAnalyzer.h"
 
 namespace asst::blackflow
 {
@@ -85,6 +86,9 @@ struct BlackFlowMapObservation
     std::string floor_buff_type;
     std::optional<bool> floor_buff_positive;
     bool floor_buff_scope_confirmed = false;
+    // Candidate diagnostics stay separate from facts consumed by routing.
+    std::optional<WeatherRecognitionResult> weather;
+    std::int64_t weather_recognition_us = 0;
 };
 
 // Only explicit identity and effect readings may produce semantic floor facts.

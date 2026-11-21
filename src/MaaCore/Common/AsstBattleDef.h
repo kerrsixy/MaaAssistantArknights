@@ -620,6 +620,10 @@ struct DeployInfoWithRank
     int max_deployments = INT_MAX;
     int minimum_elite = 0;
     std::vector<std::string> operator_names;
+    std::vector<std::string> excluded_operator_names;
+    bool exclude_starting_core = false;
+    std::vector<Point> required_attack_tiles;
+    std::vector<Point> preferred_attack_tiles;
     Point location;
     DeployDirection direction = DeployDirection::None;
     int rank = 0;

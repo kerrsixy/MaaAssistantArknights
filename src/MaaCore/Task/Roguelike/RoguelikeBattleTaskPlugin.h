@@ -56,12 +56,16 @@ protected:
         int oper_order_in_group {};                // 干员在干员组中排名
         int rank {};                               // 干员组在部署指令扁平化后的排名
         int plan_index = 0;
-        Point placed;                              // 指令坐标
-        battle::DeployDirection direction {};      // 部署朝向
-        int cost = 0;                              // 干员部署费用，0 表示未识别
+        int preferred_coverage = 0;
+        Point placed;                         // 指令坐标
+        battle::DeployDirection direction {}; // 部署朝向
+        int cost = 0;                         // 干员部署费用，0 表示未识别
 
         bool operator<(const DeployPlanInfo& x) const
         {
+            if (plan_index == x.plan_index && preferred_coverage != x.preferred_coverage) {
+                return preferred_coverage > x.preferred_coverage;
+            }
             if (rank != x.rank) {
                 return rank < x.rank;
             }
@@ -70,10 +74,12 @@ protected:
             // 与史都华德（19 费）交替出现、每轮都是贵的那位先被选中然后 `waiting for cost` 空转。
             // 原因是组内排名 oper_order_in_group 排在费用前面，而两人的组内排名不同，
             // 费用永远轮不到比较。同一位配多个组时，「谁能先落地」比「作者把谁排在组内第几」更关键。
-            // cost 取「正数」才参与比较：BattlefieldMatcher::oper_cost_analyze 识别失败时
-            // 返回的是 -1（不是 0），若直接比大小，-1 会被当成「最便宜」排到最前，反而更糟。
-            if (cost > 0 && x.cost > 0 && cost != x.cost) {
-                return cost < x.cost;
+            // Unknown cost sorts after known positive costs; pairwise conditional
+            // comparisons would violate strict weak ordering when three candidates differ.
+            const int known_cost = cost > 0 ? cost : INT_MAX;
+            const int other_known_cost = x.cost > 0 ? x.cost : INT_MAX;
+            if (known_cost != other_known_cost) {
+                return known_cost < other_known_cost;
             }
             if (oper_order_in_group != x.oper_order_in_group) {
                 return oper_order_in_group < x.oper_order_in_group;
@@ -83,6 +89,12 @@ protected:
     };
 
     bool do_best_deploy();
+    bool deployment_requirements_met(
+        const battle::DeploymentOper& oper,
+        const battle::roguelike::DeployInfoWithRank& plan) const;
+    int preferred_deployment_coverage(
+        const battle::DeploymentOper& oper,
+        const battle::roguelike::DeployInfoWithRank& plan) const;
     bool calc_stage_info();
 
     void all_melee_retreat();

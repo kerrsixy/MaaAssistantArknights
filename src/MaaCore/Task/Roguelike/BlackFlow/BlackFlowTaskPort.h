@@ -6,7 +6,6 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <utility>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -93,6 +92,8 @@ struct BlackFlowObservationRequest
     int floor = 0;
     int attempt_count = 1;
     std::int64_t capture_us = 0;
+    // Actual in-game difficulty reading; requested difficulty is not evidence.
+    std::optional<int> verified_difficulty;
 };
 
 struct EnteredPageObservation

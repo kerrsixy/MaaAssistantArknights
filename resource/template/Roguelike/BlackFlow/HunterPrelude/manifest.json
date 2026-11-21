@@ -1,0 +1,95 @@
+{
+    "schema_version": 2,
+    "native_width": 1280,
+    "native_height": 720,
+    "reference_only": true,
+    "spawn_models": [
+        {
+            "present": ["spawn0_present.png"],
+            "absent": ["spawn0_absent.png"],
+            "roi": [384, 174, 115, 103]
+        },
+        {
+            "present": ["spawn1_present.png"],
+            "absent": ["spawn1_absent.png"],
+            "roi": [546, 174, 115, 103]
+        }
+    ],
+    "anchors": [
+        {
+            "file": "anchor0.png",
+            "roi": [913, 184, 46, 70],
+            "min_correlation": 0.88,
+            "min_luminance_ratio": 0.72
+        },
+        {
+            "file": "anchor1.png",
+            "roi": [655, 300, 65, 110],
+            "min_correlation": 0.65,
+            "min_luminance_ratio": 0.72
+        },
+        {
+            "file": "anchor2.png",
+            "roi": [480, 8, 70, 42],
+            "min_correlation": 0.9,
+            "min_luminance_ratio": 0.72
+        },
+        {
+            "file": "anchor3.png",
+            "roi": [676, 8, 38, 40],
+            "min_correlation": 0.9,
+            "min_luminance_ratio": 0.72
+        }
+    ],
+    "lower_roi": [280, 285, 740, 275],
+    "source": "BV1CHgQ6LEDq guide_0.mp4 local decoded frames",
+    "assets_sha256": {
+        "anchor0.png": "61326ac28bc2f366ac80ea03aa168e3948f10634ae10796d0fa6a60bac97eb13",
+        "anchor1.png": "96032e736385b4c6b7ecd611321803a9ae78a8bef85b874ed00d4e6194e0b7c5",
+        "anchor2.png": "55142b14bd8689957a92a41221711c74d68ffd4922ea38a454bc76460ef5e920",
+        "anchor3.png": "647735d42c38379d55f5429d04eae2c25fab523a1f19029d4c78ee33a4fd9f28",
+        "face12.png": "31cd2ab918efa6bb81fe6348459da3cad0003726b1a3cc5bf10d7fa3b6c72e40",
+        "spawn0_absent.png": "08db532e8ebf25e69471d31b9e5f9b770d6ffa0dfd0b8ef7bb0936ca7b4ff063",
+        "spawn0_present.png": "ba920622c93c4efb30d3631d736d14e22cc03895c6d60dbd121ec4d67694064f",
+        "spawn1_absent.png": "adf197de964659e140084ea737cd68926f14461c9165b0d9e5daf36f7f99bfea",
+        "spawn1_present.png": "fc8a5eed190f3258f64adf70500e213628e717487871beccc70d4128e6da1457"
+    },
+    "head_templates": ["face12.png"],
+    "head_present_threshold": 0.68,
+    "head_absent_threshold": 0.5,
+    "sink_head_rois": [
+        [835, 360, 80, 125],
+        [930, 420, 85, 140]
+    ],
+    "min_clear_frames": 3,
+    "min_clear_duration_ms": 600,
+    "raw_spawn_contract": {
+        "source": "branch_teaching_raw_level.json",
+        "sha256": "3919f7eec43ce5ab19e98770020bc1f4ef7beccd96e22200e13e2a0bad1f6f10",
+        "enemy_id": "enemy_2135_shkrbt",
+        "all_spawn_actions_at_initial_fragment": true,
+        "fixed_kill_count_gate": false
+    },
+    "calibration": {
+        "source": ["012.png"],
+        "heldout_positive": ["11300.png", "14400.png", "15700.png", "17700.png"],
+        "ordinary_negative_seconds": [0, 7, 23, 27, 30, 35, 40, 50, 60, 70, 80, 90],
+        "coverage_boundaries": [
+            "only verified stage/pixel geometry",
+            "only native hunter appearance",
+            "no unverified lower occlusions",
+            "no late hunter spawns allowed"
+        ]
+    },
+    "resource_relative_path": "template/Roguelike/BlackFlow/HunterPrelude/manifest.json",
+    "runtime_contract": {
+        "field_coordinates": "native1280x720 verified stage view; projected lower ROI may widen but must contain reference envelope",
+        "normal_sampling_interval_ms": 1000,
+        "max_observation_gap_ms": 2500,
+        "min_empty_distinct_frames": 3,
+        "min_empty_span_ms": 600,
+        "retreat_requires": "two empty-spawn observations and positive lower hunter face, initial spawn window closed",
+        "clear_requires": "both empty spawns, unoccluded complete lower field, no strong or weak head matches, all observed track segments ended in verified pit head ROIs, timed absence",
+        "never_uses_kill_counter": true
+    }
+}

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <deque>
 #include <memory>
 #include <string>
 
@@ -38,7 +37,10 @@ private:
     int m_last_attempt_count = 0;
     int m_last_retry_count = 0;
     std::uint64_t m_sequence = 0;
-    std::deque<cv::Mat> m_temporal_gray_frames;
-    cv::Mat m_last_temporal_gray;
+    BlackFlowWeatherAnalyzer m_weather_analyzer;
+    bool m_weather_initialization_attempted = false;
+    std::string m_weather_initialization_error;
+    WeatherRecognitionResult m_last_weather;
+    std::int64_t m_last_weather_us = 0;
 };
 } // namespace asst::blackflow
