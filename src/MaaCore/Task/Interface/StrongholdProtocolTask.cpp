@@ -129,6 +129,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
         m_advertised_boss_family = family;
     }
     m_shopping_complete = false;
+    m_shop_review_after_replacements = false;
     m_last_coin_review_after_deployment_round = -1;
     m_last_economy_round = -1;
     m_joint_preparation_deadline = {};
@@ -2062,7 +2063,10 @@ void asst::StrongholdProtocolTask::commit_full_field_replacement(
         }
     }
     m_last_remaining_deployment = 0;
-    m_shopping_complete = false;
+    // Reevaluate the unchanged shop once the locked lineup has settled.
+    // During an opening pivot, reread the shop after every verified change.
+    m_shop_review_after_replacements = m_shopping_complete && m_policy.primary_locked_after_activation;
+    m_shopping_complete = m_shop_review_after_replacements;
     m_spending_reviewed = false;
     m_spending_reason.clear();
     auto receipt = basic_info_with_what("SPAReplacementReconciled");
@@ -2072,6 +2076,7 @@ void asst::StrongholdProtocolTask::commit_full_field_replacement(
                        { "incoming", incoming },
                        { "outgoing", outgoing },
                        { "outgoing_available_for_sale_review", m_policy.released_transitions.contains(outgoing) },
+                       { "shop_review_deferred_until_replacements_finish", m_shop_review_after_replacements },
                        { "bench_occupied", m_policy.bench_occupied },
                        { "remaining_deployment", 0 },
                        { "roster", roster_snapshot() },
@@ -3212,6 +3217,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             state.get("round", -1) != m_last_economy_round) {
             m_last_economy_round = state.get("round", -1);
             m_shopping_complete = false;
+            m_shop_review_after_replacements = false;
             m_purchase_reserved_after_sale.reset();
             m_spending_reviewed = false;
             m_spending_reason.clear();
@@ -3741,6 +3747,18 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         if (m_auto_run && ((field_finalization && time_for_board_maintenance) || m_pending_field_replacement) &&
             handle_full_field_replacement(state)) {
             continue;
+        }
+        if (m_shop_review_after_replacements) {
+            m_shop_review_after_replacements = false;
+            m_shopping_complete = false;
+            if (available_funds > 0) {
+                auto review = basic_info_with_what("SPAShopReviewReopenedAfterReplacements");
+                review["details"] = json::object { { "round", preparation_round },
+                                                   { "funds", available_funds },
+                                                   { "shop_offers_require_fresh_observation", true } };
+                callback(AsstMsg::SubTaskExtraInfo, review);
+                continue;
+            }
         }
         if (field_work_due && !defer_ordinary_equipment && refresh_equipment_inventory(state)) {
             continue;

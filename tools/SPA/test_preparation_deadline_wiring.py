@@ -94,6 +94,33 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
         self.assertIn("quoted->price == reserved.price", pending)
         self.assertIn("m_purchase_reserved_after_sale.reset()", pending)
 
+    def test_committed_replacements_share_one_shop_review_for_a_locked_route(self):
+        source = TASK.read_text(encoding="utf-8")
+        commit = source.split(
+            "void asst::StrongholdProtocolTask::commit_full_field_replacement(", 1
+        )[1].split("bool asst::StrongholdProtocolTask::handle_promotion_page(", 1)[0]
+        self.assertIn(
+            "m_shopping_complete && m_policy.primary_locked_after_activation", commit
+        )
+        self.assertIn("m_shopping_complete = m_shop_review_after_replacements;", commit)
+        self.assertIn("m_spending_reviewed = false;", commit)
+
+        after_replacement = self.session.split(
+            "handle_full_field_replacement(state))", 1
+        )[1]
+        no_pending_work = after_replacement.split(
+            "if (m_shop_review_after_replacements)", 1
+        )[0]
+        self.assertIn("continue;", no_pending_work)
+        reopening = after_replacement.split("if (m_shop_review_after_replacements)", 1)[
+            1
+        ]
+        reopening = reopening.split("refresh_equipment_inventory(state)", 1)[0]
+        self.assertIn("m_shop_review_after_replacements = false;", reopening)
+        self.assertIn("m_shopping_complete = false;", reopening)
+        self.assertIn("if (available_funds > 0)", reopening)
+        self.assertIn("continue;", reopening)
+
 
 if __name__ == "__main__":
     unittest.main()
