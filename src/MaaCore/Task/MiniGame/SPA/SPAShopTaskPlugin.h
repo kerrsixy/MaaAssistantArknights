@@ -46,7 +46,7 @@ protected:
 
 private:
     bool require_input_reconciliation(std::string_view event, std::string_view reason, bool confirmation_issued);
-    bool reconcile_capacity_rejection(const cv::Mat& frame, const std::vector<TextObservation>& detail, int slot);
+    bool reconcile_purchase_rejection(const cv::Mat& frame, const std::vector<TextObservation>& detail, int slot);
     bool run_strategy_refresh(const cv::Mat& image);
     bool run_equipment_discount(const cv::Mat& image);
     std::string m_name;

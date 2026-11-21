@@ -348,6 +348,12 @@ int main()
     forward_output.facing = 'N';
     forward_output.local_range = { { 1, 0 } };
     const std::vector<DeploymentUnit> trap_field { north_blocker, south_blocker, forward_output };
+    assert(fear_trap_charge_count(true, 4, 0) == 0);
+    assert(fear_trap_charge_count(true, 4, 4) == 4);
+    assert(!fear_trap_charge_count(true, 4, 5));
+    assert(!fear_trap_charge_count(true, 4, std::nullopt));
+    assert(fear_trap_charge_count(false, 4, std::nullopt) == 0);
+    assert(fear_trap_charge_count(true, 1, std::nullopt) == 1);
     const auto trap_priority = [&](BoardCell cell, const std::set<BoardCell>& traps = {}) {
         return fear_trap_route_priority(cell, trap_routes, trap_field, traps);
     };

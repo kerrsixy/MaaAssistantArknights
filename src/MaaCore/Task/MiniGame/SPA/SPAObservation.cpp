@@ -353,9 +353,14 @@ bool asst::spa::selected_purchase_capacity_warning(const TextObservation& text, 
            (equipment ? equipment_capacity_warning(text) : bench_capacity_warning(text));
 }
 
+static bool is_purchase_confirmation_label(const asst::spa::TextObservation& text)
+{
+    return text.text == "确认购买" && std::isfinite(text.score) && text.score >= .85 && text.y >= 620 && text.y <= 710;
+}
+
 bool asst::spa::selected_purchase_unavailable(const std::vector<TextObservation>& texts, int slot)
 {
-    return slot >= 0 && slot <= 5 && !purchase_confirmation_control(texts, slot) &&
+    return slot >= 0 && slot <= 5 && std::none_of(texts.begin(), texts.end(), is_purchase_confirmation_label) &&
            std::count_if(texts.begin(), texts.end(), [slot](const auto& text) {
                return text.text == "无法购买" && std::isfinite(text.score) && text.score >= .85 && text.y >= 620 &&
                       text.y <= 710 && std::abs(text.x - (1010 - slot * 162)) <= 80;
@@ -370,7 +375,7 @@ std::optional<asst::spa::TextObservation>
     }
     std::optional<TextObservation> result;
     for (const auto& text : texts) {
-        if (text.text != "确认购买" || !std::isfinite(text.score) || text.score < .85 || text.y < 620 || text.y > 710) {
+        if (!is_purchase_confirmation_label(text)) {
             continue;
         }
         if (result) {

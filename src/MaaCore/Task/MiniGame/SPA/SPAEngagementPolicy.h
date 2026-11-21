@@ -10,6 +10,16 @@
 
 namespace asst::spa
 {
+inline std::optional<int> fear_trap_charge_count(bool button_ready, int maximum, std::optional<int> badge)
+{
+    if (!button_ready || maximum == 1) {
+        return button_ready ? 1 : 0;
+    }
+    // The drained portrait can still pass the green-pixel check even when
+    // the game draws a clear zero. Use its observed count.
+    return badge && *badge >= 0 && *badge <= maximum ? badge : std::nullopt;
+}
+
 // Prefer a route before first contact, then current fire support, lane
 // coverage and proximity to the blocker. These are predicted encounters.
 inline std::optional<std::tuple<int, int, int, int>> fear_trap_route_priority(

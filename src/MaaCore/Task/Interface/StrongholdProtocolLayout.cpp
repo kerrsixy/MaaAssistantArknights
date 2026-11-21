@@ -1454,20 +1454,14 @@ bool asst::StrongholdProtocolTask::handle_fear_trap_instruction(const json::valu
         if (image.size() != cv::Size(1280, 720) || image.type() != CV_8UC3) {
             return std::nullopt;
         }
-        if (!spa::active_strategy_ready(image)) {
-            return 0;
-        }
-        // On the first three rounds the visible active button has no numeral:
-        // there is only one charge, so the game does not draw a badge.
-        if (maximum == 1) {
-            return 1;
-        }
-        const auto count = spa::shop_number(image, Rect(1221, 260, 19, 19), .80);
-        return count && *count > 0 && *count <= maximum ? count : std::nullopt;
+        const bool button_ready = spa::active_strategy_ready(image);
+        const auto badge = button_ready && maximum > 1 ? spa::shop_number(image, Rect(1221, 260, 19, 19), .80)
+                                                        : std::nullopt;
+        return spa::fear_trap_charge_count(button_ready, maximum, badge);
     };
     const auto before = ctrler()->get_image();
     const auto terrain = spa::terrain_layout_model(m_spatial_map_id, m_spatial_boss_phase);
-    if (!terrain || !spa::active_strategy_ready(before) || m_spatial_grid_reference.empty()) {
+    if (!terrain || m_spatial_grid_reference.empty()) {
         return false;
     }
     const auto charges_before = read_charges(before);

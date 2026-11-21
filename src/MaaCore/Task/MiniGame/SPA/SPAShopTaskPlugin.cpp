@@ -784,7 +784,7 @@ bool asst::spa::ShopTaskPlugin::_run()
                 for (const auto& text : *recognized) {
                     texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
                 }
-                if (reconcile_capacity_rejection(selected, texts, m_slot)) {
+                if (reconcile_purchase_rejection(selected, texts, m_slot)) {
                     return false;
                 }
                 if (const auto control = purchase_confirmation_control(texts, m_slot)) {
@@ -1548,7 +1548,7 @@ bool asst::spa::ShopTaskPlugin::_run()
             identity = true;
         }
     }
-    if (reconcile_capacity_rejection(image, detail_texts, slot)) {
+    if (reconcile_purchase_rejection(image, detail_texts, slot)) {
         return false;
     }
     if (const auto control = purchase_confirmation_control(detail_texts, slot)) {
@@ -1633,7 +1633,7 @@ bool asst::spa::ShopTaskPlugin::_run()
     return true;
 }
 
-bool asst::spa::ShopTaskPlugin::reconcile_capacity_rejection(
+bool asst::spa::ShopTaskPlugin::reconcile_purchase_rejection(
     const cv::Mat& frame,
     const std::vector<TextObservation>& detail,
     int slot)
@@ -1656,17 +1656,33 @@ bool asst::spa::ShopTaskPlugin::reconcile_capacity_rejection(
         recognized && std::any_of(recognized->begin(), recognized->end(), [&](const auto& text) {
             return warning({ text.text, text.score, text.rect.x, text.rect.y });
         });
-    if ((!clipped_warning && std::none_of(detail.begin(), detail.end(), warning)) ||
-        shop_number(frame, Rect(1180, 510, 45, 40)) != m_funds) {
+    const bool capacity_verified = clipped_warning || std::any_of(detail.begin(), detail.end(), warning);
+    if (shop_number(frame, Rect(1180, 510, 45, 40)) != m_funds ||
+        preparation_round_number(frame, m_round) != m_round) {
         return false;
+    }
+    if (!capacity_verified) {
+        // Overflow or other preparation rules can disable the purchase
+        // without naming a full inventory. Confirm the actual selected
+        // item before dismissing it and letting the caller skip this offer.
+        OCRer title(frame, Rect(0, 165, 350, 75));
+        const auto tokens = title.analyze();
+        if (!tokens || std::count_if(tokens->begin(), tokens->end(), [&](const auto& text) {
+                return text.text == m_name && text.score >= .90 && text.rect.x < 40 &&
+                       text.rect.y >= 175 && text.rect.y <= 215;
+            }) != 1) {
+            return false;
+        }
     }
     if (!ctrler()->click(Point(1040, 80)) || !sleep(m_fast_mode ? 250 : 450)) {
         return false;
     }
-    m_bench_capacity_rejection_verified = !equipment;
-    m_equipment_capacity_rejection_verified = equipment;
+    m_bench_capacity_rejection_verified = capacity_verified && !equipment;
+    m_equipment_capacity_rejection_verified = capacity_verified && equipment;
     auto info = basic_info_with_what(
-        equipment ? "SPAShopPurchaseRejectedByEquipmentCapacity" : "SPAShopPurchaseRejectedByBenchCapacity");
+        m_equipment_capacity_rejection_verified ? "SPAShopPurchaseRejectedByEquipmentCapacity"
+        : m_bench_capacity_rejection_verified   ? "SPAShopPurchaseRejectedByBenchCapacity"
+                                                : "SPAShopPurchaseUnavailableDismissed");
     info["details"] = json::object { { "name", m_name },
                                      { "round", m_round },
                                      { "funds", m_funds },

@@ -1025,6 +1025,7 @@ int main()
     assert(selected_purchase_unavailable({ { "无法购买", .97, 330, 655 } }, 4));
     assert(!selected_purchase_unavailable({ { "无法购买", .97, 330, 655 } }, 3));
     assert(!selected_purchase_unavailable({ { "无法购买", .97, 330, 655 }, { "确认购买", .98, 334, 655 } }, 4));
+    assert(!selected_purchase_unavailable({ { "无法购买", .97, 330, 655 }, { "确认购买", .98, 645, 655 } }, 4));
     assert(!purchase_confirmation_control({}, 2));
     assert(purchase_confirmation_control({ { "确认购买", .99, 640, 655 } }, 2));
     assert(!purchase_confirmation_control({ { "确认购买", .99, 960, 655 } }, 2));
