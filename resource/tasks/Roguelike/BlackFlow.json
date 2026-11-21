@@ -122,6 +122,7 @@
         "action": "DoNothing",
         "next": [
             "BlackFlow@Roguelike@AccountDailySupply",
+            "BlackFlow@Roguelike@AccountMonthlySignInClose",
             "BlackFlow@Roguelike@AccountHome",
             "BlackFlow@Roguelike@AccountFloorIntro",
             "BlackFlow@Roguelike@AccountMapReturn",
@@ -198,10 +199,33 @@
     "BlackFlow@Roguelike@AccountRead": {
         "algorithm": "JustReturn",
         "action": "DoNothing",
-        "next": ["BlackFlow@Roguelike@AccountDailySupply", "BlackFlow@Roguelike"]
+        "next": [
+            "BlackFlow@Roguelike@AccountDailySupply",
+            "BlackFlow@Roguelike@AccountMonthlySignInClose",
+            "BlackFlow@Roguelike"
+        ]
     },
     "BlackFlow@Roguelike@AccountDailySupply": {
         "baseTask": "BlackFlow@Roguelike@BeginRecovery_DailySupply",
+        "maxTimes": 2,
+        "postDelay": 500,
+        "next": ["BlackFlow@Roguelike@AccountBegin"]
+    },
+    "BlackFlow@Roguelike@AccountMonthlySignInPage": {
+        "algorithm": "OcrDetect",
+        "roi": [800, 100, 420, 340],
+        "text": ["常规配给"],
+        "fullMatch": true,
+        "action": "DoNothing"
+    },
+    "BlackFlow@Roguelike@AccountMonthlySignInClose": {
+        "algorithm": "OcrDetect",
+        "roi": [100, 30, 360, 100],
+        "text": ["月签到"],
+        "fullMatch": false,
+        "requiredPage": "BlackFlow@Roguelike@AccountMonthlySignInPage",
+        "action": "ClickRect",
+        "specificRect": [1190, 40, 60, 60],
         "maxTimes": 2,
         "postDelay": 500,
         "next": ["BlackFlow@Roguelike@AccountBegin"]
