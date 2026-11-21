@@ -385,13 +385,8 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
         }
         if (goods.is_recruit_ticket && (!shopping_hope || *shopping_hope < goods.min_hope)) {
             report_offer(goods.name, "insufficient_or_unknown_hope");
-            Log.trace(
-                "Ready to buy",
-                goods.name,
-                ", but hope is not enough, skip. hope:",
-                m_config->status().hope,
-                "need:",
-                goods.min_hope);
+            LogTrace << __FUNCTION__ << "Skip voucher with insufficient or unknown observed hope" << goods.name
+                     << "hope" << shopping_hope.value_or(-1) << "required" << goods.min_hope;
             continue;
         }
         if (strategy_shopping && goods.is_recruit_ticket && goods.recruit_role) {

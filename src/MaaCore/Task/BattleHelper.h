@@ -199,7 +199,7 @@ protected:
     std::map<Point, battle::OperNameTag> m_used_tiles;        // 已占用的格子, <坐标> -> <实际职业,名称>
     // Unverified attempts are quarantined per operator and tile, not declared blocked.
     std::map<std::pair<battle::OperNameTag, Point>, int> m_unverified_deployment_attempts;
-    // 一次部署证据未知后，暂时隔离该地块，避免换一个干员继续重复点击同一不可确认位置。
+    // Unknown evidence shares the bounded retry budget across operators on a tile.
     std::map<Point, int> m_unverified_deployment_tiles;
 
 private:

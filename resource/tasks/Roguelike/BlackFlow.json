@@ -81,7 +81,9 @@
             "BlackFlow@Roguelike@StashedRecruitReady",
             "BlackFlow@Roguelike@BeginRecovery_DataSync",
             "BlackFlow@Roguelike@BeginRecovery_DailySupply",
+            "BlackFlow@Roguelike@MonthlySummaryDismiss",
             "BlackFlow@Roguelike@BeginRecovery_Announcement",
+            "BlackFlow@Roguelike@TrainingSummaryContinue",
             "BlackFlow@Roguelike@MissionFailedFlag2",
             "BlackFlow@Roguelike@DuelOpponentSelection",
             "BlackFlow@Roguelike@DuelRetreat",
@@ -548,7 +550,7 @@
         "text": [],
         "isAscii": true,
         "withoutDet": true,
-        "useRaw": true,
+        "useRaw": false,
         "binThreshold": [170, 255]
     },
     "BlackFlow@Roguelike@DropsFlag": {
@@ -1135,7 +1137,9 @@
         "sub": ["BlackFlow@Roguelike@SettlementStatistics-Enter"],
         "reduceOtherTimes": [
             "BlackFlow@Roguelike@SettlementStatistics-Next*3",
-            "BlackFlow@Roguelike@SettlementStatistics-Splash*3"
+            "BlackFlow@Roguelike@SettlementStatistics-Splash*3",
+            "BlackFlow@Roguelike@SettlementStatistics-LoadingText*120",
+            "BlackFlow@Roguelike@SettlementStatistics-LoadingIcon*120"
         ]
     },
     "BlackFlow@Roguelike@MovePreviewCannotEnter": {
@@ -2612,9 +2616,28 @@
         "algorithm": "JustReturn",
         "next": [
             "BlackFlow@Roguelike@SettlementStatistics-Ready",
+            "BlackFlow@Roguelike@SettlementStatistics-LoadingText",
+            "BlackFlow@Roguelike@SettlementStatistics-LoadingIcon",
             "BlackFlow@Roguelike@SettlementStatistics-Next",
             "BlackFlow@Roguelike@SettlementStatistics-Splash"
         ]
+    },
+    "BlackFlow@Roguelike@SettlementStatistics-LoadingText": {
+        "baseTask": "LoadingText",
+        "action": "DoNothing",
+        "postDelay": 500,
+        "maxTimes": 120,
+        "next": ["BlackFlow@Roguelike@SettlementStatistics-Enter#next"],
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
+    },
+    "BlackFlow@Roguelike@SettlementStatistics-LoadingIcon": {
+        "baseTask": "LoadingIcon",
+        "template": "LoadingIcon.png",
+        "action": "DoNothing",
+        "postDelay": 500,
+        "maxTimes": 120,
+        "next": ["BlackFlow@Roguelike@SettlementStatistics-Enter#next"],
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
     },
     "BlackFlow@Roguelike@SettlementStatistics-Ready": {
         "baseTask": "BlackFlow@RoguelikeSettlementConfirm",
@@ -2630,7 +2653,7 @@
         "action": "ClickSelf",
         "postDelay": 1000,
         "maxTimes": 3,
-        "next": ["BlackFlow@Roguelike@SettlementStatistics-Ready", "#self"],
+        "next": ["BlackFlow@Roguelike@SettlementStatistics-Enter#next"],
         "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
     },
     "BlackFlow@Roguelike@SettlementStatistics-Splash": {
@@ -2640,11 +2663,7 @@
         "specificRect": [261, 640, 31, 32],
         "postDelay": 1000,
         "maxTimes": 3,
-        "next": [
-            "BlackFlow@Roguelike@SettlementStatistics-Ready",
-            "BlackFlow@Roguelike@SettlementStatistics-Next",
-            "#self"
-        ],
+        "next": ["BlackFlow@Roguelike@SettlementStatistics-Enter#next"],
         "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
     },
     "BlackFlow@Roguelike@BeginRecovery_DataSync": {
@@ -2687,6 +2706,49 @@
         "action": "ClickSelf",
         "roi": [560, 480, 160, 220],
         "next": ["BlackFlow@Roguelike@Begin"]
+    },
+    "BlackFlow@Roguelike@MonthlySummaryDismiss": {
+        "Doc": "结算后的本月委托汇总没有勾选按钮；仅在完整标题被识别后点击卡片外的底部空白处。",
+        "algorithm": "OcrDetect",
+        "text": ["进行中的本月委托"],
+        "fullMatch": true,
+        "roi": [420, 70, 440, 70],
+        "action": "ClickRect",
+        "specificRect": [610, 610, 70, 35],
+        "postDelay": 1000,
+        "maxTimes": 3,
+        "next": ["BlackFlow@Roguelike@Begin"],
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
+    },
+    "BlackFlow@Roguelike@MonthlySummaryDismissOnly": {
+        "baseTask": "BlackFlow@Roguelike@MonthlySummaryDismiss",
+        "maxTimes": 1,
+        "next": []
+    },
+    "BlackFlow@Roguelike@TrainingSummaryPage": {
+        "algorithm": "OcrDetect",
+        "text": ["特勤经验转化"],
+        "fullMatch": true,
+        "roi": [820, 180, 380, 65],
+        "action": "DoNothing"
+    },
+    "BlackFlow@Roguelike@TrainingSummaryContinue": {
+        "Doc": "探索结算后的特勤经验转化页；先核验页面标题，再点右下点击继续，不以通用继续文字识别其他页面。",
+        "algorithm": "OcrDetect",
+        "text": ["点击继续"],
+        "fullMatch": true,
+        "requiredPage": "BlackFlow@Roguelike@TrainingSummaryPage",
+        "roi": [1040, 610, 240, 100],
+        "action": "ClickSelf",
+        "postDelay": 1000,
+        "maxTimes": 3,
+        "next": ["BlackFlow@Roguelike@Begin"],
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
+    },
+    "BlackFlow@Roguelike@TrainingSummaryContinueOnly": {
+        "baseTask": "BlackFlow@Roguelike@TrainingSummaryContinue",
+        "maxTimes": 1,
+        "next": []
     },
     "BlackFlow@Roguelike@RewardAllClaimed": {
         "Doc": "战斗/节点结算后的「已领取所有奖励」弹窗（OCR 易误读，用窄 ROI 匹配「奖励」两字），点右侧确认钮关闭。",

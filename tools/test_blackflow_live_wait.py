@@ -4,7 +4,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from blackflow_live_run import LiveDriver
+from blackflow_live_run import (
+    MSG_ALL_TASKS_COMPLETED,
+    MSG_INTERNAL_ERROR,
+    MSG_SUBTASK_ERROR,
+    MSG_TASK_CHAIN_COMPLETED,
+    MSG_TASK_CHAIN_ERROR,
+    LiveDriver,
+)
 
 
 class FakeClock:
@@ -23,6 +30,8 @@ class LiveWaitTests(unittest.TestCase):
         driver = LiveDriver.__new__(LiveDriver)
         driver.out_dir = Path(out_dir)
         driver._done = threading.Event()
+        driver._lock = threading.Lock()
+        driver._records = []
         driver.stop = Mock()
         return driver
 
@@ -69,6 +78,49 @@ class LiveWaitTests(unittest.TestCase):
             driver.running = Mock(return_value=False)
             self.assertTrue(driver.wait(1))
             driver.stop.assert_not_called()
+
+    def test_chain_error_is_not_hidden_by_all_tasks_completed(self):
+        driver = self.make_driver(".")
+        driver._records = [
+            {"msg": MSG_TASK_CHAIN_ERROR},
+            {"msg": MSG_ALL_TASKS_COMPLETED},
+        ]
+        self.assertEqual(driver.completion_exit_code(True), 2)
+
+    def test_internal_error_is_not_hidden_by_completed_chain(self):
+        driver = self.make_driver(".")
+        driver._records = [
+            {"msg": MSG_INTERNAL_ERROR},
+            {"msg": MSG_TASK_CHAIN_COMPLETED},
+        ]
+        self.assertEqual(driver.completion_exit_code(True), 2)
+
+    def test_worker_must_finish_after_completion_callback(self):
+        driver = self.make_driver(".")
+        driver._records = [{"msg": MSG_TASK_CHAIN_COMPLETED}]
+        self.assertEqual(driver.completion_exit_code(False), 1)
+
+    def test_idle_and_all_tasks_message_do_not_prove_chain_completion(self):
+        driver = self.make_driver(".")
+        self.assertEqual(driver.completion_exit_code(True), 1)
+        driver._records = [{"msg": MSG_ALL_TASKS_COMPLETED}]
+        self.assertEqual(driver.completion_exit_code(True), 1)
+
+    def test_completed_chain_has_zero_process_status_not_a_win_claim(self):
+        driver = self.make_driver(".")
+        driver._records = [
+            {"msg": MSG_TASK_CHAIN_COMPLETED},
+            {"msg": MSG_ALL_TASKS_COMPLETED},
+        ]
+        self.assertEqual(driver.completion_exit_code(True), 0)
+
+    def test_recovered_subtask_error_does_not_fail_completed_chain(self):
+        driver = self.make_driver(".")
+        driver._records = [
+            {"msg": MSG_SUBTASK_ERROR},
+            {"msg": MSG_TASK_CHAIN_COMPLETED},
+        ]
+        self.assertEqual(driver.completion_exit_code(True), 0)
 
 
 if __name__ == "__main__":

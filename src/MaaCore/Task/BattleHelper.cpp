@@ -576,8 +576,9 @@ bool asst::BattleHelper::deploy_oper(
         if (outcome != battle::DeploymentOutcome::Confirmed) {
             ++m_unverified_deployment_attempts[{ { oper.role, oper.name }, loc }];
             if (outcome == battle::DeploymentOutcome::Unknown) {
-                ++m_unverified_deployment_tiles[loc];
-                LogWarn << __FUNCTION__ << "Quarantine unverified deployment tile" << loc;
+                const int attempts = ++m_unverified_deployment_tiles[loc];
+                LogWarn << __FUNCTION__ << "Unverified deployment tile" << loc << "attempts" << attempts
+                        << "quarantined" << !battle::deployment_retry_allowed(attempts);
             }
         }
         else {
@@ -671,7 +672,8 @@ asst::battle::DeploymentOutcome
 
 bool asst::BattleHelper::deployment_retry_allowed(const battle::DeploymentOper& oper, const Point& loc) const
 {
-    if (m_unverified_deployment_tiles.contains(loc)) {
+    if (const auto tile = m_unverified_deployment_tiles.find(loc);
+        tile != m_unverified_deployment_tiles.end() && !battle::deployment_retry_allowed(tile->second)) {
         return false;
     }
     const auto it = m_unverified_deployment_attempts.find({ { oper.role, oper.name }, loc });

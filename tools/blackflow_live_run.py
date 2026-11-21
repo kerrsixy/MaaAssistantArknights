@@ -205,6 +205,16 @@ class LiveDriver:
     def running(self):
         return bool(self._lib.AsstRunning(self._handle))
 
+    def completion_exit_code(self, finished):
+        """Report task completion separately from a roguelike victory."""
+        with self._lock:
+            messages = {record["msg"] for record in self._records}
+        if messages & {MSG_INTERNAL_ERROR, MSG_TASK_CHAIN_ERROR}:
+            return 2
+        if not finished or MSG_TASK_CHAIN_COMPLETED not in messages:
+            return 1
+        return 0
+
     def snapshot(self, name="snapshot.png"):
         buf = ctypes.create_string_buffer(16 * 1024 * 1024)
         size = self._lib.AsstGetImage(self._handle, buf, len(buf))
@@ -391,10 +401,14 @@ def main():
             return 2
         print("task started", flush=True)
         finished = driver.wait(args.seconds)
-        print(f"finished={finished} running={driver.running()}", flush=True)
+        exit_code = driver.completion_exit_code(finished)
+        print(
+            f"finished={finished} running={driver.running()} task_exit_code={exit_code}",
+            flush=True,
+        )
         path = driver.snapshot("final_screen.png")
         print(f"final snapshot: {path}", flush=True)
-        return 0
+        return exit_code
     finally:
         driver.close()
         saved, count = driver.save()
