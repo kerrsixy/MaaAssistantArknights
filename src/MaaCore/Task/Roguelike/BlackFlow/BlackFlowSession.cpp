@@ -1354,7 +1354,10 @@ bool BlackFlowSession::apply_movement_inventory_observation(
         if (observed_pieces > previous_pieces) {
             charges += (observed_pieces - previous_pieces) * spec->initial_charges;
         }
-        charges = std::clamp(charges, observed_pieces, observed_pieces * spec->initial_charges);
+        // A partial view retains cached piece counts, including pieces already
+        // consumed by a verified move. It cannot restore their spent charges.
+        const int minimum_charges = complete ? observed_pieces : 0;
+        charges = std::clamp(charges, minimum_charges, observed_pieces * spec->initial_charges);
         staged.m_run.resources.movement_pieces.insert_or_assign(movement, observed_pieces);
     }
 

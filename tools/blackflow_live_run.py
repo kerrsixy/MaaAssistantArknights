@@ -42,6 +42,7 @@ MSG_INTERNAL_ERROR = 0
 MSG_TASK_CHAIN_ERROR = 10_000
 MSG_TASK_CHAIN_COMPLETED = 10_002
 MSG_SUBTASK_ERROR = 20_000
+MSG_SUBTASK_COMPLETED = 20_002
 MSG_SUBTASK_EXTRA_INFO = 20_003
 
 # 回调里值得落盘的消息：BlackFlow 遥测 + 一切报错 + 任务链起止
@@ -219,21 +220,37 @@ class LiveDriver:
         if require_settlement:
             if not lobby_verified:
                 return 1
+            settlement_verified = False
             for record in records:
-                if record["msg"] != MSG_SUBTASK_EXTRA_INFO:
+                if record["msg"] not in (MSG_SUBTASK_EXTRA_INFO, MSG_SUBTASK_COMPLETED):
                     continue
                 try:
                     payload = json.loads(record.get("details", ""))
                 except (ValueError, TypeError):
                     continue
-                if (
-                    isinstance(payload, dict)
-                    and payload.get("what") == "RoguelikeSettlement"
-                    and isinstance(payload.get("details"), dict)
-                    and isinstance(payload["details"].get("game_pass"), bool)
+                if not isinstance(payload, dict) or not isinstance(
+                    payload.get("details"), dict
                 ):
-                    return 0
-            return 1
+                    continue
+                details = payload["details"]
+                task_name = details.get("task")
+                if (
+                    record["msg"] == MSG_SUBTASK_COMPLETED
+                    and payload.get("subtask") == "ProcessTask"
+                    and isinstance(task_name, str)
+                    and task_name.rsplit("@", 1)[-1] == "AbandonConfirm"
+                ) or (
+                    payload.get("what") == "BlackFlowStrategyResult"
+                    and details.get("outcome") == "planning_failed"
+                ):
+                    return 1
+                if (
+                    record["msg"] == MSG_SUBTASK_EXTRA_INFO
+                    and payload.get("what") == "RoguelikeSettlement"
+                    and isinstance(details.get("game_pass"), bool)
+                ):
+                    settlement_verified = True
+            return 0 if settlement_verified else 1
         return 0
 
     def snapshot(self, name="snapshot.png"):

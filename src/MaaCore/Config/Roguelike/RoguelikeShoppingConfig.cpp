@@ -1,12 +1,32 @@
 #include "RoguelikeShoppingConfig.h"
 
 #include <algorithm>
+#include <limits>
 #include <utility>
 
 #include <meojson/json.hpp>
 
 #include "Config/Roguelike/BlackFlow/BlackFlowScrapMarketConfig.h"
 #include "Utils/Logger.hpp"
+
+bool asst::RoguelikeGoods::has_recruitment_need(
+    const std::unordered_map<battle::Role, std::size_t>& role_counts,
+    const std::unordered_map<battle::Role, std::array<std::size_t, 6>>& pending_promotions) const
+{
+    const auto needs_role = [&](battle::Role role) {
+        const auto count = role_counts.find(role);
+        if (count == role_counts.end() || count->second < static_cast<std::size_t>(recruit_role_target)) {
+            return true;
+        }
+        const auto promotions = pending_promotions.find(role);
+        return promotions != pending_promotions.end() &&
+               std::ranges::any_of(promotions->second, [](std::size_t count) { return count > 0; });
+    };
+    if (!recruit_roles.empty()) {
+        return std::ranges::any_of(recruit_roles, needs_role);
+    }
+    return !recruit_role || needs_role(*recruit_role);
+}
 
 bool asst::RoguelikeShoppingConfig::parse_goods(const json::array& json, std::vector<RoguelikeGoods>& goods)
 {
@@ -53,7 +73,31 @@ bool asst::RoguelikeShoppingConfig::parse_goods(const json::array& json, std::ve
             "is_recruit_ticket",
             item.name.find("招募券") != std::string::npos || item.name.find("人事调度函") != std::string::npos);
         item.min_hope = goods_json.get("min_hope", 0);
-        if (const auto role = goods_json.find<std::string>("recruit_role")) {
+        if (const auto roles = goods_json.find_value("recruit_roles")) {
+            if (!roles->is<std::vector<std::string>>() || roles->as_array().empty()) {
+                LogError << __FUNCTION__ << "Recruitment voucher roles must be a nonempty array of strings"
+                         << item.name;
+                return false;
+            }
+            for (const auto& role : roles->as_array()) {
+                const auto found = RoleMap.find(role.as_string());
+                if (found == RoleMap.end() ||
+                    std::ranges::find(item.recruit_roles, found->second) != item.recruit_roles.end()) {
+                    LogError << __FUNCTION__ << "Unknown or duplicate recruitment voucher role" << role.as_string();
+                    return false;
+                }
+                item.recruit_roles.emplace_back(found->second);
+            }
+            if (const auto target = goods_json.find_value("recruit_role_target")) {
+                if (!target->is<int>() || target->as_integer() < 1 ||
+                    target->as_integer() > std::numeric_limits<int>::max()) {
+                    LogError << __FUNCTION__ << "Recruitment role target must be a positive integer" << item.name;
+                    return false;
+                }
+                item.recruit_role_target = target->as<int>();
+            }
+        }
+        else if (const auto role = goods_json.find<std::string>("recruit_role")) {
             const auto found = RoleMap.find(*role);
             if (found == RoleMap.end()) {
                 LogError << __FUNCTION__ << "Unknown recruitment voucher role" << *role;

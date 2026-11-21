@@ -2,6 +2,7 @@
 
 #include "Config/AbstractConfig.h"
 
+#include <array>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -29,7 +30,12 @@ struct RoguelikeGoods
     bool is_recruit_ticket = false; // 标记该商品是招募券
     int min_hope = 0;               // 买它至少需要多少希望，否则券无法兑现
     std::optional<battle::Role> recruit_role;
+    std::vector<battle::Role> recruit_roles;
     int recruit_role_target = 2;
+
+    bool has_recruitment_need(
+        const std::unordered_map<battle::Role, std::size_t>& role_counts,
+        const std::unordered_map<battle::Role, std::array<std::size_t, 6>>& pending_promotions) const;
 };
 
 class RoguelikeShoppingConfig final : public MAA_NS::SingletonHolder<RoguelikeShoppingConfig>, public AbstractConfig
