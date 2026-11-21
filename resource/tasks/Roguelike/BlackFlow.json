@@ -123,6 +123,7 @@
         "next": [
             "BlackFlow@Roguelike@AccountDailySupply",
             "BlackFlow@Roguelike@AccountMonthlySignInClose",
+            "BlackFlow@Roguelike@AccountAnnouncementClose",
             "BlackFlow@Roguelike@AccountHome",
             "BlackFlow@Roguelike@AccountFloorIntro",
             "BlackFlow@Roguelike@AccountMapReturn",
@@ -202,6 +203,7 @@
         "next": [
             "BlackFlow@Roguelike@AccountDailySupply",
             "BlackFlow@Roguelike@AccountMonthlySignInClose",
+            "BlackFlow@Roguelike@AccountAnnouncementClose",
             "BlackFlow@Roguelike"
         ]
     },
@@ -228,6 +230,20 @@
         "specificRect": [1190, 40, 60, 60],
         "maxTimes": 2,
         "postDelay": 500,
+        "next": ["BlackFlow@Roguelike@AccountBegin"]
+    },
+    "BlackFlow@Roguelike@AccountAnnouncementPage": {
+        "algorithm": "OcrDetect",
+        "roi": [450, 50, 450, 150],
+        "text": ["系统公告", "游戏公告", "活动公告"],
+        "fullMatch": true,
+        "action": "DoNothing"
+    },
+    "BlackFlow@Roguelike@AccountAnnouncementClose": {
+        "baseTask": "BlackFlow@Roguelike@BeginRecovery_Announcement",
+        "template": "CloseAnno.png",
+        "requiredPage": "BlackFlow@Roguelike@AccountAnnouncementPage",
+        "maxTimes": 2,
         "next": ["BlackFlow@Roguelike@AccountBegin"]
     },
     "BlackFlow@Roguelike@ScrapTradePageFallback": {
