@@ -1877,7 +1877,11 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
     json::array placed;
     for (const auto& unit : field) {
         if (unit.x >= 0 && (unit.x != choice.x || unit.y != choice.y)) {
-            placed.emplace_back(json::object { { "name", unit.name }, { "x", unit.x }, { "y", unit.y } });
+            placed.emplace_back(
+                json::object { { "name", unit.name },
+                               { "x", unit.x },
+                               { "y", unit.y },
+                               { "field_pose_verified", m_verified_field_pose_points.contains({ unit.x, unit.y }) } });
         }
     }
     options["placement_units"] = std::move(placed);
@@ -5758,7 +5762,13 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         const auto funding = purchase_reserved_after_sale
                                  ? std::nullopt
                                  : spa::choose_funding_purchase(m_policy, funds, offers, catalog);
-        if (funding && handle_cash_equipment(state, funding->deficit)) {
+        // The source panel verifies the actual one- or two-coin credit before use.
+        const auto coin_funding = !purchase_reserved_after_sale && m_equipment_candidates.contains("盟约之币") &&
+                                          !m_cash_equipment_attempted_rounds.contains(round)
+                                      ? spa::choose_funding_purchase(m_policy, funds, offers, catalog, 2)
+                                      : std::nullopt;
+        const auto& equipment_funding = coin_funding ? coin_funding : funding;
+        if (equipment_funding && handle_cash_equipment(state, equipment_funding->deficit)) {
             continue;
         }
         if (funding && handle_full_bench_sale(state, funding->deficit)) {

@@ -334,7 +334,18 @@ bool bench_christine_sprite_visible(const cv::Mat& image, cv::Point center)
     cv::inRange(hsv(cv::Rect(0, 12, 50, 20)), cv::Scalar(0, 0, 0), cv::Scalar(180, 255, 90), dark);
     cv::inRange(hsv(cv::Rect(30, 0, 17, 17)), cv::Scalar(87, 121, 101), cv::Scalar(114, 255, 255), eyes);
     cv::inRange(hsv(cv::Rect(26, 11, 17, 20)), cv::Scalar(0, 151, 91), cv::Scalar(9, 255, 255), ribbon);
-    return cv::countNonZero(dark) >= 500 && cv::countNonZero(eyes) >= 8 && cv::countNonZero(ribbon) >= 26;
+    const int dark_pixels = cv::countNonZero(dark);
+    const int ribbon_pixels = cv::countNonZero(ribbon);
+    if (dark_pixels >= 500 && cv::countNonZero(eyes) >= 8 && ribbon_pixels >= 26) {
+        return true;
+    }
+    // In profile only one eye is visible. Require the solid body and a
+    // stronger ribbon before looking for that lower, smaller highlight.
+    if (dark_pixels < 600 || ribbon_pixels < 45) {
+        return false;
+    }
+    cv::inRange(hsv(cv::Rect(30, 9, 16, 10)), cv::Scalar(87, 121, 101), cv::Scalar(114, 255, 255), eyes);
+    return cv::countNonZero(eyes) >= 4;
 }
 
 std::vector<cv::Point> bench_source_centres(const cv::Mat& image, bool include_christine)

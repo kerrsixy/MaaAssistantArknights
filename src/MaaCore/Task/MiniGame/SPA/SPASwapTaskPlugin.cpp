@@ -1556,21 +1556,25 @@ bool asst::spa::SwapTaskPlugin::verify_replacement_bench_identity(const std::str
         return false;
     }
     const auto bench = ctrler()->get_image();
-    const auto candidates = detect_bench_centres(bench);
+    const bool find_christine = name == "Miss.Christine";
+    const auto candidates = detect_bench_centres(bench, find_christine);
     std::vector<int> candidate_x;
     for (const auto& candidate : candidates) {
         candidate_x.push_back(candidate.x);
     }
     for (const auto index : bench_source_probe_order(candidate_x, m_source.x)) {
         const auto& candidate = candidates[index];
-        if (!bench_sprite_visible(bench, candidate)) {
+        const bool compact_sprite =
+            find_christine && bench_christine_sprite_visible(bench, cv::Point(candidate.x, candidate.y));
+        if (!compact_sprite && !bench_sprite_visible(bench, candidate)) {
             continue;
         }
         if (!ensure_expanded_shop()) {
             return false;
         }
         ++probes;
-        const bool matched = bench_identity(candidate, false, name) == name;
+        const auto hitbox = compact_sprite ? Point(candidate.x, candidate.y + 27) : candidate;
+        const bool matched = bench_identity(hitbox, false, name) == name;
         if (!close_selection()) {
             return false;
         }

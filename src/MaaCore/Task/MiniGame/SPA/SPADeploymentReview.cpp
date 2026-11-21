@@ -116,6 +116,7 @@ asst::spa::DeploymentReview asst::spa::review_deployment(
         }
         else {
             report.blocker = blocker->id;
+            report.first_block_capacity = blocker->block_count;
             for (const auto& unit : units) {
                 if (unit.id == blocker->id || unit.block_count <= 0) {
                     continue;
@@ -420,6 +421,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         int boss_movement_cost = 0;
         int boss_opening_cost = 0;
         int boss_unhealed_attack_cost = 0;
+        int lost_first_block_capacity = 0;
         int lane_problem_count = 0;
         int lost_block_capacity = 0;
         int preparation_growth_cost = 0;
@@ -430,8 +432,8 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         auto operator<=>(const CandidateScore&) const = default;
     };
 
-    const bool prioritize_growth =
-        preparation_growth_preference && opening_boss_cells.empty() && boss_movement_waypoints.empty();
+    const bool regular_wave = opening_boss_cells.empty() && boss_movement_waypoints.empty();
+    const bool prioritize_growth = preparation_growth_preference && regular_wave;
     result.input_complete = true;
     result.units = units;
     const auto score = [&](const std::vector<DeploymentUnit>& candidate) {
@@ -443,8 +445,15 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         int unblocked = 0;
         int lane_problems = 0;
         int uncovered_approach = 0;
-        for (const auto& lane : review.lanes) {
+        int lost_first_block_capacity = 0;
+        for (size_t index = 0; index < review.lanes.size(); ++index) {
+            const auto& lane = review.lanes[index];
             unblocked += lane.blocker.empty() ? 1 : 0;
+            if (regular_wave && review.balanced_block_capacity <= initial.balanced_block_capacity) {
+                // Moving capacity rearward must improve coverage between lanes.
+                lost_first_block_capacity +=
+                    std::max(0, initial.lanes[index].first_block_capacity - lane.first_block_capacity);
+            }
             lane_problems += static_cast<int>(lane.problems.size());
             uncovered_approach += lane.required_approach_cells - lane.covered_approach_cells;
         }
@@ -458,6 +467,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
                                 -boss_movement_attack_weight(candidate, boss_movement_waypoints),
                                 -boss_opening_weight,
                                 -boss_supported_weight,
+                                lost_first_block_capacity,
                                 prioritize_growth ? lane_problems : 0,
                                 prioritize_growth
                                     ? std::max(0, initial.balanced_block_capacity - review.balanced_block_capacity)

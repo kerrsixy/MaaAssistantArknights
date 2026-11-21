@@ -111,6 +111,17 @@ bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value
     // invalidate it explicitly. Keep presence-only hints and never infer
     // stack quantities or completeness from this scheduling flag.
     m_equipment_inventory_dirty = !probes_complete;
+    const bool funding_source_observed =
+        (m_cash_equipment_source_verified_round == round && !m_cash_equipment_attempted_rounds.contains(round)) ||
+        (m_passbook_source_verified_round == round && !m_passbook_attempted_rounds.contains(round));
+    const bool reopen_shopping = m_shopping_complete && state.get("funds", 0) > 0 && funding_source_observed;
+    if (reopen_shopping) {
+        // Finalization can be the first scan to identify a funding item.
+        // Reevaluate the current shop before Ready consumes the round balance.
+        m_shopping_complete = false;
+        m_spending_reviewed = false;
+        m_spending_reason.clear();
+    }
     auto receipt = basic_info_with_what("SPAAutomationEquipmentInventoryObserved");
     receipt["details"] =
         json::object { { "run_id", m_run_id },
@@ -122,6 +133,7 @@ bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value
                        { "inventory_count_inferred", false },
                        { "preparation_frame_invalidated", true },
                        { "cash_equipment_source_verified_round", m_cash_equipment_source_verified_round },
+                       { "shopping_reopened_for_funding_review", reopen_shopping },
                        { "equipment_candidates", equipment_candidates_snapshot() },
                        { "roster", roster_snapshot() } };
     callback(AsstMsg::SubTaskExtraInfo, receipt);

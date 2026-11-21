@@ -57,6 +57,7 @@ struct LaneCoverage
     bool ready = false;
     std::vector<std::string> problems;
     int block_capacity = 0;
+    int first_block_capacity = 0;
 };
 
 struct DeploymentReview

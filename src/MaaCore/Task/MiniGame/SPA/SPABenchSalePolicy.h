@@ -195,22 +195,24 @@ inline std::optional<BenchCapacityTrade> choose_bench_capacity_trade(
     return BenchCapacityTrade { std::string(lowest->name), { purchase.name, purchase.price, purchase.right_slot } };
 }
 
-// Compare the actual shop under a hypothetical funded budget, then request
-// a verified bench sale. This does not grant funds or authorize a purchase.
+// Select a purchase under a hypothetical funded budget for the requested source.
 inline std::optional<FundingPurchase> choose_funding_purchase(
     const PreparationPolicy& policy,
     int funds,
     const std::vector<ShopOffer>& offers,
-    const std::map<std::string, std::vector<std::string>>& pacts)
+    const std::map<std::string, std::vector<std::string>>& pacts,
+    int coin_credit_limit = 0)
 {
-    if (funds < 0 || policy.primary_pact.empty() || policy.primary_pact == "auto" || policy.bench_occupied < 0 ||
+    if (funds < 0 || (coin_credit_limit > 0 && policy.bench_occupied >= 10) || policy.primary_pact.empty() ||
+        policy.primary_pact == "auto" || policy.bench_occupied < 0 ||
         std::find(policy.disabled_pacts.begin(), policy.disabled_pacts.end(), policy.primary_pact) !=
             policy.disabled_pacts.end()) {
         return std::nullopt;
     }
     std::set<int> funding_budgets;
     for (const auto& offer : offers) {
-        if (offer.price > funds && offer.price <= 99) {
+        if (offer.price > funds && offer.price <= 99 &&
+            (coin_credit_limit == 0 || offer.price - funds <= coin_credit_limit)) {
             funding_budgets.insert(offer.price);
         }
     }
@@ -251,10 +253,15 @@ inline std::optional<FundingPurchase> choose_funding_purchase(
         const auto owned = policy.owned.find(choice.name);
         const int copies = owned == policy.owned.end() ? 0 : owned->second.copies;
         const bool activation = copies == 0 && rule != rules.end() && members + 1 == rule->members;
-        const bool role = is_primary_growth_engine(choice.name, policy.primary_pact) ||
-                          is_primary_output_candidate(choice.name, policy.primary_pact);
+        const bool growth_engine = is_primary_growth_engine(choice.name, policy.primary_pact);
+        const bool role = growth_engine || is_primary_output_candidate(choice.name, policy.primary_pact);
         const bool promotion = role && ordinary_purchase_completes_promotion(policy, choice.name);
-        if (activation || promotion || (policy.primary_locked_after_activation && role && copies == 0)) {
+        const auto forms = owned == policy.owned.end() ? std::nullopt : owned_form_counts(owned->second);
+        // A coin can turn the expiring balance into a pair for an on-field growth core.
+        const bool coin_pair = coin_credit_limit > 0 && funds > 0 && policy.primary_locked_after_activation &&
+                               growth_engine && owned != policy.owned.end() && owned->second.deployed && forms &&
+                               forms->initial == 1 && forms->elite == 0;
+        if (activation || promotion || coin_pair || (policy.primary_locked_after_activation && role && copies == 0)) {
             return FundingPurchase { { choice.name, choice.price, choice.right_slot }, choice.price - funds };
         }
     }

@@ -1498,6 +1498,27 @@ int main()
     const std::vector<ShopOffer> activation_shop { { "归溟幽灵鲨", 3, 0 } };
     const auto funding = choose_funding_purchase(activation_funding, 2, activation_shop, activation_catalog);
     assert(funding && funding->offer.name == "归溟幽灵鲨" && funding->deficit == 1);
+    PreparationPolicy ursus_funding;
+    ursus_funding.primary_pact = "乌萨斯";
+    ursus_funding.primary_locked_after_activation = true;
+    ursus_funding.dynamic_decision_mode = true;
+    ursus_funding.round = 6;
+    ursus_funding.shop_level = 3;
+    ursus_funding.bench_occupied = 2;
+    ursus_funding.deployed_population = 8;
+    ursus_funding.owned = { { "烈夏", { 1, false, true } }, { "折桠", { 1, false, true } } };
+    ursus_funding.full_field_offer_improvements = { { "乌啾", 1800 } };
+    const std::vector<ShopOffer> ursus_shop { { "乌啾", 3, 3 }, { "奥斯塔", 3, 2 }, { "凯瑟琳", 3, 1 } };
+    const auto ursus_purchase = choose_funding_purchase(ursus_funding, 1, ursus_shop, activation_catalog);
+    assert(ursus_purchase && ursus_purchase->offer.name == "乌啾" && ursus_purchase->deficit == 2);
+    assert(choose_preparation(ursus_funding, 3, ursus_shop, activation_catalog).name == "乌啾");
+    ursus_funding.owned["乌啾"] = { 1, false, true };
+    ursus_funding.full_field_offer_improvements["乌啾"] = 0;
+    assert(!choose_funding_purchase(ursus_funding, 1, ursus_shop, activation_catalog));
+    assert(!choose_funding_purchase(ursus_funding, 1, ursus_shop, activation_catalog, 1));
+    const auto coin_pair = choose_funding_purchase(ursus_funding, 1, ursus_shop, activation_catalog, 2);
+    assert(coin_pair && coin_pair->offer.name == "乌啾" && coin_pair->deficit == 2);
+    assert(choose_preparation(ursus_funding, 3, ursus_shop, activation_catalog).name == "乌啾");
     auto full_bench_funding = activation_funding;
     full_bench_funding.bench_occupied = 10;
     const auto funded_slot = choose_funding_purchase(full_bench_funding, 2, activation_shop, activation_catalog);
@@ -5313,6 +5334,22 @@ int main()
         {},
         [](const auto& units) { return units.front().cell == BoardCell(4, 1) ? 1'000'000 : 0; });
     assert(!retain_route.improved && retain_route.units.front().cell == BoardCell(4, 0));
+    DeploymentUnit strong_blocker = unsupported_guard;
+    strong_blocker.id = "折桠";
+    strong_blocker.cell = { 4, 0 };
+    strong_blocker.block_count = 3;
+    strong_blocker.placement_cells = { { 3, 0 }, { 4, 0 } };
+    DeploymentUnit weak_blocker = strong_blocker;
+    weak_blocker.id = "secondary";
+    weak_blocker.cell = { 3, 0 };
+    weak_blocker.block_count = 1;
+    const auto frontline_first = propose_deployment(
+        { strong_blocker, weak_blocker },
+        { route_cases.front() },
+        legal_cells,
+        1000,
+        [](const auto& units) { return units.front().cell == BoardCell(3, 0) ? 1'000'000 : 0; });
+    assert(frontline_first.input_complete && frontline_first.units.front().cell == BoardCell(4, 0));
     DeploymentSequence marginal_move;
     marginal_move.complete = true;
     marginal_move.steps = { { DeploymentStepKind::Move, "ranged", "", { 3, 1 }, { 4, 2 }, 'S' },
