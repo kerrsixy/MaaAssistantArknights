@@ -117,6 +117,7 @@ struct ReplacementChoice
 };
 
 using ReplacementLineup = std::vector<std::string>;
+inline constexpr int ReplacementTierValue = 120;
 
 inline ReplacementLineup replacement_lineup_identity(const std::vector<ReplacementMember>& field)
 {
@@ -480,6 +481,11 @@ inline ReplacementChoice choose_replacement(
         if (incoming.name.empty()) {
             continue;
         }
+        const bool returning =
+            std::ranges::none_of(field, [&](const auto& unit) { return unit.name == incoming.name; }) &&
+            std::ranges::any_of(visited_lineups, [&](const auto& lineup) {
+                return std::ranges::binary_search(lineup, incoming.name);
+            });
         for (size_t index = 0; index < field.size(); ++index) {
             const auto& outgoing = field[index];
             if (!outgoing.replaceable || (outgoing.strategy_core && strategy_cores <= 1) ||
@@ -522,6 +528,11 @@ inline ReplacementChoice choose_replacement(
             }
             const int improvement = value(proposed) - baseline;
             const bool restores_core = incoming.strategy_core && strategy_cores == 0;
+            // Changes elsewhere on the board can bypass the exact-lineup
+            // guard. A same-round return needs more than a one-tier gain.
+            if (returning && improvement <= ReplacementTierValue && !restores_core) {
+                continue;
+            }
             const bool same_auxiliary_role =
                 incoming.role == outgoing.role && incoming.role != PlacementRole::Unknown &&
                 std::ranges::any_of(incoming.pacts, [&](const auto& pact) {

@@ -1478,7 +1478,8 @@ asst::spa::ReplacementMember asst::StrongholdProtocolTask::replacement_member(
     const auto fact = std::find_if(spa::OperatorCatalogue.begin(), spa::OperatorCatalogue.end(), [&](const auto& item) {
         return item.name == name;
     });
-    result.value = (fact == spa::OperatorCatalogue.end() ? 0 : fact->tier * 120) + (owned.elite ? 350 : 0);
+    result.value =
+        (fact == spa::OperatorCatalogue.end() ? 0 : fact->tier * spa::ReplacementTierValue) + (owned.elite ? 350 : 0);
     result.egir_material_tier = fact == spa::OperatorCatalogue.end() ? 0 : fact->tier;
     if (policy.primary_locked_after_activation && spa::belongs_to_planned_lineup(name, policy, pacts)) {
         result.value += 1200;

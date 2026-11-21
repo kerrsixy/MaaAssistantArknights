@@ -2437,6 +2437,18 @@ int main()
     const auto fresh_exchange =
         choose_replacement("维多利亚", { ferryman }, { improved_lappland, meteorite }, {}, {}, visited);
     assert(fresh_exchange.found && fresh_exchange.incoming == "陨星");
+    const ReplacementMember cantabile { "晓歌", PlacementRole::Ranged, {}, 800, 890, 235 };
+    const std::vector<ReplacementMember> changed_lineup { ferryman, cantabile };
+    const std::set<ReplacementLineup> earlier_lineup { replacement_lineup_identity({ lappland, meteorite }) };
+    auto returning_lappland = lappland;
+    returning_lappland.value = ferryman.value + ReplacementTierValue;
+    assert(choose_replacement("维多利亚", changed_lineup, { returning_lappland }).found);
+    assert(!choose_replacement("维多利亚", changed_lineup, { returning_lappland }, {}, {}, earlier_lineup).found);
+    assert(choose_replacement("维多利亚", changed_lineup, { improved_lappland }, {}, {}, earlier_lineup).found);
+    returning_lappland.strategy_core = true;
+    returning_lappland.value = ferryman.value;
+    assert(choose_replacement("维多利亚", changed_lineup, { returning_lappland }, {}, {}, earlier_lineup)
+               .restores_strategy_core);
     auto activated_board = transition_board;
     activated_board[2] = { "森蚺", PlacementRole::Frontline, { "萨尔贡" }, 1400, 720, 235, true };
     activated_board[0].replaceable = activated_board[1].replaceable = true;
