@@ -1889,26 +1889,25 @@ std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(
         cancel();
         return std::nullopt;
     }
-    const auto board = reproject_preparation_board(
-        m_registered_grid_reference,
-        held,
-        m_registered_grid_projection,
-        m_registered_grid_map_id,
-        true);
+    // Restricted summons may expose only one or two legal tiles. Register
+    // the terrain independently, then let the same-cell green check decide
+    // legality even when every projected tile center is occluded.
+    const auto grid = registered_grid_projection(m_registered_grid_reference, held, m_registered_grid_projection);
+    const bool boss_phase = preparation_boss_health_bar(held).has_value();
     std::optional<BoardCell> chosen;
     std::optional<cv::Point> destination;
-    if (board.verified && board.grid_verified) {
+    if (grid) {
         for (const auto& target : targets) {
             const auto interior = registered_green_cell_target(
                 held,
-                board.grid_to_screen,
+                *grid,
                 cv::Point(target.first, target.second),
                 true,
                 terrain_allows_deployment(
-                    board.map_id,
+                    m_registered_grid_map_id,
                     target,
                     deployable_summon_owner(name) != "温蒂",
-                    board.boss_phase_visible),
+                    boss_phase),
                 true);
             if (interior) {
                 chosen = target;
@@ -1916,6 +1915,22 @@ std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(
                 break;
             }
         }
+    }
+    if (!chosen) {
+        json::array considered;
+        for (const auto& [col, row] : targets) {
+            considered.emplace_back(json::object { { "col", col }, { "row", row } });
+        }
+        auto evidence = basic_info_with_what("SPASummonHeldTargetUnavailable");
+        evidence["details"] = json::object { { "round", round },
+                                             { "name", name },
+                                             { "map_id", m_registered_grid_map_id },
+                                             { "held_identity_verified", true },
+                                             { "held_grid_verified", grid.has_value() },
+                                             { "candidate_cells", std::move(considered) },
+                                             { "drop_attempted", false } };
+        save_evidence(held, utils::path("debug/SPA/summon_held_target_unavailable"), false);
+        callback(AsstMsg::SubTaskExtraInfo, evidence);
     }
     if (!destination || !chosen || need_exit() ||
         !send(InputEvent::Type::TOUCH_MOVE, Point(destination->x, destination->y)) || !send(InputEvent::Type::COMMIT) ||

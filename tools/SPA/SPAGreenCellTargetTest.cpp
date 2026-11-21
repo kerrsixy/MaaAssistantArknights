@@ -32,6 +32,13 @@ int main()
         const auto target = registered_green_cell_target(held, projection, cell, true, true, true);
         assert(target && *target != original);
         assert(green_deployment_hint(held, *target));
+        // A restricted summon can expose only the interior of this cell.
+        // There is no other green tile center to validate the camera fit.
+        cv::Mat restricted = cv::Mat::zeros(held.size(), held.type());
+        const cv::Rect interior_patch(target->x - 18, target->y - 18, 37, 37);
+        held(interior_patch).copyTo(restricted(interior_patch));
+        assert(!green_deployment_hint(restricted, original));
+        assert(registered_green_cell_target(restricted, projection, cell, true, true, true));
         std::vector<cv::Point2f> target_grid;
         cv::perspectiveTransform(std::vector<cv::Point2f> { cv::Point2f(*target) }, target_grid, projection.inv());
         assert(target_grid.size() == 1);
