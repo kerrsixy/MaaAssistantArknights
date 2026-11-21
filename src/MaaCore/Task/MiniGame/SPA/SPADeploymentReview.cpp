@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <limits>
 #include <set>
+#include <span>
 #include <tuple>
 
 bool asst::spa::range_covers(const DeploymentUnit& unit, BoardCell target)
@@ -278,7 +279,7 @@ std::optional<asst::spa::DeploymentStep> asst::spa::repair_healing_coverage(
     return best;
 }
 
-static bool can_attack_boss(const asst::spa::DeploymentUnit& unit, const std::vector<asst::spa::BoardCell>& boss_cells)
+static bool can_attack_boss(const asst::spa::DeploymentUnit& unit, std::span<const asst::spa::BoardCell> boss_cells)
 {
     return unit.damage_output && !unit.healer && unit.holds_position &&
            std::any_of(boss_cells.begin(), boss_cells.end(), [&](const auto cell) {
@@ -311,7 +312,7 @@ namespace
 {
 using namespace asst::spa;
 
-int boss_attack_coverage_weight(const DeploymentUnit& unit, const std::vector<BoardCell>& cells)
+int boss_attack_coverage_weight(const DeploymentUnit& unit, std::span<const BoardCell> cells)
 {
     if (!unit.damage_output || unit.healer || !unit.holds_position) {
         return 0;
@@ -326,8 +327,7 @@ int boss_attack_coverage_weight(const DeploymentUnit& unit, const std::vector<Bo
     return unit.boss_basic_attack_weight * (basic * (100 - uptime) + skill * uptime);
 }
 
-std::pair<int, int>
-    boss_attack_weights(const std::vector<DeploymentUnit>& units, const std::vector<BoardCell>& boss_cells)
+std::pair<int, int> boss_attack_weights(const std::vector<DeploymentUnit>& units, std::span<const BoardCell> boss_cells)
 {
     int total_weight = 0;
     int healed_weight = 0;
@@ -361,24 +361,23 @@ std::pair<int, int>
     }
     return { total_weight, healed_weight };
 }
+
+int sustained_boss_attack_weight(int opening, int supported)
+{
+    return opening + 4 * supported;
+}
 }
 
 int asst::spa::boss_movement_attack_weight(
     const std::vector<DeploymentUnit>& units,
     const std::vector<BoardCell>& waypoints)
 {
-    if (waypoints.empty()) {
-        return 0;
-    }
     int weight = 0;
-    for (const auto& unit : units) {
-        if (!unit.damage_output || unit.healer || !unit.holds_position) {
-            continue;
-        }
-        weight += unit.boss_basic_attack_weight *
-                  static_cast<int>(std::count_if(waypoints.begin(), waypoints.end(), [&](const auto cell) {
-                      return boss_attack_overlaps_cell(unit, cell);
-                  }));
+    // These are route checkpoints, with no measured travel time between
+    // them. Score local attack access and healing at each known checkpoint.
+    for (const auto& waypoint : waypoints) {
+        const auto [attack, supported] = boss_attack_weights(units, std::span(&waypoint, 1));
+        weight += sustained_boss_attack_weight(attack, supported) / 100;
     }
     return weight;
 }
@@ -463,7 +462,8 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         const auto [boss_opening_weight, boss_supported_weight] = boss_attack_weights(candidate, opening_boss_cells);
         // Keep some value for burst without coverage, but favour keeping attackers
         // in reach of healing. This is a search priority, not predicted survival.
-        const int boss_sustained_attack_weight = boss_opening_weight + 4 * boss_supported_weight;
+        const int boss_sustained_attack_weight =
+            sustained_boss_attack_weight(boss_opening_weight, boss_supported_weight);
         // Preparation-only growth can break a tie in survival coverage.
         // Preserve the original coverage ordering when there is no growth
         // objective. A pair cannot trade away a lane, a healing check or

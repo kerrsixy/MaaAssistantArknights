@@ -272,6 +272,15 @@ int main()
     medic.local_range.push_back({ 2, 0 });
     const std::vector<BoardCell> boss_firing_cells { { 5, 2 } };
     const std::vector<BoardCell> firing_terrain { guard.cell, medic.cell, { 4, 2 }, { 3, 3 } };
+    assert(boss_movement_attack_weight({ covered_attacker }, boss_firing_cells) == 500);
+    assert(boss_movement_attack_weight({ medic, covered_attacker }, boss_firing_cells) == 2500);
+    auto skill_attacker = covered_attacker;
+    skill_attacker.local_range = { { 0, 1 } };
+    skill_attacker.boss_skill_attack_range = { { 1, 0 } };
+    skill_attacker.boss_skill_attack_uptime_percent = 40;
+    assert(boss_movement_attack_weight({ skill_attacker }, boss_firing_cells) == 200);
+    assert(boss_movement_attack_weight({ medic, skill_attacker }, boss_firing_cells) == 1000);
+    assert(boss_movement_attack_weight({ medic, skill_attacker }, {}) == 0);
     const auto sustain_plan = propose_deployment(
         { guard, medic, covered_attacker, uncovered_attacker },
         one_lane,
