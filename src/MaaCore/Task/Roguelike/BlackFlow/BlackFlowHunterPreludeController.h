@@ -61,6 +61,7 @@ private:
     bool m_frame_verified = false;
     bool m_hunter_positive_verified = false;
     bool m_bait_consumed = false;
+    bool m_bait_removal_verified = false;
     bool m_retreat_requested = false;
     bool m_main_released = false;
     bool m_contract_breached = false;
