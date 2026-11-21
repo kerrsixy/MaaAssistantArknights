@@ -1393,6 +1393,11 @@ int asst::BattleHelper::elapsed_time()
 void asst::BattleHelper::register_deployed_oper(battle::Role role, const std::string& name, const Point& loc)
 {
     m_used_tiles.emplace(loc, battle::OperNameTag { role, name });
+    // A reusable roadblock card can cool down while the placed terrain remains.
+    // Keep every occupied tile, without treating the barrier as a retreating unit.
+    if (is_terrain_roadblock(battle::DeploymentOper { .role = role, .name = name })) {
+        return;
+    }
     m_battlefield_opers.emplace(battle::OperNameTag { role, name }, loc);
     m_last_use_skill_time.emplace(battle::OperNameTag { role, name }, std::chrono::steady_clock::time_point());
 }
