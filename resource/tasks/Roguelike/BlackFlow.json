@@ -138,6 +138,7 @@
         "algorithm": "JustReturn",
         "action": "DoNothing",
         "next": [
+            "BlackFlow@Roguelike@BeginRecovery_Victory",
             "BlackFlow@Roguelike@ResumeSavedContinue",
             "BlackFlow@Roguelike@ResumeFloorIntro",
             "BlackFlow@Roguelike@ResumeSavedMap"
@@ -148,7 +149,11 @@
         "baseTask": "BlackFlow@Roguelike@Continue",
         "template": "BlackFlow@Roguelike@Continue.png",
         "templThreshold": 0.9,
-        "next": ["BlackFlow@Roguelike@ResumeFloorIntro", "BlackFlow@Roguelike@ResumeSavedMap"]
+        "next": [
+            "BlackFlow@Roguelike@BeginRecovery_Victory",
+            "BlackFlow@Roguelike@ResumeFloorIntro",
+            "BlackFlow@Roguelike@ResumeSavedMap"
+        ]
     },
     "BlackFlow@Roguelike@ResumeSavedMap": {
         "Doc": "层名也显示在商店等页面上；恢复必须先确认地图缩放锚点，之后交给正常层名回执。",
