@@ -293,6 +293,34 @@ int main()
     assert(early_contact.boss_movement_coverage_improvement == -700);
     assert(deployment_change_worth_input(early_contact, sequence_deployment(route_only.units, early_contact.units)));
 
+    // Both firing positions are occupied. A one-facing exchange gives up
+    // early attack access; jointly turning the two units covers the last checkpoint.
+    auto paired_a = main_output;
+    paired_a.id = "paired-a";
+    paired_a.cell = { 3, 2 };
+    paired_a.facing = 'S';
+    paired_a.local_range = { { 2, 0 }, { 1, 0 }, { 2, -1 }, { 1, 2 }, { 1, -1 } };
+    paired_a.boss_basic_attack_weight = 500;
+    auto paired_b = paired_a;
+    paired_b.id = "paired-b";
+    paired_b.cell = { 5, 2 };
+    paired_b.facing = 'N';
+    paired_b.local_range = { { 3, 2 }, { 1, 0 }, { 3, 1 }, { 2, -1 }, { 1, -2 } };
+    paired_b.boss_basic_attack_weight = 300;
+    paired_a.placement_cells = paired_b.placement_cells = { paired_a.cell, paired_b.cell };
+    const std::vector<DeploymentUnit> paired_board { patrol_guard, paired_a, paired_b };
+    const std::vector<BoardCell> paired_ground { guard.cell, paired_a.cell, paired_b.cell };
+    const std::vector<BoardCell> paired_opening { { 3, 3 } };
+    const std::vector<BoardCell> paired_waypoints { { 5, 1 }, { 3, 1 } };
+    const auto paired_plan =
+        propose_deployment(paired_board, one_lane, paired_ground, 128, {}, paired_opening, paired_waypoints);
+    assert(paired_plan.input_complete && paired_plan.boss_uncovered_waypoints_improvement == 1);
+    assert(paired_plan.units[1].cell == paired_b.cell && paired_plan.units[1].facing == 'N');
+    assert(paired_plan.units[2].cell == paired_a.cell && paired_plan.units[2].facing == 'S');
+    const auto one_input =
+        propose_deployment(paired_board, one_lane, paired_ground, 128, {}, paired_opening, paired_waypoints, {}, 1);
+    assert(one_input.boss_uncovered_waypoints_improvement == 0);
+
     // The second live D4 矩兽 reached the west side with most units still
     // aimed at its opening. Isolate that trade-off with two direction-only
     // attackers while a separate blocker continues guarding the lane.

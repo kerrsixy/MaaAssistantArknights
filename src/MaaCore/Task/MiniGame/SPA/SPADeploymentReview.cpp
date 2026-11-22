@@ -551,6 +551,37 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         auto best = result.units;
         auto next_score = best_score;
         auto next_input_cost = best_input_cost;
+        const auto consider = [&](std::vector<DeploymentUnit> candidate) {
+            const auto value = score(candidate);
+            if (value > next_score || (value == next_score && next_input_cost.first == 0)) {
+                return;
+            }
+            std::pair<int, int> input_cost {};
+            if (available_input_steps) {
+                int changed = 0;
+                for (size_t member = 0; member < units.size(); ++member) {
+                    changed +=
+                        units[member].cell != candidate[member].cell ||
+                        (candidate[member].facing_known &&
+                         (!units[member].facing_known || units[member].facing != candidate[member].facing));
+                }
+                if (changed > *available_input_steps) {
+                    return;
+                }
+                const auto sequence = sequence_deployment(units, candidate, 1500);
+                const int inputs = deployment_input_steps_with_facing_repairs(sequence);
+                if (!sequence.complete || inputs > *available_input_steps) {
+                    return;
+                }
+                input_cost = { inputs, deployment_preference_input_cost(sequence) };
+            }
+            if (value == next_score && input_cost >= next_input_cost) {
+                return;
+            }
+            next_score = value;
+            next_input_cost = input_cost;
+            best = std::move(candidate);
+        };
         for (size_t index = 0; index < result.units.size() && result.evaluations < evaluation_budget; ++index) {
             if (!result.units[index].movable) {
                 continue;
@@ -582,35 +613,43 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
                     candidate[index].cell = cell;
                     candidate[index].facing = direction;
                     candidate[index].facing_known = true;
-                    const auto value = score(candidate);
-                    if (value > next_score || (value == next_score && next_input_cost.first == 0)) {
+                    consider(std::move(candidate));
+                }
+            }
+        }
+        if (!regular_wave && next_score == best_score && next_input_cost == best_input_cost) {
+            // An exchange can preserve coverage only when both units turn.
+            // Try the paired facings after single-unit changes stall.
+            for (size_t first = 0; first < result.units.size() && result.evaluations < evaluation_budget; ++first) {
+                const auto& a = result.units[first];
+                if (!a.movable || !a.facing_known) {
+                    continue;
+                }
+                for (size_t second = first + 1; second < result.units.size() && result.evaluations < evaluation_budget;
+                     ++second) {
+                    const auto& b = result.units[second];
+                    if (!b.movable || !b.facing_known || !accepts(a, b.cell) || !accepts(b, a.cell)) {
                         continue;
                     }
-                    std::pair<int, int> input_cost {};
-                    if (available_input_steps) {
-                        int changed = 0;
-                        for (size_t member = 0; member < units.size(); ++member) {
-                            changed +=
-                                units[member].cell != candidate[member].cell ||
-                                (candidate[member].facing_known &&
-                                 (!units[member].facing_known || units[member].facing != candidate[member].facing));
-                        }
-                        if (changed > *available_input_steps) {
+                    for (const char facing_a : std::string_view("ESWN")) {
+                        if (facing_a == a.facing || result.evaluations >= evaluation_budget) {
                             continue;
                         }
-                        const auto sequence = sequence_deployment(units, candidate, 1500);
-                        const int inputs = deployment_input_steps_with_facing_repairs(sequence);
-                        if (!sequence.complete || inputs > *available_input_steps) {
-                            continue;
+                        for (const char facing_b : std::string_view("ESWN")) {
+                            if (result.evaluations >= evaluation_budget) {
+                                break;
+                            }
+                            if (facing_b == b.facing) {
+                                continue;
+                            }
+                            auto candidate = result.units;
+                            candidate[first].cell = b.cell;
+                            candidate[first].facing = facing_a;
+                            candidate[second].cell = a.cell;
+                            candidate[second].facing = facing_b;
+                            consider(std::move(candidate));
                         }
-                        input_cost = { inputs, deployment_preference_input_cost(sequence) };
                     }
-                    if (value == next_score && input_cost >= next_input_cost) {
-                        continue;
-                    }
-                    next_score = value;
-                    next_input_cost = input_cost;
-                    best = std::move(candidate);
                 }
             }
         }
