@@ -128,6 +128,69 @@ int wmain(int argc, wchar_t** argv)
         }
         range_receipts.emplace_back(json::object { { "elite", elite }, { "ew_absolute_range", absolute } });
     }
+    const auto forgotten = RoguelikeCopilot.get_stage_data("遗忘时间");
+    const auto forgotten_raw =
+        json::open(repo / utils::path("resource/Arknights-Tile-Pos/ro6_e_1_2-obt-roguelike-ro6-level_rogue6_1-2.json"));
+    if (!forgotten || !forgotten_raw) {
+        return 6;
+    }
+    const Map::Level forgotten_level(*forgotten_raw);
+    const auto& single = forgotten->deploy_plan.at("术师").front();
+    const auto& last_turn = forgotten->deploy_plan.at("益达").front();
+    const auto& bait = forgotten->deploy_plan.at("机械师").front();
+    const auto& healing = forgotten->deploy_plan.at("元素奶").front();
+    const auto& temporary = forgotten->deploy_plan.at("其他地面").front();
+    const auto& final_block = forgotten->deploy_plan.at("近卫").front();
+    expect(
+        single.rank < bait.rank && bait.rank < last_turn.rank,
+        "single-target top defense precedes bait and last turn");
+    expect(last_turn.rank < healing.rank, "healing does not consume the opening damage budget");
+    expect(
+        temporary.location == bait.location && temporary.operator_names == std::vector<std::string> { "结构性原理" },
+        "only the real token can substitute at the same bait site");
+    expect(final_block.location == Point(1, 3), "endpoint blocking has a real separate deployment");
+    expect(
+        single.operator_names == std::vector<std::string> { "卡达", "史都华德", "夜烟", "刻俄柏" },
+        "top plan excludes unreviewed area damage substitutions");
+    for (const auto& [group, plans] : forgotten->deploy_plan) {
+        for (const auto& plan : plans) {
+            expect(
+                forgotten_level.get_item(plan.location.y, plan.location.x).buildableType != 0,
+                "forgotten candidate excludes every native non-buildable tile");
+        }
+    }
+    for (const int elite : { 1, 2 }) {
+        for (const auto& name : single.operator_names) {
+            probe.elite(name, elite);
+            const DeploymentOper oper { .role = Role::Caster, .name = name };
+            expect(
+                probe.deployment_requirements_met(oper, single),
+                "promoted single-target substitute covers the top route");
+        }
+        probe.elite("维什戴尔", elite);
+        const DeploymentOper ew { .role = Role::Sniper, .name = "维什戴尔" };
+        expect(probe.deployment_requirements_met(ew, last_turn), "EW really covers the endpoint from the lower site");
+        const auto ew_range = probe.get_attack_range(ew, last_turn.direction);
+        const auto covers = [](const auto& range, Point site, Point target) {
+            return std::ranges::find(range, target - site) != range.end();
+        };
+        expect(!covers(ew_range, last_turn.location, { 4, 1 }), "EW does not directly target the upper random grass");
+        expect(!covers(ew_range, last_turn.location, { 7, 3 }), "EW does not directly target the right random grass");
+        expect(!covers(ew_range, last_turn.location, { 3, 1 }), "top DPS is not falsely attributed to lower EW");
+        probe.elite("机械师", elite);
+        expect(
+            !covers(
+                probe.get_attack_range(DeploymentOper { .role = Role::Tank, .name = "机械师" }, bait.direction),
+                bait.location,
+                { 7, 3 }),
+            "downward bait avoids direct attacks on upper grass, not every shield reaction");
+        probe.elite("蜜莓", elite);
+        const auto heal_range =
+            probe.get_attack_range(DeploymentOper { .role = Role::Medic, .name = "蜜莓" }, healing.direction);
+        for (const auto site : { single.location, last_turn.location, final_block.location }) {
+            expect(covers(heal_range, healing.location, site), "actual Honeyberry range covers each defense site");
+        }
+    }
     const auto recruitment = json::open(repo / utils::path("resource/roguelike/BlackFlow/recruitment.json"));
     if (!recruitment) {
         return 5;

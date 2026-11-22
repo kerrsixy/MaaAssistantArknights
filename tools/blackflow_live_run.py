@@ -71,6 +71,7 @@ class LiveDriver:
         self._records = []
         self._lock = threading.Lock()
         self._done = threading.Event()
+        self._observation = None
 
         dll_dir = pathlib.Path(dll_dir)
         os.environ["PATH"] = str(dll_dir) + os.pathsep + os.environ.get("PATH", "")
@@ -129,6 +130,9 @@ class LiveDriver:
         record = {"t": time.time(), "msg": msg, "details": text}
         with self._lock:
             self._records.append(record)
+        observer = getattr(self, "_observation", None)
+        if observer is not None:
+            observer.callback(msg, text)
         if msg == MSG_ALL_TASKS_COMPLETED:
             self._done.set()
         if msg not in KEEP_MSGS:
@@ -273,6 +277,9 @@ class LiveDriver:
                 print("Stop requested; stopping native task in place", flush=True)
                 self.stop()
                 return False
+            observer = getattr(self, "_observation", None)
+            if observer is not None:
+                observer.poll(self.snapshot)
             # AllTasksCompleted can arrive before the native worker becomes idle.
             # Keep waiting for the authoritative running state without spinning
             # on an already-set event or reporting this short race as a timeout.
@@ -343,6 +350,18 @@ def main():
     parser.add_argument("--core-dir", default=str(DLL_DIR))
     parser.add_argument("--mumu-extras", action="store_true")
     parser.add_argument(
+        "--battle-observation-interval",
+        type=float,
+        default=0,
+        help="只读缓存帧采样间隔秒数；默认 0 关闭，不做战场分类或输入",
+    )
+    parser.add_argument(
+        "--battle-observation-limit",
+        type=int,
+        default=40,
+        help="每场最多采样次数（含重复帧和失败），默认 40",
+    )
+    parser.add_argument(
         "--scan-account-modules",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -370,8 +389,22 @@ def main():
     args = parser.parse_args()
 
     out_dir = pathlib.Path(args.out) if args.out else default_out_dir()
+    observer = None
+    if args.battle_observation_interval != 0:
+        from blackflow_battle_observation import BattleObservationRecorder
+
+        try:
+            observer = BattleObservationRecorder(
+                out_dir,
+                args.battle_observation_interval,
+                args.battle_observation_limit,
+            )
+        except ValueError as error:
+            parser.error(str(error))
+
     print(f"out dir: {out_dir}", flush=True)
     driver = LiveDriver(out_dir, args.core_dir)
+    driver._observation = observer
     try:
         if args.mumu_extras:
             driver.connect(args.client, args.address, mumu_extras=True)
