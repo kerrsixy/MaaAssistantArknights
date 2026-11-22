@@ -8,6 +8,7 @@
 #include "SPANumberOcr.h"
 #include "SPAObservation.h"
 #include "SPAProjection.h"
+#include "SPAStrategyCatalogue.h"
 #include "Vision/Matcher.h"
 #include "Vision/OCRer.h"
 
@@ -256,6 +257,7 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
     bool badge_verified = false;
     bool badge_text_verified = false;
     bool strategy_report_identity_verified = false;
+    bool strategy_report_unlock_verified = false;
     bool strategy_progress_text_verified = false;
     bool strategy_report_evidence_saved = false;
     std::string strategy_badge_tier;
@@ -290,6 +292,15 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
                         strategy_report_identity_verified = strategy_report_identity_text_verified(texts, *selected);
                     }
                 }
+            }
+        }
+        if (strategy_report_identity_verified) {
+            const auto rule = std::find_if(StrategyCatalogue.begin(), StrategyCatalogue.end(), [&](const auto& entry) {
+                return entry.id == *observed.band_id;
+            });
+            if (rule != StrategyCatalogue.end()) {
+                strategy_report_unlock_verified =
+                    strategy_report_unlock_text_verified(texts, *selected, rule->initial_life);
             }
         }
         strategy_progress_text_verified = strategy_report_identity_verified && observed.wins &&
@@ -463,6 +474,7 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
                        { "strategy_badge_tier", strategy_badge_tier },
                        { "badge_text_verified", badge_text_verified },
                        { "strategy_report_identity_verified", strategy_report_identity_verified },
+                       { "strategy_report_unlock_verified", strategy_report_unlock_verified },
                        { "strategy_progress_text_verified", strategy_progress_text_verified },
                        { "strategy_report_evidence_saved", strategy_report_evidence_saved },
                        { "result_text_verified", result_text_verified },

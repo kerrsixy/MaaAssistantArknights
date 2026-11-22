@@ -135,6 +135,10 @@ struct StrategyIdentity
 // caller must match the actual mark on this same frame before crediting it.
 bool
     strategy_report_identity_text_verified(const std::vector<TextObservation>& texts, const StrategyIdentity& selected);
+bool strategy_report_unlock_text_verified(
+    const std::vector<TextObservation>& texts,
+    const StrategyIdentity& selected,
+    int expected_initial_life);
 bool strategy_report_progress_text_verified(
     const std::vector<TextObservation>& texts,
     const StrategyIdentity& selected,

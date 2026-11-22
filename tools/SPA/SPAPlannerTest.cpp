@@ -3425,7 +3425,11 @@ int main()
     assert(ProgressLedger::next_solo({ unknown, joint_only, progress, partial }) == "band-4");
     const StrategyProgress default_without_count { "band_qalaisa", std::nullopt, true, false, true };
     const StrategyProgress conditional_without_count { "band_gain", std::nullopt, true, false, true };
-    assert(ProgressLedger::next_solo({ conditional_without_count, default_without_count }) == "band_qalaisa");
+    assert(ProgressLedger::can_schedule_solo(conditional_without_count));
+    auto locked_conditional = conditional_without_count;
+    locked_conditional.unlocked = false;
+    assert(!ProgressLedger::can_schedule_solo(locked_conditional));
+    assert(ProgressLedger::next_solo({ conditional_without_count, default_without_count }) == "band_gain");
     assert(ProgressLedger::next_solo({ default_without_count, partial }) == "band-4");
     assert(!ProgressLedger::complete(default_without_count));
     auto default_first_victory = default_without_count;
@@ -3727,6 +3731,15 @@ int main()
     report_without_counter.pop_back();
     assert(strategy_report_identity_text_verified(report_without_counter, amiya));
     assert(!strategy_report_progress_text_verified(report_without_counter, amiya, 0));
+    assert(strategy_report_unlock_text_verified(report_without_counter, amiya, 25));
+    auto split_life = report_without_counter;
+    split_life[2].text = "初始生命值";
+    assert(!strategy_report_unlock_text_verified(split_life, amiya, 25));
+    split_life.push_back({ "25", .99, 160, 436 });
+    assert(strategy_report_unlock_text_verified(split_life, amiya, 25));
+    assert(!strategy_report_unlock_text_verified(split_life, amiya, 28));
+    split_life.push_back({ "28", .99, 162, 435 });
+    assert(!strategy_report_unlock_text_verified(split_life, amiya, 25));
     report_without_counter[3].text = "【食腐之蝶】";
     assert(!strategy_report_identity_text_verified(report_without_counter, amiya));
     auto wrong_badge = badge_capture;

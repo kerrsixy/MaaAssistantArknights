@@ -130,8 +130,7 @@ bool asst::spa::ProgressLedger::can_schedule_solo(const StrategyProgress& progre
     }
     return !progress.badge_verified &&
            std::any_of(StrategyUnlockCatalogue.begin(), StrategyUnlockCatalogue.end(), [&](const auto& rule) {
-               return rule.id == progress.band_id && rule.kind == StrategyUnlockKind::Default &&
-                      rule.independent_available;
+               return rule.id == progress.band_id && rule.independent_available;
            });
 }
 

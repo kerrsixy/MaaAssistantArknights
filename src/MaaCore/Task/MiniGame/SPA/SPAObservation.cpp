@@ -523,6 +523,40 @@ bool asst::spa::strategy_report_identity_text_verified(
     return headers == 1 && leaders == 1 && strategy_names == 1;
 }
 
+bool asst::spa::strategy_report_unlock_text_verified(
+    const std::vector<TextObservation>& texts,
+    const StrategyIdentity& selected,
+    int expected_initial_life)
+{
+    if (expected_initial_life <= 0 || !strategy_report_identity_text_verified(texts, selected)) {
+        return false;
+    }
+    constexpr std::string_view label = "初始生命值";
+    const auto life = std::to_string(expected_initial_life);
+    const auto complete = std::string(label) + life;
+    int joined = 0, labels = 0, values = 0;
+    for (const auto& text : texts) {
+        if (!std::isfinite(text.score) || text.score < .90 || text.y < 418 || text.y >= 455) {
+            continue;
+        }
+        if (text.x >= 25 && text.x < 135 && text.text.starts_with(label)) {
+            if (text.text != label && text.text != complete) {
+                return false;
+            }
+            joined += text.text == complete;
+            labels += text.text == label;
+        }
+        if (text.x >= 140 && text.x < 230 && !text.text.empty() &&
+            std::ranges::all_of(text.text, [](char c) { return c >= '0' && c <= '9'; })) {
+            if (text.text != life) {
+                return false;
+            }
+            ++values;
+        }
+    }
+    return (joined == 1 && labels == 0 && values == 0) || (joined == 0 && labels == 1 && values == 1);
+}
+
 bool asst::spa::strategy_report_progress_text_verified(
     const std::vector<TextObservation>& texts,
     const StrategyIdentity& selected,

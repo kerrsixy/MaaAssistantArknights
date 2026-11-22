@@ -253,10 +253,10 @@ bool StrategyReportTaskPlugin::_run()
                 const auto wins = observation.get("strategy_progress_text_verified", false)
                                       ? observation.find<int>("wins")
                                       : std::nullopt;
-                // A default strategy is unlocked by the season catalogue.
-                // Its report can identify the leader and strategy even when
-                // no win counter is readable. Missing counts stay unknown.
-                if (!wins && rule->kind != StrategyUnlockKind::Default) {
+                // An unlocked detail panel can be verified before its first
+                // visible win counter. It does not establish a zero baseline.
+                if (!wins && rule->kind != StrategyUnlockKind::Default &&
+                    !observation.get("strategy_report_unlock_verified", false)) {
                     continue;
                 }
                 const bool badge_verified = wins && observation.get("badge_verified", false) &&
