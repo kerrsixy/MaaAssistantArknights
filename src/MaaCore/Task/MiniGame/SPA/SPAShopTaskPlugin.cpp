@@ -1079,7 +1079,8 @@ bool asst::spa::ShopTaskPlugin::_run()
                 }
             }
         }
-        if ((m_tactical ? bounty_page != Page::TacticalDecision
+        if ((m_require_joint_reward_turn && supply_own_turn(texts) != true) ||
+            (m_tactical ? bounty_page != Page::TacticalDecision
                         : bounty_page != Page::BountySelection && !bounty_header) ||
             !target) {
             return false;
@@ -1181,6 +1182,9 @@ bool asst::spa::ShopTaskPlugin::_run()
             texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
         }
         const auto own_turn = supply_own_turn(texts);
+        if (m_require_joint_reward_turn && own_turn != true) {
+            return false;
+        }
         const bool joint_supply = own_turn.has_value();
         if (own_turn == false) {
             return false;

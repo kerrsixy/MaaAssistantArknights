@@ -1,4 +1,5 @@
 #include "SPAStrategyCardTaskPlugin.h"
+#include "SPAGuideRoutes.h"
 #include "SPAImageEvidence.h"
 
 #include <algorithm>
@@ -279,10 +280,15 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
             return;
         }
         occupied_reported.push_back(identity->band_id);
+        const auto context = m_context_provider ? m_context_provider() : OpeningStrategyContext {};
+        const auto inferred = guided_primary_choices(identity->band_id, context.disabled_pacts);
         auto info = basic_info_with_what("SPAStrategyOccupiedObserved");
         info["details"] = json::object { { "strategy_id", identity->band_id },
+                                         { "strategy_name", identity->name },
                                          { "occupied_strategy_ids", occupied_reported },
                                          { "occupied_label_verified", true },
+                                         { "inferred_primary_pacts", inferred.pacts },
+                                         { "inference_source", inferred.guide_found ? "strategy_guides" : "unknown" },
                                          { "teammate_faction_verified", false } };
         callback(AsstMsg::SubTaskExtraInfo, info);
     };

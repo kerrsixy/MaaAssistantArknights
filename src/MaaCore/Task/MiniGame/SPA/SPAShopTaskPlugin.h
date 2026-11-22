@@ -23,6 +23,7 @@ public:
     // delays because the caller owns the preparation-page observation and
     // the plugin still verifies the payment/state postcondition.
     void set_fast_mode(bool enabled) { m_fast_mode = enabled; }
+    void require_joint_reward_turn(bool enabled) { m_require_joint_reward_turn = enabled; }
 
     // The preparation observer already verified the card name, slot, price
     // and funds.  Phase one may reuse that authoritative frame and only OCR
@@ -65,6 +66,7 @@ private:
     int m_supply_slot = -1;
     bool m_bounty = false;
     bool m_tactical = false;
+    bool m_require_joint_reward_turn = false;
     bool m_bounty_confirm = false;
     int m_bounty_slot = -1;
     bool m_prevalidated_offer = false;

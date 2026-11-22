@@ -1031,6 +1031,7 @@ bool asst::StrongholdProtocolTask::handle_reward_page(int after_round)
         for (bool confirm : { false, true }) {
             spa::ShopTaskPlugin action(m_callback, m_inst, TaskType);
             action.set_fast_mode(true);
+            action.require_joint_reward_turn(m_mode == "joint");
             action.set_retry_times(0);
             action.set_task_id(m_task_id);
             action.set_task_ptr(this);
@@ -1173,6 +1174,7 @@ bool asst::StrongholdProtocolTask::handle_reward_page(int after_round)
         }
         spa::ShopTaskPlugin supply(m_callback, m_inst, TaskType);
         supply.set_fast_mode(m_policy.basic_mode || m_policy.dynamic_decision_mode);
+        supply.require_joint_reward_turn(m_mode == "joint");
         supply.set_retry_times(0);
         supply.set_task_id(m_task_id);
         supply.set_task_ptr(this);
@@ -1221,6 +1223,12 @@ bool asst::StrongholdProtocolTask::handle_reward_page(int after_round)
         return true;
     }
 
+    if (m_mode == "joint" && spa::supply_own_turn(texts) != true) {
+        auto waiting = basic_info_with_what("SPAJointBountyWaiting");
+        waiting["details"] = json::object { { "own_turn_verified", false }, { "input_issued", false } };
+        callback(AsstMsg::SubTaskExtraInfo, waiting);
+        return false;
+    }
     // Bounty cards do not expose a stable shared title catalogue.  Build a
     // card-local description from OCR and use a unique, nontrivial fragment
     // as the identity token.  The plugin verifies the token on both the
@@ -1315,6 +1323,7 @@ bool asst::StrongholdProtocolTask::handle_reward_page(int after_round)
     }
     spa::ShopTaskPlugin select(m_callback, m_inst, TaskType);
     select.set_fast_mode(m_policy.basic_mode || m_policy.dynamic_decision_mode);
+    select.require_joint_reward_turn(m_mode == "joint");
     select.set_retry_times(0);
     select.set_task_id(m_task_id);
     select.set_task_ptr(this);
@@ -1323,6 +1332,7 @@ bool asst::StrongholdProtocolTask::handle_reward_page(int after_round)
     }
     spa::ShopTaskPlugin confirm(m_callback, m_inst, TaskType);
     confirm.set_fast_mode(m_policy.basic_mode || m_policy.dynamic_decision_mode);
+    confirm.require_joint_reward_turn(m_mode == "joint");
     confirm.set_retry_times(0);
     confirm.set_task_id(m_task_id);
     confirm.set_task_ptr(this);
