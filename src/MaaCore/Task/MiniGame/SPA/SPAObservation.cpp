@@ -503,6 +503,15 @@ std::optional<asst::spa::TextObservation> asst::spa::promotion_short_title_confi
     return titles == 1 && range ? purchase_confirmation_control(texts, slot) : std::nullopt;
 }
 
+static std::string strategy_report_title_with_ascii_exclamation(std::string title)
+{
+    constexpr std::string_view full_width = "！";
+    for (std::size_t index = 0; (index = title.find(full_width, index)) != std::string::npos; ++index) {
+        title.replace(index, full_width.size(), "!");
+    }
+    return title;
+}
+
 bool asst::spa::strategy_report_identity_text_verified(
     const std::vector<TextObservation>& texts,
     const StrategyIdentity& selected)
@@ -510,6 +519,8 @@ bool asst::spa::strategy_report_identity_text_verified(
     if (selected.band_id.empty() || selected.leader.empty() || selected.name.empty()) {
         return false;
     }
+    const auto expected_title = strategy_report_title_with_ascii_exclamation(selected.name);
+    const auto bracketed_title = "【" + expected_title + "】";
     int headers = 0, leaders = 0, strategy_names = 0;
     for (const auto& text : texts) {
         if (!std::isfinite(text.score) || text.score < .90) {
@@ -517,8 +528,10 @@ bool asst::spa::strategy_report_identity_text_verified(
         }
         headers += text.x >= 690 && text.x < 860 && text.y >= 20 && text.y < 75 && text.text == "策略报告";
         leaders += text.x >= 120 && text.x < 390 && text.y >= 350 && text.y < 418 && text.text == selected.leader;
-        strategy_names += text.x >= 20 && text.x < 300 && text.y >= 455 && text.y < 499 &&
-                          (text.text == "【" + selected.name + "】" || text.text == selected.name);
+        if (text.x >= 20 && text.x < 300 && text.y >= 455 && text.y < 499) {
+            const auto observed_title = strategy_report_title_with_ascii_exclamation(text.text);
+            strategy_names += observed_title == bracketed_title || observed_title == expected_title;
+        }
     }
     return headers == 1 && leaders == 1 && strategy_names == 1;
 }
@@ -1489,8 +1502,10 @@ asst::spa::PageObservation
         return result;
     }
     result.page = Page::StrategyReport;
+    const auto left_titles = strategy_report_title_with_ascii_exclamation(left);
     for (const auto& strategy : strategies) {
-        if (left.find(strategy.leader) != std::string::npos && left.find(strategy.name) != std::string::npos) {
+        if (left.find(strategy.leader) != std::string::npos &&
+            left_titles.find(strategy_report_title_with_ascii_exclamation(strategy.name)) != std::string::npos) {
             if (result.band_id && *result.band_id != strategy.band_id) {
                 result.contradictory = true;
             }

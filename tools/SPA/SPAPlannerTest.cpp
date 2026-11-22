@@ -3785,6 +3785,18 @@ int main()
         { "已通过模拟14次", 1.0, 233, 156 },
     };
     const StrategyIdentity nymph { "band_dance", "溃心领域", "妮芙" };
+    const StrategyIdentity followers { "band_random", "好多委托！", "“追随者们”" };
+    std::vector<TextObservation> follower_report {
+        { "策略报告", 1.0, 749, 33 },
+        { "“追随者们”", 1.0, 220, 373 },
+        { "初始生命值21", .99, 58, 434 },
+        { "【好多委托!】", .95, 46, 469 },
+    };
+    assert(observe_page(follower_report, { followers }).band_id == followers.band_id);
+    assert(strategy_report_unlock_text_verified(follower_report, followers, 21));
+    follower_report.back().text = "【好多委托?】";
+    assert(!observe_page(follower_report, { followers }).band_id);
+    assert(!strategy_report_unlock_text_verified(follower_report, followers, 21));
     observed = observe_page(nymph_report, { nymph });
     assert(observed.page == Page::StrategyReport && !observed.contradictory &&
            observed.band_id == nymph.band_id && observed.wins == 14);
