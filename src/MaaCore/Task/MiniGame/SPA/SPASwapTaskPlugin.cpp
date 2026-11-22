@@ -393,30 +393,28 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
         if (!m_equip_only || m_replaced.empty()) {
             return false;
         }
-        if (!is_immediate_cash_equipment(m_name)) {
-            const auto profile =
-                std::find_if(equipment_profiles().begin(), equipment_profiles().end(), [&](const auto& item) {
-                    return item.name == m_name;
-                });
-            const auto expected = options.find<json::array>("expected_equipment");
-            const bool pact_recruitment = m_name == "寻呼模块" && !m_pact_recruitment_pact.empty();
-            const bool next_round_cash = is_deferred_cash_equipment(m_name);
-            if (profile == equipment_profiles().end() ||
-                (profile->consumable && !pact_recruitment && !next_round_cash && m_identity_tag_pact.empty() &&
-                 !m_promotion_consumable) ||
-                !expected || expected->size() >= static_cast<size_t>(equipment_capacity(m_replaced, m_target_elite)) ||
-                (pact_recruitment && !expected->empty()) || !options.get("target_equipment_known", false)) {
+        const auto profile =
+            std::find_if(equipment_profiles().begin(), equipment_profiles().end(), [&](const auto& item) {
+                return item.name == m_name;
+            });
+        const auto expected = options.find<json::array>("expected_equipment");
+        const bool pact_recruitment = m_name == "寻呼模块" && !m_pact_recruitment_pact.empty();
+        const bool cash = is_immediate_cash_equipment(m_name) || is_deferred_cash_equipment(m_name);
+        if (profile == equipment_profiles().end() ||
+            (profile->consumable && !pact_recruitment && !cash && m_identity_tag_pact.empty() &&
+             !m_promotion_consumable) ||
+            !expected || expected->size() >= static_cast<size_t>(equipment_capacity(m_replaced, m_target_elite)) ||
+            (pact_recruitment && !expected->empty()) || !options.get("target_equipment_known", false)) {
+            return false;
+        }
+        for (const auto& item : *expected) {
+            if (!item.is_string() || !equipment_title_matches(item.as_string(), item.as_string()) ||
+                item.as_string() == m_name ||
+                std::find(m_expected_equipment.begin(), m_expected_equipment.end(), item.as_string()) !=
+                    m_expected_equipment.end()) {
                 return false;
             }
-            for (const auto& item : *expected) {
-                if (!item.is_string() || !equipment_title_matches(item.as_string(), item.as_string()) ||
-                    item.as_string() == m_name ||
-                    std::find(m_expected_equipment.begin(), m_expected_equipment.end(), item.as_string()) !=
-                        m_expected_equipment.end()) {
-                    return false;
-                }
-                m_expected_equipment.push_back(item.as_string());
-            }
+            m_expected_equipment.push_back(item.as_string());
         }
     }
     if (!m_identity_tag_pact.empty() &&
@@ -5380,7 +5378,7 @@ bool asst::spa::SwapTaskPlugin::_run()
             return false;
         }
     }
-    if (m_find_equipment_source && !is_immediate_cash_equipment(m_name)) {
+    if (m_find_equipment_source) {
         m_equipment_stage = "existing_equipment";
         // More than the base capacity requires live form evidence. A stale
         // elite flag must not make an ordinary prototype lose existing gear.

@@ -433,6 +433,9 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
     case Page::ReadyConfirmation:
         page = "ready_confirmation";
         break;
+    case Page::EquipmentReplacement:
+        page = "equipment_replacement";
+        break;
     case Page::Battle:
         page = "battle";
         break;

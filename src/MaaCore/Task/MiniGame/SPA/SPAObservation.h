@@ -165,6 +165,7 @@ enum class Page
     TacticalDecision,
     DataUpdated,
     ReadyConfirmation,
+    EquipmentReplacement,
     ResultSummary,
     Spectating,
     ReadyWaiting,

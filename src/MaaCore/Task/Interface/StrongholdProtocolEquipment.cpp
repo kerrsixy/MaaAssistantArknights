@@ -1590,18 +1590,15 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(
                                         attempted_rounds.contains(round))) {
         return false;
     }
-    auto target = m_auto_deploy_positions.end();
-    for (auto it = m_auto_deploy_positions.begin(); it != m_auto_deploy_positions.end(); ++it) {
-        const auto owned = m_policy.owned.find(it->first);
-        if (owned != m_policy.owned.end() && owned->second.deployed && m_auto_deploy_positions.count(it->first) == 1 &&
-            m_verified_field_pose_points.contains(it->second)) {
-            target = it;
-            break;
-        }
-    }
-    if (target == m_auto_deploy_positions.end()) {
+    const auto recipients = equipment_assignment_inputs().second;
+    const auto recipient = std::find_if(recipients.begin(), recipients.end(), [](const auto& target) {
+        return target.slots_known &&
+               target.equipped.size() < static_cast<size_t>(spa::equipment_capacity(target.name, target.elite));
+    });
+    if (recipient == recipients.end()) {
         return false;
     }
+    const auto target = m_auto_deploy_positions.find(recipient->name);
     attempted_rounds.insert(round);
     spa::SwapTaskPlugin use(m_callback, m_inst, TaskType);
     use.set_retry_times(0);
@@ -1618,6 +1615,9 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(
     const json::object options { { "name", equipment },
                                  { "minimum_cash_credit", std::max(1, funding_deficit) },
                                  { "replaced", target->first },
+                                 { "target_equipment_known", true },
+                                 { "target_elite", recipient->elite },
+                                 { "expected_equipment", recipient->equipped },
                                  { "equip_only", true },
                                  { "find_equipment_source", true },
                                  { "fast_mode", true },

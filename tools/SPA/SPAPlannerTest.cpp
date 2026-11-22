@@ -3726,6 +3726,20 @@ int main()
                                                        { "【众志合一】", .973313, 48, 471 },
                                                        { "已通过模拟3次", .999938, 237, 156 } };
     const StrategyIdentity amiya { "band_amiya", "众志合一", "阿米娅" };
+    // Round 13 Bilibili OCR: equipping a Pact Coin on Katherine opens
+    // the destructive replacement prompt over the preparation screen.
+    std::vector<TextObservation> replace_equipment {
+        { "装备已满，请选择已穿戴装备销毁并", .999161, 829, 203 },
+        { "替换", .998611, 826, 227 },
+        { "销毁并替换", .961620, 825, 581 },
+        { "销毁并替换", .977998, 1093, 581 },
+        { "准备就绪", .99, 1165, 103 },
+        { "剩余可放置角色：0", .99, 1108, 455 },
+        { "回合", .99, 445, 21 },
+    };
+    assert(observe_page(replace_equipment, {}).page == Page::EquipmentReplacement);
+    replace_equipment[0].y = 500;
+    assert(observe_page(replace_equipment, {}).page != Page::EquipmentReplacement);
     assert(strategy_badge_report_text_verified(badge_capture, amiya, 3));
     auto report_without_counter = badge_capture;
     report_without_counter.pop_back();

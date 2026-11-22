@@ -902,6 +902,21 @@ asst::spa::PageObservation
         result.page = Page::ReadyConfirmation;
         return result;
     }
+    int full_equipment_header = 0, replacement_buttons = 0;
+    for (const auto& text : texts) {
+        if (!std::isfinite(text.score) || text.score < .90) {
+            continue;
+        }
+        full_equipment_header += text.x >= 775 && text.x < 1000 && text.y >= 188 && text.y < 255 &&
+                                 text.text.starts_with("装备已满") &&
+                                 text.text.find("请选择已穿戴装备") != std::string::npos;
+        replacement_buttons += text.x >= 750 && text.x < 1200 && text.y >= 555 && text.y < 625 &&
+                               text.text == "销毁并替换";
+    }
+    if (full_equipment_header == 1 && replacement_buttons >= 1) {
+        result.page = Page::EquipmentReplacement;
+        return result;
+    }
     if (std::any_of(
             texts.begin(),
             texts.end(),

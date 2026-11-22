@@ -3440,6 +3440,20 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             }
             continue; // Cancel Ready is never a second confirmation click.
         }
+        if (m_auto_run && !m_decision_only && state.get("page", std::string()) == "equipment_replacement") {
+            // This modal has a separate close control. Closing it preserves
+            // both pieces of gear; never use either destructive button.
+            if (ctrler()->click(Point(1230, 189))) {
+                auto receipt = basic_info_with_what("SPAEquipmentReplacementCloseIssued");
+                receipt["details"] = json::object { { "destructive_input_issued", false },
+                                                    { "fresh_observation_required", true } };
+                callback(AsstMsg::SubTaskExtraInfo, receipt);
+            }
+            if (!sleep(300)) {
+                return false;
+            }
+            continue;
+        }
         if (m_auto_run && state.get("page", std::string()) == "ready_confirmation") {
             std::vector<spa::TextObservation> modal_texts;
             if (const auto texts = state.find<json::array>("texts")) {
