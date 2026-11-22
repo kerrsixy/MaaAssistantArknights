@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <optional>
+#include <span>
 
 namespace asst::spa
 {
@@ -71,6 +72,24 @@ inline bool strategy_report_scroll_moved(
     const int direction = toward_top ? -1 : 1;
     return std::abs(before.height() - after.height()) <= 5 &&
            direction * (after.top - before.top) >= 4 && direction * (after.bottom - before.bottom) >= 4;
+}
+
+inline bool strategy_report_selection_shifted_viewport(
+    const std::optional<StrategyReportScrollbar>& before,
+    const std::optional<StrategyReportScrollbar>& after,
+    std::span<const int> before_rows,
+    std::span<const int> after_rows)
+{
+    if (before && after) {
+        return strategy_report_scroll_moved(*before, *after, true) ||
+               strategy_report_scroll_moved(*before, *after, false);
+    }
+    // Selecting a card can change the template score for its entire row.
+    // Without a scrollbar pair, require two rows on both sides and a
+    // distinct set of row positions before discarding the current scan.
+    return before_rows.size() >= 2 && after_rows.size() >= 2 && std::ranges::none_of(before_rows, [&](int row) {
+               return std::ranges::any_of(after_rows, [&](int current) { return std::abs(row - current) <= 4; });
+           });
 }
 
 inline int strategy_report_scroll_destination(const StrategyReportScrollbar& thumb, bool toward_top)

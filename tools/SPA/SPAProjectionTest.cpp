@@ -36,6 +36,17 @@ int main()
     assert(!strategy_report_scroll_moved(*top_thumb, *next_thumb, true));
     assert(same_strategy_report_scrollbar(*next_thumb, *strategy_report_scrollbar(report_with_thumb(188))));
     assert(!same_strategy_report_scrollbar(*top_thumb, *next_thumb));
+    // A selected border changed the row detections at scrollbar 342, but
+    // the game stayed on the same page across the remaining scan budget.
+    const auto middle_thumb = strategy_report_scrollbar(report_with_thumb(342));
+    const std::vector<int> unselected_rows { 220, 356, 493 };
+    const std::vector<int> selected_rows { 219, 493 };
+    assert(!strategy_report_selection_shifted_viewport(middle_thumb, middle_thumb, unselected_rows, selected_rows));
+    assert(strategy_report_selection_shifted_viewport(middle_thumb, next_thumb, unselected_rows, selected_rows));
+    assert(!strategy_report_selection_shifted_viewport(std::nullopt, middle_thumb, unselected_rows, selected_rows));
+    const std::vector<int> shifted_rows { 123, 259, 396, 533 };
+    assert(strategy_report_selection_shifted_viewport(std::nullopt, middle_thumb, unselected_rows, shifted_rows));
+    assert(!strategy_report_selection_shifted_viewport(std::nullopt, middle_thumb, unselected_rows, {}));
     assert(strategy_report_scroll_destination(*top_thumb, false) - top_thumb->center() < 93);
     const auto bottom_thumb = strategy_report_scrollbar(report_with_thumb(503));
     assert(bottom_thumb && bottom_thumb->at_bottom() && strategy_report_scroll_moved(*bottom_thumb, *top_thumb, true));

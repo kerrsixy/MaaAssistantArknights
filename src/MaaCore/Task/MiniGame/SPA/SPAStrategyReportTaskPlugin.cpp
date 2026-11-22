@@ -206,6 +206,7 @@ bool StrategyReportTaskPlugin::_run()
             break;
         }
         ++visited_viewports;
+        const auto viewport_scrollbar = strategy_report_scrollbar(image);
         bool viewport_changed = false;
         for (const int row : rows) {
             for (const int column : StrategyReportColumns) {
@@ -217,11 +218,21 @@ bool StrategyReportTaskPlugin::_run()
                         return false;
                     }
                     image = ctrler()->get_image();
+                    const auto scrolled = strategy_report_scrollbar(image);
+                    const auto current_rows =
+                        viewport_scrollbar && scrolled ? std::vector<int> {} : strategy_report_rows(image, edge);
+                    if (strategy_report_selection_shifted_viewport(viewport_scrollbar, scrolled, rows, current_rows)) {
+                        viewport_changed = true;
+                        auto receipt = basic_info_with_what("SPAStrategyReportSelectionShift");
+                        receipt["details"] = json::object {
+                            { "scrollbar_before", viewport_scrollbar ? viewport_scrollbar->top : -1 },
+                            { "scrollbar_after", scrolled ? scrolled->top : -1 },
+                            { "viewports_scanned", visited_viewports }
+                        };
+                        callback(AsstMsg::SubTaskExtraInfo, receipt);
+                        break;
+                    }
                     if (!strategy_report_cell_selected(image, column, row)) {
-                        if (strategy_report_rows(image, edge) != rows) {
-                            viewport_changed = true;
-                            break;
-                        }
                         continue;
                     }
                 }
