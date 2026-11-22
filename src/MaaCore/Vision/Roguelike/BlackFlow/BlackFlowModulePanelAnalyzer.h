@@ -4,17 +4,11 @@
 #include <string>
 
 #include "Config/Roguelike/BlackFlow/BlackFlowAccountProfile.h"
+#include "Config/Roguelike/BlackFlow/BlackFlowAccountScanCatalog.h"
 #include "Vision/VisionHelper.h"
 
 namespace asst::blackflow
 {
-struct ModulePanelTarget
-{
-    std::string module_id;
-    std::string display_title;
-    int max_level = 3;
-};
-
 struct ModulePanelObservation
 {
     AccountModuleEvidence evidence;
