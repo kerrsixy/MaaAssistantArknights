@@ -197,8 +197,8 @@ int wmain(int argc, wchar_t** argv)
     const OperNameTag bait { Role::Sniper, "提丰" };
     controller.deployed(0, bait, { 5, 4 });
     expect(
-        controller.bait_skill_allowed({ { bait, { 5, 4 } } }),
-        "only the registered bait may use an already configured ready skill");
+        !controller.bait_skill_allowed({ { bait, { 5, 4 } } }),
+        "even the registered bait cannot use an active skill during the basic-attack prelude");
     expect(!controller.bait_skill_allowed({ { bait, { 3, 4 } } }), "wrong bait location cannot gain skill permission");
     expect(
         !controller.bait_skill_allowed({ { bait, { 5, 4 } }, { { Role::Sniper, "维什戴尔" }, { 5, 1 } } }),
@@ -303,6 +303,47 @@ int wmain(int argc, wchar_t** argv)
                 expect(!recovery.allows_plan(1), "two locations still share a global two-attempt cap");
             }
         }
+    }
+    // These are synthetic actor-state contracts over unchanged real images.
+    // They do not claim that the new mechanical bait has been deployed in game.
+    const auto mechanical_opening = HunterOpening::parse(*original, &error);
+    expect(
+        mechanical_opening && mechanical_opening->bait_plans.size() == 2 && mechanical_opening->attempt_limit == 2 &&
+            mechanical_opening->bait_plans[0].location == Point(2, 4) &&
+            mechanical_opening->bait_plans[0].required_targets == std::vector<Point> { { 2, 2 } } &&
+            mechanical_opening->bait_plans[1].location == Point(3, 4) &&
+            mechanical_opening->bait_plans[1].required_targets == std::vector<Point> { { 4, 2 } },
+        "published candidate parses the distinct left and right basic-attack contracts");
+    expect(level.get_item(4, 2).buildableType == 1, "mechanical bait uses an actual native melee tile");
+    const auto mechanical_pixel = Map::TileCalc2::get_tile_screen_pos(level, 4, 2, false);
+    expect(
+        mechanical_pixel.x == 415 && mechanical_pixel.y == 402,
+        "mechanical bait projection matches the existing native normal-camera calibration");
+    BlackFlowHunterPreludeController mechanical;
+    if (mechanical_opening && prepare(mechanical, *mechanical_opening)) {
+        for (int elite : { 1, 2 }) {
+            const auto range = rotate(BattleData.get_range(Role::Tank, "机械师", elite), false);
+            expect(
+                mechanical.attack_range_allowed(0, range),
+                "real promoted mechanical basic range reaches left hunter and excludes eggs and right-side "
+                "competition");
+        }
+        expect(
+            !mechanical.attack_range_allowed(0, rotate(BattleData.get_range(Role::Tank, "机械师", 1), true)),
+            "wrong mechanical direction cannot pass the target contract");
+        expect(
+            mechanical.attack_range_allowed(1, rotate(BattleData.get_range(Role::Caster, "卡达", 1), false)),
+            "real Carda basic up range reaches the residual right hunter");
+        static_cast<void>(mechanical.observe(first, true, {}, {}, 1000));
+        expect(mechanical.allows_plan(0), "fresh left positive can authorize the mechanical plan");
+        const OperNameTag mechanist { Role::Tank, "机械师" };
+        mechanical.deployed(0, mechanist, { 2, 4 });
+        expect(
+            !mechanical.bait_skill_allowed({ { mechanist, { 2, 4 } } }),
+            "mechanical S2 is forbidden during the basic-attack prelude");
+        expect(!mechanical.allows_plan(1), "Carda still waits for confirmed mechanical retirement");
+        const auto duplicate_frame = mechanical.observe(first, true, { { mechanist, { 2, 4 } } }, {}, 1000);
+        expect(!duplicate_frame.main_allowed, "a repeated observation cannot become fresh clearance evidence");
     }
     std::ofstream(out / "projection.json")
         << json::value(json::object { { "x", 5 }, { "y", 4 }, { "pixel_x", projected.x }, { "pixel_y", projected.y } })

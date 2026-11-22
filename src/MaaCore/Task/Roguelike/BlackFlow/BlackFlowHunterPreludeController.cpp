@@ -468,12 +468,10 @@ bool asst::blackflow::BlackFlowHunterPreludeController::attack_range_allowed(
 bool asst::blackflow::BlackFlowHunterPreludeController::bait_skill_allowed(
     const std::map<battle::OperNameTag, Point>& battlefield) const noexcept
 {
-    if (!m_prepared || m_contract_breached || !m_frame_verified || m_main_released || !m_bait || !m_bait_tile ||
-        battlefield.size() != 1) {
-        return false;
-    }
-    const auto& [unit, tile] = *battlefield.begin();
-    return unit == *m_bait && tile == *m_bait_tile;
+    // Prelude range contracts approve basic attacks only. Active skills may change
+    // range or add area damage; ordinary skill handling resumes after main release.
+    static_cast<void>(battlefield);
+    return false;
 }
 
 void asst::blackflow::BlackFlowHunterPreludeController::deployed(
