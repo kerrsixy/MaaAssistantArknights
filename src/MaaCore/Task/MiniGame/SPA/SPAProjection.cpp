@@ -1500,12 +1500,65 @@ std::optional<cv::Point>
     return foot && cv::norm(*foot - expected_target) <= 22 ? center : std::nullopt;
 }
 
+static bool registered_replacement_preview(
+    const cv::Mat& before,
+    const cv::Mat& held,
+    cv::Point recipient,
+    const asst::spa::CameraProjection& projection,
+    const asst::spa::RegisteredReplacementReceiver& receiver)
+{
+    const auto& [cell, grid_to_before] = receiver;
+    if (cell.x < 0 || cell.x > 10 || cell.y < 0 || cell.y > 4) {
+        return false;
+    }
+    const auto grid_to_held = asst::spa::registered_grid_projection(projection, grid_to_before);
+    if (!grid_to_held) {
+        return false;
+    }
+    const cv::Mat before_to_grid = grid_to_before.inv();
+    std::vector<cv::Point2f> logical;
+    cv::perspectiveTransform(std::vector<cv::Point2f> { cv::Point2f(recipient) }, logical, before_to_grid);
+    if (logical.size() != 1 || !std::isfinite(logical.front().x) || !std::isfinite(logical.front().y) ||
+        std::abs(logical.front().x - cell.x) > .23 || std::abs(logical.front().y - cell.y) > .23) {
+        return false;
+    }
+    // Normalize only the inner 86 percent of this logical tile. Compare a
+    // clean reference with the held overlay so an adjacent green cell and
+    // the recipient's own green costume cannot supply the missing evidence.
+    constexpr int sample_size = 80;
+    constexpr double radius = .43;
+    constexpr double scale = (sample_size - 1) / (2 * radius);
+    const cv::Mat grid_to_patch =
+        (cv::Mat_<double>(3, 3) << scale, 0, scale * (radius - cell.x), 0, scale, scale * (radius - cell.y), 0, 0, 1);
+    const auto green_cell = [&](const cv::Mat& image, const cv::Mat& image_to_grid) {
+        cv::Mat patch, hsv, mask;
+        cv::warpPerspective(image, patch, grid_to_patch * image_to_grid, { sample_size, sample_size });
+        cv::cvtColor(patch, hsv, cv::COLOR_BGR2HSV);
+        cv::inRange(hsv, cv::Scalar(35, 80, 90), cv::Scalar(85, 255, 255), mask);
+        return mask;
+    };
+    const auto previous = green_cell(before, before_to_grid);
+    const auto current = green_cell(held, grid_to_held->inv());
+    cv::Mat added;
+    cv::bitwise_and(current, ~previous, added);
+    const auto side_supported = [](const cv::Mat& side) {
+        int rows = 0;
+        for (int row = 0; row < side.rows; ++row) {
+            rows += cv::countNonZero(side.row(row)) >= 5;
+        }
+        return cv::countNonZero(side) >= 80 && rows >= 6;
+    };
+    return cv::countNonZero(added) >= 400 && side_supported(added.colRange(0, 32)) &&
+           side_supported(added.colRange(48, sample_size));
+}
+
 asst::spa::EquipmentPreviewEvidence asst::spa::equipment_target_preview(
     const cv::Mat& before,
     const cv::Mat& held,
     cv::Point recipient,
     const std::vector<cv::Point>& verified_field_feet,
-    bool replacement_above_blocking_device)
+    bool replacement_above_blocking_device,
+    const std::optional<RegisteredReplacementReceiver>& registered_receiver)
 {
     EquipmentPreviewEvidence result;
     if (before.type() != CV_8UC3 || held.type() != CV_8UC3) {
@@ -1565,6 +1618,11 @@ asst::spa::EquipmentPreviewEvidence asst::spa::equipment_target_preview(
         result.blocking_device_assisted =
             cv::countNonZero(left) >= 60 && cv::countNonZero(right) >= 60 && paired_rows >= 5;
         result.verified = result.blocking_device_assisted;
+    }
+    if (!result.verified && registered_receiver) {
+        result.registered_cell_assisted =
+            registered_replacement_preview(before, held, recipient, projection, *registered_receiver);
+        result.verified = result.registered_cell_assisted;
     }
     return result;
 }

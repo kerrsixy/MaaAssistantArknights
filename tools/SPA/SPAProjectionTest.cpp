@@ -290,6 +290,29 @@ int main()
     assert(!equipment_target_preview(lappland_before, lappland_before, lappland_target, { verified_greyy }).verified);
     assert(!equipment_target_preview(lappland_before, lappland_held, lappland_target, { { 555, 300 } }).verified);
     assert(!equipment_target_preview(lappland_before, lappland_held, { 560, 236 }, { { 556, 300 } }).verified);
+    cv::Mat neutral_board, neutral_luma;
+    cv::cvtColor(lappland_before, neutral_luma, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(neutral_luma, neutral_board, cv::COLOR_GRAY2BGR);
+    const RegisteredReplacementReceiver registered { { 6, 1 },
+                                                     (cv::Mat_<double>(3, 3) << 80, 0, -2, 0, 60, 176, 0, 0, 1) };
+    auto narrow_receiver_overlay = neutral_board.clone();
+    const cv::Scalar preview_green(20, 220, 80);
+    cv::rectangle(narrow_receiver_overlay, cv::Rect(451, 238, 16, 16), preview_green, cv::FILLED);
+    const auto one_side =
+        equipment_target_preview(neutral_board, narrow_receiver_overlay, lappland_target, {}, false, registered);
+    assert(!one_side.verified && !one_side.registered_cell_assisted);
+    auto neighbouring_overlay = narrow_receiver_overlay.clone();
+    cv::rectangle(neighbouring_overlay, cv::Rect(521, 219, 7, 14), preview_green, cv::FILLED);
+    assert(!equipment_target_preview(neutral_board, neighbouring_overlay, lappland_target, {}, false, registered)
+                .verified);
+    cv::rectangle(narrow_receiver_overlay, cv::Rect(500, 219, 5, 14), preview_green, cv::FILLED);
+    assert(!equipment_target_preview(neutral_board, narrow_receiver_overlay, lappland_target).verified);
+    const auto same_cell =
+        equipment_target_preview(neutral_board, narrow_receiver_overlay, lappland_target, {}, false, registered);
+    assert(same_cell.verified && same_cell.registered_cell_assisted);
+    const RegisteredReplacementReceiver wrong_cell { { 7, 1 }, registered.grid_to_before };
+    assert(!equipment_target_preview(neutral_board, narrow_receiver_overlay, lappland_target, {}, false, wrong_cell)
+                .verified);
     const auto shop_one_reference = cv::imread("spa-shop-book-one-reference.png");
     const auto shop_one_live = cv::imread("spa-shop-book-one-live.png");
     assert(shop_book_one_glyph_matches(shop_one_live, shop_one_reference));

@@ -216,6 +216,7 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
     m_replacement_committed = false;
     m_replacement_target_unavailable = false;
     m_replacement_above_blocking_device = false;
+    m_registered_replacement_receiver.reset();
     m_field_pose_verified = false;
     m_direction_committed = false;
     m_preparation_hud.clear();
@@ -2311,7 +2312,8 @@ bool asst::spa::SwapTaskPlugin::held_drag()
                         map_image,
                         cv::Point(m_target.x, m_target.y),
                         m_verified_preview_feet,
-                        m_replace_only && m_replacement_above_blocking_device);
+                        m_replace_only && m_replacement_above_blocking_device,
+                        m_registered_replacement_receiver);
                     auto evidence = basic_info_with_what("SPAPairedRecipientPreview");
                     evidence["details"] =
                         json::object { { "verified", paired.verified },
@@ -2325,7 +2327,8 @@ bool asst::spa::SwapTaskPlugin::held_drag()
                                        { "equipment", m_find_equipment_source },
                                        { "replacement_above_blocking_device", m_replacement_above_blocking_device },
                                        { "verified_blocking_device_occlusion", paired.blocking_device_assisted },
-                                       { "verified_lower_body_occlusion", paired.occlusion_assisted } };
+                                       { "verified_lower_body_occlusion", paired.occlusion_assisted },
+                                       { "verified_registered_receiver_overlay", paired.registered_cell_assisted } };
                     callback(AsstMsg::SubTaskExtraInfo, evidence);
                     if (paired.verified) {
                         measured.push_back(paired.target);
@@ -4104,10 +4107,18 @@ bool asst::spa::SwapTaskPlugin::_run()
             const auto cells = grid ? registered_grid_members(*grid, target) : std::nullopt;
             if (cells) {
                 const auto& cell = cells->front();
-                m_replacement_above_blocking_device = terrain_has_blocking_device_below(
-                    m_registered_grid_map_id,
-                    { cell.col, cell.row },
-                    preparation_boss_health_bar(m_equipment_reference).has_value());
+                const bool boss_phase = preparation_boss_health_bar(m_equipment_reference).has_value();
+                m_replacement_above_blocking_device =
+                    terrain_has_blocking_device_below(m_registered_grid_map_id, { cell.col, cell.row }, boss_phase);
+                const auto role = BattleData.get_first_role(m_name);
+                const auto location = season_location_type(m_name, BattleData.get_location_type(role, m_name));
+                if (terrain_allows_deployment(
+                        m_registered_grid_map_id,
+                        { cell.col, cell.row },
+                        location == battle::LocationType::Melee,
+                        boss_phase)) {
+                    m_registered_replacement_receiver = RegisteredReplacementReceiver { { cell.col, cell.row }, *grid };
+                }
             }
         }
     }

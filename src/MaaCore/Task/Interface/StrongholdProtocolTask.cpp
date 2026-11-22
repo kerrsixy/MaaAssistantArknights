@@ -2001,13 +2001,7 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
     exchange->set_task_id(m_task_id);
     exchange->set_task_ptr(this);
     const bool configured = exchange->configure(options);
-    if (configured && !target_failure_key.empty() && m_auto_deploy_positions.count(choice.outgoing) == 1 &&
-        std::any_of(m_population_grid_members.begin(), m_population_grid_members.end(), [&](const auto& member) {
-            return member.name == choice.outgoing && spa::terrain_has_blocking_device_below(
-                                                         m_spatial_map_id,
-                                                         { member.col, member.row },
-                                                         m_spatial_boss_phase);
-        })) {
+    if (configured && !target_failure_key.empty() && m_auto_deploy_positions.count(choice.outgoing) == 1) {
         exchange->set_registered_grid_context(m_spatial_grid_reference, m_spatial_grid_projection, m_spatial_map_id);
     }
     if (!configured || !exchange->run()) {
