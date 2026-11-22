@@ -347,7 +347,8 @@ bool asst::spa::operator_title_contains_rank_artifact(
     }
     int matching = 0;
     for (const auto& text : texts) {
-        if (!std::isfinite(text.score) || text.score < .75 || text.x < 0 || text.x >= 40 || text.y < 175 ||
+        // The merged glyph is only a cue to reread the anchored title.
+        if (!std::isfinite(text.score) || text.score < .70 || text.x < 0 || text.x >= 40 || text.y < 175 ||
             text.y > 207) {
             continue;
         }

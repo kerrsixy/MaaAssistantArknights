@@ -1090,6 +1090,13 @@ int main()
                                                               { "确认购买", .999993, 810, 657 } };
     assert(promotion_short_title_confirmation(d3_dusk_confirmation, "夕", 1));
     assert(operator_title_contains_rank_artifact({ { "余M", .952801, 10, 181 } }, "余"));
+    // The first two D5 bench reads merged Haruka with the rank icon. The
+    // wider panel read before dismissal returned an exact, confident title.
+    const std::vector<TextObservation> merged_haruka { { "遥M", .731340, 7, 178 }, { "LV 1", .833068, 94, 216 } };
+    assert(operator_title_contains_rank_artifact(merged_haruka, "遥"));
+    assert(!operator_panel_identity(merged_haruka, { "遥", "余" }));
+    assert(!operator_title_contains_rank_artifact({ { "遥M", .69, 7, 178 } }, "遥"));
+    assert(operator_panel_identity({ { "遥", .998723, 12, 182 } }, { "遥", "余" }) == "遥");
     assert(!operator_title_contains_rank_artifact({ { "余烬", .99, 10, 181 } }, "余"));
     assert(!operator_title_contains_rank_artifact({ { "余M", .95, 12, 665 } }, "余"));
     assert(!operator_title_contains_rank_artifact({ { "余M", .95, 10, 181 }, { "黍", .98, 10, 187 } }, "余"));

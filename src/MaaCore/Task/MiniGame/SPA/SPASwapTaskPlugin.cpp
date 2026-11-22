@@ -864,7 +864,8 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(
                 // A partial title grants one more fresh read of this same
                 // selected panel. Verification still requires the normal
                 // confidence threshold and no competing recognized identity.
-                if (single_name || bench_replacement_title_needs_settle(observations, replacement_bench_name)) {
+                if (single_name || operator_title_contains_rank_artifact(observations, expected) ||
+                    bench_replacement_title_needs_settle(observations, replacement_bench_name)) {
                     frame_limit = 3;
                 }
             }
