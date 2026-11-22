@@ -284,8 +284,8 @@ bool asst::spa::RoundTaskPlugin::_run()
         if (page.contradictory) {
             return false;
         }
-        if (page.page == Page::ResultSummary || page.page == Page::JointTeamWaiting) {
-            return true; // Let lifecycle advance to or wait for the verified team result.
+        if (page.page == Page::ResultSummary || page.page == Page::JointTeamWaiting || page.page == Page::Reconnecting) {
+            return true; // Let lifecycle advance the result or wait for the client.
         }
         if (page.page == Page::Result) {
             m_result_seen = true;

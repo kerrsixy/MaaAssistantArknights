@@ -165,7 +165,8 @@ enum class Page
     Spectating,
     ReadyWaiting,
     JointIdleRemoval,
-    JointTeamWaiting
+    JointTeamWaiting,
+    Reconnecting
 };
 
 struct PageObservation

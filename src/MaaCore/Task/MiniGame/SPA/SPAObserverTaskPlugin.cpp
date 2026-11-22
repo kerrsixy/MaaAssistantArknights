@@ -389,6 +389,9 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
     case Page::JointTeamWaiting:
         page = "joint_team_waiting";
         break;
+    case Page::Reconnecting:
+        page = "reconnecting";
+        break;
     case Page::ReadyConfirmation:
         page = "ready_confirmation";
         break;

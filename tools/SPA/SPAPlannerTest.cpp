@@ -3650,6 +3650,18 @@ int main()
     const auto waiting_team = observe_page(joint_team_waiting, identities);
     assert(waiting_team.page == Page::JointTeamWaiting && !settlement_text_verified(waiting_team));
     assert(lifecycle_next({ "joint_team_waiting" }) == "MiniGame@SPA@LifecycleWait");
+    const std::vector<TextObservation> result_reconnecting {
+        { "模拟完成", .999, 26, 668 },
+        { "通过回合", .999, 728, 407 },
+        { "返回主页", .999, 854, 674 },
+        { "等待重新连接中……", .999, 565, 627 },
+    };
+    const auto reconnecting = observe_page(result_reconnecting, identities);
+    assert(reconnecting.page == Page::Reconnecting && !settlement_text_verified(reconnecting));
+    assert(lifecycle_next({ "reconnecting" }) == "MiniGame@SPA@LifecycleWait");
+    auto cleared_reconnect = result_reconnecting;
+    cleared_reconnect.pop_back();
+    assert(observe_page(cleared_reconnect, identities).page == Page::Result);
     assert(observe_page({ { "尚在模拟中", .999, 436, 412 }, { "返回主页", .999, 1110, 653 } }, identities).page !=
            Page::JointTeamWaiting);
     std::vector<TextObservation> joint_result_texts {

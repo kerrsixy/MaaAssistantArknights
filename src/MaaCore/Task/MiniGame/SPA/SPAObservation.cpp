@@ -836,6 +836,13 @@ asst::spa::PageObservation
     const auto has = [&](const std::string& text) {
         return all.find(text) != std::string::npos;
     };
+    if (std::ranges::any_of(texts, [](const auto& text) {
+            return std::isfinite(text.score) && text.score >= .95 && text.x >= 440 && text.x < 750 &&
+                   text.y >= 610 && text.y < 658 && text.text.starts_with("等待重新连接中");
+        })) {
+        result.page = Page::Reconnecting;
+        return result;
+    }
     if (std::any_of(texts.begin(), texts.end(), [](const auto& text) {
             return std::isfinite(text.score) && text.score >= .9 && text.x >= 400 && text.x < 800 && text.y >= 280 &&
                    text.y < 380 && text.text == "数据已更新，即将进行同步";
