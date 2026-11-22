@@ -155,6 +155,26 @@ int wmain(int argc, wchar_t** argv)
             std::ranges::find(pusher.operator_names, "崖心") == pusher.operator_names.end() &&
             std::ranges::find(pusher.operator_names, "结构性原理") == pusher.operator_names.end(),
         "pullers and expendable workers cannot replace the functional pusher");
+    const auto devotion = RoguelikeCopilot.get_stage_data("狂热敬虔");
+    expect(static_cast<bool>(devotion), "devotion plan loads through the production parser");
+    if (devotion) {
+        const auto& guard = devotion->deploy_plan.at("机械师").front();
+        const auto& damage = devotion->deploy_plan.at("益达").front();
+        const auto& typhon = devotion->deploy_plan.at("提丰").front();
+        expect(
+            devotion->deploy_plan_only && devotion->reserve_deploy_cost,
+            "opening respects planned roles and budget");
+        expect(guard.rank < damage.rank && damage.rank < typhon.rank, "blocker precedes EW and Typhon");
+        expect(
+            guard.location == Point(10, 4) && guard.direction == DeployDirection::Down,
+            "opening change keeps the user blocker site and direction");
+        expect(
+            damage.location == Point(7, 4) && damage.direction == DeployDirection::Left,
+            "opening change keeps the user main damage site and direction");
+        expect(
+            typhon.location == Point(9, 3) && typhon.direction == DeployDirection::Left,
+            "opening change keeps Typhon at her special range site");
+    }
     std::cout << "BOSS_OPENING checks=" << checks << " failures=" << failures << " device_inputs=0\n";
     return failures ? 1 : 0;
 }
