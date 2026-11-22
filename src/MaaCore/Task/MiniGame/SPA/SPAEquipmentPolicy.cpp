@@ -160,15 +160,32 @@ void asst::spa::PersistentEquipmentPreparation::record_purchase(const std::strin
     }
 }
 
+void asst::spa::PersistentEquipmentPreparation::observe_field(
+    const std::string& map,
+    const std::multimap<std::string, std::pair<int, int>>& poses)
+{
+    if (map != m_field_map || poses != m_field_poses) {
+        m_field_map = map;
+        m_field_poses = poses;
+        m_rejected_pairs.clear();
+    }
+}
+
 bool asst::spa::PersistentEquipmentPreparation::record_assignment(
     const std::string& name,
     bool verified,
     bool committed_unverified,
-    bool solo_boss_finalization)
+    bool solo_boss_finalization,
+    std::optional<std::string_view> rejected_recipient)
 {
     ++m_attempts;
     if (!verified) {
-        m_failed_names.insert(name);
+        if (rejected_recipient && !committed_unverified) {
+            m_rejected_pairs.emplace(name, *rejected_recipient);
+        }
+        else {
+            m_failed_names.insert(name);
+        }
         m_boss_finalization_failures += solo_boss_finalization;
         if (committed_unverified) {
             // The next source must come from a fresh scan after an uncertain drop.
@@ -190,7 +207,8 @@ bool asst::spa::PersistentEquipmentPreparation::record_assignment(
 asst::spa::EquipmentAssignment asst::spa::choose_equipment_assignment(
     const EquipmentAssignmentContext& context,
     const std::vector<std::string>& candidates,
-    const std::vector<EquipmentRecipient>& recipients)
+    const std::vector<EquipmentRecipient>& recipients,
+    const RejectedEquipmentPairs& rejected_pairs)
 {
     EquipmentAssignment best;
     for (const auto& name : candidates) {
@@ -205,7 +223,7 @@ asst::spa::EquipmentAssignment asst::spa::choose_equipment_assignment(
             continue;
         }
         for (const auto& target : recipients) {
-            if (target.name.empty() || !target.slots_known ||
+            if (target.name.empty() || !target.slots_known || rejected_pairs.contains({ name, target.name }) ||
                 target.equipped.size() >= static_cast<size_t>(equipment_capacity(target.name, target.elite)) ||
                 (name == "阿戈尔重刃" && (!target.carry || !target.attacks)) ||
                 std::find(target.equipped.begin(), target.equipped.end(), name) != target.equipped.end()) {
@@ -250,6 +268,10 @@ asst::spa::EquipmentAssignment asst::spa::choose_equipment_assignment(
             score += item->role == EquipmentRole::SkillRecovery && target.skill_growth_engine ? 90 : 0;
             score += item->role == EquipmentRole::Growth && target.skill_growth_engine ? 60 : 0;
             score += (name == "源石溶剂" || name == "不屈弹射器") && target.deliberate_redeploy ? 90 : 0;
+            if (target.equipped.empty()) {
+                // Jessica counts equipped operators, not occupied slots.
+                score += context.first_equipment_layers * 20;
+            }
             // Spread generic equipment when the immediate role benefit ties;
             // filling the second slot is still allowed when it scores higher.
             score -= static_cast<int>(target.equipped.size()) * 12;

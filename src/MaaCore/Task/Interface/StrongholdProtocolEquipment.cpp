@@ -714,6 +714,15 @@ std::pair<asst::spa::EquipmentAssignmentContext, std::vector<asst::spa::Equipmen
         spa::enabled_formation_pacts(m_enabled_core_pacts, m_policy.disabled_pacts));
     spa::EquipmentAssignmentContext context;
     context.growth_battle_available = m_expected_boss_round > 0 && m_policy.round < m_expected_boss_round;
+    const auto jessica = m_policy.owned.find("涤火杰西卡");
+    if (formation.complete && jessica != m_policy.owned.end() && jessica->second.deployed &&
+        m_auto_deploy_positions.count(jessica->first) == 1 &&
+        m_verified_field_pose_points.contains(m_auto_deploy_positions.find(jessica->first)->second) &&
+        (m_policy.primary_pact == "维多利亚" || m_policy.primary_pact == "坚守") &&
+        std::ranges::find(formation.active_pacts, m_policy.primary_pact) != formation.active_pacts.end()) {
+        const auto& growth = spa::growth_profiles().at(jessica->first);
+        context.first_equipment_layers = jessica->second.elite ? growth.elite_gain : growth.normal_gain;
+    }
     context.kjerag_freeze_growth_active =
         std::find(formation.active_pacts.begin(), formation.active_pacts.end(), "谢拉格") !=
             formation.active_pacts.end() &&
@@ -1201,7 +1210,23 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
             candidates.push_back(name);
         }
     }
-    auto assignment = spa::choose_equipment_assignment(context, candidates, recipients);
+    const int remaining = state.get("remaining_deployment", -1);
+    const bool field_known = !m_spatial_map_id.empty() &&
+                             (!m_spatial_boss_phase || m_spatial_snapshot_round == round) &&
+                             remaining >= 0 && remaining <= 8 &&
+                             m_auto_deploy_positions.size() == static_cast<size_t>(8 - remaining) &&
+                             std::ranges::all_of(m_auto_deploy_positions, [&](const auto& unit) {
+                                 return m_verified_field_pose_points.contains(unit.second);
+                             });
+    if (field_known) {
+        m_persistent_equipment_preparation.observe_field(m_spatial_map_id, m_auto_deploy_positions);
+    }
+    const spa::RejectedEquipmentPairs empty_rejections;
+    auto assignment = spa::choose_equipment_assignment(
+        context,
+        candidates,
+        recipients,
+        field_known ? m_persistent_equipment_preparation.rejected_pairs() : empty_rejections);
     std::optional<spa::IdentityTagTarget> identity_tag_target;
     if (std::find(candidates.begin(), candidates.end(), "随身身份牌") != candidates.end() &&
         (m_mode != "joint" || state.get("preparation_seconds_remaining", 0) >= 25)) {
@@ -1220,6 +1245,9 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
         return false;
     }
     const bool identity_tag = identity_tag_target.has_value();
+    const int first_equipment_layers = !identity_tag && m_equipped_items.at(assignment.recipient).empty()
+                                           ? context.first_equipment_layers
+                                           : 0;
     const auto target = m_auto_deploy_positions.find(assignment.recipient)->second;
     json::array field;
     for (const auto& [name, point] : m_auto_deploy_positions) {
@@ -1255,11 +1283,15 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
                                  { "funds", state.get("funds", -1) },
                                  { "remaining_deployment", state.get("remaining_deployment", -1) } };
     const bool verified = equip.configure(options) && equip.run();
+    const bool contact_attempted = equip.equipment_committed() || equip.equipment_contact_attempted();
+    const bool recipient_rejected = field_known && !identity_tag && !verified && !contact_attempted &&
+                                    equip.equipment_stage() == "held_target";
     const bool additional_purchased_item_pending = m_persistent_equipment_preparation.record_assignment(
         assignment.equipment,
         verified,
-        equip.equipment_committed() || (identity_tag && equip.equipment_contact_attempted()),
-        solo_boss_finalization);
+        contact_attempted,
+        solo_boss_finalization,
+        recipient_rejected ? std::optional<std::string_view>(assignment.recipient) : std::nullopt);
     if (const auto source = equip.equipment_source()) {
         // A priority hint only: every later use still checks the live name.
         m_equipment_source_hints[assignment.equipment] = *source;
@@ -1281,9 +1313,9 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
         m_equipment_candidates.erase(assignment.equipment);
         m_equipment_inventory_dirty = true;
     }
-    else if (equip.equipment_committed() || equip.equipment_slots_mismatch()) {
+    else if (contact_attempted || equip.equipment_slots_mismatch()) {
         m_equipped_items.erase(assignment.recipient);
-        if (equip.equipment_committed()) {
+        if (contact_attempted) {
             m_equipment_candidates.erase(assignment.equipment);
             m_equipment_inventory_dirty = true;
         }
@@ -1299,6 +1331,9 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
                        { "score", assignment.score },
                        { "input_committed", equip.equipment_committed() },
                        { "verification_stage", equip.equipment_stage() },
+                       { "recipient_rejected_on_observed_field", recipient_rejected },
+                       { "contact_release_attempted", contact_attempted },
+                       { "first_equipment_layers_if_equipped", first_equipment_layers },
                        { "equipped_verified", verified && !identity_tag },
                        { "consumable_effect_verified", verified && identity_tag },
                        { "solo_boss_finalization", solo_boss_finalization },

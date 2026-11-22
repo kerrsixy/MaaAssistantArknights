@@ -6,6 +6,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace asst::spa
@@ -108,6 +109,8 @@ bool safe_pact_recruitment_recipient(
     const std::vector<std::string>& equipped);
 bool pact_recruitment_offer_eligible(const std::string& name, const std::string& pact, int shop_level);
 
+using RejectedEquipmentPairs = std::set<std::pair<std::string, std::string>>;
+
 // Verified shop purchases provide hints for another live source search.
 // This tracks unresolved purchases, not a complete equipment inventory.
 class PersistentEquipmentPreparation
@@ -117,8 +120,15 @@ public:
     bool within_attempt_budget(bool solo_boss_finalization) const;
     bool may_try(const std::string& name) const;
     void record_purchase(const std::string& name);
+    void observe_field(const std::string& map, const std::multimap<std::string, std::pair<int, int>>& poses);
+    const RejectedEquipmentPairs& rejected_pairs() const { return m_rejected_pairs; }
     // Returns true when a verified assignment leaves another purchased item to find.
-    bool record_assignment(const std::string& name, bool verified, bool committed_unverified, bool solo_boss_finalization);
+    bool record_assignment(
+        const std::string& name,
+        bool verified,
+        bool committed_unverified,
+        bool solo_boss_finalization,
+        std::optional<std::string_view> rejected_recipient = std::nullopt);
 
 private:
     int m_round = -1;
@@ -126,6 +136,9 @@ private:
     int m_boss_finalization_failures = 0;
     std::set<std::string> m_failed_names;
     std::map<std::string, int> m_unassigned_purchases;
+    std::string m_field_map;
+    std::multimap<std::string, std::pair<int, int>> m_field_poses;
+    RejectedEquipmentPairs m_rejected_pairs;
 };
 
 struct EquipmentRecipient
@@ -153,6 +166,7 @@ struct EquipmentAssignmentContext
     int special_hammer_types = 0;
     bool growth_battle_available = true;
     bool kjerag_freeze_growth_active = false;
+    int first_equipment_layers = 0;
 };
 
 struct EquipmentAssignment
@@ -182,5 +196,6 @@ std::optional<IdentityTagTarget> choose_identity_tag_target(
 EquipmentAssignment choose_equipment_assignment(
     const EquipmentAssignmentContext& context,
     const std::vector<std::string>& candidates,
-    const std::vector<EquipmentRecipient>& recipients);
+    const std::vector<EquipmentRecipient>& recipients,
+    const RejectedEquipmentPairs& rejected_pairs = {});
 }

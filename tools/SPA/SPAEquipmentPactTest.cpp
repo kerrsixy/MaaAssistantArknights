@@ -111,5 +111,39 @@ int main()
         asst::spa::choose_equipment_assignment({}, { "伊比利亚骨刺刀" }, { wearer, second_wearer });
     assert(knife_assignment.found && knife_assignment.recipient == "荒芜拉普兰德");
 
+    asst::spa::PersistentEquipmentPreparation blocked_gear;
+    const asst::spa::EquipmentRecipient cat { .name = "Miss.Christine", .slots_known = true, .attacks = true,
+                                               .carry = true };
+    const asst::spa::EquipmentRecipient caster { .name = "异客", .slots_known = true, .attacks = true };
+    const std::vector team { cat, caster };
+    const std::vector<std::string> coats { "雪祀之衣" };
+    const std::multimap<std::string, std::pair<int, int>> poses { { cat.name, { 881, 300 } },
+                                                                { caster.name, { 721, 368 } } };
+    blocked_gear.begin_round(9);
+    blocked_gear.observe_field("m04", poses);
+    assert(asst::spa::choose_equipment_assignment({}, coats, team).recipient == cat.name);
+    assert(!blocked_gear.record_assignment(coats.front(), false, false, false, cat.name));
+    assert(blocked_gear.may_try(coats.front()) && blocked_gear.within_attempt_budget(false));
+    assert(asst::spa::choose_equipment_assignment({}, coats, team, blocked_gear.rejected_pairs()).recipient ==
+           caster.name);
+    blocked_gear.begin_round(10);
+    blocked_gear.observe_field("m04", poses);
+    assert(blocked_gear.rejected_pairs().contains({ coats.front(), cat.name }));
+    assert(!blocked_gear.record_assignment(coats.front(), false, true, false, caster.name));
+    assert(!blocked_gear.may_try(coats.front()) &&
+           !blocked_gear.rejected_pairs().contains({ coats.front(), caster.name }));
+    blocked_gear.begin_round(11);
+    blocked_gear.observe_field("m01", poses);
+    assert(blocked_gear.rejected_pairs().empty());
+
+    auto geared_carry = cat;
+    geared_carry.elite = true;
+    geared_carry.equipped = { "维式重锤" };
+    asst::spa::EquipmentAssignmentContext jessica_growth;
+    jessica_growth.first_equipment_layers = 4;
+    assert(asst::spa::choose_equipment_assignment({}, coats, { geared_carry, caster }).recipient == cat.name);
+    assert(asst::spa::choose_equipment_assignment(jessica_growth, coats, { geared_carry, caster }).recipient ==
+           caster.name);
+
     std::cout << "Equipment pact evidence tests passed\n";
 }
