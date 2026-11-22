@@ -333,6 +333,17 @@ int main()
     const auto filtered_exchange_centres = bench_source_centres(no_returned_card_badge);
     assert(filtered_exchange_centres.size() == exchange_slots.size() - 1);
     assert(std::ranges::none_of(filtered_exchange_centres, [](auto point) { return std::abs(point.x - 600) < 10; }));
+    // R13 left a four-slot gap between reliable anchors. Two missing
+    // operator badges pass the local checks, while the item at x599 does not.
+    const auto wide_gap = cv::imread("spa-bench-wide-gap-live.png");
+    assert(wide_gap.size() == two_hidden_badges.size());
+    wide_gap.copyTo(exchange_bench(cv::Rect(120, 350, 940, 170)));
+    const auto wide_gap_centres = bench_source_centres(exchange_bench);
+    const std::vector<int> wide_gap_slots { 196, 277, 357, 438, 519, 681, 762, 842, 923 };
+    assert(wide_gap_centres.size() == wide_gap_slots.size());
+    for (size_t index = 0; index < wide_gap_slots.size(); ++index) {
+        assert(std::abs(wide_gap_centres[index].x - wide_gap_slots[index]) <= 4);
+    }
     assert(bench_source_centres(cv::Mat()).empty());
     assert(bench_source_centres(cv::Mat::zeros(720, 1280, CV_8UC3)).empty());
     const auto lappland_before = cv::imread("spa-replacement-lappland-occluded-before.png");

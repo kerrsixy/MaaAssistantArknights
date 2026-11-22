@@ -467,6 +467,7 @@ std::vector<cv::Point> bench_source_centres(const cv::Mat& image, bool include_c
     // A sprite's shadow can join a real badge to the bench frame. One
     // measured adjacent pair can establish the pitch when other badges
     // bound a separate gap of two or three slots at the same height.
+    // Longer gaps need another independently measured adjacent interval.
     // The missing slot still needs its own badge and sprite evidence.
     std::vector<int> intervals;
     for (size_t index = 1; index < badges.size(); ++index) {
@@ -481,12 +482,14 @@ std::vector<cv::Point> bench_source_centres(const cv::Mat& image, bool include_c
         const bool consistent = std::all_of(intervals.begin(), intervals.end(), [&](int interval) {
             return std::abs(interval - pitch) <= 4;
         });
+        const int maximum_gap_steps = intervals.size() >= 2 ? 9 : 3;
         for (size_t index = 1; consistent && index < badges.size(); ++index) {
             const auto& left = badges[index - 1];
             const auto& right = badges[index];
             const int distance = right.x - left.x;
             const int steps = cvRound(static_cast<double>(distance) / pitch);
-            if (steps < 2 || steps > 3 || std::abs(distance - steps * pitch) > 5 || std::abs(left.y - right.y) > 4) {
+            if (steps < 2 || steps > maximum_gap_steps || std::abs(distance - steps * pitch) > 5 ||
+                std::abs(left.y - right.y) > 4) {
                 continue;
             }
             for (int step = 1; step < steps; ++step) {
