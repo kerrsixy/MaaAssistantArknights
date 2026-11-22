@@ -1591,6 +1591,17 @@ asst::spa::ReplacementMember asst::StrongholdProtocolTask::replacement_member(
         result.provides_regeneration = props->sub_role == battle::SubRole::Support_Bard;
         result.reliable_blocker = props->sub_role != battle::SubRole::Special_DollKeeper &&
                                   spa::default_skill_holds_position(name, owned.elite);
+        if (m_spatial_boss_phase && policy.round == m_spatial_boss_phase_round && forms &&
+            (forms->initial == 0 || forms->elite == 0)) {
+            const auto stats = spa::season_combat_stats(name, forms->elite > 0);
+            const bool has_attack = spa::has_basic_attack(props->role, props->sub_role);
+            result.boss_basic_output_known =
+                !has_attack || (stats && stats->attack_interval > 0 && !stats->basic_range.empty());
+            if (has_attack && result.boss_basic_output_known) {
+                result.boss_basic_attack_weight = static_cast<int>(stats->attack / stats->attack_interval);
+                result.boss_basic_range.assign(stats->basic_range.begin(), stats->basic_range.end());
+            }
+        }
     }
     const auto fact = std::find_if(spa::OperatorCatalogue.begin(), spa::OperatorCatalogue.end(), [&](const auto& item) {
         return item.name == name;
@@ -1872,6 +1883,8 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
             .value_or("");
     };
     auto blocked = m_failed_replacements;
+    const auto opening = boss_opening_target(round);
+    const spa::ReplacementBossTargets boss { opening.cells, opening.movement_waypoints };
     const auto evaluate = [this](const auto& lineup) {
         return replacement_lineup_context_value(lineup);
     };
@@ -1883,7 +1896,8 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
         evaluate,
         m_visited_replacement_lineups,
         m_policy.disabled_pacts,
-        m_completed_replacement_exchanges);
+        m_completed_replacement_exchanges,
+        boss);
     std::string target_failure_key;
     while (choice.found) {
         target_failure_key = failure_key(choice);
@@ -1901,7 +1915,8 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
             evaluate,
             m_visited_replacement_lineups,
             m_policy.disabled_pacts,
-            m_completed_replacement_exchanges);
+            m_completed_replacement_exchanges,
+            boss);
     }
     if (!choice.found) {
         return false;
@@ -1931,6 +1946,7 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
         { "incoming", choice.incoming },
         { "outgoing", choice.outgoing },
         { "improvement", choice.improvement },
+        { "estimated_boss_attack_weight_gain", choice.boss_attack_weight_gain },
         { "value_context", "each_prospective_full_lineup" },
         { "restores_strategy_core", choice.restores_strategy_core },
         { "held_target_x", choice.x },
@@ -5722,9 +5738,12 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         // Compute the current offers before both upgrade and purchase policy.
         m_policy.full_field_offer_improvements.clear();
         m_policy.first_healer_replacement_offers.clear();
+        m_policy.boss_damage_replacement_offers.clear();
         if (m_policy.dynamic_decision_mode && m_policy.deployed_population == 8 && !m_pending_field_replacement) {
             const auto [field, bench] = replacement_inputs();
             if (field.size() == 8) {
+                const auto opening = boss_opening_target(round);
+                const spa::ReplacementBossTargets boss { opening.cells, opening.movement_waypoints };
                 const bool healer_available = std::ranges::any_of(field, [](const auto& member) {
                     return member.role == spa::PlacementRole::Healer || member.role == spa::PlacementRole::Unknown;
                 }) || std::ranges::any_of(bench, [](const auto& member) {
@@ -5743,9 +5762,14 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                   [this](const auto& lineup) { return replacement_lineup_context_value(lineup); },
                                   m_visited_replacement_lineups,
                                   m_policy.disabled_pacts,
-                                  m_completed_replacement_exchanges)
+                                  m_completed_replacement_exchanges,
+                                  boss)
                             : spa::ReplacementChoice {};
                     m_policy.full_field_offer_improvements[offer.name] = exchange.found ? exchange.improvement : 0;
+                    if (exchange.found && exchange.improvement > 0 && exchange.boss_attack_weight_gain > 0 &&
+                        !m_policy.owned.contains(offer.name)) {
+                        m_policy.boss_damage_replacement_offers.insert(offer.name);
+                    }
                     if (!healer_available && exchange.heals_frontline && exchange.improvement > 0 &&
                         !m_policy.owned.contains(offer.name)) {
                         m_policy.first_healer_replacement_offers.insert(offer.name);
@@ -6207,6 +6231,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             fit["details"] = json::object { { "round", round },
                                             { "improvements", std::move(improvements) },
                                             { "first_healer_candidates", m_policy.first_healer_replacement_offers },
+                                            { "boss_damage_candidates", m_policy.boss_damage_replacement_offers },
                                             { "fit_is_planning_only", true },
                                             { "purchase_committed", false } };
             callback(AsstMsg::SubTaskExtraInfo, fit);

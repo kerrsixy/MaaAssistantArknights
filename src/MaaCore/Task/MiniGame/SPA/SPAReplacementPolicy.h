@@ -8,6 +8,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -36,6 +37,9 @@ struct ReplacementMember
     std::optional<BoardCell> grid_cell;
     std::vector<BoardCell> healer_range;
     std::optional<bool> single_elite_form;
+    bool boss_basic_output_known = false;
+    int boss_basic_attack_weight = 0;
+    std::vector<BoardCell> boss_basic_range;
 };
 
 inline bool replacement_blocks_ground(const ReplacementMember& member)
@@ -149,7 +153,42 @@ struct ReplacementChoice
     int improvement = 0;
     bool restores_strategy_core = false;
     bool heals_frontline = false;
+    int boss_attack_weight_gain = 0;
 };
+
+struct ReplacementBossTargets
+{
+    std::span<const BoardCell> opening;
+    std::span<const BoardCell> waypoints;
+};
+
+// Compare two bodies at the same registered cell. One facing must cover the
+// projected opening and route points. This is a basic attack opportunity,
+// without inferred armour, time spent at a waypoint, or skill uptime.
+inline int
+    replacement_boss_attack_weight(const ReplacementMember& member, BoardCell cell, const ReplacementBossTargets& boss)
+{
+    const size_t samples = static_cast<size_t>(!boss.opening.empty()) + boss.waypoints.size();
+    if (samples == 0 || member.boss_basic_attack_weight <= 0 || member.boss_basic_range.empty()) {
+        return 0;
+    }
+    int best = 0;
+    for (const char facing : { 'E', 'N', 'S', 'W' }) {
+        const auto covers = [&](BoardCell target) {
+            return cell == target || grid_range_covers(
+                                         cell.first,
+                                         cell.second,
+                                         facing,
+                                         target.first,
+                                         target.second,
+                                         member.boss_basic_range);
+        };
+        const int covered = static_cast<int>(std::ranges::any_of(boss.opening, covers)) +
+                            static_cast<int>(std::ranges::count_if(boss.waypoints, covers));
+        best = std::max(best, covered);
+    }
+    return member.boss_basic_attack_weight * best / static_cast<int>(samples);
+}
 
 using ReplacementLineup = std::vector<std::string>;
 using ReplacementExchange = std::tuple<std::string, std::string, bool, std::string, bool>;
@@ -493,7 +532,8 @@ inline ReplacementChoice choose_replacement(
     const std::function<int(const std::vector<ReplacementMember>&)>& evaluate = {},
     const std::set<ReplacementLineup>& visited_lineups = {},
     const std::vector<std::string>& disabled_pacts = {},
-    const ReplacementHistory& completed_exchanges = {})
+    const ReplacementHistory& completed_exchanges = {},
+    const ReplacementBossTargets& boss = {})
 {
     ReplacementChoice best;
     if (primary.empty() || field.empty() || field.size() > 16 || bench.size() > 10) {
@@ -516,6 +556,16 @@ inline ReplacementChoice choose_replacement(
         return replacement_primary_members(lineup, primary) + (harmony ? 1 : 0);
     };
     const int members = activation_members(field);
+    const bool boss_targets_known = !boss.opening.empty() || !boss.waypoints.empty();
+    int preserve_advanced = 0;
+    if (boss_targets_known) {
+        static const auto requirements = pact_requirements();
+        const auto rule = std::ranges::find(requirements, primary, &PactRequirement::name);
+        if (rule != requirements.end() && rule->advanced_members > 0 &&
+            replacement_primary_members(field, primary) >= rule->advanced_members) {
+            preserve_advanced = rule->advanced_members;
+        }
+    }
     const auto blockers = [](const auto& lineup, bool lower) {
         return std::count_if(lineup.begin(), lineup.end(), [&](const auto& unit) {
             return replacement_blocks_ground(unit) && unit.y >= 0 && (unit.y > 335) == lower;
@@ -577,12 +627,19 @@ inline ReplacementChoice choose_replacement(
                                    unit.terrain_routes.end();
                     });
                 });
-            if ((members >= 3 && activation_members(proposed) < 3) || opens_route ||
+            if ((members >= 3 && activation_members(proposed) < 3) ||
+                (preserve_advanced > 0 && replacement_primary_members(proposed, primary) < preserve_advanced) ||
+                opens_route ||
                 (!routes_registered &&
                  ((upper > 0 && blockers(proposed, false) == 0) || (lower > 0 && blockers(proposed, true) == 0)))) {
                 continue;
             }
-            const int improvement = value(proposed) - baseline;
+            const int boss_attack_gain = boss_targets_known && outgoing.grid_cell && incoming.boss_basic_output_known &&
+                                                 outgoing.boss_basic_output_known
+                                             ? replacement_boss_attack_weight(incoming, *outgoing.grid_cell, boss) -
+                                                   replacement_boss_attack_weight(outgoing, *outgoing.grid_cell, boss)
+                                             : 0;
+            const int improvement = value(proposed) - baseline + 2 * boss_attack_gain;
             const bool restores_core = incoming.strategy_core && strategy_cores == 0;
             const bool activates_primary = members < 3 && activation_members(proposed) >= 3;
             if (!completed_exchanges.empty() && !restores_core && !activates_primary) {
@@ -614,8 +671,8 @@ inline ReplacementChoice choose_replacement(
             if ((restores_core || improvement > 100) &&
                 (!best.found || (restores_core && !best.restores_strategy_core) ||
                  (restores_core == best.restores_strategy_core && rank > best_rank))) {
-                best = { true, incoming.name, outgoing.name, outgoing.x, outgoing.y, improvement, restores_core,
-                         healing.value_or(false) };
+                best = { true,        incoming.name, outgoing.name,           outgoing.x,      outgoing.y,
+                         improvement, restores_core, healing.value_or(false), boss_attack_gain };
                 best_rank = rank;
             }
         }

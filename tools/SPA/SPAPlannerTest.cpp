@@ -5166,6 +5166,51 @@ int main()
         choose_bench_capacity_trade(siracusa_healing_gap, 3, r10_healer_shop, { { "斥罪", 1 } }, {});
     assert(healer_capacity_trade && healer_capacity_trade->purchase.name == "褐果" &&
            healer_capacity_trade->spare_initial == "深巡");
+    {
+        ReplacementMember outgoing { "维伊", PlacementRole::Ranged, {}, 120, 700, 290, true };
+        outgoing.grid_cell = BoardCell { 5, 2 };
+        outgoing.route_membership_registered = true;
+        outgoing.boss_basic_output_known = true;
+        outgoing.boss_basic_attack_weight = 220;
+        outgoing.boss_basic_range = { { 1, 0 } };
+        ReplacementMember incoming { "远牙", PlacementRole::Ranged, {}, 120 };
+        incoming.boss_basic_output_known = true;
+        incoming.boss_basic_attack_weight = 390;
+        incoming.boss_basic_range = { { 2, 0 } };
+        const std::vector<BoardCell> boss_opening { { 7, 2 } };
+        const std::vector<BoardCell> boss_route { { 3, 2 } };
+        const ReplacementBossTargets stationary { boss_opening, {} };
+        const ReplacementBossTargets moving { boss_opening, boss_route };
+        assert(replacement_boss_attack_weight(incoming, *outgoing.grid_cell, moving) == 195);
+        assert(!choose_replacement("乌萨斯", { outgoing }, { incoming }).found);
+        const auto boss_exchange =
+            choose_replacement("乌萨斯", { outgoing }, { incoming }, {}, {}, {}, {}, {}, stationary);
+        assert(boss_exchange.found && boss_exchange.boss_attack_weight_gain == 390);
+        auto six_member_outgoing = outgoing;
+        six_member_outgoing.pacts = { "乌萨斯" };
+        std::vector<ReplacementMember> six_member_field { six_member_outgoing };
+        for (const auto& member : { "烈夏", "折桠", "乌啾", "凛冬", "赫拉格" }) {
+            six_member_field.push_back({ member, PlacementRole::Ranged, { "乌萨斯" } });
+        }
+        assert(!choose_replacement("乌萨斯", six_member_field, { incoming }, {}, {}, {}, {}, {}, stationary).found);
+        outgoing.boss_basic_output_known = false;
+        assert(!choose_replacement("乌萨斯", { outgoing }, { incoming }, {}, {}, {}, {}, {}, stationary).found);
+
+        auto boss_shop_policy = siracusa_healing_gap;
+        boss_shop_policy.round = 14;
+        boss_shop_policy.boss_preparation = true;
+        boss_shop_policy.shop_level = 6;
+        boss_shop_policy.full_field_offer_improvements = { { "远牙", boss_exchange.improvement } };
+        boss_shop_policy.first_healer_replacement_offers.clear();
+        boss_shop_policy.boss_damage_replacement_offers = { "远牙" };
+        const std::vector<ShopOffer> boss_shop { { "远牙", 3, 0 } };
+        const auto damage_trade = choose_bench_capacity_trade(boss_shop_policy, 3, boss_shop, { { "斥罪", 1 } }, {});
+        assert(damage_trade && damage_trade->purchase.name == "远牙");
+        boss_shop_policy.bench_occupied = 9;
+        assert(choose_preparation(boss_shop_policy, 3, boss_shop, catalog).name == "远牙");
+        boss_shop_policy.boss_preparation = false;
+        assert(choose_preparation(boss_shop_policy, 3, boss_shop, catalog).action != PreparationAction::Buy);
+    }
     assert(!choose_bench_capacity_trade(siracusa_healing_gap, 3, r10_healer_shop, { { "斥罪", 1 } }, { "深巡" }));
     PreparationPolicy helper_line;
     PreparationPolicy awaiting_faction_deployment;

@@ -119,6 +119,8 @@ struct PreparationPolicy
     std::map<std::string, int> full_field_offer_improvements;
     // Fresh shop offers that could put the first healer in range of a route blocker.
     std::set<std::string> first_healer_replacement_offers;
+    // Visible Boss-round offers with positive attack coverage in a safe exchange.
+    std::set<std::string> boss_damage_replacement_offers;
     // Same-frame HUD readings only. Missing pacts remain unknown, never zero.
     std::map<std::string, int> observed_pact_layers;
     // Verified equipment on an individually located operator. A virtual
