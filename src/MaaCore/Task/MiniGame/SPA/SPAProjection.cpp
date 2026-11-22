@@ -464,10 +464,10 @@ std::vector<cv::Point> bench_source_centres(const cv::Mat& image, bool include_c
     for (const auto& badge : badges) {
         result.emplace_back(badge.x + 42, 450);
     }
-    // An elite sprite's shadow can connect a real badge to the bench frame,
-    // making its global component too large. Recover only internal gaps in
-    // a row supported by at least two measured single-slot intervals. Never
-    // probe a hard-coded slot grid or extrapolate beyond the visible cards.
+    // A sprite's shadow can join a real badge to the bench frame. One
+    // measured adjacent pair can establish the pitch when other badges
+    // bound a separate gap of two or three slots at the same height.
+    // The missing slot still needs its own badge and sprite evidence.
     std::vector<int> intervals;
     for (size_t index = 1; index < badges.size(); ++index) {
         const int distance = badges[index].x - badges[index - 1].x;
@@ -475,7 +475,7 @@ std::vector<cv::Point> bench_source_centres(const cv::Mat& image, bool include_c
             intervals.emplace_back(distance);
         }
     }
-    if (intervals.size() >= 2) {
+    if (!intervals.empty()) {
         std::sort(intervals.begin(), intervals.end());
         const int pitch = intervals[intervals.size() / 2];
         const bool consistent = std::all_of(intervals.begin(), intervals.end(), [&](int interval) {

@@ -316,6 +316,23 @@ int main()
     assert(std::none_of(no_badge_centers.begin(), no_badge_centers.end(), [](cv::Point center) {
         return std::abs(center.x - 681) < 10;
     }));
+    // Two badge shadows in the live 异客/幽灵鲨 exchange left just one
+    // measured adjacent pair. Keep the local badge gate for each gap.
+    const auto two_hidden_badges = cv::imread("spa-bench-two-hidden-badges-live.png");
+    assert(two_hidden_badges.size() == cv::Size(940, 170));
+    cv::Mat exchange_bench = cv::Mat::zeros(720, 1280, CV_8UC3);
+    two_hidden_badges.copyTo(exchange_bench(cv::Rect(120, 350, 940, 170)));
+    const auto exchange_centres = bench_source_centres(exchange_bench);
+    const std::vector<int> exchange_slots { 519, 600, 681, 762, 842, 923 };
+    assert(exchange_centres.size() == exchange_slots.size());
+    for (size_t index = 0; index < exchange_slots.size(); ++index) {
+        assert(std::abs(exchange_centres[index].x - exchange_slots[index]) <= 4);
+    }
+    auto no_returned_card_badge = exchange_bench.clone();
+    cv::rectangle(no_returned_card_badge, cv::Rect(553, 380, 36, 36), cv::Scalar(60, 55, 50), cv::FILLED);
+    const auto filtered_exchange_centres = bench_source_centres(no_returned_card_badge);
+    assert(filtered_exchange_centres.size() == exchange_slots.size() - 1);
+    assert(std::ranges::none_of(filtered_exchange_centres, [](auto point) { return std::abs(point.x - 600) < 10; }));
     assert(bench_source_centres(cv::Mat()).empty());
     assert(bench_source_centres(cv::Mat::zeros(720, 1280, CV_8UC3)).empty());
     const auto lappland_before = cv::imread("spa-replacement-lappland-occluded-before.png");
