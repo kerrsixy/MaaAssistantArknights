@@ -171,6 +171,9 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
     }
     m_face_only = options.get("face_only", false);
     m_bench_source_search_exhausted = false;
+    m_joint_deployment = options.get("joint_deployment", false);
+    m_joint_named_bench_slot.reset();
+    m_joint_named_bench_sprite.clear();
     m_preserve_population = options.get("preserve_population", false);
     m_reorient_col = options.get("reorient_col", -1);
     m_reorient_row = options.get("reorient_row", -1);
@@ -2256,8 +2259,15 @@ bool asst::spa::SwapTaskPlugin::held_drag()
     m_deployment_hint_verified = false;
     bool ok = send(InputEvent::Type::TOUCH_DOWN, m_source) && send(InputEvent::Type::COMMIT) && sleep(300);
     LogInfo << "SPA held drag begin" << m_source.x << m_source.y << "to" << m_drag_target.x << m_drag_target.y << ok;
+    bool picked_named_joint_slot = false;
     if (ok) {
-        save_evidence(ctrler()->get_image(), utils::path("debug/SPA/held_swap_source"), false);
+        const auto source_frame = ctrler()->get_image();
+        save_evidence(source_frame, utils::path("debug/SPA/held_swap_source"), false);
+        if (m_joint_named_bench_slot) {
+            const auto match = inventory_operator_visual_hint(
+                m_joint_named_bench_sprite, source_frame, *m_joint_named_bench_slot);
+            picked_named_joint_slot = match && match->first == m_name;
+        }
     }
 
     // Keep the contact held while moving the card to the far-left staging
@@ -2281,11 +2291,14 @@ bool asst::spa::SwapTaskPlugin::held_drag()
                 // camera. Verify the actually held identity from this frame,
                 // rather than trusting the earlier source coordinate alone.
                 bool held_identity = false;
+                bool conflicting_title = false;
                 OCRer held_name(map_image, Rect(0, 160, 340, 65));
                 if (const auto names = held_name.analyze()) {
                     std::vector<TextObservation> titles;
                     for (const auto& text : *names) {
                         titles.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+                        conflicting_title |= text.score >= .85 && text.rect.x < 40 && text.text != m_name &&
+                                             operator_pacts().contains(text.text);
                     }
                     held_identity = std::any_of(
                                         names->begin(),
@@ -2295,13 +2308,22 @@ bool asst::spa::SwapTaskPlugin::held_drag()
                                         }) ||
                                     reread_single_operator_title(map_image, titles, m_name);
                 }
+                // Joint portraits can cover the held title. Require a newly
+                // read bench title, same-slot sprite at touch-down, and no
+                // conflicting title. The legal green drop is verified below.
+                const bool joint_identity = m_joint_deployment && !conflicting_title && picked_named_joint_slot;
+                const bool identity_verified = !conflicting_title && (held_identity || joint_identity);
                 auto identity = basic_info_with_what("SPAHeldOperatorIdentity");
                 identity["details"] = json::object { { "name", m_name },
-                                                     { "verified", held_identity },
+                                                     { "verified", identity_verified },
+                                                     { "source", identity_verified
+                                                                     ? (held_identity ? "held_title"
+                                                                                      : "joint_bench_touch_continuity")
+                                                                     : "unverified" },
                                                      { "round", m_round },
                                                      { "drop_issued", false } };
                 callback(AsstMsg::SubTaskExtraInfo, identity);
-                if (!held_identity) {
+                if (!identity_verified) {
                     send(InputEvent::Type::TOUCH_MOVE, Point(20, 300));
                     send(InputEvent::Type::COMMIT);
                     send(InputEvent::Type::TOUCH_UP);
@@ -3084,6 +3106,12 @@ bool asst::spa::SwapTaskPlugin::drag_direction_only(const Point& center)
                                                 { "arrow_clicks_issued", 0 },
                                                 { "reason", "White outline has no direction cancel control" } };
             callback(AsstMsg::SubTaskExtraInfo, ignored);
+        }
+        if (m_joint_deployment && m_deploy_only && !m_replace_only && !m_preserve_population) {
+            // The round may already have applied this deployment. Read the
+            // resulting slot count in the caller instead of requiring the
+            // pre-drop count, and keep the facing unverified.
+            return true;
         }
         if (!close_selection() || !preparation_matches()) {
             return false;
@@ -4431,7 +4459,8 @@ bool asst::spa::SwapTaskPlugin::_run()
                 found = true;
                 break;
             }
-            if (m_fast_mode && m_deploy_only && bench_candidates.size() == 1 && !m_verify_source_form && foot) {
+            if (m_fast_mode && m_deploy_only && !m_joint_deployment && bench_candidates.size() == 1 &&
+                !m_verify_source_form && foot) {
                 // With one detected occupied card, opening and closing its
                 // panel only changes the camera. The named held-drag path
                 // still verifies the actual title before any field drop.
@@ -4465,6 +4494,10 @@ bool asst::spa::SwapTaskPlugin::_run()
                     break;
                 }
                 // Recheck the grab point after restoring the expanded layout.
+                if (m_joint_deployment) {
+                    remember_inventory_operator_title(
+                        m_joint_named_bench_sprite, bench_image, { candidate.x, candidate.y }, *identity, true);
+                }
                 named_source_index = index;
                 found = true;
                 break;
@@ -4545,6 +4578,9 @@ bool asst::spa::SwapTaskPlugin::_run()
                 return false;
             }
             m_source = Point(grab->x, grab->y);
+            if (m_joint_deployment && !m_joint_named_bench_sprite.empty()) {
+                m_joint_named_bench_slot.emplace(point.x, point.y);
+            }
             bench_candidates = refreshed;
         }
         auto source = basic_info_with_what("SPABenchSourceVerified");
@@ -5023,9 +5059,13 @@ bool asst::spa::SwapTaskPlugin::_run()
         // tile occupied by an existing operator performs a swap and keeps the
         // population counter unchanged; a free tile consumes one slot.
         const int remaining_before = m_remaining;
+        const bool joint_new_unit = m_joint_deployment && !m_replace_only && !m_preserve_population;
+        const auto expected_post_drop_count = [remaining_before, joint_new_unit](int count) {
+            return count == remaining_before - 1 || (!joint_new_unit && count == remaining_before);
+        };
         std::optional<int> observed_remaining;
         bool preparation_restored = false;
-        for (int attempt = 0; attempt < 12 && !preparation_restored; ++attempt) {
+        for (int attempt = 0; attempt < (joint_new_unit ? 4 : 12) && !preparation_restored; ++attempt) {
             if (attempt > 0 && !sleep(m_fast_mode ? 160 : 450)) {
                 return false;
             }
@@ -5047,7 +5087,8 @@ bool asst::spa::SwapTaskPlugin::_run()
                     }
                 }
                 const auto badge = remaining_deployment_number(reconciliation_image, hud_texts);
-                if (ready && badge && (*badge == remaining_before || *badge == remaining_before - 1)) {
+                if (ready && badge && expected_post_drop_count(*badge) &&
+                    (!joint_new_unit || preparation_round_number(reconciliation_image, m_round) == m_round)) {
                     observed_remaining = *badge;
                     preparation_restored = true;
                     break;
@@ -5062,12 +5103,13 @@ bool asst::spa::SwapTaskPlugin::_run()
             }
             const auto page = observe_page(preparation_texts, {});
             const auto count = remaining_deployment_number(reconciliation_image, preparation_texts);
-            if (page.page == Page::Preparation && count) {
-                const int value = *count;
-                if (value == remaining_before || value == remaining_before - 1) {
-                    observed_remaining = value;
-                    preparation_restored = true;
-                }
+            if (joint_new_unit && (page.page == Page::Battle || page.page == Page::Result)) {
+                break;
+            }
+            if (page.page == Page::Preparation && count && expected_post_drop_count(*count) &&
+                (!joint_new_unit || preparation_round_number(reconciliation_image, m_round) == m_round)) {
+                observed_remaining = *count;
+                preparation_restored = true;
             }
         }
         if (!preparation_restored || !observed_remaining) {
@@ -5113,9 +5155,11 @@ bool asst::spa::SwapTaskPlugin::_run()
                                { "field_pose_verified", m_field_pose_verified },
                                { "population_consumed", m_population_consumed },
                                { "direction_input_issued", true },
-                               { "direction_verified", true },
+                               { "direction_verified", !joint_new_unit || m_direction_committed },
                                { "validation",
-                                 m_field_pose_verified ? "registered_field_identity" : "page_and_direction_state" } };
+                                 m_field_pose_verified ? "registered_field_identity"
+                                 : joint_new_unit ? "same_round_slot_count"
+                                                  : "page_and_direction_state" } };
             info["details"]["displaced"] = m_displaced_name;
             callback(AsstMsg::SubTaskExtraInfo, info);
             return true;

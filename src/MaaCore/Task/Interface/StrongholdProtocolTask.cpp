@@ -4355,6 +4355,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             const bool auto_target = options.get("auto_detected", false);
             const auto auto_cell = std::pair { options.get("target_x", -1), options.get("target_y", -1) };
             options["deploy_only"] = true;
+            options["joint_deployment"] = m_mode == "joint";
             options["find_bench_source"] = true;
             options["recent_acquisition_source"] = m_recent_bench_acquisition == *pending;
             // Phase one prioritizes a complete, bounded round loop.  The

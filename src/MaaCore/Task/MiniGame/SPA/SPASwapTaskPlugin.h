@@ -227,6 +227,9 @@ private:
     std::vector<std::pair<std::string, Point>> m_inspected_equipment;
     std::vector<std::pair<std::string, Point>> m_inspected_summons;
     std::vector<InventoryOperatorHint>* m_bench_identity_hints = nullptr;
+    bool m_joint_deployment = false;
+    std::optional<cv::Point> m_joint_named_bench_slot;
+    std::vector<InventoryOperatorHint> m_joint_named_bench_sprite;
     BoardRegistration preserve_registered_board(
         const cv::Mat& image,
         BoardRegistration board,
