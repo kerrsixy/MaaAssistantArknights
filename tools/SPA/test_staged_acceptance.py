@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
+from spa_host_completion import audit_host_completion
 from spa_staged_acceptance import (
     audit_directory,
     audit_run,
@@ -1007,6 +1008,41 @@ class StagedAcceptanceTests(unittest.TestCase):
                 )
         unreviewed = audit_run(scope_run(raw, policy), policy, {})
         self.assertFalse(replay_progress([unreviewed])["all_strategy_badges_verified"])
+
+        # The final batch child opens only the report. None of its receipts
+        # counts as a game, but the fully verified catalogue ends the batch.
+        child_policy = {**policy, "run_id": "badge-batch-1"}
+        child = scope_run(raw, child_policy, "catalogue-child")
+        for record in child:
+            record["details"].update(taskchain="StrongholdProtocol", taskid=1)
+        batch_stopped = received(
+            "SPABatchStrategyCatalogueCompleted",
+            {"settled_runs": 0, "requested_runs": 3, "report_run_id": "badge-batch-1"},
+            "asst::StrongholdProtocolTask",
+        )
+        batch_stopped["details"]["taskid"] = 1
+        root_completed = received("", {}, "asst::StrongholdProtocolTask", 10002)
+        root_completed["details"]["taskid"] = 1
+        batch = child + [batch_stopped, root_completed]
+        host = audit_host_completion(batch, 3, schedule_strategy_badges=True)
+        self.assertTrue(host["batch_complete"])
+        self.assertTrue(host["strategy_catalogue_complete"])
+        self.assertEqual(host["native_reported_settled_runs"], 0)
+        self.assertEqual(host["settlement_observations"], [])
+        self.assertFalse(audit_host_completion(batch, 3)["batch_complete"])
+        self.assertFalse(
+            audit_host_completion(batch[:-1], 3, schedule_strategy_badges=True)[
+                "batch_complete"
+            ]
+        )
+
+        altered = copy.deepcopy(batch)
+        altered[2]["details"]["details"]["strategy_report_evidence_saved"] = False
+        host = audit_host_completion(altered, 3, schedule_strategy_badges=True)
+        self.assertFalse(host["batch_complete"])
+        self.assertIn(
+            "strategy_catalogue_completion_unverified", host["failure_reasons"]
+        )
 
     def test_missing_checks_or_old_schema_cannot_earn_credit(self):
         report = self.reviewed()

@@ -2551,6 +2551,7 @@ bool asst::StrongholdProtocolTask::run()
 
     const bool single_game = m_run_count == 1;
     m_run_victory_verified = false;
+    m_strategy_catalogue_complete = false;
     static const std::string host_session_id = MaaNS::make_uuid();
     const std::string execution_id = single_game ? MaaNS::make_uuid() : std::string();
     if (single_game) {
@@ -2620,6 +2621,16 @@ bool asst::StrongholdProtocolTask::_run()
         StrongholdProtocolTask game(forward, m_inst);
         game.set_task_id(m_task_id);
         const bool executed = game.set_params(parameters) && game.run();
+        if (executed && !returned && game.m_strategy_catalogue_complete && !need_exit()) {
+            // The report-only child opened no simulation, so it does not
+            // increment the count of settled games.
+            auto catalogue = basic_info_with_what("SPABatchStrategyCatalogueCompleted");
+            catalogue["details"] = json::object { { "settled_runs", completed },
+                                                  { "requested_runs", m_run_count },
+                                                  { "report_run_id", game.m_run_id } };
+            callback(AsstMsg::SubTaskExtraInfo, catalogue);
+            return true;
+        }
         if (!executed || !returned || need_exit()) {
             auto stopped = basic_info_with_what("SPABatchStopped");
             stopped["details"] = json::object { { "settled_runs", completed },
@@ -2842,18 +2853,18 @@ bool asst::StrongholdProtocolTask::run_single()
             scheduled = progress_record(*report, report->get("next_independent_strategy", std::string()));
         }
         const bool selected = scheduled && spa::ProgressLedger::can_schedule_solo(*scheduled);
+        m_strategy_catalogue_complete = !selected && report && report->get("all_strategy_badges_verified", false);
         auto receipt = basic_info_with_what("SPAStrategyBadgeSchedule");
         receipt["details"] =
             json::object { { "report_and_lobby_verified", report.has_value() },
                            { "identified_strategies", report ? report->get("identified_strategies", 0) : 0 },
-                           { "all_strategy_badges_verified",
-                             report && report->get("all_strategy_badges_verified", false) },
+                           { "all_strategy_badges_verified", m_strategy_catalogue_complete },
                            { "requested_strategy", selected ? scheduled->band_id : "" },
                            { "report_wins_before", selected ? scheduled->wins.value_or(-1) : -1 },
                            { "simulation_start_issued", false } };
         callback(AsstMsg::SubTaskExtraInfo, receipt);
         if (!selected) {
-            return report && report->get("all_strategy_badges_verified", false);
+            return m_strategy_catalogue_complete;
         }
         m_requested_strategy_id = scheduled->band_id;
     }

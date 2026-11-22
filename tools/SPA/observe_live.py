@@ -966,12 +966,18 @@ def main():
         if args.task == "auto-preparation" and policy.get("mode") == "joint":
             persist_json("joint-acceptance-audit.json", audit_joint_run(events, policy))
         if args.task == "auto-preparation":
-            host_completion = audit_host_completion(events, policy.get("run_count", 1))
+            host_completion = audit_host_completion(
+                events,
+                policy.get("run_count", 1),
+                schedule_strategy_badges=policy.get("schedule_strategy_badges") is True,
+            )
             persist_json("host-completion-audit.json", host_completion)
             # A previous child's settlement or pending promotion cannot turn a
             # later native failure / incomplete batch into a successful exit.
             # Keep those settlement facts in the audit before raising.
             require_host_completion(host_completion)
+            if host_completion["strategy_catalogue_complete"]:
+                return
         lifecycle_receipt = verified_lifecycle_receipt(
             events, Message.TaskChainCompleted.value
         )
