@@ -5345,6 +5345,36 @@ int main()
     // activation members, even though they may be useful for synthesis.
     assert(should_upgrade_dynamic_shop(live_activation_window, 8, 6, { { "折光", 3, 1 }, { "折光", 3, 3 } }, catalog));
     assert(should_upgrade_dynamic_shop(live_activation_window, 6, 0, real_activation_shop, catalog));
+    // D5 R9 had no primary units in the shop, two free refreshes and an
+    // upgrade that would drop available funds from twelve to one.
+    auto egir_free_refresh_window = live_activation_window;
+    egir_free_refresh_window.primary_pact = "阿戈尔";
+    egir_free_refresh_window.selected_strategy_id = "band_yan2";
+    egir_free_refresh_window.round = 9;
+    egir_free_refresh_window.economy_scenario_horizon_round = 14;
+    egir_free_refresh_window.growth_scenario_horizon_round = 14;
+    egir_free_refresh_window.shop_level = 4;
+    egir_free_refresh_window.current_life = 19;
+    egir_free_refresh_window.last_round_life_loss = 3;
+    egir_free_refresh_window.early_board_ready = true;
+    egir_free_refresh_window.allow_refresh = true;
+    egir_free_refresh_window.deployed_population = 8;
+    egir_free_refresh_window.bench_occupied = 2;
+    egir_free_refresh_window.free_refreshes = 2;
+    egir_free_refresh_window.primary_locked_after_activation = true;
+    egir_free_refresh_window.growth_primary_active_verified = true;
+    egir_free_refresh_window.owned = { { "幽灵鲨", { 1, true, true } },
+                                       { "斯卡蒂", { 1, false, true } },
+                                       { "深巡", { 1, false, true } } };
+    const std::vector<ShopOffer> egir_book_four { { "霜叶", 2, 0 }, { "伺夜", 3, 2 }, { "青枳", 3, 5 } };
+    assert(!should_upgrade_dynamic_shop(egir_free_refresh_window, 12, 11, egir_book_four, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->reason.find("Use free refreshes") != std::string::npos);
+    assert(
+        choose_preparation(egir_free_refresh_window, 12, egir_book_four, catalog).action == PreparationAction::Refresh);
+    assert(should_upgrade_dynamic_shop(egir_free_refresh_window, 12, 0, egir_book_four, catalog));
+    assert(should_upgrade_dynamic_shop(egir_free_refresh_window, 12, 7, egir_book_four, catalog));
+    egir_free_refresh_window.free_refreshes = 0;
+    assert(should_upgrade_dynamic_shop(egir_free_refresh_window, 12, 11, egir_book_four, catalog));
     // D4 child 3, R7. The prior round waited at book III; its next quote
     // left only two funds even though two fieldable Elysium cards cost three.
     auto iberia_sale_engine_window = live_activation_window;

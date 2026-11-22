@@ -1398,9 +1398,10 @@ static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
         return (entry.second.copies > 0 || entry.second.elite) &&
                is_primary_growth_engine(entry.first, policy.primary_pact);
     });
+    int current_pool_recruit_price = 0;
     int new_tier_recruit_price = 0;
     for (const auto& card : OperatorCatalogue) {
-        if (card.tier != policy.shop_level + 1 || card.price <= 0) {
+        if (card.tier > policy.shop_level + 1 || card.price <= 0) {
             continue;
         }
         const std::string name(card.name);
@@ -1408,6 +1409,13 @@ static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
         const auto owned = policy.owned.find(name);
         if (membership == pacts.end() ||
             (owned != policy.owned.end() && (owned->second.copies > 0 || owned->second.elite))) {
+            continue;
+        }
+        if (card.tier <= policy.shop_level) {
+            if (contains(membership->second, policy.primary_pact)) {
+                current_pool_recruit_price =
+                    current_pool_recruit_price > 0 ? std::min(current_pool_recruit_price, card.price) : card.price;
+            }
             continue;
         }
         // The live controller also fills carries from the route's own output
@@ -1448,6 +1456,17 @@ static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
     }
     const bool upgrade_grants_faction_refresh =
         policy.selected_strategy_id == "band_pepe" && policy.primary_pact == "萨尔贡" && policy.shop_level % 2 == 1;
+    const int post_upgrade_budget = funds - upgrade_price;
+    if (next_preparation && accepts_recruits && can_refresh && policy.free_refreshes > 0 && upgrade_price > 0 &&
+        !upgrade_grants_faction_refresh && current_pool_recruit_price > post_upgrade_budget &&
+        current_pool_recruit_price <= funds &&
+        (new_tier_recruit_price == 0 || post_upgrade_budget < new_tier_recruit_price)) {
+        // Reevaluate once the current board's free rolls have been used.
+        // New-tier availability alone does not make a card affordable.
+        return ShopUpgradeHold {
+            "Use free refreshes with a current-tier recruitment budget before paying for the next book"
+        };
+    }
     if (paid_boss_upgrade) {
         const int boss_refresh_cost = upgrade_grants_faction_refresh ? 0 : refresh_cost;
         if (!accepts_recruits || !can_refresh || new_tier_recruit_price == 0 ||
