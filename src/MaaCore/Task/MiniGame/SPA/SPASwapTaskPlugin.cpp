@@ -1894,8 +1894,10 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
     int round,
     int funds,
     int remaining,
-    std::vector<InventoryOperatorHint>& hints)
+    std::vector<InventoryOperatorHint>& hints,
+    const std::function<bool()>& may_start_probe)
 {
+    const auto started = std::chrono::steady_clock::now();
     m_inspected_equipment.clear();
     m_inspected_summons.clear();
     if (round < 1 || round > 20 || funds < 0 || funds > 999 || remaining < 0 || remaining > 8) {
@@ -1906,10 +1908,20 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
     m_remaining = remaining;
     m_fast_mode = true;
     m_best_effort_deployment = true;
-    if (!close_selection() || !ensure_expanded_shop() || !preparation_matches()) {
+    const auto restore_inventory_frame = [&](cv::Mat& frame) {
+        cv::Mat clean;
+        if (!close_selection(&clean) || !ensure_shop_visibility(true, &frame, clean)) {
+            return false;
+        }
+        if (frame.empty()) {
+            frame = ctrler()->get_image();
+        }
+        return !frame.empty();
+    };
+    cv::Mat inventory_frame;
+    if (!may_start_probe() || !restore_inventory_frame(inventory_frame) || !preparation_matches(inventory_frame)) {
         return false;
     }
-    const auto inventory_frame = ctrler()->get_image();
     save_evidence(inventory_frame, utils::path("debug/SPA/equipment_inventory_discovery"), false);
     const auto read_freeze = [](const cv::Mat& image) -> std::optional<bool> {
         OCRer ocr(image, Rect(1010, 420, 110, 70));
@@ -1930,18 +1942,15 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
     auto fresh_frame = inventory_frame;
     auto fresh = original;
     bool complete = original.size() <= 20;
+    bool deadline_deferred = false;
+    bool expanded_frame_restored = true;
     int candidate_frames = 1;
     int fresh_title_probes = 0;
     int operator_hints_reused = 0;
     json::array observations;
     for (std::size_t index = 0; index < original.size() && index < 20 && !need_exit(); ++index) {
-        // Visual hints do not issue input. Reuse the same candidate frame
-        // until a real title probe opens a panel and changes the camera.
-        if (fresh_frame.empty()) {
-            fresh_frame = ctrler()->get_image();
-            fresh = equipment_inventory_candidates(fresh_frame);
-            ++candidate_frames;
-        }
+        // Visual hints do not issue input. The current frame was captured
+        // after opening the shop or closing the preceding title probe.
         const auto source = std::min_element(fresh.begin(), fresh.end(), [&](const auto& a, const auto& b) {
             return cv::norm(a - original[index]) < cv::norm(b - original[index]);
         });
@@ -1961,6 +1970,11 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
                                { "fresh_identity_verified", false },
                                { "input_issued", false } });
             continue;
+        }
+        if (!may_start_probe()) {
+            complete = false;
+            deadline_deferred = true;
+            break;
         }
         ++fresh_title_probes;
         const auto identity = bench_identity(Point(source->x, source->y));
@@ -1998,26 +2012,31 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
                            { "equipment", equipment } });
         // Every probe is a title read in the inventory region. No dragging,
         // sale, card purchase or equipment replacement is authorized here.
-        fresh_frame.release();
-        if (!close_selection() || !ensure_expanded_shop()) {
+        expanded_frame_restored = restore_inventory_frame(fresh_frame);
+        if (!expanded_frame_restored) {
             complete = false;
             break;
+        }
+        if (index + 1 < original.size() && index + 1 < 20) {
+            fresh = equipment_inventory_candidates(fresh_frame);
+            ++candidate_frames;
         }
         if (!identity) {
             // Small summons and empty-looking sprites may lack a readable
             // title. Continue only if the same preparation and freeze state
             // are re-established, so one unread item cannot hide all later slots.
             unknown_probe_input = true;
-            freeze_after = read_freeze(ctrler()->get_image());
+            freeze_after = read_freeze(fresh_frame);
             ui_side_effect_observed = freeze_before && freeze_after && *freeze_before != *freeze_after;
-            if (!freeze_before || !freeze_after || ui_side_effect_observed || !preparation_matches()) {
+            if (!freeze_before || !freeze_after || ui_side_effect_observed || !preparation_matches(fresh_frame)) {
                 break;
             }
         }
     }
-    const bool restored = close_selection() && ensure_expanded_shop() && preparation_matches();
+    const bool restored = (expanded_frame_restored || restore_inventory_frame(fresh_frame)) &&
+                          preparation_matches(fresh_frame);
     if (restored && !unknown_probe_input) {
-        freeze_after = read_freeze(ctrler()->get_image());
+        freeze_after = read_freeze(fresh_frame);
         ui_side_effect_observed = freeze_before && freeze_after && *freeze_before != *freeze_after;
     }
     if (ui_side_effect_observed) {
@@ -2028,6 +2047,8 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
     if (need_exit()) {
         complete = false;
     }
+    const auto scan_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count();
     auto receipt = basic_info_with_what("SPAEquipmentInventoryInspected");
     receipt["details"] =
         json::object { { "round", round },
@@ -2036,6 +2057,8 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
                        { "preparation_restored", restored },
                        { "candidate_count", original.size() },
                        { "fresh_title_probes", fresh_title_probes },
+                       { "deadline_deferred", deadline_deferred },
+                       { "scan_ms", scan_ms },
                        { "candidate_frames", candidate_frames },
                        { "operator_visual_hints_reused", operator_hints_reused },
                        { "all_titles_freshly_verified", operator_hints_reused == 0 && complete && restored },

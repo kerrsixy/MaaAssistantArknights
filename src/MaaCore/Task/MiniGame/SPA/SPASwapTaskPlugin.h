@@ -65,7 +65,12 @@ public:
 
     bool set_registered_grid_context(const cv::Mat& reference, const cv::Mat& projection, const std::string& map_id);
 
-    bool inspect_equipment_inventory(int round, int funds, int remaining, std::vector<InventoryOperatorHint>& hints);
+    bool inspect_equipment_inventory(
+        int round,
+        int funds,
+        int remaining,
+        std::vector<InventoryOperatorHint>& hints,
+        const std::function<bool()>& may_start_probe);
     std::optional<std::vector<std::pair<std::string, bool>>> inspect_bench_operator_forms(
         int round,
         int funds,

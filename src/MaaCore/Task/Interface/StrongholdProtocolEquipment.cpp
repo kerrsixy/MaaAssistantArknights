@@ -233,11 +233,19 @@ void asst::StrongholdProtocolTask::record_acquired_equipment_hints(const std::st
 
 bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value& state)
 {
-    if (m_mode == "joint" && state.get("preparation_seconds_remaining_known", false) &&
-        state.get("preparation_seconds_remaining", 0) <= 25) {
+    const int round = state.get("round", -1);
+    const auto may_start_probe = [&] {
+        if (m_mode != "joint") {
+            return true;
+        }
+        const auto remaining = m_joint_preparation_deadline.observe(
+            round, std::nullopt, spa::PreparationDeadline::Clock::now());
+        // Reserve the deployment window plus time for one title probe and restoring the shop.
+        return !remaining || *remaining >= 33;
+    };
+    if (!may_start_probe()) {
         return false;
     }
-    const int round = state.get("round", -1);
     const bool scheduled_strategy_gift = spa::strategy_grants_preparation_equipment(m_selected_strategy_id, round);
     const bool preparation_gifts = std::any_of(m_policy.owned.begin(), m_policy.owned.end(), [&](const auto& item) {
         if (!item.second.deployed) {
@@ -269,7 +277,8 @@ bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value
         round,
         state.get("funds", -1),
         state.get("remaining_deployment", -1),
-        m_inventory_operator_hints);
+        m_inventory_operator_hints,
+        may_start_probe);
     for (const auto& [name, point] : inspect.inspected_equipment()) {
         m_equipment_candidates.insert(name);
         m_equipment_source_hints[name] = point.x;
