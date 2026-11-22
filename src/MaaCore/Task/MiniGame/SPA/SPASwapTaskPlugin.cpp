@@ -186,6 +186,7 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
     m_spatial_receiver_failed = false;
     m_spatial_drop_returned_without_direction = false;
     m_spatial_preview_failed = false;
+    m_spatial_held_registration_failed = false;
     m_relocate_field = options.get("relocate_field", false);
     m_grid_probe_only = false;
     m_relocation_applied = false;
@@ -3539,6 +3540,7 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
         }
     }
     if (!held_points) {
+        m_spatial_held_registration_failed = true;
         const auto fit = estimate_camera_projection(clean, map, true);
         auto sources = json::array();
         for (const auto& point : *clean_points) {

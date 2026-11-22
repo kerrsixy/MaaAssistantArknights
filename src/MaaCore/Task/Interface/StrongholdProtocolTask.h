@@ -189,6 +189,7 @@ private:
     spa::DeploymentCellLedger m_dynamic_layout_expected_cells;
     std::string m_dynamic_layout_context;
     std::string m_failed_layout_context;
+    std::map<int, std::string> m_boss_layout_fixed_unit;
     std::set<std::string> m_failed_spatial_actions;
     std::map<int, int> m_dynamic_layout_attempts;
     std::map<int, int> m_spatial_reconciliation_attempts;

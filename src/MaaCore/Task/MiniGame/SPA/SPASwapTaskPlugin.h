@@ -50,6 +50,8 @@ public:
 
     bool spatial_preview_failed() const { return m_spatial_preview_failed; }
 
+    bool spatial_held_registration_failed() const { return m_spatial_held_registration_failed; }
+
     bool relocation_applied() const { return m_relocation_applied; }
 
     const std::string& verified_map_id() const { return m_verified_map_id; }
@@ -284,6 +286,7 @@ private:
     bool m_spatial_receiver_failed = false;
     bool m_spatial_drop_returned_without_direction = false;
     bool m_spatial_preview_failed = false;
+    bool m_spatial_held_registration_failed = false;
     bool m_relocate_field = false;
     bool m_grid_probe_only = false;
     bool m_relocation_applied = false;

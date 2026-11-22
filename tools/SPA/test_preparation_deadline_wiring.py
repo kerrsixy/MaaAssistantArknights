@@ -157,5 +157,24 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
         self.assertIn("m_policy.free_refreshes == 0", last_coin_review)
 
 
+    def test_boss_layout_replans_once_after_cancelled_held_registration(self):
+        layout = TASK.with_name("StrongholdProtocolLayout.cpp").read_text(encoding="utf-8")
+        reconciled = layout.split("if (!executor->field_pose_verified() ||", 1)[1]
+        restored = reconciled.split("bool replan_after_held_failure = false;", 1)[0]
+        self.assertIn("return false;", restored)
+        self.assertIn("m_spatial_snapshot_round = -1;", restored)
+        recovery = reconciled.split("replan_after_held_failure =", 2)[2].split(
+            "m_dynamic_layout_target.clear();", 1
+        )[0]
+        self.assertIn('m_mode == "independent"', recovery)
+        self.assertIn("m_spatial_boss_phase_round == round", recovery)
+        self.assertIn("executor->spatial_held_registration_failed()", recovery)
+        self.assertIn("!executor->committed_facing()", recovery)
+        self.assertIn("m_boss_layout_fixed_unit.try_emplace(round, name).second", recovery)
+        self.assertIn("if (!replan_after_held_failure)", recovery)
+        self.assertIn("m_failed_layout_context =", recovery)
+        self.assertIn("!healer_already_adjusted && !fixed_after_held_failure;", layout)
+
+
 if __name__ == "__main__":
     unittest.main()

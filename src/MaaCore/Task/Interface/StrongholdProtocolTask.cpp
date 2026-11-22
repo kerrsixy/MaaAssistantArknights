@@ -752,6 +752,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_egir_analysis_context.clear();
     m_egir_plan_context.clear();
     m_failed_layout_context.clear();
+    m_boss_layout_fixed_unit.clear();
     m_dynamic_layout_attempts.clear();
     m_spatial_reconciliation_attempts.clear();
     m_dynamic_layout_observed = false;

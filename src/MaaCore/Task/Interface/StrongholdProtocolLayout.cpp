@@ -378,6 +378,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     std::map<std::string, std::string> names;
     std::map<std::string, spa::PlacementRole> roles;
     std::set<std::string> directions_known;
+    const auto fixed_boss_unit = m_boss_layout_fixed_unit.find(round);
     for (const auto& member : members) {
         static const std::vector<spa::BoardCell> empty_range;
         const auto range = ranges.find(member.name);
@@ -386,8 +387,10 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
                                              m_spatial_orientation_attempts.contains({ round, member.name });
         const bool can_plan_boss_facing = boss_round && (!boss_cells.empty() || !movement_waypoints.empty()) &&
                                           unit.range_known && (unit.damage_output || unit.healer);
+        const bool fixed_after_held_failure =
+            boss_round && fixed_boss_unit != m_boss_layout_fixed_unit.end() && fixed_boss_unit->second == member.name;
         unit.movable = m_auto_deploy_positions.count(member.name) == 1 && (member.facing || can_plan_boss_facing) &&
-                       !healer_already_adjusted;
+                       !healer_already_adjusted && !fixed_after_held_failure;
         names[unit.id] = member.name;
         roles[unit.id] = member.role;
         if (member.facing) {
@@ -1378,6 +1381,7 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
     }
     const auto displaced = m_pending_spatial_orientation->get("displaced", std::string());
     const bool relocation = m_pending_spatial_orientation->get("relocation", false);
+    bool replan_after_held_failure = false;
     if (relocation ? !executor->relocation_applied() : !executor->committed_facing()) {
         if (m_pending_spatial_orientation->get("dynamic_layout", false)) {
             const auto drop = m_pending_spatial_orientation->get("drop_fingerprint", std::string());
@@ -1385,7 +1389,16 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
                 m_failed_spatial_actions.insert(drop);
             }
             else {
-                m_failed_layout_context = m_dynamic_layout_context + std::to_string(round);
+                // After one cancelled Boss drag with a verified restored field, keep that
+                // operator fixed and let another operator improve coverage. A second failed
+                // registration stops the plan for this round.
+                replan_after_held_failure =
+                    m_mode == "independent" && m_spatial_boss_phase && m_spatial_boss_phase_round == round &&
+                    executor->spatial_held_registration_failed() && !executor->committed_facing() &&
+                    m_boss_layout_fixed_unit.try_emplace(round, name).second;
+                if (!replan_after_held_failure) {
+                    m_failed_layout_context = m_dynamic_layout_context + std::to_string(round);
+                }
             }
             m_dynamic_layout_target.clear();
             m_dynamic_layout_expected_cells.clear();
@@ -1424,6 +1437,8 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
                        { "receiver_failed_before_direction", executor->spatial_receiver_failed() },
                        { "drop_returned_without_direction", executor->spatial_drop_returned_without_direction() },
                        { "vacant_preview_failed", executor->spatial_preview_failed() },
+                       { "held_registration_failed", executor->spatial_held_registration_failed() },
+                       { "boss_replan_with_fixed_unit", replan_after_held_failure },
                        { "displaced", displaced },
                        { "roster", roster_snapshot() },
                        { "field_positions", field_position_snapshot() },
