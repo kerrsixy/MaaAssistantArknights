@@ -3106,9 +3106,50 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
         std::find_if(m_placement_members.begin(), m_placement_members.end(), [&](const auto& member) {
             return member.name == m_name && member.x == m_source.x && member.y == m_source.y;
         });
+    if (source_member == m_placement_members.end()) {
+        return false;
+    }
+    const auto source_index = static_cast<std::size_t>(std::distance(m_placement_members.begin(), source_member));
+    std::vector<cv::Point> previous;
+    for (const auto& member : m_placement_members) {
+        previous.emplace_back(member.x, member.y);
+    }
     cv::Mat clean, selected;
-    if (source_member == m_placement_members.end() || !selected_field_identity(m_source, m_name, selected) ||
-        !capture_collapsed_preparation(clean, selected)) {
+    std::optional<std::vector<cv::Point>> clean_points;
+    if (m_fast_mode && !m_grid_probe_only && m_relocation_displaced.empty() &&
+        previous.size() == m_verified_preview_feet.size() && previous.size() == static_cast<size_t>(8 - m_remaining) &&
+        !m_registered_grid_reference.empty() && m_registered_grid_map_id == m_expected_map_id) {
+        const auto fit = estimate_camera_projection(m_registered_grid_reference, reference, true);
+        const auto current_points = registered_field_points(fit, previous);
+        const auto projection = registered_grid_projection(fit, m_registered_grid_projection);
+        if (current_points && projection) {
+            auto current_members = m_placement_members;
+            for (size_t index = 0; index < current_members.size(); ++index) {
+                current_members[index].x = current_points->at(index).x;
+                current_members[index].y = current_points->at(index).y;
+            }
+            const auto cells = registered_grid_members(*projection, current_members);
+            const auto at_target = [&](const auto& member) {
+                return member.col == m_reorient_col && member.row == m_reorient_row;
+            };
+            if (cells && cells->at(source_index).col == m_origin_col && cells->at(source_index).row == m_origin_row &&
+                (m_relocate_field ? std::none_of(cells->begin(), cells->end(), at_target)
+                                  : at_target(cells->at(source_index))) &&
+                std::equal(
+                    previous.begin(),
+                    previous.end(),
+                    current_points->begin(),
+                    [](const auto& before, const auto& now) { return cv::norm(before - now) <= 12; })) {
+                // The held title must still match before any release on the
+                // target cell. The final identity is checked after release.
+                clean = reference;
+                clean_points = current_points;
+            }
+        }
+    }
+    const bool reused_source_pose = clean_points.has_value();
+    if (!reused_source_pose &&
+        (!selected_field_identity(m_source, m_name, selected) || !capture_collapsed_preparation(clean, selected))) {
         return false;
     }
     std::optional<std::size_t> displaced_index;
@@ -3128,17 +3169,14 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
         }
         displaced_index = static_cast<std::size_t>(std::distance(m_placement_members.begin(), displaced));
     }
-    std::vector<cv::Point> previous;
-    for (const auto& member : m_placement_members) {
-        previous.emplace_back(member.x, member.y);
+    if (!clean_points) {
+        clean_points = registered_field_points(reference, clean, previous);
     }
-    const auto clean_points = registered_field_points(reference, clean, previous);
     if (!clean_points) {
         return false;
     }
-    const auto source_index = static_cast<std::size_t>(std::distance(m_placement_members.begin(), source_member));
     m_source = Point(clean_points->at(source_index).x, clean_points->at(source_index).y);
-    m_reorientation_reconcile = [this, clean, clean_points, source_index, displaced_index]() {
+    m_reorientation_reconcile = [this, clean, clean_points, source_index, displaced_index, reused_source_pose]() {
         cv::Mat field;
         if (!capture_collapsed_preparation(field)) {
             return false;
@@ -3236,6 +3274,7 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
                                              { "population_preserved", true },
                                              { "funds_preserved", true },
                                              { "source_identity_and_field_control_verified", true },
+                                             { "source_panel_probed_before_hold", !reused_source_pose },
                                              { "field_coordinates_registered", points->size() },
                                              { "hud_cache_hits", m_preparation_hud_cache_hits },
                                              { "hud_fields_reused", m_preparation_hud_fields_reused },
@@ -3339,7 +3378,8 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
                 auto source = basic_info_with_what("SPAHeldSourceGridRecovered");
                 source["details"] = json::object { { "round", m_round },
                                                    { "name", m_name },
-                                                   { "source_identity_verified_before_hold", true },
+                                                   { "source_identity_verified_before_hold", !reused_source_pose },
+                                                   { "held_title_verified", true },
                                                    { "other_members_feature_registered", clean_points->size() - 1 },
                                                    { "col", source_cell.first },
                                                    { "row", source_cell.second } };
