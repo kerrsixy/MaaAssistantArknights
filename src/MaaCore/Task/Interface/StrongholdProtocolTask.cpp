@@ -34,6 +34,7 @@
 #include "Task/MiniGame/SPA/SPARunBatch.h"
 #include "Task/MiniGame/SPA/SPASetupTaskPlugin.h"
 #include "Task/MiniGame/SPA/SPAShopTaskPlugin.h"
+#include "Task/MiniGame/SPA/SPASpatialActionDeadline.h"
 #include "Task/MiniGame/SPA/SPASpatialGrowthPolicy.h"
 #include "Task/MiniGame/SPA/SPAStrategyCardTaskPlugin.h"
 #include "Task/MiniGame/SPA/SPAStrategyCatalogue.h"
@@ -6518,6 +6519,26 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                         : "Use remaining funds for reviewed equipment";
                 decision.is_equipment = true;
                 decision.banked_value_purchase = false;
+            }
+        }
+        const bool can_defer_shop_search =
+            decision.action == spa::PreparationAction::Refresh || decision.action == spa::PreparationAction::Review;
+        if (m_mode == "joint" && m_auto_run && can_defer_shop_search && field_poses_complete &&
+            !purchase_reserved_after_sale && !m_bench_funding_pair && !m_pending_field_replacement &&
+            m_completed_replacement_exchanges.empty() && m_failed_replacements.empty()) {
+            const auto time_left =
+                m_joint_preparation_deadline.observe(round, std::nullopt, spa::PreparationDeadline::Clock::now());
+            if (spa::replacement_window_before_shop_refresh(time_left, confirmed_full_bench)) {
+                auto replacement_state = state;
+                replacement_state["preparation_seconds_remaining"] = *time_left;
+                if (handle_full_field_replacement(replacement_state)) {
+                    auto reserved = basic_info_with_what("SPAReplacementWindowUsedBeforeSearch");
+                    reserved["details"] = json::object { { "round", round },
+                                                        { "seconds_remaining", *time_left },
+                                                        { "bench_full", confirmed_full_bench } };
+                    callback(AsstMsg::SubTaskExtraInfo, reserved);
+                    continue;
+                }
             }
         }
         std::string full_bench_refresh_quote_source;

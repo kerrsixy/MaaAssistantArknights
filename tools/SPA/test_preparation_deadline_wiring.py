@@ -68,6 +68,16 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
             boundary,
         )
 
+    def test_timed_replacement_precedes_only_optional_shop_search(self):
+        boundary = self.session.split("const bool can_defer_shop_search =", 1)[1].split(
+            "std::string full_bench_refresh_quote_source;", 1
+        )[0]
+        self.assertIn("PreparationAction::Refresh || decision.action == spa::PreparationAction::Review", boundary)
+        self.assertIn('m_mode == "joint" && m_auto_run', boundary)
+        self.assertIn("!purchase_reserved_after_sale && !m_bench_funding_pair", boundary)
+        self.assertIn("observe(round, std::nullopt, spa::PreparationDeadline::Clock::now())", boundary)
+        self.assertIn("handle_full_field_replacement(replacement_state)", boundary)
+
     def test_funded_purchase_defers_equipment_until_live_quote_review(self):
         before_shop, quote_review = self.session.split(
             "bool purchase_reserved_after_sale = false;", 1

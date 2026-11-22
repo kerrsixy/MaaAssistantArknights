@@ -36,6 +36,15 @@ int main()
     assert(!joint_ready_reserves_remaining_time(15, -1));
     assert(!joint_ready_reserves_remaining_time(std::nullopt, 7));
 
+    assert(replacement_window_before_shop_refresh(60, false));
+    assert(replacement_window_before_shop_refresh(48, false));
+    assert(!replacement_window_before_shop_refresh(61, false));
+    assert(!replacement_window_before_shop_refresh(41, false));
+    assert(!replacement_window_before_shop_refresh(54, true));
+    assert(replacement_window_before_shop_refresh(60, true));
+    assert(!replacement_window_before_shop_refresh(71, true));
+    assert(!replacement_window_before_shop_refresh(std::nullopt, false));
+
     const auto now = PreparationDeadline::Clock::time_point {} + std::chrono::hours(24);
     PreparationDeadline clock;
     const auto admission_snapshot = clock.observe(4, 45, now);

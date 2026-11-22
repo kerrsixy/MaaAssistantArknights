@@ -57,4 +57,14 @@ inline bool spatial_action_fits_preparation(
     const auto required = spatial_action_minimum_seconds(action, phase);
     return required && (!remaining || *remaining >= *required);
 }
+
+// Start the final reviewed exchange before another speculative shop scan can
+// consume its admission margin. A full bench needs a verified sale first.
+inline bool replacement_window_before_shop_refresh(std::optional<int> remaining, bool full_bench)
+{
+    const int swap_seconds =
+        *spatial_action_minimum_seconds(SpatialPreparationAction::Swap, SpatialPreparationPhase::Admission);
+    const int required = swap_seconds + (full_bench ? 10 : 0);
+    return remaining && *remaining >= required && *remaining <= required + 15;
+}
 }
