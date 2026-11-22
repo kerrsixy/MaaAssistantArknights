@@ -742,21 +742,44 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
         signal.distinct_members = static_cast<int>(owned_members.size() + new_member_prices.size());
         signal.reachable_members = signal.distinct_members;
         if (available_funds >= 0) {
-            std::vector<int> costs;
+            std::vector<std::pair<int, bool>> quotes;
             for (const auto& [name, price] : new_member_prices) {
-                costs.push_back(price);
+                quotes.emplace_back(price, growth_names.contains(name));
             }
-            std::sort(costs.begin(), costs.end());
+            std::ranges::sort(quotes);
+            const int slots = policy.bench_occupied >= 0 ? std::max(0, 10 - policy.bench_occupied) : 0;
             int budget = available_funds;
-            int slots = policy.bench_occupied >= 0 ? std::max(0, 10 - policy.bench_occupied) : 0;
-            signal.reachable_members = static_cast<int>(owned_members.size());
-            for (int cost : costs) {
-                if (slots == 0 || cost > budget) {
+            int reachable_purchases = 0;
+            for (const auto& quote : quotes) {
+                if (reachable_purchases == slots || quote.first > budget) {
                     break;
                 }
-                ++signal.reachable_members;
-                --slots;
-                budget -= cost;
+                ++reachable_purchases;
+                budget -= quote.first;
+            }
+            signal.reachable_members = static_cast<int>(owned_members.size()) + reachable_purchases;
+
+            // If the cheapest activation members contain no growth source,
+            // replace the last quote with the cheapest available engine.
+            // Aegir's native growth is tied to activation of the pact itself.
+            bool has_engine = signal.growth_engine_owned > 0 || requirement.name == "阿戈尔";
+            const int missing_members = std::max(0, signal.required_members - static_cast<int>(owned_members.size()));
+            const int needed = std::max(missing_members, has_engine ? 0 : 1);
+            if (needed <= reachable_purchases) {
+                int price = 0;
+                const auto end = quotes.begin() + needed;
+                for (auto quote = quotes.begin(); quote != end; ++quote) {
+                    price += quote->first;
+                    has_engine = has_engine || quote->second;
+                }
+                if (has_engine) {
+                    signal.funded_growth_package_cost = price;
+                }
+                else if (
+                    const auto engine = std::find_if(end, quotes.end(), [](const auto& quote) { return quote.second; });
+                    engine != quotes.end() && engine->first <= available_funds - price + (end - 1)->first) {
+                    signal.funded_growth_package_cost = price - (end - 1)->first + engine->first;
+                }
             }
         }
         signal.deployed_members = static_cast<int>(deployed.size());
@@ -878,57 +901,9 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
             return result;
         }
         const auto& challenger = result.ranking.front();
-        std::set<std::string> owned_members;
-        bool owned_engine = false;
-        for (const auto& [name, unit] : policy.owned) {
-            const auto traits = pacts.find(name);
-            if ((unit.copies <= 0 && !unit.elite) || traits == pacts.end() ||
-                !contains(traits->second, challenger.pact)) {
-                continue;
-            }
-            owned_members.insert(name);
-            owned_engine = owned_engine || is_primary_growth_engine(name, challenger.pact);
-        }
-        std::map<std::string, int> priced_members;
-        for (const auto& offer : offers) {
-            const auto traits = pacts.find(offer.name);
-            if (offer.price < 0 || offer.price > available_funds || owned_members.contains(offer.name) ||
-                traits == pacts.end() || !contains(traits->second, challenger.pact)) {
-                continue;
-            }
-            const auto existing = priced_members.find(offer.name);
-            if (existing == priced_members.end() || offer.price < existing->second) {
-                priced_members[offer.name] = offer.price;
-            }
-        }
-        // At most six distinct visible offers. Enumerate actual packages,
-        // rather than counting three cards that the budget cannot purchase.
-        bool affordable_growth_package = false;
-        if (priced_members.size() <= 6) {
-            const std::vector<std::pair<std::string, int>> packages(priced_members.begin(), priced_members.end());
-            for (size_t mask = 0; mask < (size_t { 1 } << packages.size()); ++mask) {
-                int cost = 0;
-                int slots = 0;
-                size_t members = owned_members.size();
-                bool engine = owned_engine;
-                for (size_t index = 0; index < packages.size(); ++index) {
-                    if ((mask & (size_t { 1 } << index)) != 0) {
-                        cost += packages[index].second;
-                        ++slots;
-                        ++members;
-                        engine = engine || is_primary_growth_engine(packages[index].first, challenger.pact);
-                    }
-                }
-                if (cost <= available_funds && slots <= std::max(0, 10 - policy.bench_occupied) &&
-                    members >= static_cast<size_t>(challenger.required_members) && engine) {
-                    affordable_growth_package = true;
-                    break;
-                }
-            }
-        }
         // Layer count is a sunk-investment preference, not a damage forecast.
         const int retention = 450 + std::clamp(layers->second, 0, 999) * 20;
-        if (!affordable_growth_package ||
+        if (!challenger.funded_growth_package_cost ||
             (current != result.ranking.end() && result.score < current->score + retention)) {
             keep_current("Keep the active faction until a funded growth package outweighs its existing investment");
             return result;
@@ -954,10 +929,11 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
             const bool established_opening = !policy.primary_locked_after_activation && available_funds >= 0 &&
                                              current->deployed_members >= std::max(2, current->required_members - 1) &&
                                              current->growth_engine_eligible > 0;
-            if (established_opening && !result.ranking.front().activation_ready) {
+            if (established_opening && !result.ranking.front().funded_growth_package_cost) {
                 result.primary_pact = preferred;
                 result.score = current->score;
-                result.reason = "Keep the fielded growth engine until the alternative can fund an activation";
+                result.reason =
+                    "Keep the fielded growth engine until the alternative can fund members and a growth source";
                 return result;
             }
             const int hysteresis = current->distinct_members >= 2 ? 450 : 300;

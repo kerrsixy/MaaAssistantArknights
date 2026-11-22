@@ -184,6 +184,9 @@ struct DynamicPactSignal
     // a promising role card without being activation-ready yet; that is why
     // these are kept separate instead of collapsing everything into `viable`.
     bool activation_ready = false;
+    // A same-visit quote for distinct members and a growth source.
+    // Missing funds, capacity, or an affordable combination leaves this unknown.
+    std::optional<int> funded_growth_package_cost;
     bool book_window_met = false;
     bool role_signal = false;
     bool viable = false;

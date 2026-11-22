@@ -4337,6 +4337,37 @@ int main()
     installed_iberia.disabled_pacts = { "伊比利亚" };
     assert(choose_dynamic_primary_pact(installed_iberia, victoria_pivot, catalog, 9).primary_pact == "维多利亚");
 
+    {
+        // Buying three cheap members and affording the named growth source
+        // individually does not mean the same funded package contains both.
+        installed_iberia.disabled_pacts.clear();
+        const std::vector<ShopOffer> partial_victoria { { "哈洛德", 3, 0 },
+                                                        { "凯瑟琳", 3, 1 },
+                                                        { "白铁", 3, 2 },
+                                                        { "涤火杰西卡", 4, 3 } };
+        const auto victoria_signal = [](const DynamicPactChoice& choice) -> DynamicPactSignal {
+            const auto signal = std::ranges::find(choice.ranking, "维多利亚", &DynamicPactSignal::pact);
+            assert(signal != choice.ranking.end());
+            return *signal;
+        };
+        const auto partial_quote = choose_dynamic_primary_pact(installed_iberia, partial_victoria, catalog, 9);
+        assert(
+            victoria_signal(partial_quote).activation_ready && !victoria_signal(partial_quote).funded_growth_package_cost);
+        assert(partial_quote.primary_pact == "伊比利亚");
+        const auto funded_quote = choose_dynamic_primary_pact(installed_iberia, partial_victoria, catalog, 10);
+        assert(victoria_signal(funded_quote).funded_growth_package_cost == 10);
+        const auto locked_iberia = [&] {
+            auto locked = installed_iberia;
+            locked.primary_locked_after_activation = true;
+            locked.owned["流明"] = { 1, false, true };
+            locked.observed_pact_layers["伊比利亚"] = 0;
+            locked.bench_occupied = -1;
+            return locked;
+        }();
+        const auto unknown_slots = choose_dynamic_primary_pact(locked_iberia, partial_victoria, catalog, 10);
+        assert(!victoria_signal(unknown_slots).funded_growth_package_cost && unknown_slots.primary_pact == "伊比利亚");
+    }
+
     auto live_ursus_transition = transition_pivot_policy;
     live_ursus_transition.primary_pact = "乌萨斯";
     live_ursus_transition.enabled_core_pacts = { "乌萨斯", "阿戈尔" };

@@ -5556,6 +5556,10 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                        { "score", signal.score },
                                        { "inferred_contention", signal.inferred_contention },
                                        { "activation_ready", signal.activation_ready },
+                                       { "funded_growth_package_cost",
+                                         signal.funded_growth_package_cost
+                                             ? json::value(*signal.funded_growth_package_cost)
+                                             : json::value(nullptr) },
                                        { "book_window_met", signal.book_window_met },
                                        { "role_signal", signal.role_signal },
                                        { "viable", signal.viable },
