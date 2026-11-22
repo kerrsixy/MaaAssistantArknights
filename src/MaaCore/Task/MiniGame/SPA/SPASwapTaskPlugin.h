@@ -71,8 +71,13 @@ public:
         int funds,
         int remaining,
         const std::map<std::string, bool>& unchanged_forms);
-    std::optional<OperatorCardObservation>
-        inspect_field_operator_card(const std::string& name, const Point& point, int round, int funds, int remaining);
+    std::optional<bool> inspect_field_operator_form(
+        const std::string& name,
+        const Point& point,
+        int round,
+        int funds,
+        int remaining,
+        std::optional<bool> unchanged_form);
 
     // Empty means a source/target preview failed, false means a drop was
     // issued but not yet confirmed, true means the field title was read.

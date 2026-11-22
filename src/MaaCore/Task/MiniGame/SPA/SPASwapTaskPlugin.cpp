@@ -1861,12 +1861,13 @@ std::optional<std::vector<std::pair<std::string, bool>>> asst::spa::SwapTaskPlug
     return operators;
 }
 
-std::optional<asst::spa::OperatorCardObservation> asst::spa::SwapTaskPlugin::inspect_field_operator_card(
+std::optional<bool> asst::spa::SwapTaskPlugin::inspect_field_operator_form(
     const std::string& name,
     const Point& point,
     int round,
     int funds,
-    int remaining)
+    int remaining,
+    std::optional<bool> unchanged_form)
 {
     m_round = round;
     m_funds = funds;
@@ -1877,8 +1878,16 @@ std::optional<asst::spa::OperatorCardObservation> asst::spa::SwapTaskPlugin::ins
     if (!capture_collapsed_preparation(field)) {
         return std::nullopt;
     }
-    const auto card = selected_field_identity(point, name, panel) ? selected_operator_card(panel, name) : std::nullopt;
-    return capture_collapsed_preparation(field, panel) ? card : std::nullopt;
+    std::optional<bool> elite;
+    if (selected_field_identity(point, name, panel)) {
+        if (unchanged_form) {
+            elite = unchanged_form;
+        }
+        else if (const auto card = selected_operator_card(panel, name)) {
+            elite = card->elite;
+        }
+    }
+    return capture_collapsed_preparation(field, panel) ? elite : std::nullopt;
 }
 
 bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(

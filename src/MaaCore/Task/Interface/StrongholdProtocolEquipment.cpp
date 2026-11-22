@@ -95,11 +95,17 @@ bool asst::StrongholdProtocolTask::reconcile_tactical_recruitment(const json::va
                 std::ranges::find(catalogue.at(name), m_pending_tactical_recruitment) != catalogue.at(name).end();
             auto& count = after.members[name];
             if (m_field_checkpoint_loaded || ambiguous_field_forms || (check_possible_promotions && could_merge)) {
+                // Revalidate the clicked field identity after restoring a
+                // checkpoint. A one-copy grant cannot change a known single
+                // form unless that operator can synthesize.
+                const auto unchanged_form = !could_merge && (forms.initial == 0 || forms.elite == 0)
+                                                ? std::optional(forms.elite > 0)
+                                                : std::nullopt;
                 for (auto it = begin; it != end; ++it) {
                     const auto& [x, y] = it->second;
-                    if (const auto card =
-                            probe.inspect_field_operator_card(name, Point(x, y), round, funds, remaining)) {
-                        ++(card->elite ? count.elite : count.initial);
+                    if (const auto elite =
+                            probe.inspect_field_operator_form(name, Point(x, y), round, funds, remaining, unchanged_form)) {
+                        ++(*elite ? count.elite : count.initial);
                         surviving_field.emplace(*it);
                     }
                 }
