@@ -4554,6 +4554,9 @@ bool asst::spa::SwapTaskPlugin::_run()
         json::array observed_sources;
         std::optional<size_t> named_source_index;
         Point verified_bench_contact;
+        // Reuse the verified panel and its first clean frame without input between the reads.
+        cv::Mat selected_bench_frame;
+        cv::Mat closed_bench_frame;
         for (const auto index : probe_order) {
             const auto& candidate = bench_candidates[index];
             if (++source_probes > 12) {
@@ -4562,9 +4565,10 @@ bool asst::spa::SwapTaskPlugin::_run()
             if (need_exit()) {
                 return false;
             }
-            if (!wildcard_bench_scan && !ensure_expanded_shop()) {
+            if (!wildcard_bench_scan && !ensure_shop_visibility(true, nullptr, closed_bench_frame)) {
                 return false;
             }
+            closed_bench_frame.release();
             if (!deployment_source_is_bench(candidate.x, candidate.y)) {
                 continue;
             }
@@ -4604,7 +4608,8 @@ bool asst::spa::SwapTaskPlugin::_run()
                 compact_sprite ? Point(candidate.x, candidate.y + 27) : candidate,
                 m_sell_only,
                 {},
-                m_deploy_only ? &verified_bench_contact : nullptr);
+                m_deploy_only ? &verified_bench_contact : nullptr,
+                &selected_bench_frame);
             if (identity && m_bench_identity_hints && operator_pacts().contains(*identity)) {
                 remember_inventory_operator_title(
                     *m_bench_identity_hints,
@@ -4633,7 +4638,7 @@ bool asst::spa::SwapTaskPlugin::_run()
                 found = true;
                 break;
             }
-            if (!close_selection()) {
+            if (!close_selection(&closed_bench_frame, selected_bench_frame)) {
                 return false;
             }
         }
@@ -4664,14 +4669,14 @@ bool asst::spa::SwapTaskPlugin::_run()
         // never opens an operator panel. Avoid another full-frame OCR pass;
         // named swaps still require the strict close/reconciliation path.
         if (!sale_source_panel_open && !source_identity_deferred_to_hold && !wildcard_bench_scan &&
-            !close_selection()) {
+            !close_selection(&closed_bench_frame, selected_bench_frame)) {
             return false;
         }
         if (named_source_index) {
             // Opening an identity panel collapses the shop and shifts the
             // bench. Restore its original layout before reusing any grab
             // position. No roster mutation occurred, so slot order is stable.
-            if (!ensure_expanded_shop(&bench_image)) {
+            if (!ensure_shop_visibility(true, &bench_image, closed_bench_frame)) {
                 return false;
             }
             if (bench_image.empty()) {
