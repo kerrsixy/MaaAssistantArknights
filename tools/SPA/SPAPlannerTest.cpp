@@ -3664,6 +3664,28 @@ int main()
     assert(observed.contradictory && !observed.enemies_total && !observed.enemies_resolved);
     const auto battle_counter_gap = observe_page({ { "回合", 0.99, 445, 20 }, { "54", 0.99, 1140, 31 } }, identities);
     assert(battle_counter_gap.page == Page::Battle && !battle_counter_gap.enemies_total);
+    // D4 R13 opening: the gold enemy icon was reported as the leading "1".
+    const auto counter_with_icon = observe_page(
+        { { "回合", .999373, 445, 21 }, { "10/22", .924192, 597, 15 }, { "109", .99, 1137, 35 } },
+        identities);
+    assert(
+        counter_with_icon.page == Page::Battle && !counter_with_icon.enemies_resolved &&
+        !counter_with_icon.enemies_total);
+    const auto clean_counter =
+        observe_page({ { "回合", .999574, 445, 21 }, { "10/22", .999961, 636, 18 } }, identities);
+    assert(
+        clean_counter.page == Page::Battle && clean_counter.enemies_resolved == 10 &&
+        clean_counter.enemies_total == 22);
+
+    // D4 R14: a result banner arrives before the animated count and Return home.
+    const auto animating_result = observe_page(
+        { { "模拟完成", .999823, 158, 189 },
+          { "通过回合", .999938, 42, 270 },
+          { "规程等级4", .999950, 204, 154 },
+          { "60", .999956, 1172, 109 } },
+        identities);
+    assert(animating_result.page == Page::Unknown && !settlement_text_verified(animating_result));
+
     const std::vector<TextObservation> final_boss_hud { { "规程等级5", .99994, 138, 21 },
                                                         { "自己", .999966, 620, 604 },
                                                         { "中12/13", .857279, 462, 19 },

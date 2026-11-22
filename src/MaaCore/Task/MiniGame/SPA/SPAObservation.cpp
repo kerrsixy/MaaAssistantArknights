@@ -1041,9 +1041,12 @@ asst::spa::PageObservation
             return result;
         }
     }
-    if (has("回合") && !has("准备就绪") && !has("刷新")) {
+    // The settlement animation exposes "通过回合" and roster levels before its button.
+    // The ordinary battle label must be in the HUD, and the ratio must start to the
+    // right of the enemy icon, which OCR can merge with a leading zero as "10".
+    if (anchored("回合", 400, 490, 0, 65) && !has("准备就绪") && !has("刷新")) {
         for (const auto& item : texts) {
-            if (!std::isfinite(item.score) || item.score < 0.85 || item.y < 0 || item.x < 560 || item.x > 720 ||
+            if (!std::isfinite(item.score) || item.score < 0.85 || item.y < 0 || item.x < 625 || item.x > 720 ||
                 item.y > 70) {
                 continue;
             }
