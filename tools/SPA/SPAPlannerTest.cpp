@@ -3656,10 +3656,14 @@ int main()
     };
     assert(joint_local_wave_finished(split_wait));
     auto observed_teammate = local_wait;
-    observed_teammate.push_back({ "队友#2935", .99, 558, 606 });
+    observed_teammate.push_back({ "队友#2935", .998201, 598, 606 });
+    assert(joint_teammate_view(observed_teammate) == "队友#2935");
     assert(!joint_local_wave_finished(observed_teammate));
+    assert(!joint_teammate_view({ { "队友#2935", .998201, 730, 484 } }));
+    assert(!joint_teammate_view({ { "队友#2O35", .998201, 598, 606 } }));
     observed_teammate = local_wait;
     observed_teammate.push_back({ "层数叠加已禁用", .99, 590, 82 });
+    assert(joint_auxiliary_battle(observed_teammate));
     assert(!joint_local_wave_finished(observed_teammate));
     assert(!joint_local_wave_finished({ { "等待队友完成作战", .99, 626, 658 } }));
     assert(joint_difficulty_scroll(1, JointTrainingDifficulty, 0, 2) == DifficultyScroll::Hold);

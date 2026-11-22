@@ -332,7 +332,10 @@ bool asst::spa::RoundTaskPlugin::_run()
         }
         if (page.page == Page::Battle) {
             last_recognized = std::chrono::steady_clock::now();
-            if (!battle_seen) {
+            const auto teammate = m_joint_mode ? joint_teammate_view(texts) : std::nullopt;
+            const bool auxiliary = m_joint_mode && joint_auxiliary_battle(texts);
+            const bool other_board = teammate.has_value() || auxiliary;
+            if (!battle_seen && !other_board) {
                 deadline = std::chrono::steady_clock::now() + std::chrono::seconds(watchdog_seconds);
                 auto info = basic_info_with_what("SPARoundStarted");
                 info["details"] = json::object { { "round", m_round }, { "layout_reviewed_by_caller", true } };
@@ -345,7 +348,7 @@ bool asst::spa::RoundTaskPlugin::_run()
                 battle_seen = true;
                 m_battle_seen = true;
             }
-            const bool local_finished = m_joint_mode && joint_local_wave_finished(texts);
+            const bool local_finished = m_joint_mode && !other_board && joint_local_wave_finished(texts);
             if ((local_finished && !local_finished_captured) ||
                 std::chrono::steady_clock::now() >= next_battle_capture) {
                 const bool battle_frame_saved = save_evidence(image, utils::path("debug/SPA/battle_sample"), false);
@@ -366,8 +369,8 @@ bool asst::spa::RoundTaskPlugin::_run()
                     json::object { { "round", m_round },
                                    { "battle_frame_saved", battle_frame_saved },
                                    { "theoretical_time_limit_seconds", battle_time_limit_seconds(m_round, false) },
-                                   { "life_known", life.has_value() },
-                                   { "life", life.value_or(0) },
+                                   { "life_known", !other_board && life.has_value() },
+                                   { "life", other_board ? 0 : life.value_or(0) },
                                    { "enemies_total_known", enemies_total.has_value() },
                                    { "enemies_total", enemies_total.value_or(0) },
                                    { "enemies_resolved_known", enemies_resolved.has_value() },
@@ -380,6 +383,12 @@ bool asst::spa::RoundTaskPlugin::_run()
                         boss_fill ? json::value(*boss_fill) : json::value(nullptr);
                 }
                 if (m_joint_mode && battle_frame_saved) {
+                    info["details"]["joint_board_scope"] =
+                        teammate ? "teammate" : auxiliary ? "auxiliary" : local_finished ? "local_finished" : "unknown";
+                    if (teammate) {
+                        info["details"]["joint_teammate_identity"] = *teammate;
+                        info["details"]["joint_teammate_life"] = life ? json::value(*life) : json::value(nullptr);
+                    }
                     const bool ordinary_wave = std::ranges::any_of(texts, is_battle_round_label);
                     const auto local_leaks = local_finished && ordinary_wave && enemies_total &&
                                                      enemies_resolved == enemies_total
@@ -418,14 +427,19 @@ bool asst::spa::RoundTaskPlugin::_run()
                     auto layers = observe_pact_layer_numbers(anchors, numbers);
                     std::erase_if(layers, [](const auto& item) { return item.second > 999; });
                     if (!layers.empty()) {
-                        m_latest_pact_layer_snapshot = layers;
                         json::object values;
                         for (const auto& [pact, value] : layers) {
                             values[pact] = value;
                         }
-                        info["details"]["pact_layers"] = std::move(values);
+                        if (teammate) {
+                            info["details"]["joint_teammate_pact_layers"] = std::move(values);
+                        }
+                        else if (!other_board) {
+                            m_latest_pact_layer_snapshot = layers;
+                            info["details"]["pact_layers"] = std::move(values);
+                        }
                     }
-                    if (const auto match = layers.find(m_primary_pact); match != layers.end()) {
+                    if (const auto match = layers.find(m_primary_pact); !other_board && match != layers.end()) {
                         if (!m_first_primary_layers) {
                             m_first_primary_layers = match->second;
                         }

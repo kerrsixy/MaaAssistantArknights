@@ -99,6 +99,22 @@ class JointAcceptanceTests(unittest.TestCase):
                 identity, taskchain="StrongholdProtocol", **{"class": "asst::spa::RoundTaskPlugin"}
             )
             return row
+        events.append(
+            scoped(
+                "SPAPreparationSchedulingObserved",
+                {
+                    "preparation_seconds_remaining_known": True,
+                    "preparation_seconds_remaining": 5,
+                    "shopping_complete": False,
+                },
+            )
+        )
+        events.append(
+            scoped(
+                "SPAAutomationBattleAuthorized",
+                {"battle_authorized": True, "funds": 2, "remaining_deployment": 1},
+            )
+        )
         events.append(scoped("SPAJointReadySubmitted", {}))
         events.append(scoped("SPARoundStarted", {}))
         sample = {
@@ -111,10 +127,31 @@ class JointAcceptanceTests(unittest.TestCase):
             "joint_local_leaks": 2,
         }
         events.append(scoped("SPABattleSample", {**sample, "joint_local_wave_finished": False, "joint_local_leaks": 5}))
+        events.append(
+            scoped(
+                "SPABattleSample",
+                {
+                    **sample,
+                    "joint_board_scope": "teammate",
+                    "joint_teammate_identity": "Team#2935",
+                    "joint_teammate_pact_layers": {"伊比利亚": 112},
+                    "joint_local_leaks": 9,
+                },
+            )
+        )
         events.append(scoped("SPABattleSample", sample))
-        row, = audit_joint_run(events, self.policy, scope=scope)["local_round_evidence"]
+        audit = audit_joint_run(events, self.policy, scope=scope)
+        row, = audit["local_round_evidence"]
+        self.assertEqual(
+            audit["observed_teammate_pact_layers"]["Team#2935"]["pact_layers"],
+            {"伊比利亚": 112},
+        )
         self.assertEqual(row["local_leaks"], 2)
         self.assertTrue(row["ready_input_before_battle"])
+        self.assertFalse(row["shopping_complete_at_last_schedule"])
+        self.assertEqual(row["last_preparation_seconds"], 5)
+        self.assertEqual(row["funds_at_battle_authorization"], 2)
+        self.assertEqual(row["unfilled_field_slots_at_battle_authorization"], 1)
         events.append(scoped("SPABattleSample", {**sample, "joint_local_leaks": 3}))
         row, = audit_joint_run(events, self.policy, scope=scope)["local_round_evidence"]
         self.assertIsNone(row["local_leaks"])

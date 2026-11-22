@@ -58,6 +58,7 @@ def native_battle_sample_verified(event, scope):
         or envelope.get("what") != "SPABattleSample"
         or envelope.get("class") != "asst::spa::RoundTaskPlugin"
         or details.get("contradictory", False)
+        or details.get("joint_board_scope") in ("teammate", "auxiliary")
         or details.get("enemies_total_known") is not True
         or details.get("enemies_resolved_known") is not True
     ):
@@ -121,17 +122,32 @@ def local_round_evidence(events, scope):
                 "deployments": 0,
                 "deadline_deferrals": 0,
                 "last_preparation_seconds": None,
+                "shopping_complete_at_last_schedule": None,
+                "funds_at_battle_authorization": None,
+                "unfilled_field_slots_at_battle_authorization": None,
                 "ready_input_before_battle": None,
                 "battle_started": False,
             },
         )
-        if (
-            what == "SPAPreparationSchedulingObserved"
-            and data.get("preparation_seconds_remaining_known") is True
-            and type(data.get("preparation_seconds_remaining")) is int
-            and data["preparation_seconds_remaining"] >= 0
-        ):
-            row["last_preparation_seconds"] = data["preparation_seconds_remaining"]
+        if what == "SPAPreparationSchedulingObserved":
+            remaining = data.get("preparation_seconds_remaining")
+            complete = data.get("shopping_complete")
+            if (
+                data.get("preparation_seconds_remaining_known") is True
+                and type(remaining) is int
+                and remaining >= 0
+            ):
+                row["last_preparation_seconds"] = remaining
+            row["shopping_complete_at_last_schedule"] = (
+                complete if type(complete) is bool else None
+            )
+        elif what == "SPAAutomationBattleAuthorized" and data.get("battle_authorized") is True:
+            funds = data.get("funds")
+            slots = data.get("remaining_deployment")
+            if type(funds) is int and funds >= 0:
+                row["funds_at_battle_authorization"] = funds
+            if type(slots) is int and 0 <= slots <= 8:
+                row["unfilled_field_slots_at_battle_authorization"] = slots
         elif what == "SPAJointPreparationDeadline":
             row["deadline_deferrals"] += 1
         elif what == "SPAJointReadySubmitted" and not row["battle_started"]:
@@ -162,6 +178,40 @@ def local_round_evidence(events, scope):
             else None
         )
     return [rounds[n] for n in sorted(rounds)]
+
+
+def teammate_pact_evidence(events, scope):
+    observed = {}
+    for index, event in enumerate(events):
+        if not in_verified_execution(event, scope):
+            continue
+        envelope = event["details"]
+        data = envelope.get("details", {})
+        if (
+            envelope.get("what") != "SPABattleSample"
+            or envelope.get("class") != "asst::spa::RoundTaskPlugin"
+            or data.get("battle_frame_saved") is not True
+            or data.get("joint_board_scope") != "teammate"
+        ):
+            continue
+        player = data.get("joint_teammate_identity")
+        layers = data.get("joint_teammate_pact_layers")
+        round_number = data.get("round")
+        if (
+            isinstance(player, str)
+            and re.fullmatch(r".+#[0-9]{3,8}", player)
+            and type(round_number) is int
+            and 1 <= round_number <= 20
+            and isinstance(layers, dict)
+            and layers
+            and all(name and type(n) is int and 0 <= n <= 999 for name, n in layers.items())
+        ):
+            observed[player] = {
+                "round": round_number,
+                "pact_layers": layers,
+                "event_index": index,
+            }
+    return observed
 
 
 def audit_joint_run(events, policy, *, scope=None):
@@ -333,6 +383,7 @@ def audit_joint_run(events, policy, *, scope=None):
         "combat_hud_samples": len(combats),
         "combat_evidence": combat_samples,
         "local_round_evidence": local_round_evidence(events, scope),
+        "observed_teammate_pact_layers": teammate_pact_evidence(events, scope),
         "recovery_requests": recovery_requests,
         "abandon_inputs": exit_inputs,
     }

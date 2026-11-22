@@ -225,16 +225,50 @@ std::optional<int> asst::spa::preparation_countdown(const std::vector<TextObserv
     return seconds;
 }
 
+std::optional<std::string> asst::spa::joint_teammate_view(const std::vector<TextObservation>& texts)
+{
+    std::optional<std::string> player;
+    for (const auto& text : texts) {
+        if (!std::isfinite(text.score) || text.score < .90 || text.x < 480 || text.x >= 810 || text.y < 580 ||
+            text.y >= 645) {
+            continue;
+        }
+        const auto hash = text.text.find('#');
+        if (hash == 0 || hash == std::string::npos) {
+            continue;
+        }
+        const auto account = std::string_view(text.text).substr(hash + 1);
+        if (account.size() < 3 || account.size() > 8 || !std::ranges::all_of(account, [](char c) {
+                return c >= '0' && c <= '9';
+            })) {
+            continue;
+        }
+        if (player && *player != text.text) {
+            return std::nullopt;
+        }
+        player = text.text;
+    }
+    return player;
+}
+
+bool asst::spa::joint_auxiliary_battle(const std::vector<TextObservation>& texts)
+{
+    return std::ranges::any_of(texts, [](const auto& text) {
+        return std::isfinite(text.score) && text.score >= .9 && text.x >= 420 && text.x < 810 && text.y >= 72 &&
+               text.y < 108 && text.text == "层数叠加已禁用";
+    });
+}
+
 bool asst::spa::joint_local_wave_finished(const std::vector<TextObservation>& texts)
 {
+    if (joint_auxiliary_battle(texts)) {
+        return false;
+    }
     bool finished = false;
     bool waiting = false;
     for (const auto& text : texts) {
         if (!std::isfinite(text.score) || text.score < .9 || text.x < 420 || text.x >= 810) {
             continue;
-        }
-        if (text.y >= 72 && text.y < 108 && text.text == "层数叠加已禁用") {
-            return false;
         }
         if (text.y >= 580 && text.y < 645 && text.text.find('#') != std::string::npos) {
             return false;
