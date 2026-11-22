@@ -1408,6 +1408,11 @@ int main()
     opening_context.occupied_strategy_ids = { "band_siracusa" };
     const auto contested_siracusa = assess_opening_strategy("band_siracusa", opening_context);
     assert(contested_siracusa.eligible && contested_siracusa.score == uncontested_siracusa.score - 200);
+    const auto uncontested_yan = assess_opening_strategy("band_yan2", opening_context);
+    opening_context.occupied_strategy_ids.push_back("band_yan");
+    const auto contested_yan = assess_opening_strategy("band_yan2", opening_context);
+    assert(contested_yan.eligible && contested_yan.score == uncontested_yan.score - 200);
+    opening_context.occupied_strategy_ids.pop_back();
     const auto flexible_contested = assess_opening_strategy("band_damaztic", opening_context);
     opening_context.occupied_strategy_ids.clear();
     assert(flexible_contested.score == assess_opening_strategy("band_damaztic", opening_context).score);
@@ -4502,6 +4507,28 @@ int main()
     assert(choose_dynamic_primary_pact(specified_faction, faction_shop, catalog).primary_pact == "阿戈尔");
     specified_faction.disabled_pacts = { "阿戈尔" };
     assert(choose_dynamic_primary_pact(specified_faction, faction_shop, catalog).primary_pact == "维多利亚");
+    // The D5 Black and White opening shop had no Yan offer. Its faction
+    // strategy still directs development while availability remains verified.
+    PreparationPolicy faction_strategy;
+    faction_strategy.primary_pact = "auto";
+    faction_strategy.selected_strategy_id = "band_yan2";
+    faction_strategy.enabled_core_pacts = { "炎", "阿戈尔" };
+    faction_strategy.round = 1;
+    faction_strategy.shop_level = 1;
+    const std::vector<ShopOffer> black_and_white_shop { { "幽灵鲨", 2, 0 }, { "陨星", 2, 1 }, { "褐果", 2, 2 } };
+    const auto yan_opening = choose_dynamic_primary_pact(faction_strategy, black_and_white_shop, catalog, 4);
+    assert(
+        yan_opening.valid && yan_opening.primary_pact == "炎" && yan_opening.declared_strategy_pact_restricted &&
+        yan_opening.ranking.empty());
+    faction_strategy.requested_primary_pact = "阿戈尔";
+    assert(choose_dynamic_primary_pact(faction_strategy, black_and_white_shop, catalog, 4).primary_pact == "阿戈尔");
+    faction_strategy.requested_primary_pact.clear();
+    faction_strategy.disabled_pacts = { "炎" };
+    const auto banned_yan = choose_dynamic_primary_pact(faction_strategy, black_and_white_shop, catalog, 4);
+    assert(banned_yan.valid && banned_yan.primary_pact == "阿戈尔" && !banned_yan.declared_strategy_pact_restricted);
+    faction_strategy.disabled_pacts.clear();
+    faction_strategy.selected_strategy_id = "band_takecare";
+    assert(choose_dynamic_primary_pact(faction_strategy, black_and_white_shop, catalog, 4).primary_pact == "阿戈尔");
     std::set<std::string> guide_ids;
     for (const auto& route : strategy_guide_routes()) {
         assert(!route.guide_id.empty() && !route.primary.empty() && !route.strategies.empty());

@@ -127,10 +127,11 @@ asst::spa::OpeningStrategyAssessment
     result.reason = fact->passive ? "Compare initial life, automatic combat effects and available pact synergies"
                                   : "Active instruction has no assumed automatic effect; retain as an eligible option";
     if (context.pact_availability_known) {
-        const auto routes = guided_primary_choices(id, context.disabled_pacts);
-        if (!routes.pacts.empty()) {
+        const auto primary_pacts = fact->pact.empty() ? guided_primary_choices(id, context.disabled_pacts).pacts
+                                                      : std::vector { std::string(fact->pact) };
+        if (!primary_pacts.empty()) {
             int lowest_contention = 100;
-            for (const auto& pact : routes.pacts) {
+            for (const auto& pact : primary_pacts) {
                 lowest_contention = std::min(
                     lowest_contention,
                     inferred_route_contention(pact, context.occupied_strategy_ids, context.disabled_pacts));

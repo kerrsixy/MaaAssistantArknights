@@ -5826,17 +5826,19 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                        { "native_growth_available", signal.native_growth_available } });
                 }
                 auto selected = basic_info_with_what("SPAAutomationPrimaryPactSelected");
-                selected["details"] = json::object { { "previous_primary_pact", previous },
-                                                     { "primary_pact", m_policy.primary_pact },
-                                                     { "score", dynamic.score },
-                                                     { "reason", dynamic.reason },
-                                                     { "round", round },
-                                                     { "shop_level", m_policy.shop_level },
-                                                     { "locked_after_activation", current_primary_is_active },
-                                                     { "ranking", std::move(ranking) },
-                                                     { "selected_strategy_id", m_selected_strategy_id },
-                                                     { "guide_restricted", dynamic.guide_restricted },
-                                                     { "noncore_guide_pending", dynamic.noncore_guide_pending } };
+                selected["details"] =
+                    json::object { { "previous_primary_pact", previous },
+                                   { "primary_pact", m_policy.primary_pact },
+                                   { "score", dynamic.score },
+                                   { "reason", dynamic.reason },
+                                   { "round", round },
+                                   { "shop_level", m_policy.shop_level },
+                                   { "locked_after_activation", current_primary_is_active },
+                                   { "ranking", std::move(ranking) },
+                                   { "selected_strategy_id", m_selected_strategy_id },
+                                   { "guide_restricted", dynamic.guide_restricted },
+                                   { "declared_strategy_pact_restricted", dynamic.declared_strategy_pact_restricted },
+                                   { "noncore_guide_pending", dynamic.noncore_guide_pending } };
                 callback(AsstMsg::SubTaskExtraInfo, selected);
             }
         }

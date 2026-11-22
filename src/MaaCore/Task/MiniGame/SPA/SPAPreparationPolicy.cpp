@@ -707,10 +707,15 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
     }
     const bool use_requested = !policy.requested_primary_pact.empty() && policy.requested_primary_pact != "auto" &&
                                !is_disabled(policy.requested_primary_pact) && is_enabled(policy.requested_primary_pact);
+    const std::string strategy_pact(declared_strategy_pact(policy.selected_strategy_id));
+    const bool use_strategy_pact =
+        !use_requested && !strategy_pact.empty() && is_enabled(strategy_pact) && !is_disabled(strategy_pact) &&
+        std::ranges::any_of(requirements, [&](const auto& item) { return item.core && item.name == strategy_pact; });
+    result.declared_strategy_pact_restricted = use_strategy_pact;
     const auto guided = guided_primary_choices(policy.selected_strategy_id, policy.disabled_pacts);
     // Admit a documented auxiliary-led primary only when it has a route
     // profile. Ordinary card-driven fallback still searches core factions.
-    const bool use_guide = !use_requested && guided.guide_found &&
+    const bool use_guide = !use_requested && !use_strategy_pact && guided.guide_found &&
                            std::any_of(guided.pacts.begin(), guided.pacts.end(), [&](const auto& pact) {
                                return is_enabled(pact) && !is_disabled(pact);
                            });
@@ -726,6 +731,7 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
                                        (use_requested && requirement.name == policy.requested_primary_pact));
         if ((!requirement.core && !guided_auxiliary) || requirement.members <= 0 || !is_enabled(requirement.name) ||
             is_disabled(requirement.name) || (use_requested && requirement.name != policy.requested_primary_pact) ||
+            (use_strategy_pact && requirement.name != strategy_pact) ||
             (use_guide && !contains(guided.pacts, requirement.name))) {
             continue;
         }
@@ -905,6 +911,15 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
         }
         return lhs.pact < rhs.pact;
     });
+    if (use_strategy_pact) {
+        // A faction strategy can give a route direction before the first matching card appears.
+        // Its density, activation and growth evidence still comes from the current formation and shop.
+        result.valid = true;
+        result.primary_pact = strategy_pact;
+        result.score = result.ranking.empty() ? 0 : result.ranking.front().score;
+        result.reason = "Develop the available core faction declared by the selected strategy";
+        return result;
+    }
     if (result.ranking.empty()) {
         result.reason = "No enabled faction has a verified current growth or output signal";
         return result;

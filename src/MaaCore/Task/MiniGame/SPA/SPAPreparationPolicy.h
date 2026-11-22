@@ -232,6 +232,7 @@ struct DynamicPactChoice
     std::string reason;
     bool guide_restricted = false;
     bool noncore_guide_pending = false;
+    bool declared_strategy_pact_restricted = false;
 };
 
 // Activation count alone is not enough for a battle-ready route. The current
