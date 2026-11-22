@@ -5329,6 +5329,34 @@ int main()
     vacant_opening.deployed_population = 6;
     vacant_opening.selected_strategy_id = "band_cannot";
     assert(spend_surplus().action == PreparationAction::Review);
+    // The regulation 5 R3 offer was 卡达 at 2 with 2 funds, vacant
+    // positions and no faction yet. The already fielded copy can form a pair.
+    PreparationPolicy early_surplus_pair;
+    early_surplus_pair.dynamic_decision_mode = true;
+    early_surplus_pair.dynamic_primary_pact = true;
+    early_surplus_pair.primary_pact = "auto";
+    early_surplus_pair.enabled_core_pacts = { "乌萨斯" };
+    early_surplus_pair.disabled_pacts = { "莱塔尼亚" };
+    early_surplus_pair.selected_strategy_id = "band_weakness";
+    early_surplus_pair.round = 3;
+    early_surplus_pair.shop_level = 1;
+    early_surplus_pair.deployed_population = 4;
+    early_surplus_pair.bench_occupied = 2;
+    early_surplus_pair.allow_refresh = false;
+    early_surplus_pair.owned = { { "陨星", { 2, false, true } }, { "卡达", { 1, false, true } },
+                                 { "拜松", { 2, false, true } }, { "灰喉", { 1, false, false } } };
+    early_surplus_pair.early_board_scores = { { "卡达", 600 }, { "夏栎", 250 } };
+    const auto pair_card = ShopOffer { "卡达", 2, 1 };
+    const auto pair_choice = choose_preparation(early_surplus_pair, 2, { pair_card }, catalog);
+    assert(pair_choice.action == PreparationAction::Buy && pair_choice.name == "卡达");
+    const auto distinct_opening = choose_preparation(
+        early_surplus_pair, 2, { pair_card, { "夏栎", 2, 3 } }, catalog);
+    assert(distinct_opening.action == PreparationAction::Buy && distinct_opening.name == "夏栎");
+    early_surplus_pair.bench_occupied = 4;
+    assert(choose_preparation(early_surplus_pair, 2, { pair_card }, catalog).action == PreparationAction::Review);
+    early_surplus_pair.bench_occupied = 2;
+    early_surplus_pair.selected_strategy_id = "band_cannot";
+    assert(choose_preparation(early_surplus_pair, 2, { pair_card }, catalog).action == PreparationAction::Review);
     missing_ranged.owned["野鬃"] = { 2, false, true };
     const auto off_faction_promotion = choose_preparation(missing_ranged, 2, { { "野鬃", 2, 0 } }, catalog);
     assert(off_faction_promotion.action == PreparationAction::Buy && off_faction_promotion.name == "野鬃");

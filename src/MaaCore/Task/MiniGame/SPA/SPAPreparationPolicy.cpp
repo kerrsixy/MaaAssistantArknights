@@ -1960,31 +1960,47 @@ static std::optional<PreparationChoice> choose_open_field_recruit(
     }
 
     const ShopOffer* best = nullptr;
-    int best_score = 0;
+    std::pair<int, int> best_priority { -1, 0 };
     for (const auto& offer : offers) {
         if (offer.price < 0 || offer.price > funds || offer.right_slot < 0 || offer.right_slot > 5 ||
-            !pacts.contains(offer.name) || policy.owned.contains(offer.name)) {
+            !pacts.contains(offer.name)) {
             continue;
+        }
+        const auto owned = policy.owned.find(offer.name);
+        const bool distinct = owned == policy.owned.end();
+        if (!distinct) {
+            // An early combat pair can use an otherwise expiring balance
+            // when the first copy is fielded and the second has room to join.
+            // Prefer a distinct recruit whenever one is useful and affordable.
+            const auto forms = owned_form_counts(owned->second);
+            if (policy.primary_pact != "auto" || offer.price != funds || !owned->second.deployed ||
+                !forms || forms->initial != 1 || forms->elite != 0) {
+                continue;
+            }
         }
         const auto value = policy.early_board_scores.find(offer.name);
         if (value == policy.early_board_scores.end() || value->second <= UnclassifiedEarlyBoardScore) {
             continue;
         }
-        const int score = value->second - offer.price * 20;
-        if (score > best_score) {
+        const int combat_score = value->second - offer.price * 20;
+        const auto priority = std::pair { distinct ? 1 : 0, combat_score };
+        if (combat_score > 0 && priority > best_priority) {
             best = &offer;
-            best_score = score;
+            best_priority = priority;
         }
     }
     if (!best) {
         return std::nullopt;
     }
-    return PreparationChoice { PreparationAction::Buy,
-                               best->name,
-                               best->price,
-                               best->right_slot,
-                               "Spend expiring funds on a distinct combat operator for a vacant field slot",
-                               policy.primary_pact == "auto" ? std::string {} : policy.primary_pact };
+    return PreparationChoice {
+        PreparationAction::Buy,
+        best->name,
+        best->price,
+        best->right_slot,
+        best_priority.first == 1 ? "Spend expiring funds on a distinct combat operator for a vacant field slot"
+                                 : "Spend the remaining funds on a fieldable opening combat pair",
+        policy.primary_pact == "auto" ? std::string {} : policy.primary_pact
+    };
 }
 
 static const ScoredShopPurchase& prefer_spending_last_coin(
