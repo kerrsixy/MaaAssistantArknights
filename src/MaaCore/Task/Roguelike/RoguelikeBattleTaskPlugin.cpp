@@ -532,24 +532,32 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_requirements_met(
     if (plan.require_persistent_blocking && !persistent_blocking_available({ oper.role, oper.name })) {
         return false;
     }
-    if (plan.required_attack_tiles.empty()) {
+    if (plan.required_attack_tiles.empty() && plan.required_range_tiles.empty()) {
         return true;
     }
     const auto elite = m_oper_elite.find(oper.name);
     const auto props = BattleData.find_first_oper(oper.role, oper.name);
     if (elite == m_oper_elite.end() || elite->second < 0 || elite->second > 2 || !props ||
-        props->sub_role == battle::SubRole::Unknown || props->sub_role == battle::SubRole::Support_Bard ||
-        (oper.role == battle::Role::Medic && props->sub_role != battle::SubRole::Medic_IncantationMedic) ||
+        props->sub_role == battle::SubRole::Unknown ||
         BattleData.get_range(oper.role, oper.name, elite->second) == BattleDataConfig::EmptyRange) {
         return false;
     }
-    const auto range = get_attack_range(oper, resolve_deploy_direction(oper, plan.location, plan.direction));
-    if (m_hunter_prelude && !m_hunter_prelude->attack_range_allowed(plan.plan_index, range)) {
+    if (!plan.required_attack_tiles.empty() &&
+        (props->sub_role == battle::SubRole::Support_Bard ||
+         (oper.role == battle::Role::Medic && props->sub_role != battle::SubRole::Medic_IncantationMedic))) {
         return false;
     }
-    return std::ranges::all_of(plan.required_attack_tiles, [&](const Point& target) {
-        return std::ranges::find(range, target - plan.location) != range.end();
-    });
+    const auto range = get_attack_range(oper, resolve_deploy_direction(oper, plan.location, plan.direction));
+    if (!plan.required_attack_tiles.empty() && m_hunter_prelude &&
+        !m_hunter_prelude->attack_range_allowed(plan.plan_index, range)) {
+        return false;
+    }
+    const auto covers = [&](const std::vector<Point>& targets) {
+        return std::ranges::all_of(targets, [&](const Point& target) {
+            return std::ranges::find(range, target - plan.location) != range.end();
+        });
+    };
+    return covers(plan.required_attack_tiles) && covers(plan.required_range_tiles);
 }
 
 int asst::RoguelikeBattleTaskPlugin::preferred_deployment_coverage(

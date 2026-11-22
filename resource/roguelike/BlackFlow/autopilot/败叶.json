@@ -1,0 +1,79 @@
+{
+    "stage_name": "败叶",
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true,
+    "replacement_home": [
+        {
+            "location": [9, 4],
+            "direction": "left"
+        },
+        {
+            "location": [10, 1],
+            "direction": "left"
+        }
+    ],
+    "doc": [
+        "阶段65首次实机候选，尚无本候选通关证据。中路先古米8,4上、EW9,3左、广域医疗10,3左；上路主阻挡前移8,1左。",
+        "6只恶咒者处理完会触发残余枯枝批量生成使徒；主动打树也可提前生成。不能把1血放行六只当安全方案。",
+        "当前队伍没有参考视频的龙梓兰和回费链，不复制其秒表；本候选不假称已实现提前分批清树。",
+        "上路盾与后排输出分开；处理数达到6后，如当前队伍有司霆惊蛰，部署9,1朝左作为S2爆发输出，不算常驻阻挡。她的S2沿地面扩展，9,2坑洞不参与连通。",
+        "医疗必须按本场已知精英的基础范围同时覆盖8,4、9,3、8,1、9,1；短射程或未知练度不冒充广域覆盖。",
+        "费用和SP按本场卡价及就绪图标执行，基础预算只是必要条件；生存、火力与上下路时序仍须新局实测。"
+    ],
+    "deploy_plan": [
+        {
+            "groups": ["奶盾", "重装", "机械师", "铁卫"],
+            "location": [8, 4],
+            "direction": "up",
+            "prefer_group_order": true,
+            "require_persistent_blocking": true
+        },
+        {
+            "groups": ["益达", "高台输出", "狙击", "术师"],
+            "location": [9, 3],
+            "direction": "left",
+            "minimum_elite": 2,
+            "prefer_group_order": true,
+            "required_attack_tiles": [
+                [8, 4],
+                [8, 1],
+                [9, 1]
+            ]
+        },
+        {
+            "groups": ["单奶", "群奶", "奶", "医疗", "元素奶"],
+            "location": [10, 3],
+            "direction": "left",
+            "excluded_operator_names": ["凯尔希·思衡托"],
+            "preferred_attack_tiles": [
+                [9, 3],
+                [8, 4],
+                [9, 1]
+            ],
+            "required_range_tiles": [
+                [8, 4],
+                [9, 3],
+                [8, 1],
+                [9, 1]
+            ]
+        },
+        {
+            "groups": ["奶盾", "重装", "机械师", "铁卫"],
+            "location": [8, 1],
+            "direction": "left",
+            "prefer_group_order": true,
+            "require_persistent_blocking": true
+        },
+        {
+            "groups": ["近卫"],
+            "operator_names": ["司霆惊蛰"],
+            "location": [9, 1],
+            "direction": "left",
+            "minimum_elite": 1,
+            "condition": [6, 9999],
+            "max_deployments": 1,
+            "prefer_group_order": true,
+            "required_attack_tiles": [[8, 1]]
+        }
+    ]
+}

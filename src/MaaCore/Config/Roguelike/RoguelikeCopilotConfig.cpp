@@ -241,6 +241,7 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
                 return true;
             };
             if (!read_tile_locations("required_attack_tiles", info.required_attack_tiles) ||
+                !read_tile_locations("required_range_tiles", info.required_range_tiles) ||
                 !read_tile_locations("preferred_attack_tiles", info.preferred_attack_tiles) ||
                 !read_tile_locations("exclusive_locations", info.exclusive_locations)) {
                 LogError << __FUNCTION__ << "Invalid deployment tile constraints" << stage_name;
