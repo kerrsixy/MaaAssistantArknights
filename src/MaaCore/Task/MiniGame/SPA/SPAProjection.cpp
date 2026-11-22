@@ -348,6 +348,23 @@ bool bench_christine_sprite_visible(const cv::Mat& image, cv::Point center)
     return cv::countNonZero(eyes) >= 4;
 }
 
+static bool bench_tier_three_glyph(const cv::Mat& inner_hsv)
+{
+    cv::Mat cyan, labels, stats, centroids;
+    cv::inRange(inner_hsv, cv::Scalar(73, 120, 125), cv::Scalar(111, 255, 255), cyan);
+    const int components = cv::connectedComponentsWithStats(cyan, labels, stats, centroids);
+    int strokes = 0;
+    for (int index = 1; index < components; ++index) {
+        const int width = stats.at<int>(index, cv::CC_STAT_WIDTH);
+        const int height = stats.at<int>(index, cv::CC_STAT_HEIGHT);
+        const int area = stats.at<int>(index, cv::CC_STAT_AREA);
+        if (width >= 2 && width * 3 <= height && height * 5 >= inner_hsv.rows * 3 && area * 2 >= width * height) {
+            ++strokes;
+        }
+    }
+    return strokes == 3;
+}
+
 std::vector<cv::Point> bench_source_centres(const cv::Mat& image, bool include_christine)
 {
     std::vector<cv::Point> result;
@@ -405,11 +422,13 @@ std::vector<cv::Point> bench_source_centres(const cv::Mat& image, bool include_c
             static_cast<double>(cv::countNonZero(inner_gray < 110)) / static_cast<double>(inner_gray.total());
         const double outline_bright =
             static_cast<double>(cv::countNonZero(outer_gray > 125)) / static_cast<double>(outer_gray.total());
-        // The leftmost card can be clipped by the map-edge vignette; its
-        // Roman numeral occupies more of the badge and lowers the dark-pixel
-        // ratio. The body texture gate below remains mandatory, so accept the
-        // clipped badge at a slightly lower interior ratio.
-        if (inner_dark < 0.60 || outline_bright < 0.12) {
+        // A bright, wide III can lower the dark fraction even on an intact
+        // badge. Require its three turquoise strokes if darkness alone is
+        // marginal. The connected shape, bright outline and sprite still
+        // have to pass before any panel probe.
+        if (outline_bright < 0.12 ||
+            (inner_dark < 0.60 &&
+             (inner_dark < 0.55 || !bench_tier_three_glyph(hsv(cv::Rect(x + 3, y + 3, width - 6, height - 6)))))) {
             continue;
         }
         // The source click point is below/right of the badge.  Use a stable

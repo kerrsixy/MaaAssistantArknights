@@ -2,6 +2,7 @@
 #include <cassert>
 #include <iostream>
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 
 int main()
 {
@@ -99,5 +100,28 @@ int main()
         assert(std::find(no_sprite.begin(), no_sprite.end(), christine) == no_sprite.end());
     }
     assert(bench_source_centres(failed, true) == bench_source_centres(failed));
+
+    // The real round-9 III badge has a bright numeral over 41% of its
+    // inner area. The old scan probed only the other three occupied slots.
+    const auto tier_three = cv::imread("bench_tier_three_glyph_live.png");
+    assert(tier_three.size() == failed.size());
+    const cv::Point missing_slot(681, 450);
+    const std::vector<cv::Point> other_slots { { 761, 450 }, { 842, 450 }, { 923, 450 } };
+    auto expected_slots = other_slots;
+    expected_slots.insert(expected_slots.begin(), missing_slot);
+    assert(bench_source_centres(tier_three) == expected_slots);
+
+    auto neutral_glyph = tier_three.clone();
+    auto glyph = neutral_glyph(cv::Rect(642, 389, 18, 18));
+    cv::Mat hsv, turquoise;
+    cv::cvtColor(glyph, hsv, cv::COLOR_BGR2HSV);
+    cv::inRange(hsv, cv::Scalar(73, 120, 125), cv::Scalar(111, 255, 255), turquoise);
+    glyph.setTo(cv::Scalar(180, 180, 180), turquoise);
+    assert(bench_source_centres(neutral_glyph) == other_slots);
+
+    auto absent_sprite = tier_three.clone();
+    absent_sprite(cv::Rect(647, 412, 68, 54)).setTo(cv::Scalar(105, 141, 173));
+    assert(bench_source_centres(absent_sprite) == other_slots);
+
     std::cout << "bench sale hitbox and compact operator source frames passed; no live input\n";
 }

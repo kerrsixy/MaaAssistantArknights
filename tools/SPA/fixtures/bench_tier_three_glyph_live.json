@@ -1,0 +1,25 @@
+{
+  "source": "dev-v2-nymph-d4-release-three-win-batch-20261122/debug/SPA/bench_source_unresolved/2026.11.22-08.05.04.344_raw.png",
+  "sha256": "250b2a330ea32e14c05fac89b2a8b37c4b2475caa78271c65db68758b46a6d6c",
+  "run_execution_id": "91a251e3-a20e-4f14-a8d5-1f117a1af4f3",
+  "round": 9,
+  "mode": "independent",
+  "difficulty": 4,
+  "candidate": "旅骨",
+  "bench_center": [
+    681,
+    450
+  ],
+  "badge_bounds": [
+    639,
+    386,
+    24,
+    24
+  ],
+  "baseline_centres_x": [
+    761,
+    842,
+    923
+  ],
+  "status": "The live source scan omitted the visible leftmost tier-III slot. The fixed fixture verifies candidate discovery only."
+}
