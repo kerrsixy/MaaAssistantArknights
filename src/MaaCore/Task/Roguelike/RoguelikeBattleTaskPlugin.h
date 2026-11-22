@@ -171,6 +171,8 @@ protected:
     void set_position_full(battle::LocationType loc_type, bool full);
     void set_position_full(const Point& loc, bool full);
     battle::OperPosition get_role_position(const battle::Role& role) const;
+    battle::OperPosition get_oper_position(const battle::OperNameTag& oper) const;
+    bool persistent_blocking_available(const battle::OperNameTag& oper) const;
 
     /* from config */
 

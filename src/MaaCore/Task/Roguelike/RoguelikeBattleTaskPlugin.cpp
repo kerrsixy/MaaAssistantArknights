@@ -422,6 +422,29 @@ asst::battle::OperPosition asst::RoguelikeBattleTaskPlugin::get_role_position(co
     }
 }
 
+asst::battle::OperPosition asst::RoguelikeBattleTaskPlugin::get_oper_position(const battle::OperNameTag& oper) const
+{
+    const auto position = get_role_position(oper.role);
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow && position == battle::OperPosition::Blocking) {
+        const auto props = BattleData.find_first_oper(oper.role, oper.name);
+        if (props && props->sub_role == battle::SubRole::Warrior_Liberator) {
+            // Skill-dependent blocking cannot establish a permanent defence.
+            // The operator remains available to ordinary damage-dealer plans.
+            return battle::OperPosition::None;
+        }
+    }
+    return position;
+}
+
+bool asst::RoguelikeBattleTaskPlugin::persistent_blocking_available(const battle::OperNameTag& oper) const
+{
+    const auto props = BattleData.find_first_oper(oper.role, oper.name);
+    return props && props->sub_role != battle::SubRole::Unknown &&
+           props->sub_role != battle::SubRole::Warrior_Liberator &&
+           props->sub_role != battle::SubRole::Pioneer_Bearer &&
+           get_role_position(oper.role) == battle::OperPosition::Blocking;
+}
+
 void asst::RoguelikeBattleTaskPlugin::cache_oper_elite_status()
 {
     const auto& oper_list = m_config->status().opers;
@@ -504,6 +527,9 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_requirements_met(
     }
     if ((plan.exclude_starting_core && oper.name == m_config->get_core_char()) ||
         std::ranges::find(plan.excluded_operator_names, oper.name) != plan.excluded_operator_names.end()) {
+        return false;
+    }
+    if (plan.require_persistent_blocking && !persistent_blocking_available({ oper.role, oper.name })) {
         return false;
     }
     if (plan.required_attack_tiles.empty()) {
@@ -1175,7 +1201,7 @@ void asst::RoguelikeBattleTaskPlugin::postproc_of_deployment_conditions(
         m_homes_status[m_cur_home_index].wait_medic = false;
     }
 
-    auto position = get_role_position(oper.role);
+    auto position = get_oper_position({ oper.role, oper.name });
     switch (position) {
     case OperPosition::Blocking: {
         m_force_air_defense.has_deployed_blocking_num++;
@@ -1315,7 +1341,7 @@ std::optional<asst::battle::DeploymentOper> asst::RoguelikeBattleTaskPlugin::cal
             break;
         }
 
-        const auto& position = get_role_position(role);
+        const auto position = get_oper_position({ oper.role, oper.name });
         switch (position) {
         case OperPosition::Blocking:
             has_blocking = true;
@@ -1442,6 +1468,10 @@ std::optional<asst::battle::DeploymentOper> asst::RoguelikeBattleTaskPlugin::cal
                     continue;
                 }
                 if (oper.role != role || DiceSet.contains(oper.name) || get_position_full(oper)) {
+                    continue;
+                }
+                if (!use_air_defense && use_blocking &&
+                    get_oper_position({ oper.role, oper.name }) != OperPosition::Blocking) {
                     continue;
                 }
                 // 原来这里是「同职业里取第一个」：cur_available 按费用升序，于是预备干员
@@ -1889,7 +1919,7 @@ asst::RoguelikeBattleTaskPlugin::DirectionAndScore asst::RoguelikeBattleTaskPlug
                     oper.role == battle::Role::Support) {
                     if (auto occupied = m_used_tiles.find(absolute_pos);
                         occupied != m_used_tiles.end() &&
-                        get_role_position(occupied->second.role) == battle::OperPosition::Blocking) {
+                        get_oper_position(occupied->second) == battle::OperPosition::Blocking) {
                         score += 10'000;
                     }
                     if (absolute_pos == home_loc) {

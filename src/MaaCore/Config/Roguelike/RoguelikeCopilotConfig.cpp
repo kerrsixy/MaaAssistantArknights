@@ -214,6 +214,12 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
                 return false;
             }
             info.prefer_group_order = deploy_info.get("prefer_group_order", false);
+            if (deploy_info.contains("require_persistent_blocking") &&
+                !deploy_info.at("require_persistent_blocking").is<bool>()) {
+                LogError << __FUNCTION__ << "Invalid persistent blocking requirement" << stage_name;
+                return false;
+            }
+            info.require_persistent_blocking = deploy_info.get("require_persistent_blocking", false);
             const auto read_tile_locations = [&](const std::string& key, std::vector<Point>& result) {
                 if (!deploy_info.contains(key)) {
                     return true;
