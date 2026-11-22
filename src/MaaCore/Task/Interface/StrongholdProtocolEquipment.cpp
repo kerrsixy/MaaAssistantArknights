@@ -1,4 +1,5 @@
 #include "Config/Miscellaneous/BattleDataConfig.h"
+#include "Controller/Controller.h"
 #include "StrongholdProtocolTask.h"
 #include "Task/MiniGame/SPA/SPAAcquisition.h"
 #include "Task/MiniGame/SPA/SPABattleRole.h"
@@ -16,6 +17,172 @@
 #include <algorithm>
 #include <iterator>
 #include <utility>
+
+bool asst::StrongholdProtocolTask::handle_strategy_copy(const json::value& state)
+{
+    const int round = state.get("round", -1);
+    const int funds = state.get("funds", -1);
+    const int remaining = state.get("remaining_deployment", -1);
+    if (m_selected_strategy_id != "band_copy" || !m_strategy_copy_target.empty() ||
+        m_preparation_instruction_attempts.contains(round) || !state.get("round_known", false) ||
+        !state.get("funds_known", false) || !state.get("remaining_deployment_known", false) ||
+        remaining < 0 || remaining > 8 || state.get("remaining_deployment_inferred", false) || m_policy.bench_occupied < 0 ||
+        m_policy.bench_occupied >= 10 || m_field_checkpoint_loaded || m_bench_recount_pending ||
+        m_pending_spatial_orientation || m_pending_field_replacement ||
+        m_auto_deploy_positions.size() != static_cast<size_t>(8 - remaining) ||
+        (m_mode == "joint" && state.get("preparation_seconds_remaining", 0) < 45)) {
+        return false;
+    }
+
+    spa::ObservedOperatorInventory before;
+    std::map<std::string, bool> unchanged_forms;
+    int bench_count = 0;
+    std::string target;
+    int best_value = -1;
+    const bool final_preparations = m_expected_boss_round > 0 && round >= m_expected_boss_round - 1;
+    for (const auto& [name, unit] : m_policy.owned) {
+        const auto form = spa::owned_form_counts(unit);
+        const auto field = static_cast<int>(m_auto_deploy_positions.count(name));
+        if (!form || field > form->initial + form->elite ||
+            (field > 0 && field < form->initial + form->elite && form->initial > 0 && form->elite > 0)) {
+            return false;
+        }
+        if (field < form->initial + form->elite) {
+            auto benched = *form;
+            if (form->initial == 0) {
+                benched.elite -= field;
+            }
+            else {
+                benched.initial -= field;
+            }
+            before.members.emplace(name, benched);
+            bench_count += benched.initial + benched.elite;
+            if (benched.initial == 0 || benched.elite == 0) {
+                unchanged_forms.emplace(name, benched.elite > 0);
+            }
+        }
+        if (field != 1 || form->initial + form->elite != 1 || !m_equipped_items.contains(name) ||
+            !m_verified_field_pose_points.contains(m_auto_deploy_positions.find(name)->second) ||
+            (form->elite == 0 && form->initial + 1 >= spa::promotion_copies_required(name))) {
+            continue;
+        }
+        const bool stacker = spa::is_primary_growth_engine(name, m_policy.primary_pact);
+        const bool carry = spa::is_primary_output_candidate(name, m_policy.primary_pact) ||
+                           std::ranges::find(m_policy.carries, name) != m_policy.carries.end();
+        if (!final_preparations && (form->elite == 0 || (!stacker && !carry))) {
+            continue;
+        }
+        const auto stats = spa::season_combat_stats(name, form->elite > 0);
+        if (!stats) {
+            continue;
+        }
+        const auto& items = m_equipped_items.at(name);
+        const int value = stats->attack + stats->max_hp / 15 + (form->elite > 0 ? 600 : 0) +
+                          static_cast<int>(items.size()) * 150 + (carry ? 1000 : 0) + (stacker ? 800 : 0);
+        if (value > best_value) {
+            target = name;
+            best_value = value;
+        }
+    }
+    if (target.empty() || bench_count != m_policy.bench_occupied ||
+        !spa::active_strategy_ready(ctrler()->get_image())) {
+        return false;
+    }
+    before.complete = true;
+    const auto point = m_auto_deploy_positions.find(target)->second;
+    const bool elite = m_policy.owned.at(target).elite;
+    auto expected_items = m_equipped_items.at(target);
+    std::ranges::sort(expected_items);
+    m_preparation_instruction_attempts.insert(round);
+
+    spa::SwapTaskPlugin action(m_callback, m_inst, TaskType);
+    action.set_retry_times(0);
+    action.set_task_id(m_task_id);
+    action.set_task_ptr(this);
+    if (m_mode == "joint") {
+        action.set_spatial_hold_guard([&] {
+            const auto left =
+                m_joint_preparation_deadline.observe(round, std::nullopt, spa::PreparationDeadline::Clock::now());
+            return left && *left >= 30;
+        });
+    }
+    if (action.configure(json::object { { "name", target },
+                                        { "replaced", "幻画为真" },
+                                        { "strategy_only", true },
+                                        { "target_elite", elite },
+                                        { "expected_equipment", expected_items },
+                                        { "target_equipment_known", true },
+                                        { "source_x", 1230 },
+                                        { "source_y", 235 },
+                                        { "target_x", point.first },
+                                        { "target_y", point.second },
+                                        { "drag_target_x", point.first },
+                                        { "drag_target_y", point.second },
+                                        { "round", round },
+                                        { "funds", funds },
+                                        { "remaining_deployment", remaining } })) {
+        static_cast<void>(action.run());
+    }
+    if (!action.strategy_copy_contact_attempted()) {
+        return true;
+    }
+    m_strategy_copy_target = target;
+    const std::map<std::string, std::vector<std::string>> expected_clone_items { { target, expected_items } };
+    const auto observe_bench = [&] {
+        spa::ObservedOperatorInventory inventory;
+        const auto observed =
+            action.inspect_bench_operator_forms(round, funds, remaining, unchanged_forms, expected_clone_items);
+        if (observed) {
+            inventory.complete = true;
+            for (const auto& [name, is_elite] : *observed) {
+                auto& forms = inventory.members[name];
+                ++(is_elite ? forms.elite : forms.initial);
+            }
+        }
+        return inventory;
+    };
+    auto after = sleep(650) ? observe_bench() : spa::ObservedOperatorInventory {};
+    bool verified = spa::verify_strategy_copy_delta(before, after, target, elite);
+    bool unchanged = false;
+    if (!verified && m_mode != "joint" && sleep(400)) {
+        const bool first_unchanged = after.complete && after.members == before.members;
+        after = observe_bench();
+        verified = spa::verify_strategy_copy_delta(before, after, target, elite);
+        unchanged = first_unchanged && after.complete && after.members == before.members &&
+                    spa::active_strategy_ready(ctrler()->get_image());
+    }
+    m_strategy_copy_unverified = !verified && !unchanged;
+    if (verified) {
+        auto& unit = m_policy.owned.at(target);
+        auto forms = *spa::owned_form_counts(unit);
+        ++(elite ? forms.elite : forms.initial);
+        m_strategy_copy_unverified = !spa::set_owned_form_counts(unit, forms);
+        if (!m_strategy_copy_unverified) {
+            ++m_policy.bench_occupied;
+            m_recent_bench_acquisition = target;
+            m_unavailable_replacement_sources.erase(target);
+        }
+    }
+    auto receipt = basic_info_with_what(
+        unchanged                   ? "SPAStrategyCopyUnchanged"
+        : m_strategy_copy_unverified ? "SPAStrategyCopyDeferred"
+                                     : "SPAStrategyCopyVerified");
+    receipt["details"] = json::object { { "run_id", m_run_id },
+                                        { "round", round },
+                                        { "target", target },
+                                        { "elite", elite },
+                                        { "expected_equipment", expected_items },
+                                        { "strategy_copy_target", target },
+                                        { "strategy_copy_unverified", m_strategy_copy_unverified },
+                                        { "requires_roster_resync", m_strategy_copy_unverified },
+                                        { "copy_and_equipment_verified", verified && !m_strategy_copy_unverified },
+                                        { "bench_occupied", m_policy.bench_occupied },
+                                        { "retry_input_allowed", false },
+                                        { "roster", roster_snapshot() },
+                                        { "field_positions", field_position_snapshot() } };
+    callback(AsstMsg::SubTaskExtraInfo, receipt);
+    return true;
+}
 
 bool asst::StrongholdProtocolTask::reconcile_tactical_recruitment(const json::value& state)
 {
@@ -585,8 +752,12 @@ std::pair<asst::spa::EquipmentAssignmentContext, std::vector<asst::spa::Equipmen
                 }
             }
         }
-        // A spare bench copy does not make the single field recipient
-        // ambiguous. Actual target identity and equipment are re-read on use.
+        // Preserve identical copied gear while the ledger stores one list
+        // per name. A later assignment could otherwise change just one copy.
+        if (name == m_strategy_copy_target && owned.copies > 1) {
+            continue;
+        }
+        // Actual target identity and slots are re-read on use.
         if (m_auto_deploy_positions.count(name) != 1 || slots == m_equipped_items.end() ||
             !m_verified_field_pose_points.contains(m_auto_deploy_positions.find(name)->second)) {
             continue;

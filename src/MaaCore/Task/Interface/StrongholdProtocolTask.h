@@ -57,6 +57,9 @@ private:
     int m_equipment_discount_round = -1;
     bool identify_current_strategy(const json::value& state);
     bool handle_temporary_elite_instruction(const json::value& state);
+    bool handle_strategy_copy(const json::value& state);
+    std::string m_strategy_copy_target;
+    bool m_strategy_copy_unverified = false;
     bool handle_fear_trap_instruction(const json::value& state);
     std::set<spa::BoardCell> m_fear_trap_cells;
     int m_fear_trap_round = -1;

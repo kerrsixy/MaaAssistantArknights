@@ -146,6 +146,7 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
     m_equipment_reference.release();
     m_displaced_name.clear();
     m_strategy_only = options.get("strategy_only", false);
+    m_strategy_copy_contact_attempted = false;
     m_layers_before = options.get("layers_before", -1);
     m_target_elite = options.get("target_elite", false);
     m_verify_source_form = options.get("verify_source_form", false);
@@ -436,6 +437,25 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
     const auto in_field = [](const Point& p) {
         return p.x >= 180 && p.x < 1000 && p.y >= 140 && p.y < 510;
     };
+    if (m_strategy_only && m_replaced == "幻画为真") {
+        const auto items = options.find<json::array>("expected_equipment");
+        if (!items || !options.get("target_equipment_known", false) ||
+            items->size() > static_cast<size_t>(equipment_capacity(m_name, m_target_elite))) {
+            return false;
+        }
+        for (const auto& item : *items) {
+            if (!item.is_string() || !equipment_title_matches(item.as_string(), item.as_string())) {
+                return false;
+            }
+            m_expected_equipment.push_back(item.as_string());
+        }
+        std::sort(m_expected_equipment.begin(), m_expected_equipment.end());
+        return in_field(m_target) && m_drag_target == m_target && m_source.x >= 1190 && m_source.x < 1270 &&
+               m_source.y >= 200 && m_source.y < 280 && m_round >= 1 && m_round <= 20 && m_funds >= 0 &&
+               m_funds <= 999 && m_remaining >= 0 && m_remaining <= 8 && !m_face_only && !m_move_only &&
+               !m_deploy_only && !m_sell_only && !m_inspect_only && !m_terrain_probe_only && !m_equip_only &&
+               !m_withdraw_only && operator_pacts().contains(m_name);
+    }
     if (m_strategy_only && m_replaced == "全场聚焦") {
         return can_queue_temporary_elite(
                    m_funds,
@@ -1403,8 +1423,11 @@ bool asst::spa::SwapTaskPlugin::current_equipment(const std::string& name)
     return false;
 }
 
-std::optional<std::vector<std::string>> asst::spa::SwapTaskPlugin::selected_equipment_names(size_t expected_count)
+std::optional<std::vector<std::string>> asst::spa::SwapTaskPlugin::selected_equipment_names(
+    size_t expected_count,
+    const std::string& equipment_owner)
 {
+    const auto& identity = equipment_owner.empty() ? m_replaced : equipment_owner;
     std::vector<std::string> result;
     // Ordinary recipients expose two slots in the initial panel. A mech's
     // third through sixth expected item must be located explicitly, never
@@ -1425,7 +1448,7 @@ std::optional<std::vector<std::string>> asst::spa::SwapTaskPlugin::selected_equi
         for (const auto& text : *texts) {
             panel_texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
         }
-        auto page_items = equipment_panel_items(panel_texts, m_replaced);
+        auto page_items = equipment_panel_items(panel_texts, identity);
         if (!page_items) {
             // Resize for full-panel OCR can make a clear title miss the
             // confidence threshold. Read the title crop from this same frame.
@@ -1435,7 +1458,7 @@ std::optional<std::vector<std::string>> asst::spa::SwapTaskPlugin::selected_equi
                 for (const auto& text : *reread) {
                     title_texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
                 }
-                page_items = equipment_panel_items(panel_texts, m_replaced, title_texts);
+                page_items = equipment_panel_items(panel_texts, identity, title_texts);
                 if (page_items) {
                     LogTrace << "SPA equipment panel identity recovered from title crop" << m_replaced << m_round;
                 }
@@ -1804,7 +1827,8 @@ std::optional<std::vector<std::pair<std::string, bool>>> asst::spa::SwapTaskPlug
     int round,
     int funds,
     int remaining,
-    const std::map<std::string, bool>& unchanged_forms)
+    const std::map<std::string, bool>& unchanged_forms,
+    const std::map<std::string, std::vector<std::string>>& expected_equipment)
 {
     m_round = round;
     m_funds = funds;
@@ -1838,6 +1862,13 @@ std::optional<std::vector<std::pair<std::string, bool>>> asst::spa::SwapTaskPlug
             }
             else if (const auto card = selected_operator_card(panel, *name)) {
                 elite = card->elite;
+            }
+        }
+        if (elite) {
+            const auto items = expected_equipment.find(*name);
+            if (items != expected_equipment.end() &&
+                selected_equipment_names(items->second.size(), *name) != items->second) {
+                elite.reset();
             }
         }
         if (!close_selection(&frame, panel) || !preparation_matches(frame)) {
@@ -3889,6 +3920,48 @@ bool asst::spa::SwapTaskPlugin::_run()
         m_replacement_postconditions_ready = true;
         m_field_pose_verified = true;
         return reconcile_replacement();
+    }
+    if (m_strategy_only && m_replaced == "幻画为真") {
+        cv::Mat field, source_panel;
+        if (!capture_collapsed_preparation(field) || !active_strategy_ready(field)) {
+            return false;
+        }
+        const auto source_form = selected_field_identity(m_target, m_name, source_panel)
+                                     ? selected_operator_card(source_panel, m_name)
+                                     : std::nullopt;
+        const bool source_verified = source_form && source_form->elite == m_target_elite &&
+                                     selected_equipment_names(m_expected_equipment.size(), m_name) == m_expected_equipment;
+        if (!close_selection() || !source_verified) {
+            return false;
+        }
+        const Point view(1155, 235);
+        if (!ctrler()->click(view) || !sleep(450)) {
+            return false;
+        }
+        std::string description;
+        OCRer panel(ctrler()->get_image(), Rect(750, 145, 390, 170));
+        if (const auto texts = panel.analyze()) {
+            for (const auto& text : *texts) {
+                if (text.score >= .85) {
+                    description += text.text;
+                }
+            }
+        }
+        if (!ctrler()->click(view) || !sleep(350) ||
+            description.find("幻画为真") == std::string::npos || description.find("复制体") == std::string::npos ||
+            description.find("精锐") == std::string::npos || description.find("装备") == std::string::npos ||
+            !capture_collapsed_preparation(field) || !active_strategy_ready(field) ||
+            (m_spatial_hold_guard && !m_spatial_hold_guard())) {
+            return false;
+        }
+        m_strategy_copy_contact_attempted = true;
+        auto issued = basic_info_with_what("SPAStrategyCopyContactAttempted");
+        issued["details"] = json::object { { "target", m_name },
+                                            { "round", m_round },
+                                            { "source_form_and_equipment_verified", true },
+                                            { "effect_verified", false } };
+        callback(AsstMsg::SubTaskExtraInfo, issued);
+        return held_drag();
     }
     if (m_strategy_only && m_replaced == "全场聚焦") {
         if (!restore_preparation() || !active_strategy_ready(ctrler()->get_image()) ||

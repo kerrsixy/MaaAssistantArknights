@@ -6,6 +6,34 @@
 #include <map>
 #include <set>
 
+bool asst::spa::verify_strategy_copy_delta(
+    const ObservedOperatorInventory& before,
+    const ObservedOperatorInventory& after,
+    const std::string& recipient,
+    bool elite)
+{
+    const auto pacts = operator_pacts();
+    if (!before.complete || !after.complete || !pacts.contains(recipient)) {
+        return false;
+    }
+
+    int count = 0;
+    for (const auto& [name, form] : before.members) {
+        if (!pacts.contains(name) || form.initial < 0 || form.initial >= promotion_copies_required(name) ||
+            form.elite < 0 || form.elite > 9 || form.initial + form.elite == 0) {
+            return false;
+        }
+        count += form.initial + form.elite;
+    }
+    if (count >= 10) {
+        return false;
+    }
+    auto expected = before.members;
+    auto& gained = expected[recipient];
+    ++(elite ? gained.elite : gained.initial);
+    return gained.initial < promotion_copies_required(recipient) && expected == after.members;
+}
+
 asst::spa::PactRecruitmentDelta asst::spa::verify_pact_recruitment_delta(
     const ObservedOperatorInventory& before,
     const ObservedOperatorInventory& after,

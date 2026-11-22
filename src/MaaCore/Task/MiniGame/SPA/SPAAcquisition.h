@@ -10,6 +10,8 @@ struct OperatorFormCounts
 {
     int initial = 0;
     int elite = 0;
+
+    bool operator==(const OperatorFormCounts&) const = default;
 };
 
 struct ObservedOperatorInventory
@@ -35,6 +37,12 @@ PactRecruitmentDelta verify_pact_recruitment_delta(
     const ObservedOperatorInventory& after,
     const std::string& pact,
     int expected_grants);
+
+bool verify_strategy_copy_delta(
+    const ObservedOperatorInventory& before,
+    const ObservedOperatorInventory& after,
+    const std::string& recipient,
+    bool elite);
 
 enum class AcquiredEffectKind
 {

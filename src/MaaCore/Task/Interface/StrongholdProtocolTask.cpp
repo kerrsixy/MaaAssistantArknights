@@ -156,6 +156,12 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_prefer_unclaimed = params.get("prefer_unclaimed_strategy", false);
     m_current_strategy_inspected = false;
     m_preparation_instruction_attempts.clear();
+    m_strategy_copy_target = params.get("strategy_copy_target", std::string());
+    m_strategy_copy_unverified = params.get("strategy_copy_unverified", false);
+    if ((!m_strategy_copy_target.empty() && !spa::operator_pacts().contains(m_strategy_copy_target)) ||
+        (m_strategy_copy_unverified && m_strategy_copy_target.empty())) {
+        return false;
+    }
     m_fear_trap_cells.clear();
     m_fear_trap_round = -1;
     m_fear_trap_unverified = false;
@@ -3186,6 +3192,12 @@ bool asst::StrongholdProtocolTask::run_single()
 
 bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecycle)
 {
+    if (m_strategy_copy_unverified) {
+        if (lifecycle) {
+            lifecycle->note_input_reconciliation("SPAStrategyCopyDeferred");
+        }
+        return false;
+    }
     spa::ObserverTaskPlugin observer(m_callback, m_inst, TaskType);
     observer.set_retry_times(0);
     observer.set_task_id(m_task_id);
@@ -4033,6 +4045,18 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             refresh_spatial_grid_snapshot(state, needs_round_projection || needs_visible_boss_region);
         }
         if (m_auto_run && field_work_due && reconcile_direct_promotion_equipment(state)) {
+            continue;
+        }
+        const bool reserve_last_bench_slot_for_copy = m_policy.bench_occupied == 9 && !resume_funded_purchase &&
+                                                      !resume_funding_pair;
+        if (m_auto_run && (field_finalization || reserve_last_bench_slot_for_copy) && !prioritize_joint_ready &&
+            handle_strategy_copy(state)) {
+            if (m_strategy_copy_unverified) {
+                if (lifecycle) {
+                    lifecycle->note_input_reconciliation("SPAStrategyCopyDeferred");
+                }
+                return false;
+            }
             continue;
         }
         // A full-field swap sends the outgoing operator back to the bench.

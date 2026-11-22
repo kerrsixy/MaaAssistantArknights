@@ -75,7 +75,9 @@ public:
         int round,
         int funds,
         int remaining,
-        const std::map<std::string, bool>& unchanged_forms);
+        const std::map<std::string, bool>& unchanged_forms,
+        const std::map<std::string, std::vector<std::string>>& expected_equipment = {});
+    bool strategy_copy_contact_attempted() const { return m_strategy_copy_contact_attempted; }
     std::optional<bool> inspect_field_operator_form(
         const std::string& name,
         const Point& point,
@@ -248,7 +250,8 @@ private:
     std::optional<std::string> m_last_panel_identity;
     std::optional<std::string> selected_identity_any(const Point& point);
     bool current_equipment(const std::string& name);
-    std::optional<std::vector<std::string>> selected_equipment_names(size_t expected_count);
+    std::optional<std::vector<std::string>>
+        selected_equipment_names(size_t expected_count, const std::string& equipment_owner = {});
     bool selected_identity(const Point& point, const std::string& name, cv::Mat* verified_panel = nullptr);
     bool selected_field_identity(const Point& point, const std::string& name, cv::Mat& verified_panel);
     std::optional<std::string> bench_identity(
@@ -377,6 +380,7 @@ private:
     bool m_sell_only = false;
     bool m_sale_committed = false;
     bool m_strategy_only = false;
+    bool m_strategy_copy_contact_attempted = false;
     int m_layers_before = -1;
     bool m_target_elite = false;
     bool m_verify_source_form = false;

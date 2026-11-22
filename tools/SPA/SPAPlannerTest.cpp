@@ -4120,6 +4120,17 @@ int main()
         !tactical_recruitment_pact({ "伊比利亚驰援", "你获得2名随机【伊比利亚】干员棋子(不超过当前调度中心等级)", 0 }));
     assert(choose_tactical_adjustment({ iberia_recruitment }, "伊比利亚", {}, 8) == 0);
     assert(choose_tactical_adjustment({ iberia_recruitment }, "伊比利亚", {}, 10) == -1);
+    const ObservedOperatorInventory before_copy { true, { { "深靛", { 1, 0 } } } };
+    const ObservedOperatorInventory after_copy { true, { { "深靛", { 1, 0 } }, { "初雪", { 0, 1 } } } };
+    assert(verify_strategy_copy_delta(before_copy, after_copy, "初雪", true));
+    assert(!verify_strategy_copy_delta(before_copy, after_copy, "初雪", false));
+    assert(!verify_strategy_copy_delta(before_copy, after_copy, "地灵", true));
+    auto incomplete_copy = after_copy;
+    incomplete_copy.complete = false;
+    assert(!verify_strategy_copy_delta(before_copy, incomplete_copy, "初雪", true));
+    incomplete_copy = after_copy;
+    incomplete_copy.members["深靛"].initial++;
+    assert(!verify_strategy_copy_delta(before_copy, incomplete_copy, "初雪", true));
     const ObservedOperatorInventory before_reinforcement { true, { { "深靛", { 2, 0 } } } };
     const ObservedOperatorInventory after_reinforcement { true, { { "深靛", { 0, 1 } } } };
     const auto reinforcement = verify_pact_recruitment_delta(
