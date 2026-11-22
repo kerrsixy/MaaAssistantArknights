@@ -141,6 +141,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_replacement_round = -1;
     m_failed_replacements.clear();
     m_visited_replacement_lineups.clear();
+    m_completed_replacement_exchanges.clear();
     m_unavailable_replacement_sources.clear();
     m_pending_field_replacement.reset();
     m_blocked_purchases.clear();
@@ -1518,17 +1519,18 @@ asst::spa::ReplacementMember asst::StrongholdProtocolTask::replacement_member(
     const auto route = spa::route_profiles().find(policy.primary_pact);
     spa::ReplacementMember result;
     result.name = name;
+    const auto forms = spa::owned_form_counts(owned);
+    if (forms && forms->initial + forms->elite == 1) {
+        result.single_elite_form = forms->elite == 1;
+    }
     result.strategy_core = spa::is_strategy_core(policy.selected_strategy_id, name);
     if (const auto found = pacts.find(name); found != pacts.end()) {
         result.pacts = found->second;
     }
     result.role = spa::operator_placement_role(name);
-    if (result.role == spa::PlacementRole::Healer) {
-        const auto forms = spa::owned_form_counts(owned);
-        if (forms && (forms->initial == 0 || forms->elite == 0)) {
-            if (const auto stats = spa::season_combat_stats(name, forms->elite > 0)) {
-                result.healer_range.assign(stats->basic_range.begin(), stats->basic_range.end());
-            }
+    if (result.role == spa::PlacementRole::Healer && forms && (forms->initial == 0 || forms->elite == 0)) {
+        if (const auto stats = spa::season_combat_stats(name, forms->elite > 0)) {
+            result.healer_range.assign(stats->basic_range.begin(), stats->basic_range.end());
         }
     }
     if (const auto props = BattleData.find_first_oper(battle::Role::Unknown, name, true)) {
@@ -1763,7 +1765,8 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
             pending.verifier->field_pose_verified() ? pending.verifier->target_point()
                                                     : pending.verifier->drag_target_point(),
             round,
-            pending.committed_facing ? pending.committed_facing : pending.verifier->committed_facing());
+            pending.committed_facing ? pending.committed_facing : pending.verifier->committed_facing(),
+            pending.decision_round == round ? pending.planned_improvement : 0);
         m_pending_field_replacement.reset();
         return true;
     }
@@ -1826,7 +1829,8 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
         blocked,
         evaluate,
         m_visited_replacement_lineups,
-        m_policy.disabled_pacts);
+        m_policy.disabled_pacts,
+        m_completed_replacement_exchanges);
     std::string target_failure_key;
     while (choice.found) {
         target_failure_key = failure_key(choice);
@@ -1843,7 +1847,8 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
             blocked,
             evaluate,
             m_visited_replacement_lineups,
-            m_policy.disabled_pacts);
+            m_policy.disabled_pacts,
+            m_completed_replacement_exchanges);
     }
     if (!choice.found) {
         return false;
@@ -2023,6 +2028,8 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
                 PendingReplacement { exchange,        choice.incoming, choice.outgoing, Point(choice.x, choice.y),
                                      incoming.copies, outgoing.copies, incoming.elite,  outgoing.elite };
             m_pending_field_replacement->committed_facing = exchange->committed_facing();
+            m_pending_field_replacement->planned_improvement = choice.improvement;
+            m_pending_field_replacement->decision_round = round;
             // A drop can be issued before the normal verifier has gathered
             // its postconditions. Use the same observation-only route as
             // a persisted exchange, starting with a fresh field identity.
@@ -2054,7 +2061,8 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
         Point(choice.x, choice.y),
         exchange->field_pose_verified() ? exchange->target_point() : exchange->drag_target_point(),
         round,
-        exchange->committed_facing());
+        exchange->committed_facing(),
+        choice.improvement);
     return true;
 }
 
@@ -2064,8 +2072,19 @@ void asst::StrongholdProtocolTask::commit_full_field_replacement(
     const Point& previous,
     const Point& actual,
     int round,
-    std::optional<char> committed_facing)
+    std::optional<char> committed_facing,
+    int planned_improvement)
 {
+    if (round == m_replacement_round && planned_improvement > 0) {
+        const auto key = spa::replacement_exchange(
+            m_policy.primary_pact,
+            replacement_member(incoming, m_policy.owned.at(incoming)),
+            replacement_member(outgoing, m_policy.owned.at(outgoing)));
+        if (key) {
+            int& score = m_completed_replacement_exchanges[*key];
+            score = std::max(score, planned_improvement);
+        }
+    }
     auto grid_members = m_population_grid_members;
     const bool grid_was_known = m_growth_population_poses == m_auto_deploy_positions && grid_members.size() == 8 &&
                                 m_auto_deploy_positions.count(outgoing) == 1;
@@ -2129,6 +2148,8 @@ void asst::StrongholdProtocolTask::commit_full_field_replacement(
                        { "round", round },
                        { "incoming", incoming },
                        { "outgoing", outgoing },
+                       { "planned_improvement", planned_improvement },
+                       { "completed_unique_exchanges_this_round", m_completed_replacement_exchanges.size() },
                        { "outgoing_available_for_sale_review", m_policy.released_transitions.contains(outgoing) },
                        { "shop_review_deferred_until_replacements_finish", m_shop_review_after_replacements },
                        { "bench_occupied", m_policy.bench_occupied },
@@ -3675,6 +3696,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             m_replacement_round = preparation_round;
             m_failed_replacements.clear();
             m_visited_replacement_lineups.clear();
+            m_completed_replacement_exchanges.clear();
             m_unavailable_replacement_sources.clear();
         }
         const auto texts = state.find<json::array>("texts");
@@ -5658,7 +5680,8 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                   m_failed_replacements,
                                   [this](const auto& lineup) { return replacement_lineup_context_value(lineup); },
                                   m_visited_replacement_lineups,
-                                  m_policy.disabled_pacts)
+                                  m_policy.disabled_pacts,
+                                  m_completed_replacement_exchanges)
                             : spa::ReplacementChoice {};
                     m_policy.full_field_offer_improvements[offer.name] = exchange.found ? exchange.improvement : 0;
                     if (!healer_available && exchange.heals_frontline && exchange.improvement > 0 &&

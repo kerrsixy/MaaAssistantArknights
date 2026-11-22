@@ -35,6 +35,7 @@ struct ReplacementMember
     std::map<std::string, size_t> terrain_route_progress;
     std::optional<BoardCell> grid_cell;
     std::vector<BoardCell> healer_range;
+    std::optional<bool> single_elite_form;
 };
 
 inline bool replacement_blocks_ground(const ReplacementMember& member)
@@ -151,7 +152,24 @@ struct ReplacementChoice
 };
 
 using ReplacementLineup = std::vector<std::string>;
+using ReplacementExchange = std::tuple<std::string, std::string, bool, std::string, bool>;
+using ReplacementHistory = std::map<ReplacementExchange, int>;
 inline constexpr int ReplacementTierValue = 120;
+
+inline std::optional<ReplacementExchange> replacement_exchange(
+    const std::string& primary,
+    const ReplacementMember& incoming,
+    const ReplacementMember& outgoing)
+{
+    if (!incoming.single_elite_form || !outgoing.single_elite_form) {
+        return std::nullopt;
+    }
+    return ReplacementExchange { primary,
+                                 incoming.name,
+                                 *incoming.single_elite_form,
+                                 outgoing.name,
+                                 *outgoing.single_elite_form };
+}
 
 inline ReplacementLineup replacement_lineup_identity(const std::vector<ReplacementMember>& field)
 {
@@ -474,7 +492,8 @@ inline ReplacementChoice choose_replacement(
     const std::set<std::tuple<std::string, std::string, int, int>>& blocked = {},
     const std::function<int(const std::vector<ReplacementMember>&)>& evaluate = {},
     const std::set<ReplacementLineup>& visited_lineups = {},
-    const std::vector<std::string>& disabled_pacts = {})
+    const std::vector<std::string>& disabled_pacts = {},
+    const ReplacementHistory& completed_exchanges = {})
 {
     ReplacementChoice best;
     if (primary.empty() || field.empty() || field.size() > 16 || bench.size() > 10) {
@@ -565,6 +584,16 @@ inline ReplacementChoice choose_replacement(
             }
             const int improvement = value(proposed) - baseline;
             const bool restores_core = incoming.strategy_core && strategy_cores == 0;
+            const bool activates_primary = members < 3 && activation_members(proposed) >= 3;
+            if (!completed_exchanges.empty() && !restores_core && !activates_primary) {
+                // The same verified bodies already made this exchange. A
+                // different receiver cell alone does not justify the old gain.
+                const auto key = replacement_exchange(primary, incoming, outgoing);
+                const auto previous = key ? completed_exchanges.find(*key) : completed_exchanges.end();
+                if (previous != completed_exchanges.end() && improvement <= previous->second) {
+                    continue;
+                }
+            }
             // Changes elsewhere on the board can bypass the exact-lineup
             // guard. A same-round return needs more than a one-tier gain.
             if (returning && improvement <= ReplacementTierValue && !restores_core) {

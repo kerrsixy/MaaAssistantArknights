@@ -2603,6 +2603,54 @@ int main()
     returning_lappland.value = ferryman.value;
     assert(choose_replacement("维多利亚", changed_lineup, { returning_lappland }, {}, {}, earlier_lineup)
                .restores_strategy_core);
+    // D4 R11: the same unpromoted pair repeatedly traded across different cells
+    // with the same +440 gain even though intervening swaps changed the lineup.
+    ReplacementMember weedy_replacement { "温蒂", PlacementRole::Ranged, {}, 100, 888, 367, true };
+    ReplacementMember quercus_replacement { "夏栎", PlacementRole::Ranged, {}, 540 };
+    weedy_replacement.single_elite_form = quercus_replacement.single_elite_form = false;
+    const auto old_exchange = replacement_exchange("伊比利亚", quercus_replacement, weedy_replacement);
+    assert(old_exchange);
+    const auto before_quercus = choose_replacement("伊比利亚", { weedy_replacement }, { quercus_replacement });
+    assert(before_quercus.found && before_quercus.improvement == 440);
+    const ReplacementHistory acted { { *old_exchange, before_quercus.improvement } };
+    weedy_replacement.x = 557;
+    weedy_replacement.y = 300;
+    const ReplacementMember ash { "灰喉", PlacementRole::Ranged, {}, 400 };
+    const auto prefer_fresh =
+        choose_replacement("伊比利亚", { weedy_replacement }, { quercus_replacement, ash }, {}, {}, {}, {}, acted);
+    assert(prefer_fresh.found && prefer_fresh.incoming == "灰喉");
+    assert(
+        !choose_replacement("伊比利亚", { weedy_replacement }, { quercus_replacement }, {}, {}, {}, {}, acted).found);
+    quercus_replacement.single_elite_form = true;
+    assert(choose_replacement("伊比利亚", { weedy_replacement }, { quercus_replacement }, {}, {}, {}, {}, acted).found);
+    quercus_replacement.single_elite_form =
+        std::nullopt; // A legitimate separate copy may still replace another member.
+    assert(choose_replacement("伊比利亚", { weedy_replacement }, { quercus_replacement }, {}, {}, {}, {}, acted).found);
+    quercus_replacement.single_elite_form = false;
+    quercus_replacement.value += 350;
+    assert(choose_replacement("伊比利亚", { weedy_replacement }, { quercus_replacement }, {}, {}, {}, {}, acted).found);
+    quercus_replacement.value -= 350;
+    quercus_replacement.strategy_core = true;
+    assert(choose_replacement("伊比利亚", { weedy_replacement }, { quercus_replacement }, {}, {}, {}, {}, acted)
+               .restores_strategy_core);
+    quercus_replacement.strategy_core = false;
+    quercus_replacement.pacts = { "伊比利亚" };
+    const std::vector<ReplacementMember> almost_active {
+        weedy_replacement,
+        { "海沫", PlacementRole::Frontline, { "伊比利亚" }, 800, 560, 265 },
+        { "深靛", PlacementRole::Ranged, { "伊比利亚" }, 800, 550, 290 }
+    };
+    assert(choose_replacement(
+               "伊比利亚",
+               almost_active,
+               { quercus_replacement },
+               {},
+               {},
+               {},
+               {},
+               { { *old_exchange, 99'999 } })
+               .found);
+
     auto activated_board = transition_board;
     activated_board[2] = { "森蚺", PlacementRole::Frontline, { "萨尔贡" }, 1400, 720, 235, true };
     activated_board[0].replaceable = activated_board[1].replaceable = true;
