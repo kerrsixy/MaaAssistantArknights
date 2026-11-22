@@ -3250,15 +3250,29 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
         return false;
     }
     const auto source_index = static_cast<std::size_t>(std::distance(m_placement_members.begin(), source_member));
+    std::optional<std::size_t> displaced_index;
+    if (!m_relocation_displaced.empty()) {
+        const auto displaced =
+            std::find_if(m_placement_members.begin(), m_placement_members.end(), [&](const auto& member) {
+                return member.name == m_relocation_displaced;
+            });
+        if (displaced == m_placement_members.end() || displaced == source_member ||
+            std::find_if(std::next(displaced), m_placement_members.end(), [&](const auto& member) {
+                return member.name == m_relocation_displaced;
+            }) != m_placement_members.end()) {
+            return false;
+        }
+        displaced_index = static_cast<std::size_t>(std::distance(m_placement_members.begin(), displaced));
+    }
     std::vector<cv::Point> previous;
     for (const auto& member : m_placement_members) {
         previous.emplace_back(member.x, member.y);
     }
     cv::Mat clean, selected;
     std::optional<std::vector<cv::Point>> clean_points;
-    if (m_fast_mode && !m_grid_probe_only && m_relocation_displaced.empty() &&
-        previous.size() == m_verified_preview_feet.size() && previous.size() == static_cast<size_t>(8 - m_remaining) &&
-        !m_registered_grid_reference.empty() && m_registered_grid_map_id == m_expected_map_id) {
+    if (m_fast_mode && !m_grid_probe_only && previous.size() == m_verified_preview_feet.size() &&
+        previous.size() == static_cast<size_t>(8 - m_remaining) && !m_registered_grid_reference.empty() &&
+        m_registered_grid_map_id == m_expected_map_id) {
         const auto fit = estimate_camera_projection(m_registered_grid_reference, reference, true);
         const auto current_points = registered_field_points(fit, previous);
         const auto projection = registered_grid_projection(fit, m_registered_grid_projection);
@@ -3272,9 +3286,12 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
             const auto at_target = [&](const auto& member) {
                 return member.col == m_reorient_col && member.row == m_reorient_row;
             };
-            if (cells && cells->at(source_index).col == m_origin_col && cells->at(source_index).row == m_origin_row &&
-                (m_relocate_field ? std::none_of(cells->begin(), cells->end(), at_target)
-                                  : at_target(cells->at(source_index))) &&
+            const bool target_matches =
+                cells && (displaced_index    ? at_target(cells->at(*displaced_index))
+                          : m_relocate_field ? std::none_of(cells->begin(), cells->end(), at_target)
+                                             : at_target(cells->at(source_index)));
+            if (target_matches && cells->at(source_index).col == m_origin_col &&
+                cells->at(source_index).row == m_origin_row &&
                 std::equal(
                     previous.begin(),
                     previous.end(),
@@ -3292,22 +3309,15 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
         (!selected_field_identity(m_source, m_name, selected) || !capture_collapsed_preparation(clean, selected))) {
         return false;
     }
-    std::optional<std::size_t> displaced_index;
-    if (!m_relocation_displaced.empty()) {
-        const auto displaced =
-            std::find_if(m_placement_members.begin(), m_placement_members.end(), [&](const auto& member) {
-                return member.name == m_relocation_displaced;
-            });
-        if (displaced == m_placement_members.end() ||
-            std::count_if(
-                m_placement_members.begin(),
-                m_placement_members.end(),
-                [&](const auto& member) { return member.name == m_relocation_displaced; }) != 1 ||
-            !selected_field_identity(Point(displaced->x, displaced->y), displaced->name, selected) ||
+    if (displaced_index) {
+        // Keep the targeted receiver proof for an occupied drop. Its panel
+        // can change the camera, so re-register feet after closing it.
+        const auto receiver = clean_points ? clean_points->at(*displaced_index) : previous.at(*displaced_index);
+        if (!selected_field_identity(Point(receiver.x, receiver.y), m_relocation_displaced, selected) ||
             !capture_collapsed_preparation(clean, selected)) {
             return false;
         }
-        displaced_index = static_cast<std::size_t>(std::distance(m_placement_members.begin(), displaced));
+        clean_points.reset();
     }
     if (!clean_points) {
         clean_points = registered_field_points(reference, clean, previous);
@@ -3414,6 +3424,7 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
                                              { "funds_preserved", true },
                                              { "source_identity_and_field_control_verified", true },
                                              { "source_panel_probed_before_hold", !reused_source_pose },
+                                             { "receiver_panel_probed_before_hold", displaced_index.has_value() },
                                              { "field_coordinates_registered", points->size() },
                                              { "logical_grid_verified",
                                                m_observed_grid_members.size() == m_reoriented_field_members.size() },
