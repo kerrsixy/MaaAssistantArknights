@@ -82,7 +82,7 @@ double luminance(const cv::Mat& image)
     cv::cvtColor(image, grey, cv::COLOR_BGR2GRAY);
     return cv::mean(grey)[0];
 }
-}
+} // namespace asst::blackflow::hunter_vision
 
 bool asst::blackflow::BlackFlowHunterPreludeAnalyzer::load(
     const std::filesystem::path& manifest_path,
@@ -298,7 +298,9 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
         if (hunter_vision::correlation(current, anchor.image) < anchor.min_correlation ||
             hunter_vision::luminance(current) / std::max(1.0, hunter_vision::luminance(anchor.image)) <
                 anchor.min_luminance_ratio) {
-            return unknown("Hunter static wood anchor is dimmed, selected, obscured or from another stage");
+            return unknown(
+                "Hunter static wood anchor is dimmed, selected, obscured "
+                "or from another stage");
         }
     }
     for (std::size_t i = 0; i < 2; ++i) {
@@ -415,9 +417,10 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
         }
         const Point center { candidate.rect.x + candidate.rect.width / 2,
                              candidate.rect.y + candidate.rect.height / 2 };
-        // A high-confidence foreground head can remain recognizable when overlapping
-        // hunters change the full spawn patch. Require the complete positive rectangle
-        // inside a projected spawn region; this adds presence evidence only.
+        // A high-confidence foreground head can remain recognizable when
+        // overlapping hunters change the full spawn patch. Require the complete
+        // positive rectangle inside a projected spawn region; this adds presence
+        // evidence only.
         for (auto& spawn : result.spawns) {
             if (contains(spawn.roi, candidate.rect)) {
                 spawn.presence = HunterPresence::Present;
@@ -500,8 +503,6 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
     if (m_last_observed_at_ms > 0 && context.observed_at_ms > m_last_observed_at_ms + 2500) {
         m_empty_spawn_frames = 0;
         m_empty_spawn_frames_by_slot = {};
-        m_empty_lower_frames = 0;
-        m_empty_lower_start_ms = 0;
     }
     m_last_observed_at_ms = context.observed_at_ms;
     const bool lower_covered =
@@ -539,29 +540,41 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
     result.upper_spawns_empty_candidate = m_empty_spawn_frames >= 3;
     result.bait_retreat_allowed = context.spawn_window_closed_verified && m_empty_spawn_frames >= 2 &&
                                   result.lower_presence == HunterPresence::Present;
-    // Track segments can split across blink or selection gaps. Their approach positions
-    // are diagnostics, never a death list. Only fresh whole-field absence can release.
+    // Track segments can split across blink or selection gaps. Their approach
+    // positions are diagnostics, never a death list. Only fresh whole-field
+    // absence can release.
     const bool hunter_history = !m_tracks.empty();
-    if (empty && result.battlefield_presence == HunterPresence::Absent && hunter_history && distinct) {
+    // A static background below its absolute template threshold stays Unknown.
+    // It may support an independent full-field negative only when its existing
+    // contrast margin favors absence; conflicting foreground evidence vetoes it.
+    const bool spawn_backgrounds_support_absence = std::ranges::all_of(result.spawns, [](const auto& spawn) {
+        return spawn.presence != HunterPresence::Present && spawn.absent_score >= 0.0 && spawn.present_score >= 0.0 &&
+               spawn.absent_score - spawn.present_score >= 0.10;
+    });
+    const bool whole_field_absent = result.full_search_coverage_verified &&
+                                    result.battlefield_presence == HunterPresence::Absent &&
+                                    spawn_backgrounds_support_absence;
+    if (whole_field_absent && hunter_history && distinct) {
         if (m_empty_lower_frames == 0) {
             m_empty_lower_start_ms = context.observed_at_ms;
         }
         ++m_empty_lower_frames;
     }
-    else if (!empty || result.battlefield_presence != HunterPresence::Absent || !hunter_history) {
+    else if (!whole_field_absent || !hunter_history) {
         m_empty_lower_frames = 0;
         m_empty_lower_start_ms = 0;
     }
     result.distinct_empty_lower_frames = m_empty_lower_frames;
-    result.all_hunters_cleared =
-        result.full_search_coverage_verified && hunter_history && m_empty_lower_frames >= m_min_clear_frames &&
-        m_empty_spawn_frames >= m_min_clear_frames && context.observed_at_ms >= m_empty_lower_start_ms &&
-        context.observed_at_ms - m_empty_lower_start_ms >= m_min_clear_duration_ms;
+    result.all_hunters_cleared = result.full_search_coverage_verified && hunter_history &&
+                                 m_empty_lower_frames >= m_min_clear_frames && spawn_backgrounds_support_absence &&
+                                 context.observed_at_ms >= m_empty_lower_start_ms &&
+                                 context.observed_at_ms - m_empty_lower_start_ms >= m_min_clear_duration_ms;
     m_last_observable_frame = image.clone();
     result.reasons.push_back(
-        result.all_hunters_cleared
-            ? "Independent whole-field visible timed absence confirms no residual heads; approach is not a death "
-              "certificate"
-            : "Hunter prelude remains blocked until whole-field visibility and residual-hunter evidence are complete");
+        result.all_hunters_cleared ? "Independent whole-field visible timed absence confirms no "
+                                     "residual heads; approach is not a death "
+                                     "certificate"
+                                   : "Hunter prelude remains blocked until whole-field visibility and "
+                                     "residual-hunter evidence are complete");
     return result;
 }
