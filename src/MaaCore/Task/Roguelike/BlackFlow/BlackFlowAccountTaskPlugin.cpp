@@ -1,5 +1,12 @@
 #include "BlackFlowAccountTaskPlugin.h"
+
+#include <chrono>
+
+#include "BlackFlowAccountRefreshTask.h"
+#include "BlackFlowAccountSnapshotStore.h"
 #include "BlackFlowResumeRoster.h"
+#include "Config/Roguelike/BlackFlow/BlackFlowAccountScanCatalog.h"
+#include "MaaUtils/ImageIo.h"
 
 #include "Config/Roguelike/BlackFlow/BlackFlowAccountProfile.h"
 #include "Controller/Controller.h"
@@ -12,6 +19,9 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::load_params(const json::value&
     m_refresh_requested = params.get("scan_account_modules", true);
     m_cache_file = params.get("account_cache_file", std::string {});
     m_verified = false;
+    m_refresh_attempted = false;
+    m_module_refresh_complete = false;
+    set_retry_times(0);
 #ifdef ASST_DEBUG
     m_resume_roster_file = params.get("blackflow_resume_roster_file", std::string {});
 #endif
@@ -43,7 +53,87 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
                                                        utils::path(client + "_" + account.uid() + ".json")
                                                  : utils::path(m_cache_file);
     std::string cache_error;
+    json::array refresh_unknown_targets;
+    if (m_refresh_requested && !m_refresh_attempted) {
+        // Set before any navigation: this startup task must never repeat a partial refresh.
+        m_refresh_attempted = true;
+        const auto catalog = BlackFlowAccountScanCatalog::load(
+            ResDir.get() / "roguelike" / "BlackFlow" / "account_scan_catalog.json",
+            &cache_error);
+        auto previous = json::open(cache_path);
+        std::error_code cache_ec;
+        const bool cache_exists = std::filesystem::exists(cache_path, cache_ec);
+        if (!catalog || cache_ec ||
+            (cache_exists &&
+             (!previous || !BlackFlowAccountProfile::parse(*previous, client, account.uid(), &cache_error)))) {
+            LogError << __FUNCTION__ << "Account refresh prerequisites failed" << cache_error;
+            m_task_ptr->set_enable(false);
+            return false;
+        }
+        if (!previous) {
+            const std::string package = client == "Official"   ? "com.hypergryph.arknights"
+                                        : client == "Bilibili" ? "com.hypergryph.arknights.bilibili"
+                                                               : "";
+            previous = json::object { { "schema", 1 },
+                                      { "package", package },
+                                      { "account", json::object { { "uid", account.uid() } } },
+                                      { "operators", json::object {} },
+                                      { "roster_scan_complete", false },
+                                      { "modules", json::object { { "scanned", false } } } };
+        }
+        BlackFlowAccountRefreshTask refresh(m_callback, m_inst, m_task_chain);
+        refresh.set_retry_times(0);
+        refresh.configure(client, account.uid(), catalog->targets());
+        if (!refresh.run()) {
+            LogError << __FUNCTION__ << "Account refresh could not return to the same UID home screen";
+            m_task_ptr->set_enable(false);
+            return false;
+        }
+        const auto& observed = refresh.observation();
+        const auto stamp = std::to_string(
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+                .count());
+        std::vector<std::filesystem::path> evidence_images;
+        for (std::size_t index = 0; index < observed.modules.size(); ++index) {
+            const auto path = cache_path.parent_path() / "evidence" / utils::path(client + "_" + account.uid()) /
+                              utils::path(stamp) / utils::path(std::to_string(index) + ".png");
+            if (!MAA_NS::imwrite(path, observed.modules[index].source_image)) {
+                LogError << __FUNCTION__ << "Could not persist exact module observation";
+                m_task_ptr->set_enable(false);
+                return false;
+            }
+            evidence_images.push_back(path);
+        }
+        const auto staged = BlackFlowAccountSnapshotStore::merge(
+            *previous,
+            observed,
+            catalog->targets(),
+            evidence_images,
+            stamp,
+            &cache_error);
+        const auto current = json::open(cache_path);
+        if ((cache_exists && (!current || current->to_string() != previous->to_string())) ||
+            (!cache_exists && std::filesystem::exists(cache_path, cache_ec)) || cache_ec) {
+            LogError << __FUNCTION__ << "Account cache changed during the UI refresh; retained the newer file";
+            m_task_ptr->set_enable(false);
+            return false;
+        }
+        if (!staged || !BlackFlowAccountSnapshotStore::save_atomic(cache_path, *staged, stamp, &cache_error)) {
+            LogError << __FUNCTION__ << "Account refresh cache transaction failed" << cache_error;
+            m_task_ptr->set_enable(false);
+            return false;
+        }
+        m_module_refresh_complete = observed.required_modules_complete();
+        for (const auto& name : observed.unknown_targets) {
+            refresh_unknown_targets.emplace_back(name);
+        }
+    }
     auto profile = BlackFlowAccountProfile::load(cache_path, client, account.uid(), &cache_error);
+    if (m_refresh_attempted && !profile) {
+        LogError << __FUNCTION__ << "Committed account refresh could not be reloaded" << cache_error;
+        m_task_ptr->set_enable(false);
+        return false;
+    }
     const bool cache_loaded = profile.has_value();
     size_t cached_operator_count = 0;
     bool cached_roster_complete = false;
@@ -94,7 +184,11 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
                                      { "cached_operator_count", cached_operator_count },
                                      { "cached_roster_complete", cached_roster_complete },
                                      { "fresh_scan_complete", false },
-                                     { "module_scan_complete", false } };
+                                     { "fresh_roster_complete", false },
+                                     { "module_scan_complete", m_module_refresh_complete },
+                                     { "module_refresh_complete", m_module_refresh_complete },
+                                     { "refresh_unknown_targets", std::move(refresh_unknown_targets) },
+                                     { "refresh_attempted", m_refresh_attempted } };
     callback(AsstMsg::SubTaskExtraInfo, info);
     return true;
 }

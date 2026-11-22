@@ -18,6 +18,8 @@ protected:
 private:
     bool m_verified = false;
     bool m_refresh_requested = true;
+    bool m_refresh_attempted = false;
+    bool m_module_refresh_complete = false;
     std::string m_cache_file;
 #ifdef ASST_DEBUG
     std::string m_resume_roster_file;

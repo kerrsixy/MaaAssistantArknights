@@ -3579,5 +3579,78 @@
         "sub": ["BlackFlow@Roguelike@CancelNodeSelectionClick"],
         "next": ["BlackFlow@Roguelike@Stages-MapReady", "BlackFlow@Roguelike@Stages-ZoomOut"],
         "onErrorNext": ["BlackFlow@Roguelike@RecoveryFailed"]
+    },
+    "BlackFlowAccountScan@Enter": {
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "next": ["BlackFlowAccountScan@HomeEntry", "BlackFlowAccountScan@TutorialEntry", "OperBoxBegin"]
+    },
+    "BlackFlowAccountScan@Select": {
+        "algorithm": "JustReturn",
+        "action": "ClickRect",
+        "specificRect": [0, 250, 140, 50],
+        "postDelay": 800,
+        "next": ["BlackFlowAccountScan@Detail"]
+    },
+    "BlackFlowAccountScan@DetailName": {
+        "algorithm": "OcrDetect",
+        "roi": [0, 80, 850, 620],
+        "text": [],
+        "fullMatch": true,
+        "action": "DoNothing",
+        "next": []
+    },
+    "BlackFlowAccountScan@Detail": {
+        "baseTask": "OperProgress@OperFiles",
+        "requiredPage": "BlackFlowAccountScan@DetailName",
+        "next": ["BlackFlowAccountScan@Manage"],
+        "template": "OperInformationMenu.png",
+        "action": "DoNothing"
+    },
+    "BlackFlowAccountScan@Manage": {
+        "algorithm": "OcrDetect",
+        "roi": [1050, 515, 210, 110],
+        "text": ["管理", "管理+", "管理十"],
+        "fullMatch": true,
+        "action": "ClickSelf",
+        "postDelay": 700,
+        "next": ["BlackFlowAccountScan@ModulePage"]
+    },
+    "BlackFlowAccountScan@ModulePage": {
+        "algorithm": "OcrDetect",
+        "roi": [0, 70, 480, 100],
+        "text": ["基础数值"],
+        "fullMatch": true,
+        "action": "DoNothing",
+        "next": []
+    },
+    "BlackFlowAccountScan@ReturnHome": {
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "next": ["BlackFlowAccountScan@Home", "BlackFlowAccountScan@Home@QuickSwitch@ToHome#next"]
+    },
+    "BlackFlowAccountScan@Home": {
+        "baseTask": "Home",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
+        "action": "DoNothing",
+        "next": []
+    },
+    "BlackFlowAccountScan@HomeEntry": {
+        "baseTask": "OperBoxHomeDirect",
+        "next": ["OperBoxBegin"]
+    },
+    "BlackFlowAccountScan@TutorialEntry": {
+        "baseTask": "OperBoxTutorialClose",
+        "next": ["BlackFlowAccountScan@Enter"]
+    },
+    "BlackFlowAccountScan@ModuleNext": {
+        "algorithm": "JustReturn",
+        "action": "Swipe",
+        "requiredPage": "BlackFlowAccountScan@ModulePage",
+        "specificRect": [1180, 600, 20, 20],
+        "rectMove": [1180, 220, 20, 20],
+        "specialParams": [1000, 0, 10, 10],
+        "postDelay": 700,
+        "next": ["BlackFlowAccountScan@ModulePage"]
     }
 }

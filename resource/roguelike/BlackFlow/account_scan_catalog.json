@@ -1,0 +1,69 @@
+{
+    "schema_version": 1,
+    "theme": "BlackFlow",
+    "snapshot_label": "2026-11-01",
+    "label_is_not_game_version_proof": true,
+    "target_source": "recruitment.account_module joined to original equipment ownership and upgrade phases",
+    "account_scan_performed": false,
+    "current_battle_equipment_proven": false,
+    "targets": [
+        {
+            "operator_id": "char_4230_mcnist",
+            "operator_name": "机械师",
+            "module_id": "uniequip_002_mcnist",
+            "display_title": "机械师特勤证章",
+            "max_level": 3,
+            "minimum_level": 3
+        },
+        {
+            "operator_id": "char_206_gnosis",
+            "operator_name": "灵知",
+            "module_id": "uniequip_004_gnosis",
+            "display_title": "灵知特限证章",
+            "max_level": 3,
+            "minimum_level": 3
+        },
+        {
+            "operator_id": "char_4039_horn",
+            "operator_name": "号角",
+            "module_id": "uniequip_004_horn",
+            "display_title": "号角特限证章",
+            "max_level": 3,
+            "minimum_level": 3
+        },
+        {
+            "operator_id": "char_437_mizuki",
+            "operator_name": "水月",
+            "module_id": "uniequip_004_mizuki",
+            "display_title": "水月特限证章",
+            "max_level": 3,
+            "minimum_level": 3
+        },
+        {
+            "operator_id": "char_2012_typhon",
+            "operator_name": "提丰",
+            "module_id": "uniequip_004_typhon",
+            "display_title": "提丰特限证章",
+            "max_level": 3,
+            "minimum_level": 3
+        }
+    ],
+    "source_files": {
+        "recruitment": {
+            "name": "recruitment.json",
+            "sha256": "462e792889319d6d810ccce38d0e3bcd53cc0892dd9fc14fc8adab03d20e857a"
+        },
+        "characters": {
+            "name": "character_table_20261101.json",
+            "sha256": "ab3aa4cda8293c8eb7563fd2a7fe8aee2940ef0e90e1f6bf8a2df20d67876423"
+        },
+        "equipment": {
+            "name": "uniequip_table.json",
+            "sha256": "bf52dd566a70dd73164ee18b0d1885f534a950c228ed3c7d8626b7231fe1dc41"
+        },
+        "battle_equipment": {
+            "name": "battle_equip_table.json",
+            "sha256": "c98bb981106069d31356233a4a2cf2e05991b52fb30c2771d79b3b30597e9702"
+        }
+    }
+}
