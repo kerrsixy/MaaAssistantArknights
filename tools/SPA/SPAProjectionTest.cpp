@@ -3,6 +3,7 @@
 #include "Task/MiniGame/SPA/SPAPlacementPolicy.h"
 #include "Task/MiniGame/SPA/SPAPreparationEvidence.h"
 #include "Task/MiniGame/SPA/SPAStrategyEligibility.h"
+#include "Task/MiniGame/SPA/SPAStrategyReportScroll.h"
 #include <cassert>
 #include <iostream>
 #include <opencv2/imgcodecs.hpp>
@@ -20,6 +21,28 @@ int main()
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
 #endif
     using namespace asst::spa;
+    const auto report_with_thumb = [](int y) {
+        cv::Mat report(720, 1280, CV_8UC3, cv::Scalar(205, 207, 187));
+        report(cv::Rect(1258, 109, 7, 580)).setTo(cv::Scalar(157, 158, 144));
+        report(cv::Rect(1258, y, 7, 186)).setTo(cv::Scalar(74, 67, 51));
+        return report;
+    };
+    const auto top_thumb = strategy_report_scrollbar(report_with_thumb(109));
+    auto animated_report = report_with_thumb(189);
+    animated_report(cv::Rect(565, 130, 670, 560)).setTo(cv::Scalar(90, 68, 44));
+    const auto next_thumb = strategy_report_scrollbar(animated_report);
+    assert(top_thumb && top_thumb->at_top() && !top_thumb->at_bottom());
+    assert(next_thumb && next_thumb->top == 189 && strategy_report_scroll_moved(*top_thumb, *next_thumb, false));
+    assert(!strategy_report_scroll_moved(*top_thumb, *next_thumb, true));
+    assert(same_strategy_report_scrollbar(*next_thumb, *strategy_report_scrollbar(report_with_thumb(188))));
+    assert(!same_strategy_report_scrollbar(*top_thumb, *next_thumb));
+    assert(strategy_report_scroll_destination(*top_thumb, false) - top_thumb->center() < 93);
+    const auto bottom_thumb = strategy_report_scrollbar(report_with_thumb(503));
+    assert(bottom_thumb && bottom_thumb->at_bottom() && strategy_report_scroll_moved(*bottom_thumb, *top_thumb, true));
+    assert(!strategy_report_scrollbar(cv::Mat(720, 1280, CV_8UC3, cv::Scalar(74, 67, 51))));
+    auto ambiguous_report = report_with_thumb(109);
+    ambiguous_report(cv::Rect(1258, 420, 7, 100)).setTo(cv::Scalar(74, 67, 51));
+    assert(!strategy_report_scrollbar(ambiguous_report));
     const std::vector<cv::Point> inventory_before { { 500, 450 }, { 580, 450 }, { 660, 450 } };
     assert(inventory_slot_removal_observed(inventory_before, { { 580, 450 }, { 660, 450 } }, { 500, 450 }));
     assert(!inventory_slot_removal_observed(inventory_before, inventory_before, { 500, 450 }));

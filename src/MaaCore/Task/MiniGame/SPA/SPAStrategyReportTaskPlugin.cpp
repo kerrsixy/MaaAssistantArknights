@@ -3,9 +3,11 @@
 #include "Config/TemplResource.h"
 #include "Controller/Controller.h"
 #include "MaaUtils/NoWarningCV.hpp"
+#include "SPAImageEvidence.h"
 #include "SPAObserverTaskPlugin.h"
 #include "SPAPlanner.h"
 #include "SPAStrategyEligibility.h"
+#include "SPAStrategyReportScroll.h"
 #include "Vision/OCRer.h"
 
 #include <array>
@@ -115,11 +117,89 @@ bool StrategyReportTaskPlugin::_run()
         return false;
     }
 
+    const auto scroll_viewport = [&](bool toward_top) -> bool {
+        const auto origin = strategy_report_scrollbar(image);
+        const auto await_viewport = [&]() -> cv::Mat {
+            std::optional<StrategyReportScrollbar> previous_thumb;
+            cv::Mat previous;
+            for (int sample = 0; sample < 7 && !need_exit(); ++sample) {
+                auto current = ctrler()->get_image();
+                const auto thumb = strategy_report_scrollbar(current);
+                const bool advanced = origin ? thumb && strategy_report_scroll_moved(*origin, *thumb, toward_top)
+                                             : !same_strategy_report_grid(image, current);
+                const bool settled = origin ? thumb && previous_thumb &&
+                                                  same_strategy_report_scrollbar(*previous_thumb, *thumb)
+                                            : !previous.empty() && same_strategy_report_grid(previous, current);
+                if (advanced && settled && !strategy_report_rows(current, edge).empty() &&
+                    strategy_report_tab_visible(current)) {
+                    return current;
+                }
+                previous_thumb = advanced ? thumb : std::nullopt;
+                previous = advanced ? std::move(current) : cv::Mat {};
+                if (!sleep(240)) {
+                    break;
+                }
+            }
+            return {};
+        };
+        bool input_sent = false;
+        if (origin) {
+            const int destination = strategy_report_scroll_destination(*origin, toward_top);
+            input_sent = ctrler()->swipe(
+                Point(StrategyReportScrollX, origin->center()), Point(StrategyReportScrollX, destination), 430);
+        }
+        cv::Mat next;
+        if (input_sent && sleep(420)) {
+            next = await_viewport();
+        }
+        if (next.empty() && !need_exit()) {
+            // A drag on the list is a fallback when the scrollbar did not move.
+            // Do not send a second scroll through a viewport that is already shifting.
+            const auto current = ctrler()->get_image();
+            const auto thumb = strategy_report_scrollbar(current);
+            const bool unchanged = origin ? thumb && same_strategy_report_scrollbar(*origin, *thumb)
+                                          : same_strategy_report_grid(image, current);
+            if (unchanged && strategy_report_tab_visible(current) &&
+                ctrler()->swipe(Point(900, toward_top ? 320 : 610), Point(900, toward_top ? 610 : 320), 620) &&
+                sleep(420)) {
+                next = await_viewport();
+            }
+        }
+        const auto after = strategy_report_scrollbar(next);
+        auto receipt = basic_info_with_what("SPAStrategyReportViewport");
+        receipt["details"] = json::object {
+            { "toward_top", toward_top }, { "verified", !next.empty() },
+            { "scrollbar_before", origin ? origin->top : -1 }, { "scrollbar_after", after ? after->top : -1 }
+        };
+        callback(AsstMsg::SubTaskExtraInfo, receipt);
+        if (next.empty()) {
+            save_evidence(ctrler()->get_image(), utils::path("debug/SPA/strategy_report_scroll_unverified"), false);
+            return false;
+        }
+        image = std::move(next);
+        return true;
+    };
+
+    bool top_verified = false;
+    for (int attempt = 0; attempt < 4 && !need_exit(); ++attempt) {
+        const auto scrollbar = strategy_report_scrollbar(image);
+        if (!scrollbar) {
+            break;
+        }
+        if (scrollbar->at_top()) {
+            top_verified = true;
+            break;
+        }
+        if (!scroll_viewport(true)) {
+            break;
+        }
+    }
     ObserverTaskPlugin observer(m_callback, m_inst, m_task_chain);
     observer.set_task_id(m_task_id);
     std::map<std::string, StrategyProgress> progress;
     int visited_viewports = 0;
-    constexpr int max_viewports = 10;
+    bool bottom_verified = false;
+    constexpr int max_viewports = 18;
     while (visited_viewports < max_viewports && !need_exit()) {
         const auto rows = strategy_report_rows(image, edge);
         if (rows.empty() || !strategy_report_tab_visible(image)) {
@@ -189,32 +269,14 @@ bool StrategyReportTaskPlugin::_run()
             // Rematch this view before attempting any other report cell.
             continue;
         }
-        if (!ctrler()->swipe(Point(1185, 640), Point(1185, 250), 370) || !sleep(500)) {
-            return false;
-        }
-        cv::Mat previous;
-        cv::Mat next_viewport;
-        for (int sample = 0; sample < 5 && !need_exit(); ++sample) {
-            auto current = ctrler()->get_image();
-            if (!strategy_report_rows(current, edge).empty() && !same_strategy_report_grid(image, current)) {
-                if (!previous.empty() && same_strategy_report_grid(previous, current) &&
-                    strategy_report_tab_visible(current)) {
-                    next_viewport = std::move(current);
-                    break;
-                }
-                previous = std::move(current);
-            }
-            else {
-                previous.release();
-            }
-            if (!sleep(250)) {
-                return false;
-            }
-        }
-        if (next_viewport.empty()) {
+        const auto scrollbar = strategy_report_scrollbar(image);
+        if (scrollbar && scrollbar->at_bottom()) {
+            bottom_verified = true;
             break;
         }
-        image = std::move(next_viewport);
+        if (!scroll_viewport(false)) {
+            break;
+        }
     }
 
     json::array entries;
@@ -234,6 +296,8 @@ bool StrategyReportTaskPlugin::_run()
                        { "target_progress_verified", !m_target.empty() && progress.contains(m_target) },
                        { "strategies", std::move(entries) },
                        { "viewports_scanned", visited_viewports },
+                       { "scrollbar_top_verified", top_verified },
+                       { "scrollbar_bottom_verified", bottom_verified },
                        { "identified_strategies", progress.size() },
                        { "expected_strategies", StrategyUnlockCatalogue.size() },
                        { "all_strategy_identities_observed", progress.size() == StrategyUnlockCatalogue.size() },
