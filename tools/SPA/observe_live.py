@@ -1590,4 +1590,6 @@ def main():
 
 
 if __name__ == "__main__":
+    # Keep redirected settlement output in the same UTF-8 encoding as the journal.
+    sys.stdout.reconfigure(encoding="utf-8")
     main()
