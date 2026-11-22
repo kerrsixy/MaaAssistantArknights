@@ -84,6 +84,7 @@
             "BlackFlow@Roguelike@MonthlySummaryDismiss",
             "BlackFlow@Roguelike@BeginRecovery_Announcement",
             "BlackFlow@Roguelike@TrainingSummaryContinue",
+            "BlackFlow@Roguelike@BeginRecovery_Victory",
             "BlackFlow@Roguelike@MissionFailedFlag2",
             "BlackFlow@Roguelike@DuelOpponentSelection",
             "BlackFlow@Roguelike@DuelRetreat",
@@ -124,6 +125,7 @@
             "BlackFlow@Roguelike@AccountDailySupply",
             "BlackFlow@Roguelike@AccountMonthlySignInClose",
             "BlackFlow@Roguelike@AccountAnnouncementClose",
+            "BlackFlow@Roguelike@AccountMissionCompletedReturn",
             "BlackFlow@Roguelike@AccountHome",
             "BlackFlow@Roguelike@AccountFloorIntro",
             "BlackFlow@Roguelike@AccountMapReturn",
@@ -3686,5 +3688,29 @@
         "baseTask": "CloseAnno",
         "template": "CloseAnno.png",
         "next": ["BlackFlow@Roguelike@Begin"]
+    },
+    "BlackFlow@Roguelike@AccountMissionCompletedReturn": {
+        "Doc": "重登保留的战斗胜利页可先返回主题大厅，再按原账号流程核验UID；不点击放弃探索，不在账号核验前选奖励或招募。",
+        "baseTask": "BlackFlow@Roguelike@BeginRecovery_Victory",
+        "template": "Roguelike@ExitThenAbandon.png",
+        "action": "ClickRect",
+        "specificRect": [25, 22, 28, 28],
+        "postDelay": 1000,
+        "next": ["BlackFlow@Roguelike@AccountBegin"],
+        "maxTimes": 2,
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
+    },
+    "BlackFlow@Roguelike@BattleSuccessPage": {
+        "algorithm": "OcrDetect",
+        "text": ["成功通过"],
+        "fullMatch": true,
+        "roi": [0, 490, 430, 120],
+        "action": "DoNothing"
+    },
+    "BlackFlow@Roguelike@BeginRecovery_Victory": {
+        "Doc": "返回箭头本身不能代表胜利；必须同时识别成功通过文字。复用正常战斗胜利的领奖后继，不改战斗插件原有识别任务。",
+        "baseTask": "BlackFlow@Roguelike@MissionCompletedFlag",
+        "template": "Roguelike@ExitThenAbandon.png",
+        "requiredPage": "BlackFlow@Roguelike@BattleSuccessPage"
     }
 }
