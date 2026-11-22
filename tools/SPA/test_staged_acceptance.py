@@ -320,6 +320,48 @@ class StagedAcceptanceTests(unittest.TestCase):
             ]
         )
 
+    def test_unclassified_navigation_frame_requires_completed_native_menu_action(self):
+        def dispatch(page):
+            result = event(
+                "SPALifecycleTransition",
+                {"page": page, "next": "MiniGame@SPA@LifecycleFindLobby"},
+            )
+            result["details"]["class"] = "asst::spa::LifecycleTaskPlugin"
+            return result
+
+        def click(task):
+            return {
+                "message": 20002,
+                "details": {
+                    "taskid": 1,
+                    "class": "asst::ProcessTask",
+                    "details": {"task": task, "action": "ClickSelf"},
+                },
+            }
+
+        unknown = event("SPAObservation", {"page": "unknown"})
+        prefix = [
+            unknown,
+            dispatch("main_home"),
+            click("LifecycleOpenMenu"),
+            unknown,
+            dispatch("unknown"),
+            click("LifecycleMenuTerminalText"),
+            unknown,
+            dispatch("terminal_overview"),
+            click("LifecycleTerminalBanner"),
+        ]
+        self.assertTrue(self.reviewed(prefix + solo_run())["qualified_win"])
+        self.assertFalse(
+            self.reviewed(prefix[:5] + prefix[6:] + solo_run())["qualified_win"]
+        )
+        undescribed = prefix[:]
+        undescribed[5] = click("LifecycleDispatch")
+        self.assertFalse(self.reviewed(undescribed + solo_run())["qualified_win"])
+        no_page_anchor = prefix[:]
+        no_page_anchor[1] = no_page_anchor[7] = dispatch("unknown")
+        self.assertFalse(self.reviewed(no_page_anchor + solo_run())["qualified_win"])
+
     def test_lobby_must_precede_strategy_and_formation(self):
         records = solo_run()
         records[0], records[1] = records[1], records[0]

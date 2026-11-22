@@ -290,6 +290,25 @@ def fresh_solo_lobby_index(events, observations):
         "protocol_entry",
     }
     entry_tasks = {"OpenLobby", "LifecycleEnterProtocol", "LifecycleTerminalBanner"}
+    navigation_tasks = entry_tasks | {
+        "LifecycleOpenMenu",
+        "LifecycleHomeTerminal",
+        "LifecycleMenuTerminal",
+        "LifecycleMenuTerminalText",
+        "LifecycleTerminalTab",
+    }
+
+    def completed_click(event, tasks):
+        envelope = event.get("details", {})
+        detail = envelope.get("details", {})
+        return (
+            event.get("message") == 20002
+            and envelope.get("class") == "asst::ProcessTask"
+            and detail.get("task") in tasks
+            and detail.get("action") == "ClickSelf"
+        )
+
+    navigation_page_verified = False
     for offset, (index, observation) in enumerate(observations):
         page = observation.get("page")
         if page == "lobby" and not observation.get("contradictory", False):
@@ -308,23 +327,32 @@ def fresh_solo_lobby_index(events, observations):
             if offset + 1 < len(observations)
             else len(events)
         )
-        if not any(
-            event.get("details", {}).get("what") == "SPALifecycleTransition"
-            and event["details"].get("class") == "asst::spa::LifecycleTaskPlugin"
-            and event["details"].get("details", {}).get("page") in navigation_pages
-            and event["details"]["details"].get("next")
-            == "MiniGame@SPA@LifecycleFindLobby"
-            for event in events[index + 1 : end]
-        ):
+        steps = events[index + 1 : end]
+        navigation_verified = False
+        unknown_dispatch = False
+        for event in steps:
+            envelope = event.get("details", {})
+            detail = envelope.get("details", {})
+            if (
+                event.get("message") == 20003
+                and envelope.get("what") == "SPALifecycleTransition"
+                and envelope.get("class") == "asst::spa::LifecycleTaskPlugin"
+                and detail.get("next") == "MiniGame@SPA@LifecycleFindLobby"
+                and detail.get("run_abandoned") is not True
+            ):
+                if detail.get("page") in navigation_pages:
+                    navigation_page_verified = navigation_verified = True
+                elif detail.get("page") == "unknown":
+                    unknown_dispatch = True
+            if unknown_dispatch and completed_click(event, navigation_tasks):
+                navigation_verified = True
+        if not navigation_verified:
             return None
     else:
         return None
 
-    if any(
-        event.get("message") == 20002
-        and event.get("details", {}).get("class") == "asst::ProcessTask"
-        and event["details"].get("details", {}).get("task") in entry_tasks
-        and event["details"]["details"].get("action") == "ClickSelf"
+    if navigation_page_verified and any(
+        completed_click(event, entry_tasks)
         for event in events[observations[offset - 1][0] + 1 : index]
     ):
         return index
