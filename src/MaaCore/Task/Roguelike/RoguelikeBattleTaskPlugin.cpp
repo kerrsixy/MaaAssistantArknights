@@ -320,22 +320,14 @@ bool asst::RoguelikeBattleTaskPlugin::calc_stage_info()
         if (opt->hunter_bait_plan) {
             auto opening = std::make_unique<blackflow::BlackFlowHunterPreludeController>();
             std::string error;
-            int bait_attempt_limit = 1;
-            for (const auto& [group, plans] : opt->deploy_plan) {
-                for (const auto& plan : plans) {
-                    if (plan.plan_index == *opt->hunter_bait_plan && plan.max_deployments != INT_MAX) {
-                        bait_attempt_limit = plan.max_deployments;
-                    }
-                }
-            }
-            if (m_config->get_theme() != RoguelikeTheme::BlackFlow ||
+            const auto bait_config = RoguelikeCopilot.get_hunter_opening(opt->stage_name);
+            if (m_config->get_theme() != RoguelikeTheme::BlackFlow || !bait_config ||
                 !opening->prepare(
                     ResDir.get() / "template/Roguelike/BlackFlow/HunterPrelude/manifest.json",
                     ResDir.get() / "roguelike/BlackFlow/stage_mechanics/branch_trap.json",
                     m_map_data,
-                    *opt->hunter_bait_plan,
+                    *bait_config,
                     m_config->status().run_id + ":" + m_stage_name,
-                    bait_attempt_limit,
                     &error)) {
                 LogError << __FUNCTION__ << "Hunter opening initialization failed" << error;
                 if (check_in_battle()) {
@@ -514,6 +506,9 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_requirements_met(
         return false;
     }
     const auto range = get_attack_range(oper, resolve_deploy_direction(oper, plan.location, plan.direction));
+    if (m_hunter_prelude && !m_hunter_prelude->attack_range_allowed(plan.plan_index, range)) {
+        return false;
+    }
     return std::ranges::all_of(plan.required_attack_tiles, [&](const Point& target) {
         return std::ranges::find(range, target - plan.location) != range.end();
     });
@@ -979,7 +974,8 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
 
     check_drone_tiles();
 
-    if (!m_first_deploy && (!m_hunter_prelude || m_hunter_main_allowed)) {
+    if (!m_first_deploy &&
+        (!m_hunter_prelude || m_hunter_main_allowed || m_hunter_prelude->bait_skill_allowed(m_battlefield_opers))) {
         use_all_ready_skill(image);
     }
 

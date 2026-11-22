@@ -11,6 +11,7 @@
 #include <meojson/json.hpp>
 
 #include "Common/AsstBattleDef.h"
+#include "Config/Roguelike/BlackFlow/BlackFlowHunterOpening.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowHunterPreludeAnalyzer.h"
 
 namespace Map
@@ -50,7 +51,20 @@ public:
         int bait_attempt_limit,
         std::string* error = nullptr);
 
+    bool prepare(
+        const std::filesystem::path& template_manifest,
+        const std::filesystem::path& raw_level_path,
+        const Map::Level& current_level,
+        const HunterOpening& opening,
+        std::string battle_key,
+        std::string* error = nullptr);
+
     [[nodiscard]] bool allows_plan(int plan_index) const noexcept;
+
+    [[nodiscard]] bool is_bait_plan(int plan_index) const noexcept { return m_bait_plans.contains(plan_index); }
+
+    [[nodiscard]] bool attack_range_allowed(int plan_index, const battle::AttackRange& range) const;
+    [[nodiscard]] bool bait_skill_allowed(const std::map<battle::OperNameTag, Point>& battlefield) const noexcept;
     void deployed(int plan_index, const battle::OperNameTag& oper, Point tile);
     [[nodiscard]] HunterPreludeDecision observe(
         const cv::Mat& image,
@@ -76,6 +90,9 @@ private:
     bool m_main_released = false;
     bool m_contract_breached = false;
     int m_bait_plan_index = -1;
+    std::map<int, HunterBaitPlan> m_bait_plans;
+    std::optional<Point> m_bait_tile;
+    std::array<HunterPresence, 2> m_spawn_presence {};
     int m_bait_attempts = 0;
     int m_bait_attempt_limit = 1;
     std::string m_battle_key;

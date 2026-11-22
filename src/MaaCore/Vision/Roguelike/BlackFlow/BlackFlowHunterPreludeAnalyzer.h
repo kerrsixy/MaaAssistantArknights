@@ -23,6 +23,7 @@ struct HunterSpawnObservation
     HunterPresence presence = HunterPresence::Unknown;
     double present_score = -1.0;
     double absent_score = -1.0;
+    int distinct_empty_frames = 0;
     Rect roi;
 };
 
@@ -143,5 +144,6 @@ private:
     bool m_has_sequence = false;
     cv::Mat m_last_observable_frame;
     int m_empty_spawn_frames = 0;
+    std::array<int, 2> m_empty_spawn_frames_by_slot {};
 };
 }
