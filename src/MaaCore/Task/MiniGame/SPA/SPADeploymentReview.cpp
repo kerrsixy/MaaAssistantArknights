@@ -612,18 +612,15 @@ int asst::spa::deployment_preference_input_cost(const DeploymentSequence& sequen
 
 int asst::spa::deployment_input_steps_with_facing_repairs(const DeploymentSequence& sequence)
 {
-    int count = 0;
     std::set<std::string> pending_facing;
     for (const auto& step : sequence.steps) {
-        const bool was_displaced = pending_facing.erase(step.unit) != 0;
-        // A final explicit Face already covers the repair reserved by its swap.
-        count += !(step.kind == DeploymentStepKind::Face && was_displaced);
+        // Any later action by the displaced operator sets its own facing.
+        pending_facing.erase(step.unit);
         if (step.kind == DeploymentStepKind::Swap) {
-            ++count;
             pending_facing.insert(step.displaced);
         }
     }
-    return count;
+    return static_cast<int>(sequence.steps.size() + pending_facing.size());
 }
 
 bool asst::spa::deployment_change_worth_input(const DeploymentProposal& proposal, const DeploymentSequence& sequence)
@@ -672,7 +669,8 @@ asst::spa::DeploymentSequence asst::spa::sequence_deployment(
             std::find_if(target.begin(), target.end(), [&](const DeploymentUnit& item) { return item.id == unit.id; });
         if (unit.id.empty() || !ids.insert(unit.id).second || !occupied.insert(unit.cell).second ||
             destination == target.end() || !goals.insert(destination->cell).second || !accepts(index, unit.cell) ||
-            !accepts(index, destination->cell) || std::string("ESWN").find(unit.facing) == std::string::npos ||
+            !accepts(index, destination->cell) ||
+            (std::string("ESWN").find(unit.facing) == std::string::npos && (unit.facing != '\0' || !unit.movable)) ||
             std::string("ESWN").find(destination->facing) == std::string::npos ||
             (!unit.movable && (unit.cell != destination->cell || unit.facing != destination->facing))) {
             return result;

@@ -48,7 +48,7 @@ int main()
     assert(deployment_input_steps_with_facing_repairs(swap_plan) == 2);
     auto chained_plan = swap_plan;
     chained_plan.steps[1] = { DeploymentStepKind::Move, swap_plan.steps[0].displaced, {}, { 7, 1 }, { 8, 1 }, 'N' };
-    assert(deployment_input_steps_with_facing_repairs(chained_plan) == 3);
+    assert(deployment_input_steps_with_facing_repairs(chained_plan) == 2);
 
     const std::vector<BoardCell> adjacent_cells { { 7, 1 }, { 7, 2 } };
     std::vector<DeploymentUnit> pair { unit("旅骨", { 7, 1 }), unit("慕斯", { 7, 2 }) };
@@ -80,31 +80,27 @@ int main()
     const std::set<std::string> known { "卡达", "折光", "拉普兰德", "深靛", "褐果", "霍尔海雅" };
     assert(!sequence_deployment(after, target, 1500).complete);
     auto decision = continue_deployment_plan(after, target, known, *expected, true);
-    assert(decision.kind == DeploymentPlanContinuationKind::RestoreFacing && decision.step);
-    assert(decision.step->kind == DeploymentStepKind::Face && decision.step->unit == "慕斯");
-    assert(decision.step->from == BoardCell(7, 1) && decision.step->to == BoardCell(7, 1));
+    assert(decision.kind == DeploymentPlanContinuationKind::Step && decision.step);
+    assert(decision.step->kind == DeploymentStepKind::Move && decision.step->unit == "慕斯");
+    assert(decision.step->from == BoardCell(7, 1) && decision.step->to == BoardCell(8, 1));
     assert(decision.step->facing == 'E');
-    // Native execution still accepts the explicit planned direction while
-    // retaining an unknown observed source direction in its failure key.
+    // The executor still receives the unknown current direction and must
+    // verify the actor, destination and committed facing on the live frame.
     const std::vector<GridPlacementMember> observed_field { { 7, 1, PlacementRole::Frontline, "慕斯", '\0' },
                                                             { 8, 3, PlacementRole::Ranged, "卡达", 'E' } };
     const std::map<std::string, bool> forms { { "慕斯", false }, { "卡达", false } };
     const auto failure_key = spatial_action_failure_key("m01#normal", *decision.step, observed_field, forms);
     assert(failure_key && failure_key->find("慕斯:7.1:initial:unknown") != std::string::npos);
     assert(spatial_receiver_failure_key("m01#normal", *decision.step, observed_field, forms));
-    assert(!after[2].movable && !known.contains("慕斯")); // No evidence mutated by future-state reasoning.
-    assert(deployment_cells_after_step(after, *decision.step) == expected);
+    assert(!after[2].movable && !known.contains("慕斯"));
+    const auto expected_final = deployment_cells_after_step(after, *decision.step);
+    assert(expected_final && expected_final->at("慕斯") == BoardCell(8, 1));
 
     auto restored = after;
     restored[2].movable = true;
     restored[2].placement_cells = before[2].placement_cells;
     auto known_restored = known;
     known_restored.insert("慕斯");
-    decision = continue_deployment_plan(restored, target, known_restored, *expected, true);
-    assert(decision.kind == DeploymentPlanContinuationKind::Step && decision.step);
-    assert(decision.step->unit == "慕斯" && decision.step->kind == DeploymentStepKind::Move);
-    assert(decision.step->to == BoardCell(8, 1)); // Same goal; Card does not get moved a second time.
-    const auto expected_final = deployment_cells_after_step(restored, *decision.step);
     auto final = restored;
     final[2].cell = { 8, 1 };
     assert(expected_final);
@@ -134,6 +130,46 @@ int main()
     auto duplicate = after;
     duplicate[3].id = duplicate[0].id;
     assert(!deployment_cell_ledger(duplicate));
+    auto final_swap = before;
+    final_swap[0].cell = { 8, 3 };
+    final_swap[2].cell = { 7, 1 };
+    final_swap[2].facing = 'W';
+    decision = continue_deployment_plan(after, final_swap, known, *expected, true);
+    assert(decision.kind == DeploymentPlanContinuationKind::RestoreFacing && decision.step);
+    assert(decision.step->from == BoardCell(7, 1) && decision.step->to == BoardCell(7, 1));
+    assert(decision.step->unit == "慕斯" && decision.step->facing == 'W');
+
+    // Regulation 4, round 14, m01 boss phase. These three live positions
+    // isolate the next two exchanges after the unrelated lane move.
+    const std::vector<BoardCell> boss_cells { { 5, 1 }, { 7, 1 }, { 8, 1 }, { 8, 2 } };
+    std::vector<DeploymentUnit> boss_board { unit("烈夏", { 5, 1 }, 'E', false),
+                                             unit("角峰", { 8, 2 }),
+                                             unit("塔露拉", { 8, 1 }) };
+    auto boss_target = boss_board;
+    for (auto& member : boss_target) {
+        member.movable = true;
+        member.placement_cells = boss_cells;
+    }
+    boss_board[1].placement_cells = boss_cells;
+    boss_board[2].placement_cells = boss_cells;
+    boss_target[0].cell = { 8, 2 };
+    boss_target[1].cell = { 7, 1 };
+
+    const auto boss_expected = deployment_cell_ledger(boss_board);
+    assert(boss_expected);
+    decision = continue_deployment_plan(boss_board, boss_target, { "角峰", "塔露拉" }, *boss_expected, true);
+    assert(decision.kind == DeploymentPlanContinuationKind::Step && decision.step);
+    assert(decision.step->kind == DeploymentStepKind::Swap && decision.step->unit == "烈夏");
+    assert(decision.step->displaced == "角峰" && decision.step->to == BoardCell(8, 2));
+    const auto boss_after_swap = deployment_cells_after_step(boss_board, *decision.step);
+    assert(boss_after_swap);
+    boss_board[0] = boss_target[0];
+    boss_board[1] = unit("角峰", { 5, 1 }, 'E', false);
+    decision = continue_deployment_plan(boss_board, boss_target, { "烈夏", "塔露拉" }, *boss_after_swap, true);
+    assert(decision.kind == DeploymentPlanContinuationKind::Step && decision.step);
+    assert(decision.step->kind == DeploymentStepKind::Move && decision.step->unit == "角峰");
+    assert(decision.step->to == BoardCell(7, 1) && decision.step->facing == boss_target[1].facing);
+
     auto invalid_target = target;
     invalid_target[2].placement_cells = { { 8, 1 } };
     decision = continue_deployment_plan(after, invalid_target, known, *expected, true);

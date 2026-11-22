@@ -90,9 +90,8 @@ inline DeploymentPlanContinuation continue_deployment_plan(
     }
 
     auto effective_target = target;
-    std::vector<DeploymentUnit> after_facing_repair = current;
-    std::optional<DeploymentStep> repair;
-    for (auto& unit : after_facing_repair) {
+    auto continuation_board = current;
+    for (auto& unit : continuation_board) {
         const auto goal = std::find_if(effective_target.begin(), effective_target.end(), [&](const auto& item) {
             return item.id == unit.id;
         });
@@ -117,34 +116,27 @@ inline DeploymentPlanContinuation continue_deployment_plan(
                      std::nullopt,
                      "Observed cell is outside cached unit terrain" };
         }
-        if (!repair) {
-            repair = DeploymentStep { DeploymentStepKind::Face, unit.id, {}, unit.cell, unit.cell, goal->facing };
-        }
-        // This copy describes a future state after an explicit Face succeeds.
-        // It must never replace current facing or live evidence in the caller.
-        unit.facing = goal->facing;
+        // The cached plan gives this unit a legal destination and an explicit
+        // facing. Its last verified swap accounts for its current cell. Keep
+        // the observed facing unknown until the verified Move or Face commits.
+        unit.facing = '\0';
         unit.movable = true;
         unit.placement_cells = goal->placement_cells;
     }
 
-    const auto sequence = sequence_deployment(current, effective_target, state_budget);
-    if (sequence.complete && !sequence.steps.empty()) {
-        return { DeploymentPlanContinuationKind::Step, sequence.steps.front(), "Continue the existing target" };
+    const auto sequence = sequence_deployment(continuation_board, effective_target, state_budget);
+    if (!sequence.complete) {
+        return { DeploymentPlanContinuationKind::Deferred,
+                 std::nullopt,
+                 "Existing target awaits bounded reconciliation" };
     }
-    if (repair) {
-        // Do not spend an input on facing if another constraint already makes
-        // continuation unproven. Deferred leaves the target intact and lets
-        // the caller finish preparation under its bounded action budget.
-        const auto repaired = sequence_deployment(after_facing_repair, effective_target, state_budget);
-        if (repaired.complete) {
-            return { DeploymentPlanContinuationKind::RestoreFacing,
-                     repair,
-                     "Restore one planned facing before continuing" };
-        }
-    }
-    if (sequence.complete && sequence.steps.empty() && !repair) {
+    if (sequence.steps.empty()) {
         return { DeploymentPlanContinuationKind::Complete, std::nullopt, "Existing target reached" };
     }
-    return { DeploymentPlanContinuationKind::Deferred, std::nullopt, "Existing target awaits bounded reconciliation" };
+    const auto& step = sequence.steps.front();
+    if (step.kind == DeploymentStepKind::Face && !directions_known.contains(step.unit)) {
+        return { DeploymentPlanContinuationKind::RestoreFacing, step, "Restore facing at the planned cell" };
+    }
+    return { DeploymentPlanContinuationKind::Step, step, "Continue the existing target" };
 }
 }
