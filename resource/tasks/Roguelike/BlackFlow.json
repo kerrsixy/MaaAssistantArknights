@@ -251,8 +251,6 @@
     },
     "BlackFlow@Roguelike@AccountAnnouncementClose": {
         "baseTask": "BlackFlow@Roguelike@BeginRecovery_Announcement",
-        "template": "CloseAnno.png",
-        "requiredPage": "BlackFlow@Roguelike@AccountAnnouncementPage",
         "maxTimes": 2,
         "next": ["BlackFlow@Roguelike@AccountBegin"]
     },
@@ -2810,13 +2808,18 @@
         "next": ["BlackFlow@Roguelike@Begin"]
     },
     "BlackFlow@Roguelike@BeginRecovery_Announcement": {
-        "Doc": "启动时卡在活动公告页（右上角关闭按钮）。原先用 empty.png 恒命中，会在任意未识别页面盲点一次右上角，实测会把游戏带进基建/活动页；改用公告页真实模板 CloseAnno.png（对 anno.png 实测 0.9409）",
-        "template": "CloseAnno.png",
-        "action": "ClickSelf",
-        "rectMove": [10, 10, 10, 10],
-        "roi": [1150, 40, 120, 80],
+        "Doc": "重登后的公告可能连续出现。同时核验活动公告与系统公告页签，再点圆形关闭按钮中心；不从可透出的主页按钮提前进入终端。",
+        "algorithm": "OcrDetect",
+        "text": ["活动公告"],
+        "fullMatch": true,
+        "roi": [370, 85, 190, 70],
+        "requiredPage": "BlackFlow@Roguelike@AnnouncementHeader",
+        "action": "ClickRect",
+        "specificRect": [1198, 63, 10, 10],
         "postDelay": 1000,
-        "next": ["BlackFlow@Roguelike@Begin"]
+        "maxTimes": 3,
+        "next": ["BlackFlow@Roguelike@Begin"],
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
     },
     "BlackFlow@Roguelike@BeginRecovery_Settlement": {
         "Doc": "启动时卡在上一局结算首页（信息丢失 / 查看数据回溯）：点右侧箭头翻页。该页文字被压暗、OCR 读不出，只能用右侧箭头模板定位",
@@ -3657,5 +3660,31 @@
         "specialParams": [1000, 0, 10, 10],
         "postDelay": 700,
         "next": ["BlackFlowAccountScan@ModulePage"]
+    },
+    "BlackFlow@Roguelike@AnnouncementHeader": {
+        "Doc": "公告页的第二个页签作为独立页面门禁；不以右上角叉号单独判断公告。",
+        "algorithm": "OcrDetect",
+        "text": ["系统公告"],
+        "fullMatch": true,
+        "roi": [560, 85, 210, 70],
+        "action": "DoNothing"
+    },
+    "BlackFlow@Terminal-Entry": {
+        "Doc": "仅黑流恢复分支：进入终端的子流程若被延迟出现的公告遮挡，先关闭已核验公告，再重试终端；保留原有设置菜单恢复。",
+        "baseTask": "Terminal-Entry",
+        "onErrorNext": [
+            "BlackFlow@Roguelike@TerminalAnnouncementDismiss",
+            "BlackFlow@Terminal-Entry@SwitchTheme@ToggleSettingsMenu"
+        ]
+    },
+    "BlackFlow@Roguelike@TerminalAnnouncementDismiss": {
+        "baseTask": "BlackFlow@Roguelike@BeginRecovery_Announcement",
+        "next": ["BlackFlow@Terminal-Entry"]
+    },
+    "BlackFlow@Roguelike@CloseAnno": {
+        "Doc": "通用启动链关闭第一张公告后，重新检测黑流恢复页，优先处理连续公告。",
+        "baseTask": "CloseAnno",
+        "template": "CloseAnno.png",
+        "next": ["BlackFlow@Roguelike@Begin"]
     }
 }
