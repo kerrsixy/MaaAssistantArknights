@@ -148,6 +148,15 @@ bool strategy_badge_report_text_verified(
     const StrategyIdentity& selected,
     int badge_wins);
 
+struct LockedStrategyReport
+{
+    std::string_view band_id;
+    int current;
+    int required;
+};
+
+std::optional<LockedStrategyReport> strategy_report_locked_progress(const std::vector<TextObservation>& texts);
+
 enum class Page
 {
     Unknown,

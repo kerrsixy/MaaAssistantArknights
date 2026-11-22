@@ -1,6 +1,7 @@
 #include "SPAObservation.h"
 #include "SPACombatStats.h"
 #include "SPADifficultyPolicy.h"
+#include "SPAStrategyUnlockCatalogue.h"
 #include <algorithm>
 #include <charconv>
 #include <cmath>
@@ -501,6 +502,65 @@ std::optional<asst::spa::TextObservation> asst::spa::promotion_short_title_confi
                           text.y >= 280 && text.y <= 325);
     }
     return titles == 1 && range ? purchase_confirmation_control(texts, slot) : std::nullopt;
+}
+
+static std::optional<int> parse_strategy_report_count(std::string_view digits)
+{
+    int value = 0;
+    const auto end = digits.data() + digits.size();
+    const auto parsed = std::from_chars(digits.data(), end, value);
+    return parsed.ec == std::errc {} && parsed.ptr == end && value >= 0 ? std::optional(value) : std::nullopt;
+}
+
+std::optional<asst::spa::LockedStrategyReport>
+    asst::spa::strategy_report_locked_progress(const std::vector<TextObservation>& texts)
+{
+    int report_headers = 0, unknown_leaders = 0, empty_life_labels = 0;
+    for (const auto& text : texts) {
+        if (!std::isfinite(text.score)) {
+            continue;
+        }
+        report_headers += text.score >= .90 && text.x >= 690 && text.x < 860 && text.y >= 20 && text.y < 75 &&
+                          text.text == "策略报告";
+        unknown_leaders += text.score >= .68 && text.x >= 120 && text.x < 390 && text.y >= 350 && text.y < 418 &&
+                           (text.text == "???" || text.text == "？？？");
+        empty_life_labels += text.score >= .90 && text.x >= 25 && text.x < 135 && text.y >= 418 && text.y < 455 &&
+                             text.text == "初始生命值";
+    }
+    if (report_headers != 1 || unknown_leaders != 1 || empty_life_labels != 1) {
+        return std::nullopt;
+    }
+    static const std::regex unlock_progress(R"((.+?)(?:\(|（)([0-9]+)/([0-9]+)(?:\)|）))");
+    std::optional<LockedStrategyReport> matched;
+    for (const auto& text : texts) {
+        if (!std::isfinite(text.score) || text.score < .90 || text.x < 20 || text.x >= 110 || text.y < 455 ||
+            text.y >= 520) {
+            continue;
+        }
+        auto condition = text.text;
+        std::erase_if(condition, [](char c) { return c == ' ' || c == '\t'; });
+        std::smatch parts;
+        if (!std::regex_match(condition, parts, unlock_progress)) {
+            continue;
+        }
+        const auto current = parse_strategy_report_count(parts[2].str());
+        const auto required = parse_strategy_report_count(parts[3].str());
+        if (!current || !required || *current >= *required) {
+            continue;
+        }
+        const auto description = parts[1].str();
+        for (const auto& rule : StrategyUnlockCatalogue) {
+            const int expected = rule.kind == StrategyUnlockKind::SettlementRoster ? 1 : rule.count;
+            if (rule.description != description || *required != expected) {
+                continue;
+            }
+            if (matched) {
+                return std::nullopt; // Shared descriptions cannot identify a unique strategy.
+            }
+            matched = LockedStrategyReport { rule.id, *current, *required };
+        }
+    }
+    return matched;
 }
 
 static std::string strategy_report_title_with_ascii_exclamation(std::string title)
@@ -1514,15 +1574,8 @@ asst::spa::PageObservation
     }
     const std::regex wins("已通过模拟([0-9]+)次");
     for (auto it = std::sregex_iterator(left.begin(), left.end(), wins); it != std::sregex_iterator(); ++it) {
-        const auto digits = (*it)[1].str();
-        int value = 0;
-        const auto end = digits.data() + digits.size();
-        const auto parsed = std::from_chars(digits.data(), end, value);
-        if (parsed.ec != std::errc {} || parsed.ptr != end) {
-            result.contradictory = true;
-            continue;
-        }
-        if (result.wins && *result.wins != value) {
+        const auto value = parse_strategy_report_count((*it)[1].str());
+        if (!value || (result.wins && result.wins != value)) {
             result.contradictory = true;
         }
         result.wins = value;

@@ -272,6 +272,10 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(
     bool strategy_report_evidence_saved = false;
     std::string strategy_badge_tier;
     std::string strategy_badge_source;
+    const auto locked_strategy =
+        observed.page == Page::StrategyReport && !observed.contradictory && !observed.band_id
+            ? strategy_report_locked_progress(texts)
+            : std::nullopt;
     if (observed.page == Page::StrategyReport && !observed.contradictory && observed.band_id) {
         const auto selected = std::find_if(identities.begin(), identities.end(), [&](const auto& strategy) {
             return strategy.band_id == *observed.band_id;
@@ -508,6 +512,9 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(
                        { "badge_text_verified", badge_text_verified },
                        { "strategy_report_identity_verified", strategy_report_identity_verified },
                        { "strategy_report_unlock_verified", strategy_report_unlock_verified },
+                       { "locked_strategy_id", locked_strategy ? std::string(locked_strategy->band_id) : std::string() },
+                       { "locked_strategy_current", locked_strategy ? locked_strategy->current : -1 },
+                       { "locked_strategy_required", locked_strategy ? locked_strategy->required : -1 },
                        { "strategy_progress_text_verified", strategy_progress_text_verified },
                        { "strategy_report_evidence_saved", strategy_report_evidence_saved },
                        { "result_text_verified", result_text_verified },

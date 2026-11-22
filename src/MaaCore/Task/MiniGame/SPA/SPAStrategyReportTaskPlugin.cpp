@@ -198,6 +198,7 @@ bool StrategyReportTaskPlugin::_run()
     ObserverTaskPlugin observer(m_callback, m_inst, m_task_chain);
     observer.set_task_id(m_task_id);
     std::set<std::string> identified;
+    std::map<std::string, json::object> locked;
     std::map<std::string, StrategyProgress> progress;
     int visited_viewports = 0;
     bool bottom_verified = false;
@@ -245,6 +246,18 @@ bool StrategyReportTaskPlugin::_run()
                     continue;
                 }
                 const auto& observation = observer.last_observation();
+                const auto locked_id = observation.get("locked_strategy_id", std::string());
+                if (!locked_id.empty()) {
+                    identified.insert(locked_id);
+                    if (!progress.contains(locked_id)) {
+                        locked.insert_or_assign(
+                            locked_id,
+                            json::object { { "band_id", locked_id },
+                                           { "current", observation.get("locked_strategy_current", -1) },
+                                           { "required", observation.get("locked_strategy_required", -1) } });
+                    }
+                    continue;
+                }
                 const auto id = observation.get("band_id", std::string());
                 const auto rule = strategy_unlock_rule(id);
                 if (observation.get("page", std::string()) != "strategy_report" || !rule ||
@@ -262,6 +275,7 @@ bool StrategyReportTaskPlugin::_run()
                     !observation.get("strategy_report_unlock_verified", false)) {
                     continue;
                 }
+                locked.erase(id);
                 const bool badge_verified = wins && observation.get("badge_verified", false) &&
                                             observation.get("strategy_report_evidence_saved", false);
                 StrategyProgress result { id, wins, true, badge_verified, rule->independent_available };
@@ -307,11 +321,16 @@ bool StrategyReportTaskPlugin::_run()
                            { "unlocked_verified", record.unlocked },
                            { "badge_verified", record.badge_verified } });
     }
+    json::array locked_entries;
+    for (const auto& [id, entry] : locked) {
+        locked_entries.emplace_back(entry);
+    }
     auto info = basic_info_with_what("SPAStrategyReportScan");
     info["details"] =
         json::object { { "target_band_id", m_target },
                        { "target_progress_verified", !m_target.empty() && progress.contains(m_target) },
                        { "strategies", std::move(entries) },
+                       { "locked_strategies", std::move(locked_entries) },
                        { "viewports_scanned", visited_viewports },
                        { "scrollbar_top_verified", top_verified },
                        { "scrollbar_bottom_verified", bottom_verified },

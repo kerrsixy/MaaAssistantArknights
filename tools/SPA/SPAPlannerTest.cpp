@@ -3797,6 +3797,25 @@ int main()
     follower_report.back().text = "【好多委托?】";
     assert(!observe_page(follower_report, { followers }).band_id);
     assert(!strategy_report_unlock_text_verified(follower_report, followers, 21));
+
+    // Latest Bilibili report. Locked cards hide their portrait title; the
+    // one-line requirement and on-screen counter are the usable evidence.
+    std::vector<TextObservation> locked_support {
+        { "策略报告", .9999, 749, 33 },
+        { "???", .714, 241, 374 },
+        { "初始生命值", .967, 61, 436 },
+        { "通关时的结算阵容中，包含任意3名【助力】干员解锁（0/1)", .978, 40, 472 },
+    };
+    const auto unlock_goal = strategy_report_locked_progress(locked_support);
+    assert(unlock_goal && unlock_goal->band_id == "band_limit" && unlock_goal->current == 0 &&
+           unlock_goal->required == 1);
+    auto invalid_unlock = locked_support;
+    invalid_unlock.back().text = "通关时的结算阵容中，包含任意3名【助力】干员解锁（1/1）";
+    assert(!strategy_report_locked_progress(invalid_unlock));
+    invalid_unlock.back().text = "通关【绝境模拟】解锁（0/1）";
+    assert(!strategy_report_locked_progress(invalid_unlock)); // Two strategies share the condition.
+    locked_support[1].text = "坚雷";
+    assert(!strategy_report_locked_progress(locked_support));
     observed = observe_page(nymph_report, { nymph });
     assert(observed.page == Page::StrategyReport && !observed.contradictory &&
            observed.band_id == nymph.band_id && observed.wins == 14);
