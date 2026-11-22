@@ -108,7 +108,7 @@ bool asst::spa::safe_pact_recruitment_recipient(
     }
     const auto catalog = operator_pacts();
     const auto member = catalog.find(name);
-    return member != catalog.end() && member->second.size() == 1 && member->second.front() == primary;
+    return member != catalog.end() && !member->second.empty() && member->second.front() == primary;
 }
 
 bool asst::spa::pact_recruitment_offer_eligible(const std::string& name, const std::string& pact, int shop_level)

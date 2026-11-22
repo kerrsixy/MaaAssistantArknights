@@ -5370,8 +5370,13 @@ int main()
     const EquipmentContext equipment_context { 3, 7, 14, true, true, true, true, true };
     assert(safe_pact_recruitment_recipient("幽灵鲨", "阿戈尔", true, {}));
     assert(safe_pact_recruitment_recipient("歌蕾蒂娅", "阿戈尔", true, {}));
-    assert(!safe_pact_recruitment_recipient("斯卡蒂", "阿戈尔", true, {}));
-    assert(!safe_pact_recruitment_recipient("深巡", "阿戈尔", true, {}));
+    assert(safe_pact_recruitment_recipient("斯卡蒂", "阿戈尔", true, {}));
+    assert(safe_pact_recruitment_recipient("深巡", "阿戈尔", true, {}));
+    assert(safe_pact_recruitment_recipient("伺夜", "叙拉古", true, {}));
+    assert(safe_pact_recruitment_recipient("忍冬", "叙拉古", true, {}));
+    assert(!safe_pact_recruitment_recipient("伺夜", "精准", true, {}));
+    assert(!safe_pact_recruitment_recipient("复奏", "叙拉古", true, {}));
+    assert(!safe_pact_recruitment_recipient("伺夜", "叙拉古", true, { "阿戈尔重刃" }));
     assert(!safe_pact_recruitment_recipient("幽灵鲨", "阿戈尔", false, {}));
     assert(!safe_pact_recruitment_recipient("幽灵鲨", "阿戈尔", true, { "维式重锤" }));
     assert(!safe_pact_recruitment_recipient("幽灵鲨", "", true, {}));

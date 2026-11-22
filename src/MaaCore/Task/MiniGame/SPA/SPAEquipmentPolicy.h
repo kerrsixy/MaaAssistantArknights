@@ -96,8 +96,8 @@ std::optional<std::vector<std::string>>
 // supplies membership; ordinary equipment only selects its possible pact.
 // Multiple distinct selectors have no verified ordering rule and stay unknown.
 std::vector<std::string> equipment_added_pacts(const std::vector<std::string>& equipped, bool slots_known = false);
-// A single printed pact and an observed empty equipment list avoid ambiguity
-// from another printed pact or a transfer item changing the recipient's pact.
+// The pager uses the first ordered season pact. Require an observed empty
+// equipment list to rule out a transfer item changing that pact.
 bool safe_pact_recruitment_recipient(
     const std::string& name,
     const std::string& primary,
