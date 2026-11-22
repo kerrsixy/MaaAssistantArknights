@@ -63,8 +63,8 @@ int wmain(int argc, wchar_t** argv)
         blocker.location == Point(5, 5) && blocker.direction == DeployDirection::Up,
         "position4 is the main blocker facing the gold spawn approach");
     expect(
-        core.location == Point(4, 5) && core.direction == DeployDirection::Left,
-        "core directly covers the initial left boss route");
+        core.location == Point(4, 5) && core.direction == DeployDirection::Up,
+        "core covers the middle lane from the user position2");
     expect(
         medic.location == Point(4, 3) && medic.direction == DeployDirection::Down,
         "healing faces the core and two blocking lanes");
@@ -84,8 +84,17 @@ int wmain(int argc, wchar_t** argv)
     ew.name = "维什戴尔";
     probe.elite(ew.name, 2);
     const auto range = probe.get_attack_range(ew, core.direction);
-    expect(std::ranges::find(range, Point(1, 5) - core.location) != range.end(), "E2 core reaches left boss route");
+    for (const Point target : { Point(3, 2), Point(3, 3), Point(5, 2), Point(5, 3) }) {
+        expect(
+            std::ranges::find(range, target - core.location) != range.end(),
+            "E2 core reaches the middle approach and both central lanes");
+    }
     expect(probe.deployment_requirements_met(ew, core), "actual core satisfies its target coverage");
+    auto stale_direction = core;
+    stale_direction.direction = DeployDirection::Left;
+    expect(
+        !probe.deployment_requirements_met(ew, stale_direction),
+        "run39 left-facing deployment cannot satisfy the central lane coverage");
     expect(!medic.operator_names.empty(), "medical candidates are independently role and range qualified");
     expect(
         std::ranges::find(medic.operator_names, "蜜莓") != medic.operator_names.end(),
