@@ -4593,6 +4593,23 @@ int main()
         assert(!victoria_signal(unknown_slots).funded_growth_package_cost && unknown_slots.primary_pact == "伊比利亚");
     }
 
+    // Live regulation 5 R5. Purchasing Pramanix kept two owned Kjerag
+    // members but removed her offer score before she could be deployed.
+    PreparationPolicy bought_kjerag_engine;
+    bought_kjerag_engine.primary_pact = "谢拉格";
+    bought_kjerag_engine.enabled_core_pacts = { "谢拉格", "莱塔尼亚" };
+    bought_kjerag_engine.round = 5;
+    bought_kjerag_engine.shop_level = 3;
+    bought_kjerag_engine.bench_occupied = 1;
+    bought_kjerag_engine.owned = { { "角峰", { 1, false, true } }, { "初雪", { 1, false, false } } };
+    const std::vector<ShopOffer> competing_two_cards { { "地灵", 2, 1 }, { "卡涅利安", 3, 3 } };
+    const auto after_kjerag_purchase = choose_dynamic_primary_pact(bought_kjerag_engine, competing_two_cards, catalog, 5);
+    assert(after_kjerag_purchase.valid && after_kjerag_purchase.primary_pact == "谢拉格");
+    assert(after_kjerag_purchase.ranking.front().pact == "莱塔尼亚");
+    assert(!after_kjerag_purchase.ranking.front().funded_growth_package_cost);
+    bought_kjerag_engine.disabled_pacts = { "谢拉格" };
+    assert(choose_dynamic_primary_pact(bought_kjerag_engine, competing_two_cards, catalog, 5).primary_pact == "莱塔尼亚");
+
     auto live_ursus_transition = transition_pivot_policy;
     live_ursus_transition.primary_pact = "乌萨斯";
     live_ursus_transition.enabled_core_pacts = { "乌萨斯", "阿戈尔" };

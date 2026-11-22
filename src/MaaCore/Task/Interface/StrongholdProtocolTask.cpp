@@ -5731,6 +5731,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                         json::object { { "pact", signal.pact },
                                        { "required_members", signal.required_members },
                                        { "distinct_members", signal.distinct_members },
+                                       { "owned_members", signal.owned_members },
                                        { "reachable_members", signal.reachable_members },
                                        { "deployed_members", signal.deployed_members },
                                        { "shop_members", signal.shop_members },

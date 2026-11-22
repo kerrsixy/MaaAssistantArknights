@@ -195,6 +195,7 @@ struct DynamicPactSignal
     std::string pact;
     int required_members = 0;
     int distinct_members = 0;
+    int owned_members = 0;
     int reachable_members = 0;
     int deployed_members = 0;
     int shop_members = 0;

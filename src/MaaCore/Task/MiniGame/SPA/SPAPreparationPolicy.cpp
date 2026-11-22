@@ -794,7 +794,8 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
             }
             dual_role_offers += new_growth && new_output;
         }
-        signal.distinct_members = static_cast<int>(owned_members.size() + new_member_prices.size());
+        signal.owned_members = static_cast<int>(owned_members.size());
+        signal.distinct_members = signal.owned_members + static_cast<int>(new_member_prices.size());
         signal.reachable_members = signal.distinct_members;
         if (available_funds >= 0) {
             std::vector<std::pair<int, bool>> quotes;
@@ -812,13 +813,13 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
                 ++reachable_purchases;
                 budget -= quote.first;
             }
-            signal.reachable_members = static_cast<int>(owned_members.size()) + reachable_purchases;
+            signal.reachable_members = signal.owned_members + reachable_purchases;
 
             // If the cheapest activation members contain no growth source,
             // replace the last quote with the cheapest available engine.
             // Aegir's native growth is tied to activation of the pact itself.
             bool has_engine = signal.growth_engine_owned > 0 || requirement.name == "阿戈尔";
-            const int missing_members = std::max(0, signal.required_members - static_cast<int>(owned_members.size()));
+            const int missing_members = std::max(0, signal.required_members - signal.owned_members);
             const int needed = std::max(missing_members, has_engine ? 0 : 1);
             if (needed <= reachable_purchases) {
                 int price = 0;
@@ -983,19 +984,17 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
             return signal.pact == preferred;
         });
         if (current != result.ranking.end() && current->distinct_members > 0) {
-            // Two fielded members with a ready engine are a real investment
-            // even before activation. Unbought engines receive a high score
-            // and lose it on purchase, so an incomplete speculative package
-            // can otherwise consume the round budget and immediately lose
-            // to the same installed formation.
-            const bool established_opening = !policy.primary_locked_after_activation && available_funds >= 0 &&
-                                             current->deployed_members >= std::max(2, current->required_members - 1) &&
-                                             current->growth_engine_eligible > 0;
+            // Buying a named engine for the working lineup is real investment
+            // even before the engine can be fielded. A speculative challenger
+            // needs a funded activation package to displace that route.
+            const bool established_opening =
+                !policy.primary_locked_after_activation && available_funds >= 0 && current->deployed_members > 0 &&
+                current->owned_members >= std::max(2, current->required_members - 1) && current->growth_engine_owned > 0;
             if (established_opening && !result.ranking.front().funded_growth_package_cost) {
                 result.primary_pact = preferred;
                 result.score = current->score;
                 result.reason =
-                    "Keep the fielded growth engine until the alternative can fund members and a growth source";
+                    "Keep the developing roster with an owned engine until the alternative can fund both activation and growth";
                 return result;
             }
             const int hysteresis = current->distinct_members >= 2 ? 450 : 300;
