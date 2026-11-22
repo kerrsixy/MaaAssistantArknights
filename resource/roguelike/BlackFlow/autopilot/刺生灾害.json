@@ -1,0 +1,65 @@
+{
+    "stage_name": "刺生灾害",
+    "doc": [
+        "阶段68实验候选，未证明稳定通过。run43第五层本战入场5耐久；EW部署前已损3，最后败北。仅两座高台3,4和3,5，不能用普通低费高台先占EW位置。",
+        "左侧首批狂奔者、聆风猎手沿0,5至2,5至2,6向6,6蓝门；旧7,6机械师无法拦截。先4,6朝左常驻阻挡，再3,5朝右EW，严格预留费用。",
+        "白袍六人是资深圣堂保育员，3秒半径2.5治疗并补弹。另六只富营养爬行者每15%已损血阶段触发周围法伤和神经损伤，不能把静止待机当安全，也不能默认沉默能禁用其反应。",
+        "3,4朝右仅给真实元素医疗候选，其范围须覆盖EW与6,5；不让波登可、卡达或新约能天使代替元素恢复。没有这类干员时不虚构治疗。",
+        "中央6,5朝上与右侧7,6朝右需要额外常驻阻挡；本场原五人阵容缺此能力，机械师限时物体不冒充永久盾。随机占物必须以实际落地回执为准。",
+        "EW基础范围不等于技能溅射范围；提前EW不保证同时承受多只爬行者反应及圣堂射手。需要后续招募、实时承伤和整场无漏验证，不用固定秒数或处理计数判定机制已解决。"
+    ],
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true,
+    "replacement_home": [
+        {
+            "location": [6, 6],
+            "direction": "up"
+        }
+    ],
+    "deploy_plan": [
+        {
+            "groups": ["机械师", "奶盾", "重装", "铁卫", "挡人先锋", "近卫"],
+            "location": [4, 6],
+            "direction": "left",
+            "require_persistent_blocking": true,
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["益达"],
+            "location": [3, 5],
+            "direction": "right",
+            "operator_names": ["维什戴尔"],
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [4, 5],
+                [5, 5],
+                [6, 5]
+            ]
+        },
+        {
+            "groups": ["元素奶"],
+            "location": [3, 4],
+            "direction": "right",
+            "minimum_elite": 1,
+            "required_range_tiles": [
+                [3, 5],
+                [6, 5]
+            ],
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["机械师", "奶盾", "重装", "铁卫", "挡人先锋", "近卫"],
+            "location": [6, 5],
+            "direction": "up",
+            "require_persistent_blocking": true,
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["机械师", "奶盾", "重装", "铁卫", "挡人先锋", "近卫"],
+            "location": [7, 6],
+            "direction": "right",
+            "require_persistent_blocking": true,
+            "prefer_group_order": true
+        }
+    ]
+}
