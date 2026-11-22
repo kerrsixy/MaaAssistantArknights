@@ -324,6 +324,17 @@ def main() -> int:
         if type(state.get("tactical_elite_purchase_pending")) is bool:
             policy["tactical_elite_purchase_pending"] = state["tactical_elite_purchase_pending"]
             changed = True
+        if isinstance(state.get("pact_recruitment_pending"), str):
+            policy["pact_recruitment_pending"] = state["pact_recruitment_pending"]
+            changed = True
+        pager_round = state.get("pact_recruitment_attempted_round")
+        if type(pager_round) is int and 1 <= pager_round <= 20:
+            policy["pact_recruitment_attempted_round"] = pager_round
+            changed = True
+        level = state.get("shop_level")
+        if type(level) is int and 1 <= level <= 6:
+            policy["shop_level"] = level
+            changed = True
         if isinstance(state.get("round"), int) and state["round"] >= 1:
             policy["resume_after_round"] = state["round"]
             changed = True

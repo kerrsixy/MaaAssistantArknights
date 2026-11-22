@@ -526,6 +526,36 @@ class DriverPolicyTests(unittest.TestCase):
         )
         self.assertIsNone(reconciled["pending_replacement"])
 
+    def test_pager_uncertain_contact_stays_pending_until_recruitment_settles(self):
+        pending = merge_receipt(
+            {"run_id": "same", "roster": [], "equipment_candidates": ["寻呼模块"]},
+            {
+                "run_id": "same",
+                "pact_recruitment_pending": "乌萨斯",
+                "pact_recruitment_attempted_round": 4,
+                "contact_release_attempted": True,
+                "input_committed": False,
+            },
+        )
+        refreshed = merge_receipt(pending, {"run_id": "same", "funds": 2})
+        self.assertEqual(refreshed["pact_recruitment_pending"], "乌萨斯")
+        self.assertEqual(refreshed["pact_recruitment_attempted_round"], 4)
+        settled = merge_receipt(
+            refreshed,
+            {
+                "run_id": "same",
+                "pact_recruitment_pending": "",
+                "pact_recruitment_attempted_round": 4,
+                "equipment_candidates": [],
+            },
+        )
+        self.assertEqual(settled["pact_recruitment_pending"], "")
+        self.assertEqual(settled["pact_recruitment_attempted_round"], 4)
+        self.assertEqual(settled["equipment_candidates"], [])
+        self.assertNotIn(
+            "pact_recruitment_pending", merge_receipt(pending, {"run_id": "new"})
+        )
+
     def test_field_swap_journal_keeps_both_possible_outcomes_after_restart(self):
         initial = {
             "run_id": "same",

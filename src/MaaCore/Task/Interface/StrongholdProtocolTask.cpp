@@ -260,6 +260,14 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
         m_delayed_cash_equipment_attempted_rounds.insert(source_round);
     }
     m_pact_recruitment_attempted_rounds.clear();
+    const auto pager_attempted_round = params.find<int>("pact_recruitment_attempted_round");
+    if (params.contains("pact_recruitment_attempted_round") &&
+        (!pager_attempted_round || *pager_attempted_round < 1 || *pager_attempted_round > 20)) {
+        return false;
+    }
+    if (pager_attempted_round) {
+        m_pact_recruitment_attempted_rounds.insert(*pager_attempted_round);
+    }
     m_pending_pact_recruitment = params.get("pact_recruitment_pending", std::string());
     const auto recruitment_pacts = spa::pact_requirements();
     if (!m_pending_pact_recruitment.empty() &&
@@ -2577,6 +2585,13 @@ bool asst::StrongholdProtocolTask::handle_promotion_page()
     m_recent_bench_acquisition = selected_name;
     m_unavailable_replacement_sources.erase(selected_name);
     m_bench_recount_pending = true;
+    if (pact_recruitment) {
+        // A recovered offer can settle without a post-contact inventory
+        // receipt. Retire the pre-contact hint only after the recruit lands.
+        m_equipment_candidates.erase("寻呼模块");
+        m_equipment_inventory_dirty = true;
+        m_pact_recruitment_attempted_rounds.insert(m_policy.round);
+    }
     auto confirmed = basic_info_with_what("SPAPromotionReconciled");
     confirmed["details"] =
         json::object { { "source", m_pending_promotion },
@@ -2607,6 +2622,9 @@ bool asst::StrongholdProtocolTask::handle_promotion_page()
                        { "promotion_pending", chain_observed ? selected_name : std::string() },
                        { "next_reward_verified", chain_observed },
                        { "run_victory_verified", false } };
+    if (pact_recruitment) {
+        confirmed["details"]["pact_recruitment_attempted_round"] = m_policy.round;
+    }
     callback(AsstMsg::SubTaskExtraInfo, confirmed);
     m_pending_pact_recruitment.clear();
     m_pending_promotion = chain_observed ? selected_name : std::string();

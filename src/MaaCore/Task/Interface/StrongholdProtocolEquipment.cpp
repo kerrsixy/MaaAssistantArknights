@@ -660,6 +660,7 @@ bool asst::StrongholdProtocolTask::handle_pact_recruitment_equipment(const json:
                                         { "resume_after_round", round },
                                         { "operator", recipient->name },
                                         { "pact_recruitment_pending", m_pending_pact_recruitment },
+                                        { "pact_recruitment_attempted_round", round },
                                         { "shop_level", m_policy.shop_level },
                                         { "roster", roster_snapshot() },
                                         { "field_positions", field_position_snapshot() },
@@ -667,6 +668,7 @@ bool asst::StrongholdProtocolTask::handle_pact_recruitment_equipment(const json:
                                         { "equipment_slots", equipment_slots_snapshot() },
                                         { "bench_occupied", m_policy.bench_occupied },
                                         { "input_committed", false },
+                                        { "contact_release_attempted", false },
                                         { "recruited_operator_verified", false },
                                         { "equipment_replay_allowed", false } };
     callback(AsstMsg::SubTaskExtraInfo, receipt);
@@ -696,8 +698,11 @@ bool asst::StrongholdProtocolTask::handle_pact_recruitment_equipment(const json:
         { "remaining_deployment", state.get("remaining_deployment", -1) }
     };
     const bool offered = use.configure(options) && use.run();
-    if (use.equipment_committed()) {
-        m_equipment_candidates.erase("寻呼模块");
+    const bool contact_attempted = use.equipment_contact_attempted() || use.equipment_committed();
+    if (contact_attempted) {
+        if (use.equipment_committed()) {
+            m_equipment_candidates.erase("寻呼模块");
+        }
         m_equipment_inventory_dirty = true;
         m_shopping_complete = false;
         m_spending_reviewed = false;
@@ -707,6 +712,7 @@ bool asst::StrongholdProtocolTask::handle_pact_recruitment_equipment(const json:
         m_pending_pact_recruitment.clear();
     }
     receipt["details"]["input_committed"] = use.equipment_committed();
+    receipt["details"]["contact_release_attempted"] = contact_attempted;
     receipt["details"]["offer_verified"] = offered;
     receipt["details"]["verification_stage"] = use.equipment_stage();
     receipt["details"]["pact_recruitment_pending"] = m_pending_pact_recruitment;
