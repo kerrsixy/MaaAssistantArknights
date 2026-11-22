@@ -30,12 +30,14 @@ std::optional<std::unordered_map<std::string, RoguelikeOper>> parse_resume_roste
         const auto elite = entry.find<int>("elite");
         const auto level = entry.find<int>("level");
         const auto evidence = entry.find<std::string>("evidence");
-        if (!name || name->empty() || !elite || *elite < 0 || *elite > 2 || !level || *level <= 0 || !evidence ||
-            evidence->empty()) {
+        if (!name || name->empty() || !elite || *elite < 0 || *elite > 2 || !level || *level <= 0 || *level > 90 ||
+            !evidence || evidence->empty()) {
             return reject("resume operator has unknown identity, observed strength or evidence");
         }
         const auto owned = verified_account.find_operator(*name);
-        if (!owned || !owned->get().strength_verified || *elite > owned->get().elite || *level > owned->get().level) {
+        // Promotion resets the visible level; compare levels only within the same promotion phase.
+        if (!owned || !owned->get().strength_verified || *elite > owned->get().elite ||
+            (*elite == owned->get().elite && *level > owned->get().level)) {
             return reject("resume operator exceeds verified account strength: " + *name);
         }
         if (!result.emplace(*name, RoguelikeOper { .elite = *elite, .level = *level }).second) {
