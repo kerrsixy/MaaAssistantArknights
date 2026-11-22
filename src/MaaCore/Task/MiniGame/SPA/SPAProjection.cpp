@@ -160,17 +160,32 @@ bool remember_inventory_operator_title(
     if (std::max({ deviation[0], deviation[1], deviation[2] }) < 20) {
         return false;
     }
-    const auto existing =
-        std::find_if(hints.begin(), hints.end(), [&](const auto& hint) { return hint.title == title; });
-    if (existing != hints.end()) {
-        existing->sprite = std::move(sprite);
+    // Idle and elite visuals can differ enough that replacing the sole
+    // sample makes the next inventory pass open the same operator again.
+    // Preserve a short history of distinct, title-verified appearances.
+    constexpr int max_appearances_per_title = 4;
+    auto oldest = hints.end();
+    int appearances = 0;
+    for (auto hint = hints.begin(); hint != hints.end(); ++hint) {
+        if (hint->title != title) {
+            continue;
+        }
+        if (oldest == hints.end()) {
+            oldest = hint;
+        }
+        ++appearances;
+        if (hint->sprite.size() == sprite.size() && hint->sprite.type() == sprite.type()) {
+            cv::Mat similarity;
+            cv::matchTemplate(sprite, hint->sprite, similarity, cv::TM_CCOEFF_NORMED);
+            if (similarity.at<float>(0, 0) >= .985F) {
+                return true;
+            }
+        }
     }
-    else if (hints.size() < OperatorCatalogue.size()) {
-        hints.push_back({ title, std::move(sprite) });
+    if (appearances >= max_appearances_per_title) {
+        hints.erase(oldest);
     }
-    else {
-        return false;
-    }
+    hints.push_back({ title, std::move(sprite) });
     return true;
 }
 

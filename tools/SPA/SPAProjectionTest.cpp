@@ -300,6 +300,16 @@ int main()
     assert(!inventory_operator_visual_hint(inventory_hints, inventory_r13, { 834, 394 }));
     assert(!inventory_operator_visual_hint(inventory_hints, cv::Mat(), { 277, 465 }));
     assert(!inventory_operator_visual_hint(inventory_hints, inventory_r13, { 277, 100 }));
+    auto alternate_idle = inventory_r12.clone();
+    cv::Mat alternate_body = alternate_idle(cv::Rect(249, 408, 56, 54));
+    cv::flip(alternate_body, alternate_body, 1);
+    assert(remember_inventory_operator_title(bench_hints, alternate_idle, { 277, 465 }, "乌尔比安", true));
+    assert(bench_hints.size() == 2);
+    assert(inventory_operator_visual_hint(bench_hints, inventory_r13, { 277, 465 }) == urbi_hint);
+    const auto alternate_urbi_hint = inventory_operator_visual_hint(bench_hints, alternate_idle, { 277, 465 });
+    assert(alternate_urbi_hint && alternate_urbi_hint->first == "乌尔比安");
+    assert(remember_inventory_operator_title(bench_hints, alternate_idle, { 277, 465 }, "乌尔比安", true));
+    assert(bench_hints.size() == 2);
     auto ambiguous_inventory_hints = inventory_hints;
     ambiguous_inventory_hints.push_back({ "野鬃", inventory_hints.front().sprite.clone() });
     assert(!inventory_operator_visual_hint(ambiguous_inventory_hints, inventory_r13, { 277, 465 }));

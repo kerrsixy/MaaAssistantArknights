@@ -83,6 +83,7 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
             "bool purchase_reserved_after_sale = false;", 1
         )
         scheduling = before_shop.split("const bool resume_funded_purchase =", 1)[1]
+        scheduling = " ".join(scheduling.split("if (m_shop_review_after_replacements", 1)[0].split())
         self.assertIn(
             "m_purchase_reserved_after_sale->first == preparation_round", scheduling
         )
@@ -105,6 +106,15 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
             scheduling,
         )
         self.assertIn("!prioritize_joint_ready && handle_persistent_equipment(state)", scheduling)
+        inspect_inventory = scheduling.index("refresh_equipment_inventory(state)")
+        self.assertLess(
+            scheduling.index("if (equipment_capacity_blocked && use_known_equipment())"),
+            inspect_inventory,
+        )
+        self.assertGreater(
+            scheduling.index("if (!equipment_capacity_blocked && use_known_equipment())"),
+            inspect_inventory,
+        )
         self.assertIn(
             "handle_cash_equipment(state, boss_preparation) || handle_delayed_cash_equipment(state)",
             scheduling,

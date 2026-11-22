@@ -4128,20 +4128,26 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             handle_full_field_replacement(state)) {
             continue;
         }
-        if (field_work_due && !defer_ordinary_equipment && !prioritize_joint_ready && refresh_equipment_inventory(state)) {
+        const auto use_known_equipment = [&] {
+            if (m_auto_run && !resume_funded_purchase && !prioritize_joint_ready &&
+                (handle_cash_equipment(state, boss_preparation) || handle_delayed_cash_equipment(state) ||
+                 handle_pact_recruitment_equipment(state) ||
+                 (field_work_due && handle_direct_promotion_equipment(state)))) {
+                return true;
+            }
+            return m_auto_run && ordinary_equipment_due && time_for_board_maintenance && !defer_ordinary_equipment &&
+                   !prioritize_joint_ready && handle_persistent_equipment(state);
+        };
+        // A blocked purchase can resume as soon as one known item is
+        // equipped. A broad scan is needed only if the known items fail to help.
+        if (equipment_capacity_blocked && use_known_equipment()) {
             continue;
         }
-        if (m_auto_run && !resume_funded_purchase && !prioritize_joint_ready &&
-            (handle_cash_equipment(state, boss_preparation) || handle_delayed_cash_equipment(state) ||
-             handle_pact_recruitment_equipment(state) ||
-             (field_work_due && handle_direct_promotion_equipment(state)))) {
+        if (field_work_due && !defer_ordinary_equipment && !prioritize_joint_ready &&
+            refresh_equipment_inventory(state)) {
             continue;
         }
-        // Ordinary gear should follow the purchases and field replacements
-        // that determine its best recipient. A full equipment row is the
-        // exception when equipping now lets shopping continue.
-        if (m_auto_run && ordinary_equipment_due && time_for_board_maintenance && !defer_ordinary_equipment &&
-            !prioritize_joint_ready && handle_persistent_equipment(state)) {
+        if (!equipment_capacity_blocked && use_known_equipment()) {
             continue;
         }
         if (m_shop_review_after_replacements && !prioritize_joint_ready) {
