@@ -3717,5 +3717,17 @@
         "baseTask": "BlackFlow@Roguelike@MissionCompletedFlag",
         "template": "Roguelike@ExitThenAbandon.png",
         "requiredPage": "BlackFlow@Roguelike@BattleSuccessPage"
+    },
+    "BlackFlow@Roguelike@MapFloorRecovery-Enter": {
+        "Doc": "A prepared map with no session floor must execute NextLevel under its actual name before routing.",
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@NextLevel"]
+    },
+    "BlackFlow@Roguelike@MapViewportReset-Dispatch": {
+        "Doc": "Runtime aliases inherit control flow, not a new template filename; forward to the actual map matcher.",
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@MapViewportReset-Enter"]
     }
 }
