@@ -97,7 +97,16 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
             scheduling,
         )
         self.assertIn(
-            "!defer_ordinary_equipment && !prioritize_joint_ready && handle_persistent_equipment(state)",
+            "const bool ordinary_equipment_due = field_finalization || equipment_capacity_blocked;",
+            scheduling,
+        )
+        self.assertIn(
+            "m_auto_run && ordinary_equipment_due && time_for_board_maintenance && !defer_ordinary_equipment &&",
+            scheduling,
+        )
+        self.assertIn("!prioritize_joint_ready && handle_persistent_equipment(state)", scheduling)
+        self.assertIn(
+            "handle_cash_equipment(state, boss_preparation) || handle_delayed_cash_equipment(state)",
             scheduling,
         )
         pending = quote_review.split("const int bench_before_funding", 1)[0]

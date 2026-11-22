@@ -4007,6 +4007,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         const bool resume_funding_pair = m_bench_funding_pair && m_bench_funding_pair->round == preparation_round &&
                                          m_bench_funding_pair->funds == available_funds;
         const bool defer_ordinary_equipment = prioritize_bench_space || resume_funded_purchase || resume_funding_pair;
+        const bool ordinary_equipment_due = field_finalization || equipment_capacity_blocked;
         auto scheduling = basic_info_with_what("SPAPreparationSchedulingObserved");
         scheduling["details"] = json::object {
             { "run_id", m_run_id },
@@ -4032,6 +4033,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             { "field_work_due", field_work_due },
             { "joint_opening_deployment", joint_opening_deployment },
             { "ordinary_equipment_work_deferred_for_bench_space", prioritize_bench_space },
+            { "ordinary_equipment_assignment_due", ordinary_equipment_due },
             { "resume_purchase_after_verified_sale", resume_funded_purchase },
             { "replacement_reconciliation_pending", m_pending_field_replacement.has_value() }
         };
@@ -4100,7 +4102,11 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
              (field_work_due && handle_direct_promotion_equipment(state)))) {
             continue;
         }
-        if (m_auto_run && !defer_ordinary_equipment && !prioritize_joint_ready && handle_persistent_equipment(state)) {
+        // Ordinary gear should follow the purchases and field replacements
+        // that determine its best recipient. A full equipment row is the
+        // exception when equipping now lets shopping continue.
+        if (m_auto_run && ordinary_equipment_due && time_for_board_maintenance && !defer_ordinary_equipment &&
+            !prioritize_joint_ready && handle_persistent_equipment(state)) {
             continue;
         }
         if (m_shop_review_after_replacements && !prioritize_joint_ready) {

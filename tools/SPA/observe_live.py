@@ -17,7 +17,7 @@ from spa_checkpoint import (
 )
 from spa_deployment_audit import audit_deployment_ledger
 from spa_joint_acceptance import audit_joint_run
-from spa_staged_acceptance import audit_run, execution_scope
+from spa_staged_acceptance import STRATEGY_REPORT_PLUGIN, audit_run, execution_scope
 from spa_device_guard import authorize_client
 from spa_host_completion import audit_host_completion, require_host_completion
 from spa_relocation import relocation_options, relocation_verified
@@ -1344,6 +1344,42 @@ def main():
                 for e in events
             ):
                 raise RuntimeError("Startup did not report completion")
+            return
+        if args.task == "scan-strategy-report":
+            scans = [
+                (index, event["details"])
+                for index, event in enumerate(events)
+                if event["details"].get("what") == "SPAStrategyReportScan"
+                and event["details"].get("class") == STRATEGY_REPORT_PLUGIN
+                and event["details"].get("taskchain") == "Custom"
+            ]
+            if len(scans) != 1:
+                raise RuntimeError("Strategy report did not produce one native scan receipt")
+            index, scan = scans[0]
+            task_id = scan.get("taskid")
+            if type(task_id) is not int or not any(
+                event["message"] == Message.TaskChainCompleted.value
+                and event["details"].get("taskchain") == "Custom"
+                and event["details"].get("taskid") == task_id
+                for event in events[index + 1 :]
+            ):
+                raise RuntimeError("Strategy report scan did not complete")
+            report = scan["details"]
+            # Unreadable intermediate selections do not invalidate the native
+            # report traversal. Each identity, win count and badge retains its
+            # own evidence, independently of reaching both boundaries.
+            coverage_verified = report.get("viewports_scanned", 0) > 0 and (
+                report.get("all_strategy_identities_observed") is True
+                or (
+                    report.get("scrollbar_top_verified") is True
+                    and report.get("scrollbar_bottom_verified") is True
+                )
+            )
+            audit = {**report, "viewport_coverage_verified": coverage_verified}
+            persist_json("strategy-report-scan.json", audit)
+            if not coverage_verified:
+                raise RuntimeError("Strategy report viewport coverage was not verified")
+            print(json.dumps(audit, ensure_ascii=False))
             return
         if not observations or any(
             o["page"] == "unknown" or o["contradictory"] for o in observations

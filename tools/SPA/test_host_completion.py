@@ -146,7 +146,7 @@ class HostCompletionTests(unittest.TestCase):
         self.assertIn("batch_count_mismatch", audit["failure_reasons"])
         self.assertTrue(audit["host_failure"])
 
-    def fake_host(self, events, count):
+    def fake_host(self, events, count, task="auto-preparation"):
         """Replay real main/callback/result handling without a DLL or device."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -171,10 +171,10 @@ class HostCompletionTests(unittest.TestCase):
                 "--output",
                 str(root / "run"),
                 "--task",
-                "auto-preparation",
-                "--policy-file",
-                str(policy_file),
+                task,
             ]
+            if task == "auto-preparation":
+                argv.extend(["--policy-file", str(policy_file)])
             callback = []
 
             def start():
@@ -247,6 +247,51 @@ class HostCompletionTests(unittest.TestCase):
                 self.assertEqual(timestamp.utcoffset(), timedelta(0))
             self.assertEqual(journal, events)
             return error, files
+
+    def test_report_scan_requires_native_traversal_and_matching_completion(self):
+        report = {
+            "viewports_scanned": 7,
+            "scrollbar_top_verified": True,
+            "scrollbar_bottom_verified": True,
+            "identified_strategies": 20,
+            "all_strategy_identities_observed": False,
+            "all_strategy_badges_verified": False,
+        }
+        scan = {
+            "message": 20003,
+            "details": {
+                "what": "SPAStrategyReportScan",
+                "class": "asst::spa::StrategyReportTaskPlugin",
+                "taskchain": "Custom",
+                "taskid": 1,
+                "details": report,
+            },
+        }
+        unknown = {
+            "message": 20003,
+            "details": {
+                "what": "SPAObservation",
+                "details": {"page": "unknown", "contradictory": False},
+            },
+        }
+        completed = root_completed()
+        completed["details"]["taskchain"] = "Custom"
+        error, files = self.fake_host([unknown, scan, completed], 1, "scan-strategy-report")
+        self.assertIsNone(error)
+        audit = files["strategy-report-scan.json"]
+        self.assertTrue(audit["viewport_coverage_verified"])
+        self.assertFalse(audit["all_strategy_badges_verified"])
+        self.assertEqual(audit["identified_strategies"], 20)
+
+        report["scrollbar_bottom_verified"] = False
+        error, files = self.fake_host([unknown, scan, completed], 1, "scan-strategy-report")
+        self.assertIsInstance(error, RuntimeError)
+        self.assertFalse(files["strategy-report-scan.json"]["viewport_coverage_verified"])
+
+        completed["details"]["taskid"] = 2
+        error, files = self.fake_host([unknown, scan, completed], 1, "scan-strategy-report")
+        self.assertIn("did not complete", str(error))
+        self.assertNotIn("strategy-report-scan.json", files)
 
     def test_real_main_rejects_old_promotion_and_preserves_native_settlement(self):
         error, files = self.fake_host(archived_failure(), 3)
