@@ -257,7 +257,11 @@
     },
     "BlackFlow@RoguelikeTraderShoppingOcr": {
         "baseTask": "RoguelikeTraderShoppingOcr",
-        "roi": [406, 90, 825, 540]
+        "roi": [406, 90, 825, 540],
+        "ocrReplace": [
+            ["指路.*", "指路鳞"],
+            ["弾", "弹"]
+        ]
     },
     "BlackFlow@Roguelike@ShopShelfUp": {
         "algorithm": "JustReturn",
