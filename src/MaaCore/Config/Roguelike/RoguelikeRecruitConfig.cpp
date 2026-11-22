@@ -122,22 +122,7 @@ std::vector<int> asst::RoguelikeRecruitConfig::get_group_ids_of_oper(
     const std::string& theme,
     const std::string& oper_name) const noexcept
 {
-    auto& opers = m_all_opers.at(theme);
-
-    const auto& find_iter = std::ranges::find_if(opers, [&](const auto& pair) { return pair.first.name == oper_name; });
-    if (find_iter != opers.end()) {
-        return find_iter->second.group_id;
-    }
-    else {
-        const auto& role = BattleData.get_first_role(oper_name);
-        if (role != battle::Role::Pioneer && role != battle::Role::Tank && role != battle::Role::Warrior &&
-            role != battle::Role::Special) {
-            return { static_cast<int>(m_oper_groups.at(theme).size()) - 2 };
-        }
-        else {
-            return { static_cast<int>(m_oper_groups.at(theme).size()) - 1 };
-        }
-    }
+    return get_group_ids_of_oper(theme, battle::OperNameTag { battle::Role::Unknown, oper_name });
 }
 
 std::vector<int> asst::RoguelikeRecruitConfig::get_group_ids_of_oper(
@@ -158,17 +143,25 @@ std::vector<int> asst::RoguelikeRecruitConfig::get_group_ids_of_oper(
     if (find_iter != opers.end()) {
         return find_iter->second.group_id;
     }
-    else {
-        const auto& role =
-            oper_tag.role != battle::Role::Unknown ? oper_tag.role : BattleData.get_first_role(oper_tag.name);
-        if (role != battle::Role::Pioneer && role != battle::Role::Tank && role != battle::Role::Warrior &&
-            role != battle::Role::Special) {
-            return { static_cast<int>(m_oper_groups.at(theme).size()) - 2 };
+    const auto role = oper_tag.role != battle::Role::Unknown ? oper_tag.role : BattleData.get_first_role(oper_tag.name);
+    auto location = BattleData.get_location_type(role, oper_tag.name);
+    if (location != battle::LocationType::Melee && location != battle::LocationType::Ranged) {
+        location = battle::get_role_usual_location(role);
+    }
+    // Resolve existing canonical fallback identities rather than list positions.
+    // Phantom retains its legacy ranged alias; explicit memberships above win.
+    const auto& groups = m_all_groups.at(theme);
+    for (const auto name : { "其他地面", "其他高台", "高台预备" }) {
+        const bool melee = std::string_view(name) == "其他地面";
+        if ((location == battle::LocationType::Melee) != melee) {
+            continue;
         }
-        else {
-            return { static_cast<int>(m_oper_groups.at(theme).size()) - 1 };
+        if (const auto found = groups.find(name); found != groups.end()) {
+            return { found->second.id };
         }
     }
+    LogWarn << __FUNCTION__ << "Missing canonical fallback group" << theme << oper_tag.name;
+    return {};
 }
 
 int asst::RoguelikeRecruitConfig::get_group_id_from_name(
