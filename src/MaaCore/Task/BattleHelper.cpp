@@ -1078,6 +1078,9 @@ void asst::BattleHelper::save_map(const cv::Mat& image)
     if (++m_camera_count > 1) {
         suffix = "-" + std::to_string(m_camera_count);
     }
+    // Keep lossless evidence before annotations obscure small random objects.
+    // This is the same observed frame, with no additional capture or game input.
+    utils::save_debug_image(image, utils::path("debug") / "map_raw", false, "", m_stage_name + suffix);
     std::vector<int> jpeg_params = { cv::IMWRITE_JPEG_QUALITY, 50, cv::IMWRITE_JPEG_OPTIMIZE, 1 };
     utils::save_debug_image(draw, utils::path("debug") / "map", true, "", m_stage_name + suffix, "jpeg", jpeg_params);
 }
