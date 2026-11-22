@@ -13,6 +13,7 @@
 #include "Task/MiniGame/SPA/SPAEquipmentPolicy.h"
 #include "Task/MiniGame/SPA/SPAGrowth.h"
 #include "Task/MiniGame/SPA/SPAGuideRoutes.h"
+#include "Task/MiniGame/SPA/SPAJointEmote.h"
 #include "Task/MiniGame/SPA/SPALifecycle.h"
 #include "Task/MiniGame/SPA/SPALifecycleFrame.h"
 #include "Task/MiniGame/SPA/SPAModePolicy.h"
@@ -3055,6 +3056,27 @@ int main()
     assert(lifecycle_next({ "unknown", "2/3" }) == "MiniGame@SPA@SelectStrategy");
     assert(lifecycle_next({ "run_setup", "3/3" }) == "MiniGame@SPA@SelectFormation");
     assert(lifecycle_next({ "unknown" }) == "MiniGame@SPA@LifecycleFindLobby");
+    const cv::Mat emote_closed(720, 1280, CV_8UC3, cv::Scalar::all(148));
+    for (int page = 1; page <= 6; ++page) {
+        auto emote_open = emote_closed.clone();
+        emote_open(cv::Rect(16, 438, 292, 195)).setTo(cv::Scalar::all(32));
+        int x = 139;
+        for (int index = 1; index <= 6; ++index) {
+            const bool active = index == page;
+            const int width = active ? 10 : 4;
+            emote_open(cv::Rect(x, 624, width, 4)).setTo(cv::Scalar::all(active ? 255 : 122));
+            x += width + 3;
+        }
+        assert(joint_emote_page(emote_closed, emote_open) == page);
+        assert(!joint_emote_page(emote_open, emote_open));
+        emote_open(cv::Rect(139, 624, 45, 4)).setTo(cv::Scalar::all(255));
+        assert(!joint_emote_page(emote_closed, emote_open));
+    }
+    assert(joint_emote_column(2, 5) == 2);
+    assert(joint_emote_column(2, 6) == 1);
+    assert(joint_emote_column(2, std::nullopt) == 0);
+    assert(joint_emote_column(3, 0) == 2);
+    assert(joint_emote_column(6, 0) == 0);
     LifecyclePage loading_page { "unknown" };
     loading_page.loading_verified = true;
     assert(lifecycle_next(loading_page) == "MiniGame@SPA@LifecycleWait");

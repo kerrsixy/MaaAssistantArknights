@@ -1,6 +1,7 @@
 #include "SPARoundTaskPlugin.h"
 #include "SPAFormation.h"
 #include "SPAImageEvidence.h"
+#include "SPAJointEmote.h"
 
 #include "SPANumberOcr.h"
 #include "SPAObservation.h"
@@ -18,28 +19,6 @@
 
 namespace asst::spa
 {
-static bool joint_first_emote_page_visible(const cv::Mat& before, const cv::Mat& panel)
-{
-    const cv::Rect menu(16, 438, 292, 195);
-    if (before.size() != cv::Size(1280, 720) || panel.size() != before.size() || before.type() != CV_8UC3 ||
-        panel.type() != CV_8UC3) {
-        return false;
-    }
-    cv::Mat changed, gray, marker;
-    cv::absdiff(before(menu), panel(menu), changed);
-    cv::cvtColor(panel(menu), gray, cv::COLOR_BGR2GRAY);
-    if (cv::mean(changed)[0] < 15 || cv::mean(gray)[0] > 100) {
-        return false;
-    }
-    cv::inRange(gray(cv::Rect(122, 183, 13, 8)), cv::Scalar(205), cv::Scalar(255), marker);
-    for (int row = 0; row < marker.rows; ++row) {
-        if (cv::countNonZero(marker.row(row)) >= 8) {
-            return true;
-        }
-    }
-    return false;
-}
-
 static std::optional<int> joint_local_leak_counter(const cv::Mat& image, int total)
 {
     const cv::Rect badge_roi(608, 43, 70, 19);
@@ -482,12 +461,15 @@ bool asst::spa::RoundTaskPlugin::_run()
                 });
                 if (communication != current->end()) {
                     m_joint_emote_probe_attempted = true;
+                    std::optional<int> emote_page;
                     bool panel_verified = false;
                     bool emote_input = false;
+                    std::optional<int> column;
                     if (ctrler()->click(communication->rect) && sleep(250)) {
                         const auto panel = ctrler()->get_image();
                         save_evidence(panel, utils::path("debug/SPA/joint_emote_palette"), false);
-                        if (joint_first_emote_page_visible(image, panel)) {
+                        emote_page = joint_emote_page(image, panel);
+                        if (emote_page) {
                             OCRer waiting(panel, Rect(430, 640, 402, 64));
                             std::vector<TextObservation> footer;
                             if (const auto read = waiting.analyze()) {
@@ -496,7 +478,13 @@ bool asst::spa::RoundTaskPlugin::_run()
                                 }
                             }
                             panel_verified = joint_local_wave_finished(footer);
-                            emote_input = panel_verified && ctrler()->click(Point(70, 480));
+                            if (panel_verified) {
+                                const auto leaks = page.enemies_total
+                                                       ? joint_local_leak_counter(image, *page.enemies_total)
+                                                       : std::nullopt;
+                                column = joint_emote_column(*emote_page, leaks);
+                                emote_input = ctrler()->click(Point(70 + 92 * *column, 480));
+                            }
                             if (emote_input && sleep(250)) {
                                 save_evidence(ctrler()->get_image(), utils::path("debug/SPA/joint_emote_after"), false);
                             }
@@ -504,7 +492,10 @@ bool asst::spa::RoundTaskPlugin::_run()
                     }
                     auto sent = basic_info_with_what("SPAJointEmoteProbe");
                     sent["details"] = json::object { { "round", m_round },
-                                                     { "first_page_verified", panel_verified },
+                                                     { "first_page_verified", panel_verified && emote_page == 1 },
+                                                     { "page_verified", panel_verified },
+                                                     { "page", emote_page ? json::value(*emote_page) : json::value(nullptr) },
+                                                     { "column", column ? json::value(*column + 1) : json::value(nullptr) },
                                                      { "emote_input_issued", emote_input },
                                                      { "delivery_verified", false } };
                     callback(AsstMsg::SubTaskExtraInfo, sent);
