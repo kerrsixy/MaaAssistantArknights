@@ -142,6 +142,17 @@ bool asst::BattleHelper::update_deployment_(
 {
     LogTraceFunction;
 
+    if (cur_opers.empty() && !old_deployment_opers.empty()) {
+        // Keep identity templates for recovery, but an unobserved card cannot authorize input.
+        m_cur_deployment_opers = old_deployment_opers;
+        for (auto& oper : m_cur_deployment_opers) {
+            oper.available = false;
+        }
+        LogWarn << __FUNCTION__ << "Deployment bar is empty; retaining identities without deployment permission"
+                << m_cur_deployment_opers.size();
+        return false;
+    }
+
     // ————————————————————————————————————————
     // 准备 lambda 函数
     // ————————————————————————————————————————
@@ -302,16 +313,9 @@ bool asst::BattleHelper::update_deployment(bool init, const cv::Mat& reusable, b
     }
     const auto old_deployment_opers = std::move(m_cur_deployment_opers);
 
-    // 某些肉鸽地图在全员退场/冷却时会暂时让 BattlefieldMatcher 读不到
-    // 部署栏卡片。不要把上一帧的卡片状态清空，否则冷却结束后永远没有候选
-    // 可以重新识别；保留旧状态只用于等待下一帧，实际部署仍会经过当前费用、
-    // 位置和可用性检查。
+    // An empty observation can retain identity templates, but cannot authorize a deployment.
     if (oper_result_opt->deployment.empty() && !old_deployment_opers.empty() && check_in_battle(image)) {
-        m_cur_deployment_opers = old_deployment_opers;
-        Log.warn(
-            "BattlefieldMatcher deployment empty; retain previous deployment cards",
-            m_cur_deployment_opers.size());
-        return true;
+        return update_deployment_(oper_result_opt->deployment, old_deployment_opers, false);
     }
 
     if (!update_deployment_(oper_result_opt->deployment, old_deployment_opers, false)) {
