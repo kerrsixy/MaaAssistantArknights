@@ -632,6 +632,7 @@ struct DeployInfoWithRank
     int kill_lower_bound = 0;
     int kill_upper_bound = 9999;
     bool require_persistent_blocking = false;
+    std::vector<Point> required_range_tiles;
 };
 
 struct ForceDeployDirection
