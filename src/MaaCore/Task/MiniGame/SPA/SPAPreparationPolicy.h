@@ -113,6 +113,9 @@ struct PreparationPolicy
     // Immediate board value from observed roles; pair bonuses are applied
     // only to cards actually offered, never by paying to force a pair.
     std::map<std::string, int> early_board_scores;
+    // Verified basic attacks can hit aerial targets, and the opening roster
+    // has no such operator deployed or available to fill the open field.
+    std::set<std::string> opening_anti_air_recruits;
     // At eight deployed units, the native controller evaluates actual
     // replacement targets for visible offers. Missing means not evaluated;
     // zero means no executable positive exchange in the current field model.

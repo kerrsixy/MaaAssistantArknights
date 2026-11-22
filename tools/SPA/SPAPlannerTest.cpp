@@ -4916,6 +4916,38 @@ int main()
     assert(should_upgrade_dynamic_shop(same_shop_window, 2, 2, ursus_triple, catalog, &upgrade_hold));
     same_shop_window.tactical_elite_purchase_pending = true;
     assert(should_upgrade_dynamic_shop(same_shop_window, 7, 7, ursus_triple, catalog, &upgrade_hold));
+    auto emperor_drone_opening = dynamic_decision;
+    emperor_drone_opening.selected_strategy_id = "band_emperor";
+    emperor_drone_opening.primary_pact = "乌萨斯";
+    emperor_drone_opening.round = 4;
+    emperor_drone_opening.shop_level = 2;
+    emperor_drone_opening.deployed_population = 5;
+    emperor_drone_opening.early_board_ready = true;
+    emperor_drone_opening.early_frontline_count = 4;
+    emperor_drone_opening.last_round_life_loss = 0;
+    emperor_drone_opening.owned = {
+        { "折桠", { 1, false, true } },
+        { "拜松", { 1, false, true } },
+        { "杰克", { 1, false, true } },
+        { "烈夏", { 2, false, true } },
+    };
+    emperor_drone_opening.opening_anti_air_recruits = { "星源", "安哲拉", "陨星" };
+    const std::vector<ShopOffer> emperor_drone_shop { { "星源", 3, 1 },
+                                                      { "安哲拉", 3, 2 },
+                                                      { "铸铁", 3, 3 },
+                                                      { "陨星", 2, 4 } };
+    assert(!should_upgrade_dynamic_shop(emperor_drone_opening, 7, 7, emperor_drone_shop, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->reason.find("anti-air") != std::string::npos);
+    const auto drone_recruit = choose_preparation(emperor_drone_opening, 7, emperor_drone_shop, catalog);
+    assert(drone_recruit.action == PreparationAction::Buy && drone_recruit.name == "陨星" && drone_recruit.price == 2);
+    assert(should_upgrade_dynamic_shop(emperor_drone_opening, 7, 5, emperor_drone_shop, catalog));
+    assert(should_upgrade_dynamic_shop(emperor_drone_opening, 7, 0, emperor_drone_shop, catalog));
+    auto stocked_drones = emperor_drone_opening;
+    stocked_drones.owned["陨星"] = { 1, false, false };
+    stocked_drones.opening_anti_air_recruits.clear();
+    assert(should_upgrade_dynamic_shop(stocked_drones, 7, 7, emperor_drone_shop, catalog));
+    emperor_drone_opening.bench_occupied = 3;
+    assert(should_upgrade_dynamic_shop(emperor_drone_opening, 7, 7, emperor_drone_shop, catalog));
     auto leave_first_shop = dynamic_decision;
     leave_first_shop.shop_level = 1;
     leave_first_shop.deployed_population = 2;

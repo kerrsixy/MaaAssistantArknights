@@ -5482,7 +5482,12 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         m_policy.early_frontline_count = blockers;
         m_policy.early_board_ready = blockers >= 2 && m_policy.deployed_population >= 4;
         m_policy.early_board_scores.clear();
+        m_policy.opening_anti_air_recruits.clear();
         for (const auto& [name, pacts] : catalog) {
+            const bool fills_anti_air_gap = !has_anti_air_recruit && spa::operator_can_attack_air(name);
+            if (fills_anti_air_gap) {
+                m_policy.opening_anti_air_recruits.insert(name);
+            }
             m_policy.early_board_scores.emplace(
                 name,
                 spa::early_recruit_score(
@@ -5490,7 +5495,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                     blockers,
                     ranged,
                     healers,
-                    !has_anti_air_recruit && spa::operator_can_attack_air(name),
+                    fills_anti_air_gap,
                     has_anti_air_recruit));
         }
         if (m_policy.free_refreshes < 0) {

@@ -1466,6 +1466,36 @@ static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
 }
 }
 
+namespace asst::spa
+{
+static const ShopOffer* opening_anti_air_offer(
+    const PreparationPolicy& policy,
+    int funds,
+    const std::vector<ShopOffer>& offers,
+    const std::map<std::string, std::vector<std::string>>& pacts)
+{
+    if (!policy.dynamic_decision_mode || policy.round < 2 || policy.round > 5 || policy.boss_preparation ||
+        policy.early_frontline_count < 2 || policy.deployed_population < 0 || policy.bench_occupied < 0 ||
+        policy.deployed_population + policy.bench_occupied >= 8) {
+        return nullptr;
+    }
+    const ShopOffer* best = nullptr;
+    const auto key = [&](const ShopOffer& offer) {
+        return std::tuple(offer.price, !contains(pacts.at(offer.name), policy.primary_pact), offer.right_slot);
+    };
+    for (const auto& offer : offers) {
+        if (offer.price < 0 || offer.price > funds || offer.right_slot < 0 || offer.right_slot > 5 ||
+            !policy.opening_anti_air_recruits.contains(offer.name) || !pacts.contains(offer.name)) {
+            continue;
+        }
+        if (!best || key(offer) < key(*best)) {
+            best = &offer;
+        }
+    }
+    return best;
+}
+}
+
 bool asst::spa::should_upgrade_dynamic_shop(
     const PreparationPolicy& policy,
     int funds,
@@ -1500,6 +1530,13 @@ bool asst::spa::should_upgrade_dynamic_shop(
             *hold = ShopUpgradeHold { "Reserve the visible, affordable same-shop promotion before upgrading",
                                       package->first->name,
                                       package->total_cost };
+        }
+        return false;
+    }
+    if (const auto* anti_air = opening_anti_air_offer(policy, funds, offers, pacts);
+        anti_air && anti_air->price > funds - upgrade_price) {
+        if (hold) {
+            *hold = ShopUpgradeHold { "Reserve the first available basic anti-air operator before upgrading" };
         }
         return false;
     }
@@ -1973,6 +2010,14 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
                  package->first->right_slot,
                  "Start a main-pact promotion backed by the visible copies and current funds",
                  policy.primary_pact };
+    }
+    if (const auto* anti_air = opening_anti_air_offer(policy, funds, offers, pacts)) {
+        return { PreparationAction::Buy,
+                 anti_air->name,
+                 anti_air->price,
+                 anti_air->right_slot,
+                 "Recruit the first basic anti-air operator while the opening field has room",
+                 {} };
     }
 
     // Phase one is a lifecycle smoke path, not the dynamic faction planner.
