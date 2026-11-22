@@ -231,6 +231,12 @@ int main()
     assert(urbi_hint && urbi_hint->first == "乌尔比安");
     assert(andreana_hint && andreana_hint->first == "安哲拉");
     assert(deep_hint && deep_hint->first == "深巡");
+    // The same verified sprite can be learned during bench actions and
+    // reused for inventory discovery, or found in the opposite direction.
+    std::vector<InventoryOperatorHint> bench_hints;
+    assert(remember_inventory_operator_title(bench_hints, inventory_r12, { 277, 450 }, "乌尔比安", true));
+    assert(inventory_operator_visual_hint(bench_hints, inventory_r13, { 277, 465 }) == urbi_hint);
+    assert(inventory_operator_visual_hint(inventory_hints, inventory_r13, { 277, 450 }) == urbi_hint);
     assert(!inventory_operator_visual_hint(inventory_hints, inventory_r13, { 756, 393 }));
     assert(!inventory_operator_visual_hint(inventory_hints, inventory_r13, { 834, 394 }));
     assert(!inventory_operator_visual_hint(inventory_hints, cv::Mat(), { 277, 465 }));

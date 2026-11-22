@@ -133,6 +133,10 @@ std::optional<cv::Rect> defence_life_number_roi(const cv::Mat& image)
     return cv::Rect(number.x - 2, number.y - 2, number.width + 4, number.height + 4);
 }
 
+// The bench detector reports y=450, while inventory probes use badge-relative
+// hitboxes near y=466. Both refer to the same expanded bench strip.
+constexpr int InventoryOperatorSpriteY = 466;
+
 bool remember_inventory_operator_title(
     std::vector<InventoryOperatorHint>& hints,
     const cv::Mat& image,
@@ -140,14 +144,13 @@ bool remember_inventory_operator_title(
     const std::string& title,
     bool title_verified)
 {
-    const cv::Rect body(source.x - 28, source.y - 58, 56, 54);
-    if (!title_verified || source.x < 140 || source.x >= 1000 || source.y < 370 || source.y >= 510 ||
+    const cv::Rect body(source.x - 28, InventoryOperatorSpriteY - 58, 56, 54);
+    if (!title_verified || source.x < 140 || source.x >= 1000 || source.y < 450 || source.y > 490 ||
         image.size() != cv::Size(1280, 720) || image.type() != CV_8UC3 ||
         (body & cv::Rect(0, 0, image.cols, image.rows)) != body ||
-        std::none_of(
-            OperatorCatalogue.begin(),
-            OperatorCatalogue.end(),
-            [&](const auto& item) { return item.name == title; })) {
+        std::none_of(OperatorCatalogue.begin(), OperatorCatalogue.end(), [&](const auto& item) {
+            return item.name == title;
+        })) {
         return false;
     }
     cv::Mat sprite;
@@ -176,8 +179,8 @@ std::optional<std::pair<std::string, double>> inventory_operator_visual_hint(
     const cv::Mat& image,
     cv::Point source)
 {
-    const cv::Rect search(source.x - 30, source.y - 60, 60, 58);
-    if (hints.empty() || source.x < 140 || source.x >= 1000 || source.y < 370 || source.y >= 510 ||
+    const cv::Rect search(source.x - 30, InventoryOperatorSpriteY - 60, 60, 58);
+    if (hints.empty() || source.x < 140 || source.x >= 1000 || source.y < 450 || source.y > 490 ||
         image.size() != cv::Size(1280, 720) || image.type() != CV_8UC3 ||
         (search & cv::Rect(0, 0, image.cols, image.rows)) != search) {
         return std::nullopt;
