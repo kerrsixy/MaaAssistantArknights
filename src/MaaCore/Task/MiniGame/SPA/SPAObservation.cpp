@@ -10,6 +10,12 @@ bool asst::spa::is_round_badge_position(int x, int y)
     return x >= 480 && x < 530 && y >= 0 && y < 60;
 }
 
+bool asst::spa::is_battle_round_label(const TextObservation& text)
+{
+    return std::isfinite(text.score) && text.score >= .85 && text.text.starts_with("回合") && text.x >= 400 &&
+           text.x < 490 && text.y >= 0 && text.y < 65;
+}
+
 bool asst::spa::is_hidden_round_badge(const TextObservation& text)
 {
     if (!std::isfinite(text.score) || text.score < .80 || !is_round_badge_position(text.x, text.y)) {
@@ -1044,7 +1050,7 @@ asst::spa::PageObservation
     // The settlement animation exposes "通过回合" and roster levels before its button.
     // The ordinary battle label must be in the HUD, and the ratio must start to the
     // right of the enemy icon, which OCR can merge with a leading zero as "10".
-    if (anchored("回合", 400, 490, 0, 65) && !has("准备就绪") && !has("刷新")) {
+    if (std::ranges::any_of(texts, is_battle_round_label) && !has("准备就绪") && !has("刷新")) {
         for (const auto& item : texts) {
             if (!std::isfinite(item.score) || item.score < 0.85 || item.y < 0 || item.x < 625 || item.x > 720 ||
                 item.y > 70) {

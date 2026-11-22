@@ -7,11 +7,70 @@
 #include "SPAPlanner.h"
 #include "SPAProjection.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 
 #include "Controller/Controller.h"
+#include "MaaUtils/NoWarningCV.hpp"
 #include "Vision/OCRer.h"
+
+namespace asst::spa
+{
+static std::optional<std::pair<int, int>> ordinary_battle_enemy_counter(const cv::Mat& image)
+{
+    // The ordinary HUD has a gold numerator and a white slash and denominator.
+    // Exclude the enemy emblem. The text model often reads the slash as "1".
+    const cv::Rect counter(629, 15, 76, 28);
+    const auto digits = image(counter);
+    cv::Mat gold, white;
+    cv::inRange(digits, cv::Scalar(0, 130, 185), cv::Scalar(155, 255, 255), gold);
+    cv::inRange(digits, cv::Scalar(155, 155, 155), cv::Scalar(255, 255, 255), white);
+    const auto numerator = cv::boundingRect(gold);
+
+    cv::Mat labels, stats, centroids;
+    const int components = cv::connectedComponentsWithStats(white, labels, stats, centroids);
+    std::vector<cv::Rect> glyphs;
+    for (int i = 1; i < components; ++i) {
+        const auto* row = stats.ptr<int>(i);
+        if (row[cv::CC_STAT_AREA] >= 12 && row[cv::CC_STAT_HEIGHT] >= 8) {
+            glyphs.emplace_back(
+                row[cv::CC_STAT_LEFT],
+                row[cv::CC_STAT_TOP],
+                row[cv::CC_STAT_WIDTH],
+                row[cv::CC_STAT_HEIGHT]);
+        }
+    }
+    if (numerator.empty() || numerator.x < 2 || glyphs.size() < 2 || glyphs.size() > 4) {
+        return std::nullopt;
+    }
+    std::ranges::sort(glyphs, {}, &cv::Rect::x);
+    const auto& slash = glyphs.front();
+    const auto first_digit = glyphs.begin() + 1;
+    if (slash.width < 4 || slash.width > 11 || slash.height > 17 || std::abs(slash.y - numerator.y) > 4 ||
+        numerator.br().x + 1 >= slash.x || slash.br().x + 1 >= first_digit->x) {
+        return std::nullopt;
+    }
+    const auto stripe = white(slash);
+    const auto top = cv::boundingRect(stripe.rowRange(0, 3));
+    const auto bottom = cv::boundingRect(stripe.rowRange(stripe.rows - 3, stripe.rows));
+    if (top.empty() || bottom.empty() || top.x <= bottom.x + 2) {
+        return std::nullopt;
+    }
+    auto denominator = *first_digit;
+    for (auto i = first_digit + 1; i != glyphs.end(); ++i) {
+        denominator |= *i;
+    }
+    const auto read = [&](const cv::Rect& box) {
+        const auto padded = (box + counter.tl() - cv::Point(2, 2)) + cv::Size(4, 4);
+        return shop_number(image, make_rect<Rect>(padded), .9);
+    };
+    const auto resolved = read(numerator);
+    const auto total = read(denominator);
+    return resolved && total && *total > 0 && *resolved <= *total ? std::optional(std::pair(*resolved, *total))
+                                                                  : std::nullopt;
+}
+}
 
 bool asst::spa::RoundTaskPlugin::configure(
     int round,
@@ -247,6 +306,17 @@ bool asst::spa::RoundTaskPlugin::_run()
             if (std::chrono::steady_clock::now() >= next_battle_capture) {
                 const bool battle_frame_saved = save_evidence(image, utils::path("debug/SPA/battle_sample"), false);
                 const auto life = defence_life_number(image);
+                auto enemies_resolved = page.enemies_resolved;
+                auto enemies_total = page.enemies_total;
+                std::string enemy_counter_source = enemies_resolved ? "full_frame" : "unknown";
+                if (!enemies_resolved && std::ranges::any_of(texts, is_battle_round_label)) {
+                    if (const auto reading = ordinary_battle_enemy_counter(image);
+                        reading && (!enemies_total || *enemies_total == reading->second)) {
+                        enemies_resolved = reading->first;
+                        enemies_total = reading->second;
+                        enemy_counter_source = "ordinary_counter_crop";
+                    }
+                }
                 auto info = basic_info_with_what("SPABattleSample");
                 info["details"] =
                     json::object { { "round", m_round },
@@ -254,14 +324,16 @@ bool asst::spa::RoundTaskPlugin::_run()
                                    { "theoretical_time_limit_seconds", battle_time_limit_seconds(m_round, false) },
                                    { "life_known", life.has_value() },
                                    { "life", life.value_or(0) },
-                                   { "enemies_total_known", page.enemies_total.has_value() },
-                                   { "enemies_total", page.enemies_total.value_or(0) },
-                                   { "enemies_resolved_known", page.enemies_resolved.has_value() },
-                                   { "enemies_resolved", page.enemies_resolved.value_or(0) },
+                                   { "enemies_total_known", enemies_total.has_value() },
+                                   { "enemies_total", enemies_total.value_or(0) },
+                                   { "enemies_resolved_known", enemies_resolved.has_value() },
+                                   { "enemies_resolved", enemies_resolved.value_or(0) },
+                                   { "enemy_counter_source", enemy_counter_source },
                                    { "unit_survival_verified", false } };
                 if (!m_joint_mode && battle_frame_saved) {
                     const auto boss_fill = battle_boss_hp_bar_fill_percent(image);
-                    info["details"]["boss_hp_bar_fill_percent"] = boss_fill ? json::value(*boss_fill) : json::value(nullptr);
+                    info["details"]["boss_hp_bar_fill_percent"] =
+                        boss_fill ? json::value(*boss_fill) : json::value(nullptr);
                 }
                 if (battle_frame_saved) {
                     // Require an exact pact label and a same-frame counter.
@@ -304,7 +376,7 @@ bool asst::spa::RoundTaskPlugin::_run()
                             m_first_primary_layers = match->second;
                         }
                         m_latest_primary_layers = match->second;
-                        m_latest_primary_layer_sample_enemies = page.enemies_resolved;
+                        m_latest_primary_layer_sample_enemies = enemies_resolved;
                         info["details"]["primary_pact"] = m_primary_pact;
                         info["details"]["primary_layers"] = match->second;
                         info["details"]["primary_layers_source"] = "battle_hud";

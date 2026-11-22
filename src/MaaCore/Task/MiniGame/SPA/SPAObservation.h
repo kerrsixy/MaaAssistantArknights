@@ -29,6 +29,7 @@ enum class HiddenRoundMode
 };
 
 bool is_round_badge_position(int x, int y);
+bool is_battle_round_label(const TextObservation& text);
 bool is_hidden_round_badge(const TextObservation& text);
 std::optional<HiddenRoundMode> observe_hidden_round(const std::vector<TextObservation>& texts);
 
