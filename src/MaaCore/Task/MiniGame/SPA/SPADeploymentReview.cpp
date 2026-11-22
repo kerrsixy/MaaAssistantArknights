@@ -456,6 +456,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         int boss_sustained_attack_cost = 0;
         int boss_opening_cost = 0;
         int boss_healed_attack_cost = 0;
+        int lost_frontline_healing = 0;
         int lost_first_block_capacity = 0;
         int lane_problem_count = 0;
         int lost_block_capacity = 0;
@@ -483,12 +484,16 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         int unblocked = 0;
         int lane_problems = 0;
         int uncovered_approach = 0;
+        int lost_frontline_healing = 0;
         int lost_first_block_capacity = 0;
         int first_block_capacity = 0;
         for (size_t index = 0; index < review.lanes.size(); ++index) {
             const auto& lane = review.lanes[index];
             unblocked += lane.blocker.empty() ? 1 : 0;
             first_block_capacity += lanes[index].blocking_weight * lane.first_block_capacity;
+            if (regular_wave && !initial.lanes[index].healers.empty() && lane.healers.empty()) {
+                ++lost_frontline_healing;
+            }
             if (regular_wave && review.balanced_block_capacity <= initial.balanced_block_capacity) {
                 // Moving capacity rearward must improve coverage between lanes.
                 lost_first_block_capacity +=
@@ -526,6 +531,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
             .boss_sustained_attack_cost = -boss_sustained_attack_weight,
             .boss_opening_cost = -boss_opening_weight,
             .boss_healed_attack_cost = -boss_supported_weight,
+            .lost_frontline_healing = lost_frontline_healing,
             .lost_first_block_capacity = lost_first_block_capacity,
             .lane_problem_count = prioritize_growth ? lane_problems : 0,
             .lost_block_capacity =
@@ -540,9 +546,11 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
     };
     auto best_score = score(result.units);
     const auto initial_score = best_score;
+    std::pair<int, int> best_input_cost {};
     while (result.evaluations < evaluation_budget) {
         auto best = result.units;
         auto next_score = best_score;
+        auto next_input_cost = best_input_cost;
         for (size_t index = 0; index < result.units.size() && result.evaluations < evaluation_budget; ++index) {
             if (!result.units[index].movable) {
                 continue;
@@ -575,34 +583,42 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
                     candidate[index].facing = direction;
                     candidate[index].facing_known = true;
                     const auto value = score(candidate);
-                    if (value < next_score) {
-                        if (available_input_steps) {
-                            int changed = 0;
-                            for (size_t member = 0; member < units.size(); ++member) {
-                                changed +=
-                                    units[member].cell != candidate[member].cell ||
-                                    (candidate[member].facing_known &&
-                                     (!units[member].facing_known || units[member].facing != candidate[member].facing));
-                            }
-                            if (changed > *available_input_steps) {
-                                continue;
-                            }
-                            const auto sequence = sequence_deployment(units, candidate, 1500);
-                            if (!sequence.complete ||
-                                deployment_input_steps_with_facing_repairs(sequence) > *available_input_steps) {
-                                continue;
-                            }
-                        }
-                        next_score = value;
-                        best = std::move(candidate);
+                    if (value > next_score || (value == next_score && next_input_cost.first == 0)) {
+                        continue;
                     }
+                    std::pair<int, int> input_cost {};
+                    if (available_input_steps) {
+                        int changed = 0;
+                        for (size_t member = 0; member < units.size(); ++member) {
+                            changed +=
+                                units[member].cell != candidate[member].cell ||
+                                (candidate[member].facing_known &&
+                                 (!units[member].facing_known || units[member].facing != candidate[member].facing));
+                        }
+                        if (changed > *available_input_steps) {
+                            continue;
+                        }
+                        const auto sequence = sequence_deployment(units, candidate, 1500);
+                        const int inputs = deployment_input_steps_with_facing_repairs(sequence);
+                        if (!sequence.complete || inputs > *available_input_steps) {
+                            continue;
+                        }
+                        input_cost = { inputs, deployment_preference_input_cost(sequence) };
+                    }
+                    if (value == next_score && input_cost >= next_input_cost) {
+                        continue;
+                    }
+                    next_score = value;
+                    next_input_cost = input_cost;
+                    best = std::move(candidate);
                 }
             }
         }
-        if (next_score >= best_score) {
+        if (next_score == best_score && next_input_cost == best_input_cost) {
             break;
         }
         best_score = next_score;
+        best_input_cost = next_input_cost;
         result.units = std::move(best);
     }
     result.found = review_deployment(result.units, lanes, deployable_cells).static_constraints_met;
@@ -645,7 +661,9 @@ int asst::spa::deployment_preference_input_cost(const DeploymentSequence& sequen
     for (const auto& step : sequence.steps) {
         cost += step.kind == DeploymentStepKind::Face ? 100 : 250;
     }
-    return cost;
+    const auto unplanned_facings =
+        deployment_input_steps_with_facing_repairs(sequence) - static_cast<int>(sequence.steps.size());
+    return cost + unplanned_facings * 100;
 }
 
 int asst::spa::deployment_input_steps_with_facing_repairs(const DeploymentSequence& sequence)

@@ -66,6 +66,26 @@ int main()
     assert(two_actions.improved && two_actions.units[0].facing == 'S' && two_actions.units[1].facing == 'W');
     assert(deployment_input_steps_with_facing_repairs(sequence_deployment(pair, two_actions.units)) == 2);
 
+    // Equal defensive and growth score: a scan-order move must not beat
+    // turning at the current cell in the same verified input budget.
+    auto archer = pair.front();
+    std::ranges::reverse(archer.placement_cells);
+    const auto interchangeable_positions = [](const auto& board) {
+        return board.front().cell == BoardCell(7, 2) || board.front().facing == 'S' ? 600 : 0;
+    };
+    const auto fewer_relocations =
+        propose_deployment({ archer }, test_lane, adjacent_cells, 80, interchangeable_positions, {}, {}, {}, 2);
+    assert(fewer_relocations.improved && fewer_relocations.preference_improvement == 600);
+    const auto short_plan = sequence_deployment({ archer }, fewer_relocations.units);
+    assert(short_plan.complete && short_plan.steps.size() == 1);
+    assert(short_plan.steps.front().kind == DeploymentStepKind::Face && short_plan.steps.front().facing == 'S');
+
+    auto missing_facing = swap_plan;
+    missing_facing.steps.pop_back();
+    assert(deployment_input_steps_with_facing_repairs(missing_facing) == 2);
+    assert(deployment_preference_input_cost(missing_facing) == deployment_preference_input_cost(swap_plan));
+    assert(deployment_preference_input_cost(chained_plan) == 500);
+
     auto target = before;
     target[0].cell = { 8, 3 };
     target[2].cell = { 8, 1 };
