@@ -20,11 +20,13 @@
 #include "RoguelikeSummonPolicy.h"
 #include "Task/ProcessTask.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowHunterPreludeController.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowSummonRetreat.h"
 #include "Utils/Logger.hpp"
 #include "Utils/WorkingDir.hpp"
 #include "Vision/Matcher.h"
 #include "Vision/OCRer.h"
 #include "Vision/RegionOCRer.h"
+#include "Vision/Roguelike/BlackFlow/BlackFlowSoulObserver.h"
 
 using namespace asst::battle;
 using namespace asst::battle::roguelike;
@@ -142,6 +144,16 @@ bool asst::RoguelikeBattleTaskPlugin::_run()
     }
 
     cache_oper_elite_status();
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_stage_name == "狂热敬虔") {
+        auto observer = std::make_unique<blackflow::BlackFlowSoulObserver>();
+        std::string error;
+        if (observer->load(ResDir.get() / "roguelike/BlackFlow/stage_mechanics/ew_soul_guard", &error)) {
+            m_soul_observer = std::move(observer);
+        }
+        else {
+            LogWarn << __FUNCTION__ << "Soul guard unavailable" << error;
+        }
+    }
     speed_up();
     bool timeout = false;
     auto start_time = std::chrono::steady_clock::now();
@@ -948,11 +960,12 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
     if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
         Matcher running(image);
         running.set_task_info("BattleOfficiallyBegin");
-        if (!running.analyze()) {
+        const bool soul_guard_paused = m_soul_observer && m_soul_observer->paused(image);
+        if (!running.analyze() || soul_guard_paused) {
             OCRer paused(image);
             paused.set_roi({ 450, 270, 400, 150 });
             paused.set_required({ "PAUSE", "暂停中" });
-            if (paused.analyze()) {
+            if (soul_guard_paused || paused.analyze()) {
                 if (!m_waiting_for_manual_resume) {
                     LogInfo << __FUNCTION__ << "Observed paused battle; waiting without game input";
                     auto info = basic_info_with_what("BlackFlowBattlePaused");
@@ -972,8 +985,12 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
         }
     }
 
+    // A pending verified-token selection owns this UI transaction. Skill input
+    // must not change that selection before it is committed or cancelled.
+    if (m_soul_selection_owned) {
+        return observe_blackflow_souls();
+    }
     check_drone_tiles();
-
     if (!m_first_deploy &&
         (!m_hunter_prelude || m_hunter_main_allowed || m_hunter_prelude->bait_skill_allowed(m_battlefield_opers))) {
         use_all_ready_skill(image);
@@ -1009,6 +1026,9 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
     update_kills(image, image_prev);
     // 漏怪 / 崩盘诊断：只记录，不干预部署
     diagnose_battle_progress();
+    if (m_soul_observer && observe_blackflow_souls()) {
+        return true;
+    }
     if (m_hunter_prelude && !m_hunter_main_allowed && observe_hunter_prelude(ctrler()->get_image())) {
         return true;
     }
@@ -1137,6 +1157,7 @@ void asst::RoguelikeBattleTaskPlugin::postproc_of_deployment_conditions(
     const Point& placed_loc,
     battle::DeployDirection direction)
 {
+    m_observed_deploy_directions.insert_or_assign(battle::OperNameTag { oper.role, oper.name }, direction);
     // 如果是医疗干员，判断覆盖范围内有无第一次放置的干员
     if (oper.role == battle::Role::Medic) {
         std::vector<size_t> contain_index;
@@ -1542,6 +1563,11 @@ void asst::RoguelikeBattleTaskPlugin::clear()
     m_deployed_time.clear();
 
     m_oper_elite.clear();
+    m_soul_observer.reset();
+    m_soul_retreat.reset();
+    m_observed_deploy_directions.clear();
+    m_soul_sequence = 0;
+    m_soul_selection_owned = false;
 }
 
 std::vector<asst::Point> asst::RoguelikeBattleTaskPlugin::available_locations(const DeploymentOper& oper) const

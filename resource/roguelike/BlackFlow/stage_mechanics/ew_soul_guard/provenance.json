@@ -1,0 +1,31 @@
+{
+    "status": "offline qualified candidate; live retreat not yet demonstrated",
+    "construction": {
+        "normal_boss": "run40 Devotion f11",
+        "normal_soul": "run40 Devotion f7",
+        "selected_boss": "run40 Devotion f12 (Carda selected, calibration only)",
+        "pause_glyph": "run40 Devotion f3",
+        "retreat_glyph": "run39 battle3 f12"
+    },
+    "limits": [
+        "No independent selected-Soul plus live-Boss positive transaction exists yet.",
+        "Unknown or occluded Boss never authorizes retreat and is not declared dead.",
+        "Input accepted is not a proof of token removal.",
+        "No pause or resume toggle belongs to this guard."
+    ],
+    "construction_source_sha256": {
+        "normal_boss": "030ff9c462b74fac71c0472458d41e971b5177f42f4a5b4ee8963ca270736b53",
+        "normal_soul": "c94aa7256fbed57aba221e18befcb003de8cee3dcf66f57c9f4c241a8d09a350",
+        "selected_boss": "d05b9bae93b9b6da768dfd610fbf0ed6656c03addafc82530d5a2daa3df41750"
+    },
+    "asset_sha256": {
+        "boss.png": "bd43b6b07ad41ba71f04ff83a9f1e14d74d2c74cac6b962addb91a8cdc3a0af9",
+        "boss_mask.png": "aa2a53ca6ff513e52a9f543fc2d18f659fa5530e10cbe1ea8efaf491d39db58e",
+        "pause_mask.png": "9d222a7b07f79b3d293c8fcf2c36fda1274b75145f2ee9005442bfb0b4c04a24",
+        "retreat_mask.png": "3547beafde7ee02bc12e94bc1b02669ba340375803c833133d7ed039d2dbc27e",
+        "selected_boss.png": "27b5d2fc24b4792c970d9ce9c1d801b5abef69c9b7870726897928e2b479a7f2",
+        "selected_boss_mask.png": "21e6848c0d4ab5564497e9af3bf81c45ab4d6c332daf52db2bd1b13361d372ae",
+        "soul.png": "c2f9168ce6acc2cf4bd4ebeb41178e6703d823b2d9f4400d419a37af61bfd6b4",
+        "soul_mask.png": "c5fbbed21bb48d44d6c0f4ddac7ef4f0d8a03772bb4867d644d4daf6e3bda428"
+    }
+}
