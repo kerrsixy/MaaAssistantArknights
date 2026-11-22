@@ -225,6 +225,28 @@ std::optional<int> asst::spa::preparation_countdown(const std::vector<TextObserv
     return seconds;
 }
 
+bool asst::spa::joint_local_wave_finished(const std::vector<TextObservation>& texts)
+{
+    bool finished = false;
+    bool waiting = false;
+    for (const auto& text : texts) {
+        if (!std::isfinite(text.score) || text.score < .9 || text.x < 420 || text.x >= 810) {
+            continue;
+        }
+        if (text.y >= 72 && text.y < 108 && text.text == "层数叠加已禁用") {
+            return false;
+        }
+        if (text.y >= 580 && text.y < 645 && text.text.find('#') != std::string::npos) {
+            return false;
+        }
+        if (text.y >= 644 && text.y < 700) {
+            finished |= text.text.find("作战结束") != std::string::npos;
+            waiting |= text.text.find("等待队友完成作战") != std::string::npos;
+        }
+    }
+    return finished && waiting;
+}
+
 std::optional<std::string> asst::spa::operator_panel_identity(
     const std::vector<TextObservation>& texts,
     const std::vector<std::string>& known_names)

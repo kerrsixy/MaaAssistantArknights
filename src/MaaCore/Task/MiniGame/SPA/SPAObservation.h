@@ -21,6 +21,10 @@ struct TextObservation
     int y = 0;
 };
 
+// The local field's completion banner appears before the view can switch
+// to a teammate. A spectator banner or a disabled-stacking wave is not ours.
+bool joint_local_wave_finished(const std::vector<TextObservation>& texts);
+
 inline constexpr int HiddenCoreRound = 15;
 enum class HiddenRoundMode
 {

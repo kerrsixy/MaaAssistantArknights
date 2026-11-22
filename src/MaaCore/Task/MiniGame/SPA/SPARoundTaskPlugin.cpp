@@ -17,6 +17,25 @@
 
 namespace asst::spa
 {
+static std::optional<int> joint_local_leak_counter(const cv::Mat& image, int total)
+{
+    const cv::Rect badge_roi(608, 43, 70, 19);
+    if (image.size() != cv::Size(1280, 720) || image.type() != CV_8UC3 || total <= 0) {
+        return std::nullopt;
+    }
+    cv::Mat hsv, orange;
+    cv::cvtColor(image(badge_roi), hsv, cv::COLOR_BGR2HSV);
+    cv::inRange(hsv, cv::Scalar(3, 110, 130), cv::Scalar(22, 255, 255), orange);
+    if (cv::countNonZero(orange) <= 12) {
+        return 0;
+    }
+    if (cv::countNonZero(orange.colRange(8, 29)) < 55) {
+        return std::nullopt;
+    }
+    const auto count = shop_number(image, Rect(645, 44, 27, 17), .90);
+    return count && *count > 0 && *count <= total ? count : std::nullopt;
+}
+
 static std::optional<std::pair<int, int>> ordinary_battle_enemy_counter(const cv::Mat& image)
 {
     // The ordinary HUD has a gold numerator and a white slash and denominator.
@@ -178,6 +197,7 @@ bool asst::spa::RoundTaskPlugin::_run()
     bool ready_clicked = true;
 
     bool battle_seen = false;
+    bool local_finished_captured = false;
     auto last_recognized = std::chrono::steady_clock::now();
     auto next_transition_capture = last_recognized;
     auto next_battle_capture = last_recognized;
@@ -303,7 +323,9 @@ bool asst::spa::RoundTaskPlugin::_run()
                 battle_seen = true;
                 m_battle_seen = true;
             }
-            if (std::chrono::steady_clock::now() >= next_battle_capture) {
+            const bool local_finished = m_joint_mode && joint_local_wave_finished(texts);
+            if ((local_finished && !local_finished_captured) ||
+                std::chrono::steady_clock::now() >= next_battle_capture) {
                 const bool battle_frame_saved = save_evidence(image, utils::path("debug/SPA/battle_sample"), false);
                 const auto life = defence_life_number(image);
                 auto enemies_resolved = page.enemies_resolved;
@@ -334,6 +356,16 @@ bool asst::spa::RoundTaskPlugin::_run()
                     const auto boss_fill = battle_boss_hp_bar_fill_percent(image);
                     info["details"]["boss_hp_bar_fill_percent"] =
                         boss_fill ? json::value(*boss_fill) : json::value(nullptr);
+                }
+                if (m_joint_mode && battle_frame_saved) {
+                    const bool ordinary_wave = std::ranges::any_of(texts, is_battle_round_label);
+                    const auto local_leaks = local_finished && ordinary_wave && enemies_total &&
+                                                     enemies_resolved == enemies_total
+                                                 ? joint_local_leak_counter(image, *enemies_total)
+                                                 : std::nullopt;
+                    info["details"]["joint_local_wave_finished"] = local_finished;
+                    info["details"]["joint_local_leaks"] = local_leaks ? json::value(*local_leaks) : json::value(nullptr);
+                    local_finished_captured |= local_finished;
                 }
                 if (battle_frame_saved) {
                     // Require an exact pact label and a same-frame counter.

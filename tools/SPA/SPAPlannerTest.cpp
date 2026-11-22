@@ -3646,6 +3646,22 @@ int main()
     assert(observed.page == Page::Difficulty && observed.selected_difficulty == JointTrainingDifficulty);
     assert(!valid_difficulty_request(JointTrainingDifficulty, 4));
     assert(joint_difficulty_from_label("标准模拟") == 1);
+    const std::vector<TextObservation> local_wait {
+        { "作战结束,等待队友完成作战", .99, 548, 660 },
+    };
+    assert(joint_local_wave_finished(local_wait));
+    const std::vector<TextObservation> split_wait {
+        { "作战结束", .99, 548, 660 },
+        { "等待队友完成作战", .99, 626, 658 },
+    };
+    assert(joint_local_wave_finished(split_wait));
+    auto observed_teammate = local_wait;
+    observed_teammate.push_back({ "队友#2935", .99, 558, 606 });
+    assert(!joint_local_wave_finished(observed_teammate));
+    observed_teammate = local_wait;
+    observed_teammate.push_back({ "层数叠加已禁用", .99, 590, 82 });
+    assert(!joint_local_wave_finished(observed_teammate));
+    assert(!joint_local_wave_finished({ { "等待队友完成作战", .99, 626, 658 } }));
     assert(joint_difficulty_scroll(1, JointTrainingDifficulty, 0, 2) == DifficultyScroll::Hold);
     assert(joint_difficulty_scroll(1, JointTrainingDifficulty, 0, 0) == DifficultyScroll::Higher);
     assert(joint_difficulty_scroll(1, JointTrainingDifficulty, {}, {}) == DifficultyScroll::Higher);
