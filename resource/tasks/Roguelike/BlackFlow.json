@@ -886,6 +886,7 @@
     },
     "BlackFlow@Roguelike@GetDrops": {
         "next": [
+            "BlackFlow@Roguelike@RewardReturnMap",
             "BlackFlow@Roguelike@ChooseOperFlag",
             "BlackFlow@Roguelike@GetDrops@(BlackFlow@Roguelike@CloseCollectionContinue)",
             "BlackFlow@Roguelike@GetDrops@(BlackFlow@Roguelike@CloseCollection)",
@@ -3545,5 +3546,28 @@
         ],
         "maxTimes": 3,
         "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
+    },
+    "BlackFlow@Roguelike@RewardReturnMap": {
+        "Doc": "奖励已返回地图时先按楼层标题与行动力双锚点分流；地图干员图标也会误中DropsFlag，不能将它独立当奖励页。",
+        "baseTask": "BlackFlow@Roguelike@AccountMapReturn",
+        "action": "DoNothing",
+        "requiredPage": "BlackFlow@Roguelike@RewardReturnMapActionPoints",
+        "next": ["BlackFlow@Roguelike@RewardReturnMapDismiss"]
+    },
+    "BlackFlow@Roguelike@RewardReturnMapActionPoints": {
+        "algorithm": "OcrDetect",
+        "roi": [1080, 70, 195, 65],
+        "text": ["行动力"],
+        "fullMatch": true,
+        "action": "DoNothing",
+        "next": []
+    },
+    "BlackFlow@Roguelike@RewardReturnMapDismiss": {
+        "Doc": "关闭重复领取点击误开的节点预览，再经既有节点完成回执处理同层返回或Boss自动进下一层。",
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "sub": ["BlackFlow@Roguelike@CancelNodeSelectionClick"],
+        "next": ["BlackFlow@Roguelike@Stages-MapReady", "BlackFlow@Roguelike@Stages-ZoomOut"],
+        "onErrorNext": ["BlackFlow@Roguelike@RecoveryFailed"]
     }
 }
