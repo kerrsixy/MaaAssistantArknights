@@ -5392,7 +5392,12 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         m_policy.deployed_population =
             state.get("remaining_deployment_known", false) ? 8 - state.get("remaining_deployment", 8) : -1;
         int blockers = 0, ranged = 0, healers = 0;
+        bool has_anti_air_recruit = false;
+        const bool deployment_vacancy = m_policy.deployed_population >= 0 && m_policy.deployed_population < 8;
         for (const auto& [name, unit] : m_policy.owned) {
+            if (!has_anti_air_recruit && (unit.deployed || (deployment_vacancy && unit.copies > 0))) {
+                has_anti_air_recruit = spa::operator_can_attack_air(name);
+            }
             if (!unit.deployed) {
                 continue;
             }
@@ -5406,18 +5411,15 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         m_policy.early_board_ready = blockers >= 2 && m_policy.deployed_population >= 4;
         m_policy.early_board_scores.clear();
         for (const auto& [name, pacts] : catalog) {
-            const auto role = spa::operator_placement_role(name);
-            int score = spa::UnclassifiedEarlyBoardScore;
-            if (role == spa::PlacementRole::Frontline) {
-                score = blockers < 2 ? 1700 : 500;
-            }
-            if (role == spa::PlacementRole::Ranged) {
-                score = ranged < 2 ? 1600 : 600;
-            }
-            if (role == spa::PlacementRole::Healer) {
-                score = healers == 0 && blockers >= 2 ? 900 : 250;
-            }
-            m_policy.early_board_scores.emplace(name, score);
+            m_policy.early_board_scores.emplace(
+                name,
+                spa::early_recruit_score(
+                    spa::operator_placement_role(name),
+                    blockers,
+                    ranged,
+                    healers,
+                    !has_anti_air_recruit && spa::operator_can_attack_air(name),
+                    has_anti_air_recruit));
         }
         if (m_policy.free_refreshes < 0) {
             return false;

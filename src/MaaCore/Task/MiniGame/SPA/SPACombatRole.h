@@ -24,6 +24,15 @@ inline bool prioritizes_airborne_targets(battle::SubRole branch)
     return branch == battle::SubRole::Sniper_FastShot;
 }
 
+inline bool can_attack_air_with_basic_attack(battle::Role role, battle::SubRole branch)
+{
+    if (branch == battle::SubRole::Unknown || !has_basic_attack(role, branch)) {
+        return false;
+    }
+    return branch == battle::SubRole::Warrior_Lord || role == battle::Role::Caster ||
+           (role == battle::Role::Sniper && branch != battle::SubRole::Sniper_Bombarder);
+}
+
 inline bool accepts_direct_healing(battle::SubRole branch)
 {
     return branch != battle::SubRole::Warrior_Musha && branch != battle::SubRole::Warrior_Reaper &&

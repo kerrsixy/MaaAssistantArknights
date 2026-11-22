@@ -3,11 +3,40 @@
 #include "SPAGrowth.h"
 #include "SPAGuideRoutes.h"
 #include "SPAOperatorCatalogue.h"
+#include "SPAPlacementPolicy.h"
 #include "SPAPlanner.h"
 #include "SPAStrategyCatalogue.h"
 #include <algorithm>
 #include <cmath>
 #include <tuple>
+
+int asst::spa::early_recruit_score(
+    PlacementRole role,
+    int blockers,
+    int ranged,
+    int healers,
+    bool can_attack_air,
+    bool has_anti_air_recruit)
+{
+    int score = UnclassifiedEarlyBoardScore;
+    switch (role) {
+    case PlacementRole::Frontline:
+        score = blockers < 2 ? 1700 : 500;
+        break;
+    case PlacementRole::Ranged:
+        score = ranged < 2 ? 1600 : 600;
+        break;
+    case PlacementRole::Healer:
+        score = healers == 0 && blockers >= 2 ? 900 : 250;
+        break;
+    case PlacementRole::Unknown:
+        break;
+    }
+    if (blockers >= 2 && can_attack_air && !has_anti_air_recruit) {
+        score = std::max(score, 1500);
+    }
+    return score;
+}
 
 std::optional<asst::spa::OperatorFormCounts> asst::spa::owned_form_counts(const OwnedOperator& owned)
 {

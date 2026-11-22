@@ -136,19 +136,18 @@ bool asst::spa::ProgressLedger::can_schedule_solo(const StrategyProgress& progre
 
 std::optional<std::string> asst::spa::ProgressLedger::next_solo(const std::vector<StrategyProgress>& progress)
 {
+    // Finish nearby marks first. An unverified three-win mark stays
+    // eligible for the six-win threshold and is three wins away again.
+    const auto priority = [](const StrategyProgress& entry) {
+        const int wins = entry.wins.value_or(-1);
+        return std::tuple(!entry.badge_verified, wins % 3, wins);
+    };
     const StrategyProgress* best = nullptr;
     for (const auto& item : progress) {
         if (!can_schedule_solo(item)) {
             continue;
         }
-        // Badge collection is the current solo objective.  A strategy with
-        // no verified badge must therefore outrank a partially progressed
-        // strategy whose badge is already known.  Within the unclaimed
-        // bucket spread attempts across bands with fewer wins first; this
-        // avoids repeatedly farming one already-claimed route while other
-        // strategies never get a clear run.
-        if (!best || (!item.badge_verified && best->badge_verified) ||
-            (item.badge_verified == best->badge_verified && item.wins.value_or(3) < best->wins.value_or(3))) {
+        if (!best || priority(item) > priority(*best)) {
             best = &item;
         }
     }

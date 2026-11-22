@@ -9,6 +9,8 @@
 
 namespace asst::spa
 {
+enum class PlacementRole;
+
 struct OwnedOperator
 {
     // Total physical copies in the native ledger, including elite bodies.
@@ -43,6 +45,14 @@ struct ShopOffer
 bool is_one_coin_bank_offer(const ShopOffer& offer);
 
 inline constexpr int UnclassifiedEarlyBoardScore = 100;
+
+int early_recruit_score(
+    PlacementRole role,
+    int blockers,
+    int ranged,
+    int healers,
+    bool can_attack_air,
+    bool has_anti_air_recruit);
 
 struct PreparationPolicy
 {

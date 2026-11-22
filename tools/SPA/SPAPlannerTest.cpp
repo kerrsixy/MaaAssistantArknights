@@ -3301,6 +3301,12 @@ int main()
     StrategyProgress claimed_partial { "band-claimed", 2, true, true, true };
     StrategyProgress unclaimed_new { "band-unclaimed", 0, true, false, true };
     assert(ProgressLedger::next_solo({ claimed_partial, unclaimed_new }) == "band-unclaimed");
+    const StrategyProgress near_orange { "band-near-orange", 2, true, false, true };
+    const StrategyProgress pending_mark { "band-pending-mark", 3, true, false, true };
+    const StrategyProgress near_silver { "band-near-silver", 5, true, false, true };
+    assert(ProgressLedger::next_solo({ partial, unclaimed_new, near_orange }) == "band-near-orange");
+    assert(ProgressLedger::next_solo({ pending_mark, near_orange }) == "band-near-orange");
+    assert(ProgressLedger::next_solo({ near_orange, near_silver }) == "band-near-silver");
     const StrategyProgress before_report { "band_amiya", 2, true, false, true };
     auto after_report = before_report;
     after_report.wins = 3;
@@ -4969,6 +4975,32 @@ int main()
     offered_pair.owned["拉普兰德"] = { 2, false, true };
     const auto paired = choose_preparation(offered_pair, 4, { { "烈夏", 2, 0 }, { "拉普兰德", 2, 1 } }, catalog);
     assert(paired.action == PreparationAction::Buy && paired.name == "拉普兰德");
+    {
+        using asst::battle::Role;
+        using asst::battle::SubRole;
+        assert(can_attack_air_with_basic_attack(Role::Warrior, SubRole::Warrior_Lord));
+        assert(can_attack_air_with_basic_attack(Role::Sniper, SubRole::Sniper_FastShot));
+        assert(can_attack_air_with_basic_attack(Role::Caster, SubRole::Caster_CoreCaster));
+        assert(!can_attack_air_with_basic_attack(Role::Sniper, SubRole::Sniper_Bombarder));
+        assert(!can_attack_air_with_basic_attack(Role::Caster, SubRole::Caster_Phalanx));
+        assert(!can_attack_air_with_basic_attack(Role::Medic, SubRole::Unknown));
+
+        auto airborne_gap = offered_pair;
+        airborne_gap.round = 2;
+        airborne_gap.owned = { { "拜松", { 1, false, true } }, { "摆渡人", { 1, false, true } } };
+        airborne_gap.early_board_scores = {
+            { "拜松", early_recruit_score(PlacementRole::Frontline, 2, 0, 0, false, false) },
+            { "野鬃", early_recruit_score(PlacementRole::Frontline, 2, 0, 0, false, false) },
+            { "霜叶", early_recruit_score(PlacementRole::Frontline, 2, 0, 0, true, false) },
+        };
+        const std::vector<ShopOffer> ground_heavy_opening { { "拜松", 2, 0 }, { "野鬃", 2, 1 }, { "霜叶", 2, 2 } };
+        const auto anti_air = choose_preparation(airborne_gap, 5, ground_heavy_opening, catalog);
+        assert(anti_air.action == PreparationAction::Buy && anti_air.name == "霜叶");
+        airborne_gap.owned["霜叶"] = { 1, false, false };
+        airborne_gap.early_board_scores["霜叶"] = early_recruit_score(PlacementRole::Frontline, 2, 0, 0, true, true);
+        const auto after_anti_air = choose_preparation(airborne_gap, 3, ground_heavy_opening, catalog);
+        assert(after_anti_air.action == PreparationAction::Buy && after_anti_air.name == "拜松");
+    }
     auto missing_ranged = offered_pair;
     missing_ranged.primary_pact = "阿戈尔";
     missing_ranged.primary_locked_after_activation = false;

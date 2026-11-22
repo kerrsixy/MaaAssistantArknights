@@ -5,6 +5,12 @@
 
 namespace asst::spa
 {
+inline bool operator_can_attack_air(const std::string& name)
+{
+    const auto props = BattleData.find_first_oper(battle::Role::Unknown, name, true);
+    return props && can_attack_air_with_basic_attack(props->role, props->sub_role);
+}
+
 inline PlacementRole operator_placement_role(const std::string& name)
 {
     // This season-only strategy gift is absent from the ordinary operator
