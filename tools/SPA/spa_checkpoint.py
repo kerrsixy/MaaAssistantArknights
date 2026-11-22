@@ -72,6 +72,19 @@ def setup_context_receipt(event_name: str, details: dict) -> dict:
     return {}
 
 
+def committed_shop_level(event_name: str, details: dict) -> int | None:
+    """Retain the book level from the committed upgrade, scoped to its run."""
+    if event_name != "SPAShopUpgradeReconciled":
+        return None
+    after = details.get("shop_level_after")
+    before = details.get("shop_level_before")
+    if type(after) is not int or not 2 <= after <= 6:
+        return None
+    if before is not None:
+        return after if type(before) is int and before + 1 == after else None
+    return after if details.get("schedule") == "phase1_fixed" else None
+
+
 def checkpoint_roster(
     state: dict, previous_pending: str = ""
 ) -> tuple[list[dict], str]:

@@ -9,6 +9,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from spa_checkpoint import (
+    committed_shop_level,
     merge_receipt,
     setup_context_receipt,
     setup_pact_receipt,
@@ -433,6 +434,9 @@ def main():
             # the parent policy ID here would erase that child's checkpoint.
             scope_run_id = value.get("run_id") or checkpoint_context["run_id"]
             persist_checkpoint({"run_id": scope_run_id})
+        upgraded_level = committed_shop_level(value.get("what", ""), value.get("details", {}))
+        if upgraded_level is not None and value.get("run_id"):
+            persist_checkpoint({"run_id": value["run_id"], "shop_level": upgraded_level})
         if value.get("what") in (
             "SPAAutomationPurchaseReconciled",
             "SPAAutomationDeploymentReconciled",

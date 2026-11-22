@@ -1,9 +1,19 @@
 import unittest
 
-from spa_checkpoint import merge_receipt, setup_context_receipt, setup_pact_receipt
+from spa_checkpoint import committed_shop_level, merge_receipt, setup_context_receipt, setup_pact_receipt
 
 
 class SetupPactEvidenceTests(unittest.TestCase):
+    def test_only_reconciled_upgrade_with_valid_level_updates_book(self):
+        signed = {"shop_level_before": 3, "shop_level_after": 4}
+        self.assertEqual(committed_shop_level("SPAShopUpgradeReconciled", signed), 4)
+        self.assertIsNone(committed_shop_level("SPAShopUpgrade", signed))
+        self.assertIsNone(
+            committed_shop_level("SPAShopUpgradeReconciled", {**signed, "shop_level_after": 6})
+        )
+        fixed = {"schedule": "phase1_fixed", "shop_level_after": 2}
+        self.assertEqual(committed_shop_level("SPAShopUpgradeReconciled", fixed), 2)
+
     def test_occupied_strategy_requires_a_verified_label(self):
         details = {"occupied_strategy_ids": ["band_mech", "band_mech"]}
         self.assertEqual(
