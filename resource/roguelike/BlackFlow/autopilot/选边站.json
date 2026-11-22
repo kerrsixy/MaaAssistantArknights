@@ -1,0 +1,70 @@
+{
+    "stage_name": "选边站",
+    "doc": [
+        "阶段68候选，尚未实机通过。run43通关但损失3耐久；旧通用开局先花高台费用，EW延后且全员挤在左侧。",
+        "恶狡兽未被阻挡时朝向干员较多的一侧，同数保留原朝向，正面物法减伤80%。魂灵是否参与计数未证实，不能仅用人数算式保证背击。",
+        "先4,6朝上常驻阻挡，预留真实费用给EW7,3朝左。EW精一基础范围覆盖5,1至5,5，但不覆盖5,6；下端仍须阻挡和左侧火力。",
+        "其余人留左侧：3,5朝右支援，3,4朝右法术或远程，3,2朝下长射程。波登可本场S1只能提供技能治疗窗口，不等价常驻医疗。",
+        "只执行计划，不提前加右侧干员或通用召唤物；实际敌朝向、魂灵计数、初始物体和生存必须实测。等待110或60游戏秒不等于安全部署期限。"
+    ],
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true,
+    "replacement_home": [
+        {
+            "location": [3, 6],
+            "direction": "up"
+        }
+    ],
+    "deploy_plan": [
+        {
+            "groups": ["机械师", "奶盾", "重装", "铁卫", "挡人先锋", "近卫"],
+            "location": [4, 6],
+            "direction": "up",
+            "require_persistent_blocking": true,
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["益达"],
+            "location": [7, 3],
+            "direction": "left",
+            "operator_names": ["维什戴尔"],
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [5, 1],
+                [5, 5],
+                [4, 3]
+            ]
+        },
+        {
+            "groups": ["奶", "单奶", "群奶", "元素奶", "辅助"],
+            "location": [3, 5],
+            "direction": "right",
+            "minimum_elite": 1,
+            "required_range_tiles": [[4, 6]],
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["术师", "狙击", "高台输出"],
+            "location": [3, 4],
+            "direction": "right",
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [5, 4],
+                [5, 5]
+            ],
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["狙击", "术师", "高台输出"],
+            "location": [3, 2],
+            "direction": "down",
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [5, 4],
+                [5, 5],
+                [4, 6]
+            ],
+            "prefer_group_order": true
+        }
+    ]
+}
