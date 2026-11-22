@@ -1051,6 +1051,39 @@ void asst::spa::SwapTaskPlugin::observe_boss_attackable_region(const cv::Mat& im
     save_evidence(image, utils::path("debug/SPA/boss_attackable_region"), false);
 }
 
+void asst::spa::SwapTaskPlugin::observe_clean_field_facings(
+    const cv::Mat& image,
+    std::vector<PlacementMember>& members,
+    std::vector<GridPlacementMember>& grid,
+    const std::string& source)
+{
+    json::array recovered;
+    // registered_grid_members preserves the order of the verified field poses.
+    for (std::size_t index = 0; index < members.size(); ++index) {
+        auto& member = members[index];
+        if (member.facing) {
+            continue;
+        }
+        if (const auto facing = deployed_facing(image, cv::Point(member.x, member.y))) {
+            member.facing = *facing;
+            grid[index].facing = *facing;
+            recovered.emplace_back(
+                json::object { { "name", member.name },
+                               { "facing", std::string(1, *facing) },
+                               { "x", member.x },
+                               { "y", member.y } });
+        }
+    }
+    if (!recovered.empty()) {
+        auto evidence = basic_info_with_what("SPAFieldFacingObserved");
+        evidence["details"] = json::object { { "round", m_round },
+                                             { "members", std::move(recovered) },
+                                             { "source", source },
+                                             { "extra_direction_input_issued", false } };
+        callback(AsstMsg::SubTaskExtraInfo, evidence);
+    }
+}
+
 bool asst::spa::SwapTaskPlugin::observe_grid_snapshot(
     const cv::Mat& reference,
     const cv::Mat& grid_to_reference,
@@ -1089,49 +1122,28 @@ bool asst::spa::SwapTaskPlugin::observe_grid_snapshot(
         return false;
     }
     auto aligned = members;
-    json::array recovered_facings;
     for (std::size_t index = 0; index < members.size(); ++index) {
         if (cv::norm(projected->at(index) - points[index]) > 12) {
             return false;
         }
         aligned[index].x = projected->at(index).x;
         aligned[index].y = projected->at(index).y;
-        // Read unknown facings while the actor is still on its tile. Once
-        // that actor is held at staging its source chevron can disappear;
-        // turning it solely to discover E needlessly repeats held input.
-        if (!aligned[index].facing) {
-            if (const auto facing = deployed_facing(current, projected->at(index))) {
-                aligned[index].facing = *facing;
-                recovered_facings.emplace_back(
-                    json::object { { "name", aligned[index].name },
-                                   { "facing", std::string(1, *facing) },
-                                   { "x", aligned[index].x },
-                                   { "y", aligned[index].y } });
-            }
-        }
     }
     const auto projection = registered_grid_projection(camera_fit, grid_to_reference);
-    const auto mapped = projection ? registered_grid_members(*projection, aligned) : std::nullopt;
+    auto mapped = projection ? registered_grid_members(*projection, aligned) : std::nullopt;
     if (!mapped) {
         save_evidence(current, utils::path("debug/SPA/grid_snapshot_unverified"), false);
         return false;
     }
-    m_observed_grid_members = *mapped;
+    observe_clean_field_facings(current, aligned, *mapped, "registered_clean_chevron");
+    m_observed_grid_members = std::move(*mapped);
     m_observed_field_members = std::move(aligned);
     m_observed_grid_projection = projection->clone();
     m_observed_grid_reference = current.clone();
     observe_boss_attackable_region(current, *projection);
-    if (!recovered_facings.empty()) {
-        auto facing = basic_info_with_what("SPAFieldFacingObserved");
-        facing["details"] = json::object { { "round", round },
-                                           { "members", std::move(recovered_facings) },
-                                           { "source", "registered_clean_chevron" },
-                                           { "extra_direction_input_issued", false } };
-        callback(AsstMsg::SubTaskExtraInfo, facing);
-    }
     auto evidence = basic_info_with_what("SPARegisteredFormationObserved");
     evidence["details"] = json::object { { "round", round },
-                                         { "member_count", mapped->size() },
+                                         { "member_count", m_observed_grid_members.size() },
                                          { "remaining_deployment", remaining },
                                          { "grid_coordinates_verified", true },
                                          { "identities_from_prior_field_ledger", true },
@@ -3052,19 +3064,21 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
             }
         }
         if (m_relocation_applied && displaced_index) {
-            // The swapped actor's direction has not been reissued. Restore
-            // it with an explicit Face step rather than assuming it survived.
+            // A swap can change the other operator's facing. Clear the
+            // prior value before looking for its new chevron.
             m_reoriented_field_members[*displaced_index].facing = '\0';
         }
         m_target = Point(points->at(source_index).x, points->at(source_index).y);
         if (!m_held_board.empty() && !m_growth_grid_to_screen.empty()) {
             const auto projection = registered_grid_projection(m_held_board, field, m_growth_grid_to_screen);
-            const auto grid =
-                projection ? registered_grid_members(*projection, m_reoriented_field_members) : std::nullopt;
+            auto grid = projection ? registered_grid_members(*projection, m_reoriented_field_members) : std::nullopt;
             if (grid) {
+                // This clean frame already verified the relocated identities
+                // and grid. Reuse it before asking for a separate scan.
+                observe_clean_field_facings(field, m_reoriented_field_members, *grid, "reconciled_clean_chevron");
                 m_observed_grid_projection = projection->clone();
                 m_observed_grid_reference = field.clone();
-                m_observed_grid_members = *grid;
+                m_observed_grid_members = std::move(*grid);
                 m_observed_field_members = m_reoriented_field_members;
             }
             else if (m_relocation_applied) {

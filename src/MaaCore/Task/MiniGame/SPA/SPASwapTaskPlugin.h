@@ -195,6 +195,11 @@ protected:
     bool on_run_fails() override;
 
 private:
+    void observe_clean_field_facings(
+        const cv::Mat& image,
+        std::vector<PlacementMember>& members,
+        std::vector<GridPlacementMember>& grid,
+        const std::string& source);
     void observe_boss_attackable_region(const cv::Mat& image, const cv::Mat& grid_to_image);
     std::vector<std::pair<int, int>> m_observed_boss_attackable_cells;
     std::vector<std::pair<std::string, Point>> m_inspected_equipment;
