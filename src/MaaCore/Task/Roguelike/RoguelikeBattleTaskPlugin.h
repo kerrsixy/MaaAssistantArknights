@@ -109,6 +109,8 @@ protected:
     };
 
     bool do_best_deploy();
+    static bool deployment_cost_wait_required(const battle::DeploymentOper& oper, int observed_cost);
+    std::unordered_set<std::string> reconcile_returned_blackflow_operators();
     bool deployment_requirements_met(
         const battle::DeploymentOper& oper,
         const battle::roguelike::DeployInfoWithRank& plan) const;

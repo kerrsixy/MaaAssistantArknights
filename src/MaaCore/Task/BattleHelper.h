@@ -163,6 +163,7 @@ protected:
     void register_deployed_oper(battle::Role role, const std::string& name, const Point& loc);
     // 从场上干员和已占用格子中移除冷却中的干员
     void remove_cooling_from_battlefield(const battle::DeploymentOper& oper);
+    bool remove_returned_operator_from_battlefield(const battle::DeploymentOper& oper);
 
     std::string m_stage_name;
     Map::Level m_map_data;
