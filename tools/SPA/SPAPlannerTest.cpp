@@ -5375,6 +5375,26 @@ int main()
     assert(should_upgrade_dynamic_shop(egir_free_refresh_window, 12, 7, egir_book_four, catalog));
     egir_free_refresh_window.free_refreshes = 0;
     assert(should_upgrade_dynamic_shop(egir_free_refresh_window, 12, 11, egir_book_four, catalog));
+    // The actual fifth-book refresh left enough room to recruit but just one coin.
+    egir_free_refresh_window.shop_level = 5;
+    const std::vector<ShopOffer> egir_after_upgrade {
+        { "幽灵鲨", 2, 0 }, { "老鲤", 4, 1 },     { "异客", 3, 2 },
+        { "余", 3, 3 },     { "歌蕾蒂娅", 4, 4 }, { "瓶装烈性反应", 2, 5 }
+    };
+    assert(
+        choose_preparation(egir_free_refresh_window, 1, egir_after_upgrade, catalog).action !=
+        PreparationAction::Freeze);
+    egir_free_refresh_window.full_field_offer_improvements["歌蕾蒂娅"] = 3830;
+    const auto keep_egir_relay = choose_preparation(egir_free_refresh_window, 1, egir_after_upgrade, catalog);
+    assert(
+        keep_egir_relay.action == PreparationAction::Freeze && keep_egir_relay.freeze_target &&
+        keep_egir_relay.freeze_target->name == "歌蕾蒂娅");
+    assert(
+        choose_preparation(egir_free_refresh_window, 4, egir_after_upgrade, catalog).action == PreparationAction::Buy);
+    egir_free_refresh_window.full_field_offer_improvements["歌蕾蒂娅"] = 0;
+    assert(
+        choose_preparation(egir_free_refresh_window, 1, egir_after_upgrade, catalog).action !=
+        PreparationAction::Freeze);
     // D4 child 3, R7. The prior round waited at book III; its next quote
     // left only two funds even though two fieldable Elysium cards cost three.
     auto iberia_sale_engine_window = live_activation_window;

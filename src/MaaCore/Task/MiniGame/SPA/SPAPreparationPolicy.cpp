@@ -2373,16 +2373,24 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
                     roles.output_owned == 0 ||
                     (!terminal_owned && is_terminal_output_candidate(offer.name, resolved.primary_pact));
                 const bool missing_engine = roles.growth_engine_owned == 0;
-                if (missing_output && !missing_engine && !carry) {
+                const auto field_gain = resolved.full_field_offer_improvements.find(offer.name);
+                // Before the advanced Aegir pact, a distinct member can extend the
+                // chain. Require a modeled positive exchange on the current field.
+                const int relay_gain = resolved.primary_pact == "阿戈尔" && resolved.growth_primary_active_verified &&
+                                               copies == 0 && primary_rule != requirements.end() &&
+                                               primary_owned < primary_rule->advanced_members &&
+                                               field_gain != resolved.full_field_offer_improvements.end()
+                                           ? std::clamp(field_gain->second, 0, 3000)
+                                           : 0;
+                if (missing_output && !missing_engine && !carry && relay_gain == 0) {
                     continue;
                 }
-                // A low-value faction filler does not justify preserving
-                // all shop slots while the actual carry is still missing.
-                if (!useful_promotion && !(carry && missing_output) && !(engine && missing_engine)) {
+                const int role_score = (carry && missing_output ? 2000 : 0) + (engine && missing_engine ? 1500 : 0) +
+                                       (useful_promotion ? 1200 : 0);
+                if (role_score == 0 && relay_gain == 0) {
                     continue;
                 }
-                const int score = (carry && missing_output ? 2000 : 0) + (engine && missing_engine ? 1500 : 0) +
-                                  (useful_promotion ? 1200 : 0) + (offer.price <= funds + 1 ? 200 : 0);
+                const int score = std::max(role_score, relay_gain) + (offer.price <= funds + 1 ? 200 : 0);
                 if (!best_unaffordable || score > best_unaffordable_score ||
                     (score == best_unaffordable_score && offer.price < best_unaffordable->price)) {
                     best_unaffordable = &offer;
