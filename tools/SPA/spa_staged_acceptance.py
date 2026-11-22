@@ -466,7 +466,7 @@ def verified_strategy_badge(detail, ordinary=3, master=6):
     wins = detail.get("wins")
     if (
         type(wins) is int
-        and ordinary <= wins <= master
+        and wins >= ordinary
         and detail.get("page") == "strategy_report"
         and detail.get("contradictory") is False
         and all(
@@ -480,7 +480,7 @@ def verified_strategy_badge(detail, ordinary=3, master=6):
             )
         )
     ):
-        tier = "silver" if wins == master else "orange"
+        tier = "silver" if wins >= master else "orange"
         if detail.get("strategy_badge_tier") == tier:
             return wins, tier
     return None
@@ -518,7 +518,7 @@ def strategy_badge_completion_evidence(events, strategy_indices):
             and detail.get("band_id") == strategy
         ):
             if badge := verified_strategy_badge(detail):
-                saved_reports[badge[0]] = index
+                saved_reports[badge[0]] = (index, badge[1])
         if (
             name != "SPAStrategyBadgeScheduleSettled"
             or source != "asst::StrongholdProtocolTask"
@@ -541,12 +541,13 @@ def strategy_badge_completion_evidence(events, strategy_indices):
             and before + 1 == after
             and after in saved_reports
         ):
+            report_event_index, tier = saved_reports[after]
             return {
                 "strategy_id": strategy,
-                "badge_tier": "silver" if after == 6 else "orange",
+                "badge_tier": tier,
                 "report_wins_before": before,
                 "report_wins_after": after,
-                "report_event_index": saved_reports[after],
+                "report_event_index": report_event_index,
                 "confirmation_event_index": index,
             }
     return None

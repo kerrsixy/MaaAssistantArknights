@@ -419,7 +419,7 @@ class StagedAcceptanceTests(unittest.TestCase):
             "difficulty": 5,
             "schedule_strategy_badges": True,
         }
-        for wins, tier in ((3, "orange"), (6, "silver")):
+        for wins, tier in ((3, "orange"), (6, "silver"), (14, "silver")):
             raw = solo_run("independent", 5)
             raw[-2]["details"]["taskchain"] = "StrongholdProtocol"
             badge = event(

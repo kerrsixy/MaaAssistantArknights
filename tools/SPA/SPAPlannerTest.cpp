@@ -3485,7 +3485,17 @@ int main()
     assert(silver_resumed.restore(silver_store.snapshot()));
     assert(silver_resumed.strategies().front().wins == 6);
     assert(ProgressLedger::complete(silver_resumed.strategies().front()));
-    assert(!silver_resumed.reconcile({ "invalid-count", 7, true, false, true }));
+    assert(!silver_resumed.reconcile({ "invalid-count", -1, true, false, true }));
+    assert(silver_store.credit({ "seventh-win", "silver-band", true, true, true }));
+    assert(silver_resumed.restore(silver_store.snapshot()));
+    assert(silver_resumed.strategies().front().wins == 7);
+    assert(!silver_resumed.credit({ "seventh-win", "silver-band", true, true, true }));
+    const StrategyProgress later_report { "silver-band", 14, true, true, true };
+    assert(silver_resumed.reconcile(later_report));
+    assert(ProgressLedger::complete(later_report));
+    assert(!ProgressLedger::can_schedule_solo(later_report));
+    assert(ProgressLedger::next_report_confirms_win(
+        { "silver-band", 13, true, true, true }, later_report, "silver-band", true));
     StrategyProgress silver_progress { "silver-band", 5, true, false, true };
     assert(ledger.apply({ "silver-win", "silver-band", true, true, true }, silver_progress));
     assert(silver_progress.wins == 6 && !ProgressLedger::complete(silver_progress));
@@ -3738,8 +3748,26 @@ int main()
     silver_report.back().text = "已通过模拟5次";
     assert(observe_page(silver_report, identities).wins == 5);
     assert(!strategy_badge_report_text_verified(silver_report, amiya, 6));
-    silver_report.back().text = "已通过模拟7次";
-    assert(observe_page(silver_report, identities).contradictory);
+    // Replay OCR from the Bilibili strategy report. The visible count
+    // continues increasing after the six-win silver mark.
+    std::vector<TextObservation> nymph_report {
+        { "策略报告", 1.0, 749, 33 },
+        { "妮芙", 1.0, 253, 374 },
+        { "初始生命值28", 1.0, 58, 435 },
+        { "【溃心领域】", .99, 48, 472 },
+        { "已通过模拟14次", 1.0, 233, 156 },
+    };
+    const StrategyIdentity nymph { "band_dance", "溃心领域", "妮芙" };
+    observed = observe_page(nymph_report, { nymph });
+    assert(observed.page == Page::StrategyReport && !observed.contradictory &&
+           observed.band_id == nymph.band_id && observed.wins == 14);
+    assert(strategy_badge_report_text_verified(nymph_report, nymph, 14));
+    nymph_report.push_back({ "已通过模拟8次", 1.0, 238, 156 });
+    assert(observe_page(nymph_report, { nymph }).contradictory);
+    assert(!strategy_badge_report_text_verified(nymph_report, nymph, 14));
+    nymph_report.pop_back();
+    nymph_report.back().text = "已通过模拟99999999999999999999次";
+    assert(observe_page(nymph_report, { nymph }).contradictory);
     std::vector<TextObservation> difficulty { { "请选择模拟难度", 0.95, 900, 25 },
                                               { "开始模拟", 0.95, 1000, 650 },
                                               { "规程等级13", 0.95, 25, 650 },

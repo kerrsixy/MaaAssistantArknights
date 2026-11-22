@@ -14,7 +14,7 @@ asst::spa::ResultAssessment
     }
     result.valid_victory = true;
     result.strategy_win_eligible = evidence.strategy_report_badge && evidence.strategy_report_identity_verified &&
-                                   evidence.strategy_report_id == strategy_id && evidence.strategy_report_wins == 3;
+                                   evidence.strategy_report_id == strategy_id && evidence.strategy_report_wins >= 3;
     result.hidden_boss_victory =
         evidence.hidden_boss_marker && evidence.boss_identity_known && current_hidden_boss_enemy(evidence.boss_id);
     result.medal_eligible = result.strategy_win_eligible && result.valid_victory;

@@ -2,6 +2,7 @@
 #include "SPACombatStats.h"
 #include "SPADifficultyPolicy.h"
 #include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <regex>
 
@@ -527,7 +528,7 @@ bool asst::spa::strategy_report_progress_text_verified(
     const StrategyIdentity& selected,
     int wins)
 {
-    if (wins < 0 || wins > 6 || !strategy_report_identity_text_verified(texts, selected)) {
+    if (wins < 0 || !strategy_report_identity_text_verified(texts, selected)) {
         return false;
     }
     const auto completed = "已通过模拟" + std::to_string(wins) + "次";
@@ -1450,11 +1451,13 @@ asst::spa::PageObservation
     const std::regex wins("已通过模拟([0-9]+)次");
     for (auto it = std::sregex_iterator(left.begin(), left.end(), wins); it != std::sregex_iterator(); ++it) {
         const auto digits = (*it)[1].str();
-        if (digits.size() != 1 || digits[0] < '0' || digits[0] > '6') {
+        int value = 0;
+        const auto end = digits.data() + digits.size();
+        const auto parsed = std::from_chars(digits.data(), end, value);
+        if (parsed.ec != std::errc {} || parsed.ptr != end) {
             result.contradictory = true;
             continue;
         }
-        const int value = digits[0] - '0';
         if (result.wins && *result.wins != value) {
             result.contradictory = true;
         }

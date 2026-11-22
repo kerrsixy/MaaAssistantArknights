@@ -296,7 +296,7 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
                                           strategy_report_progress_text_verified(texts, *selected, *observed.wins);
         badge_text_verified = strategy_progress_text_verified && *observed.wins >= 3;
         if (badge_text_verified) {
-            const bool silver = *observed.wins == 6;
+            const bool silver = *observed.wins >= 6;
             Matcher marker(image);
             marker.set_task_info(silver ? "MiniGame@SPA@StrategySilverMark" : "MiniGame@SPA@StrategyCompletedMark");
             badge_verified = marker.analyze().has_value();

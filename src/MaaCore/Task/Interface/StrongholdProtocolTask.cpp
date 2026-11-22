@@ -2984,7 +2984,7 @@ bool asst::StrongholdProtocolTask::run_single()
             }
             const bool wins_known = entry.get("wins_known", false);
             const auto wins = wins_known ? entry.find<int>("wins") : std::nullopt;
-            if (result || (wins_known && (!wins || *wins < 0 || *wins > 6)) || !entry.get("unlocked_verified", false)) {
+            if (result || (wins_known && (!wins || *wins < 0)) || !entry.get("unlocked_verified", false)) {
                 return std::nullopt;
             }
             result = spa::StrategyProgress { id,

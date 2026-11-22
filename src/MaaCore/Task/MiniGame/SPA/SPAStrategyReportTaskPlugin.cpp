@@ -13,6 +13,7 @@
 #include <array>
 #include <cmath>
 #include <map>
+#include <set>
 #include <opencv2/imgproc.hpp>
 
 namespace asst::spa
@@ -196,6 +197,7 @@ bool StrategyReportTaskPlugin::_run()
     }
     ObserverTaskPlugin observer(m_callback, m_inst, m_task_chain);
     observer.set_task_id(m_task_id);
+    std::set<std::string> identified;
     std::map<std::string, StrategyProgress> progress;
     int visited_viewports = 0;
     bool bottom_verified = false;
@@ -247,6 +249,7 @@ bool StrategyReportTaskPlugin::_run()
                     !observation.get("strategy_report_identity_verified", false)) {
                     continue;
                 }
+                identified.insert(id);
                 const auto wins = observation.get("strategy_progress_text_verified", false)
                                       ? observation.find<int>("wins")
                                       : std::nullopt;
@@ -309,9 +312,10 @@ bool StrategyReportTaskPlugin::_run()
                        { "viewports_scanned", visited_viewports },
                        { "scrollbar_top_verified", top_verified },
                        { "scrollbar_bottom_verified", bottom_verified },
-                       { "identified_strategies", progress.size() },
+                       { "identified_strategies", identified.size() },
+                       { "observed_strategy_ids", identified },
                        { "expected_strategies", StrategyUnlockCatalogue.size() },
-                       { "all_strategy_identities_observed", progress.size() == StrategyUnlockCatalogue.size() },
+                       { "all_strategy_identities_observed", identified.size() == StrategyUnlockCatalogue.size() },
                        { "all_strategy_badges_verified",
                          progress.size() == StrategyUnlockCatalogue.size() &&
                              std::all_of(ranked.begin(), ranked.end(), ProgressLedger::complete) },

@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <tuple>
 
 bool asst::spa::battle_entry_allowed(
@@ -92,12 +93,12 @@ bool asst::spa::ProgressLedger::apply(const Settlement& settlement, StrategyProg
 {
     if (!settlement.final_result_verified || !settlement.victory || !settlement.strategy_credit_verified ||
         settlement.run_id.empty() || settlement.band_id.empty() || settlement.band_id != progress.band_id ||
-        !progress.wins || *progress.wins < 0 || *progress.wins > 6 ||
+        !progress.wins || *progress.wins < 0 || *progress.wins == std::numeric_limits<int>::max() ||
         std::find(m_credited_runs.begin(), m_credited_runs.end(), settlement.run_id) != m_credited_runs.end()) {
         return false;
     }
     m_credited_runs.emplace_back(settlement.run_id);
-    *progress.wins = std::min(6, *progress.wins + 1);
+    ++*progress.wins;
     return true;
 }
 
@@ -114,7 +115,7 @@ bool asst::spa::ProgressLedger::next_report_confirms_win(
 {
     return verified_victory && !actual_band_id.empty() && before.band_id == actual_band_id &&
            after.band_id == actual_band_id && before.unlocked && after.unlocked && before.wins && after.wins &&
-           *before.wins >= 0 && *before.wins < 6 && *after.wins == *before.wins + 1;
+           *before.wins >= 0 && *before.wins < std::numeric_limits<int>::max() && *after.wins == *before.wins + 1;
 }
 
 bool asst::spa::ProgressLedger::can_schedule_solo(const StrategyProgress& progress)

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <limits>
 
 asst::spa::ProgressStore::ProgressStore(std::string account, std::string season) :
     m_account(std::move(account)),
@@ -12,7 +13,7 @@ asst::spa::ProgressStore::ProgressStore(std::string account, std::string season)
 bool asst::spa::ProgressStore::reconcile(const StrategyProgress& observed)
 {
     if (m_account.empty() || m_season.empty() || observed.band_id.empty() ||
-        (observed.wins && (*observed.wins < 0 || *observed.wins > 6)) ||
+        (observed.wins && *observed.wins < 0) ||
         (observed.badge_verified && (!observed.unlocked || !observed.wins || *observed.wins < 3))) {
         return false;
     }
@@ -26,11 +27,12 @@ bool asst::spa::ProgressStore::credit(const Settlement& settlement)
     auto it = m_strategies.find(settlement.band_id);
     if (m_account.empty() || m_season.empty() || !settlement.final_result_verified || !settlement.victory ||
         !settlement.strategy_credit_verified || settlement.run_id.empty() || it == m_strategies.end() ||
-        !it->second.unlocked || !it->second.wins || m_credited_runs.contains(settlement.run_id)) {
+        !it->second.unlocked || !it->second.wins || *it->second.wins == std::numeric_limits<int>::max() ||
+        m_credited_runs.contains(settlement.run_id)) {
         return false;
     }
     m_credited_runs.emplace(settlement.run_id, settlement.band_id);
-    *it->second.wins = std::min(6, *it->second.wins + 1);
+    ++*it->second.wins;
     return true;
 }
 
@@ -83,7 +85,7 @@ bool asst::spa::ProgressStore::restore(const json::value& value)
         const auto badge = item.find<bool>("badge_verified");
         const auto solo = item.find<bool>("solo_eligible_verified");
         if (!id || !known || !wins || !unlocked || !badge || !solo || pending.m_strategies.contains(*id) || *wins < 0 ||
-            *wins > 6 || (!*known && *wins != 0)) {
+            (!*known && *wins != 0)) {
             return false;
         }
         StrategyProgress progress { *id, *known ? std::optional(*wins) : std::nullopt, *unlocked, *badge, *solo };
