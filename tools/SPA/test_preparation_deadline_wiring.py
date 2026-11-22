@@ -113,7 +113,7 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
             "if (m_shop_review_after_replacements)", 1
         )
         self.assertIn("refresh_equipment_inventory(state)", equipment_and_cash)
-        self.assertIn("handle_cash_equipment(state)", equipment_and_cash)
+        self.assertIn("handle_cash_equipment(state, boss_preparation)", equipment_and_cash)
         self.assertIn("continue;", equipment_and_cash)
         reopening = reopening.split("if (!m_unreconciled_sale.empty())", 1)[0]
         self.assertIn("m_shop_review_after_replacements = false;", reopening)

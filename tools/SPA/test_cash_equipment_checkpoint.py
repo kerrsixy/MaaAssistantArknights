@@ -81,7 +81,7 @@ class CashEquipmentCheckpointTests(unittest.TestCase):
             "handle_promotion_page()",
             "handle_full_field_replacement(state)",
             "handle_full_bench_sale(state)",
-            "handle_cash_equipment(state)",
+            "handle_cash_equipment(state, boss_preparation)",
             "handle_delayed_cash_equipment(state)",
             "handle_pact_recruitment_equipment(state)",
             "handle_persistent_equipment(state)",

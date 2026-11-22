@@ -3836,9 +3836,14 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                                 state.get("preparation_seconds_remaining", 0) > 25;
         scheduling["details"]["time_for_board_maintenance"] = time_for_board_maintenance;
         callback(AsstMsg::SubTaskExtraInfo, scheduling);
+        // Shopping and immediate cash items share this spending horizon. An
+        // unreadable boss health bar must not strand consumable funds in the
+        // scheduled boss preparation.
         const bool boss_preparation =
-            preparation_round > 0 && ((m_spatial_boss_phase && m_spatial_boss_phase_round == preparation_round) ||
-                                      (m_expected_boss_round > 0 && preparation_round >= m_expected_boss_round));
+            preparation_round > 0 && (state.get("preparation_boss_bar_visible", false) ||
+                                      (m_spatial_boss_phase && m_spatial_boss_phase_round == preparation_round) ||
+                                      (state.get("round_known", false) && m_expected_boss_round > 0 &&
+                                       preparation_round >= m_expected_boss_round));
         if (m_auto_run && field_work_due && time_for_board_maintenance) {
             // A scheduled boss still needs a grid in this preparation. A
             // missing measured attack area alone does not justify repeated
@@ -3862,7 +3867,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             continue;
         }
         if (m_auto_run && !resume_funded_purchase &&
-            (handle_cash_equipment(state) || handle_delayed_cash_equipment(state) ||
+            (handle_cash_equipment(state, boss_preparation) || handle_delayed_cash_equipment(state) ||
              handle_pact_recruitment_equipment(state) ||
              (field_work_due && handle_direct_promotion_equipment(state)))) {
             continue;
@@ -6004,7 +6009,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                       ? spa::choose_funding_purchase(m_policy, funds, offers, catalog, 2)
                                       : std::nullopt;
         const auto& equipment_funding = coin_funding ? coin_funding : funding;
-        if (equipment_funding && handle_cash_equipment(state, equipment_funding->deficit)) {
+        if (equipment_funding && handle_cash_equipment(state, boss_preparation, equipment_funding->deficit)) {
             continue;
         }
         bool funding_sale_handled = funding && handle_full_bench_sale(state, funding->deficit);

@@ -1298,17 +1298,18 @@ bool asst::StrongholdProtocolTask::reconcile_pending_cash_equipment(const json::
     return false;
 }
 
-bool asst::StrongholdProtocolTask::handle_cash_equipment(const json::value& state, int funding_deficit)
+bool asst::StrongholdProtocolTask::handle_cash_equipment(
+    const json::value& state,
+    bool boss_preparation,
+    int funding_deficit)
 {
     // Pending contacts are reconciled before every other preparation action.
     // Never attribute a later sale/shop balance to an old equipment contact.
     const int round = state.get("round", -1);
-    const bool boss = state.get("preparation_boss_bar_visible", false) ||
-                      (m_spatial_boss_phase && m_spatial_boss_phase_round == round);
-    const bool coin = (boss || funding_deficit > 0) && funding_deficit <= 2 &&
+    const bool coin = (boss_preparation || funding_deficit > 0) && funding_deficit <= 2 &&
                       m_equipment_candidates.contains("盟约之币") && !m_cash_equipment_attempted_rounds.contains(round);
-    const bool passbook = !coin && (boss || funding_deficit > 0) && m_equipment_candidates.contains("定期存折") &&
-                          !m_passbook_attempted_rounds.contains(round);
+    const bool passbook = !coin && (boss_preparation || funding_deficit > 0) &&
+                          m_equipment_candidates.contains("定期存折") && !m_passbook_attempted_rounds.contains(round);
     if (!m_policy.dynamic_decision_mode || m_decision_only || !(coin || passbook) || round < 1 || round > 20 ||
         m_pending_field_replacement || !state.get("funds_known", false) ||
         !state.get("remaining_deployment_known", false) || m_auto_deploy_positions.empty()) {

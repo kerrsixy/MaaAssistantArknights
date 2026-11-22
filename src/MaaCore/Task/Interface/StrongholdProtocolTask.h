@@ -102,7 +102,7 @@ private:
     std::string m_unreconciled_sale;
     int m_replacement_bench_space_round = -1;
     bool reconcile_pending_cash_equipment(const json::value& state);
-    bool handle_cash_equipment(const json::value& state, int funding_deficit = 0);
+    bool handle_cash_equipment(const json::value& state, bool boss_preparation, int funding_deficit = 0);
     bool handle_delayed_cash_equipment(const json::value& state);
     void observe_delayed_cash_equipment(const json::value& state);
     bool handle_pact_recruitment_equipment(const json::value& state);
