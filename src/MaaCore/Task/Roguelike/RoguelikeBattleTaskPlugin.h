@@ -127,7 +127,7 @@ protected:
         const std::unordered_set<std::string>& pre_cooling,
         const std::unordered_set<std::string>& cur_cooling,
         const std::map<battle::OperNameTag, Point>& pre_battlefield);
-    std::optional<battle::DeploymentOper> calc_best_oper() const;
+    std::optional<battle::DeploymentOper> calc_best_oper(bool urgent_home, bool cost_observed) const;
 
     struct DeployInfo
     {

@@ -1,0 +1,78 @@
+{
+    "stage_name": "种植园惊魂",
+    "doc": [
+        "2026-11-23 run46：第四层种植园惊魂失败450分，工作流错误0。原来无专用作业，EW第六手且右蓝门扎堆；新候选尚未实机证明通过。",
+        "按根线程审阅方向冻结：机械师7,4下→EW9,4左→提丰8,1左→本局E1凛御银灰5,1左。真实初费10，卡价分别21/24/24/13。保持仅计划与费用预留，不让砾/酒神/卡达或token抢先消耗。",
+        "Mech基础2-2只含7,4/7,5/7,6，不含左列6,5；EW3-9补6,5及7,5/8,4/9,2。敌路线允许斜走，原始checkpoint不证明所有敌必被7,4阻挡。",
+        "若灼芯首次成功攻击主目标确在7,4，其3x3副伤范围x6..8/y3..5不含EW9,4或提丰8,1；主目标能否承受、真实锁定和卷心草死亡爆炸仍须实帧，不能当静态免死。",
+        "灰烬造物不可阻挡且同时法攻两目标；提丰8,1左E1真实4-3覆盖回传后6,1/5,1/4,1，不能拿短手自动替代。凛御S1只作伤害/10DP回费与合格手牌折扣，不能照搬视频E2S3直线冰波、费用交换或声称挡住灰烬。",
+        "本关随机物源在3,2和3,6，形态本场认证，不永久写反伤。提丰8,1左基础范围不含3,2；EW9,4左亦不直接覆盖两物，连续目标位置与S3/残影二级AOE另验。",
+        "若缺提丰或真实技能/卡片/预算不满足，不为凑四人塞不合格替补。没有常规治疗职责已满足的证据。",
+        "普通主力不设一次性部署上限：阵亡冷却完成或强制退场后，须继续按真实卡片、地块与费用重新评估部署。",
+        "上路缺提丰或提丰仍冷却时，可用当局精一以上卡达5,2朝上覆盖6,1/5,1/4,1；与提丰8,1位互斥，同一职责不重复塞人。射程合格不等于输出或承伤等价，实际灰烬法伤仍需复盘。"
+    ],
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true,
+    "deploy_plan": [
+        {
+            "groups": ["机械师"],
+            "operator_names": ["机械师"],
+            "location": [7, 4],
+            "direction": "down",
+            "minimum_elite": 2,
+            "required_attack_tiles": [
+                [7, 5],
+                [7, 6]
+            ],
+            "require_persistent_blocking": true
+        },
+        {
+            "groups": ["益达"],
+            "operator_names": ["维什戴尔"],
+            "location": [9, 4],
+            "direction": "left",
+            "minimum_elite": 2,
+            "required_attack_tiles": [
+                [6, 5],
+                [7, 5],
+                [7, 4],
+                [8, 4],
+                [9, 2]
+            ]
+        },
+        {
+            "groups": ["提丰"],
+            "operator_names": ["提丰"],
+            "location": [8, 1],
+            "direction": "left",
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [6, 1],
+                [5, 1],
+                [4, 1]
+            ],
+            "exclusive_locations": [[5, 2]]
+        },
+        {
+            "groups": ["术师"],
+            "operator_names": ["卡达"],
+            "location": [5, 2],
+            "direction": "up",
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [6, 1],
+                [5, 1],
+                [4, 1]
+            ],
+            "exclusive_locations": [[8, 1]]
+        },
+        {
+            "groups": ["回费", "地面阻挡"],
+            "operator_names": ["凛御银灰"],
+            "location": [5, 1],
+            "direction": "left",
+            "minimum_elite": 1,
+            "required_attack_tiles": [[4, 1]]
+        }
+    ]
+}

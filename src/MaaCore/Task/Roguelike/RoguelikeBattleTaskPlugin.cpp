@@ -1075,7 +1075,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
     // A freshly recognized ordinary card is no longer a deployed entity, even
     // when a forced return resets its cooldown. This does not prove unlock.
     auto returned_operators = reconcile_returned_blackflow_operators();
-    update_cost(image, image_prev);
+    const bool cost_observed = update_cost(image, image_prev);
     update_kills(image, image_prev);
     if (!m_first_deploy &&
         (!m_hunter_prelude || m_hunter_main_allowed || m_hunter_prelude->bait_skill_allowed(m_battlefield_opers))) {
@@ -1125,21 +1125,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
         battle::DeploymentOper best_oper;
         bool best_oper_is_dice = false;
         size_t normal_home_index = m_cur_home_index;
-        if (!urgent_home_opt) {
-            // 不要随便谁好了就上，等等费用，下点厉害的干员
-            // TODO: 这个逻辑目前太简单了，待优化
-            // 原实现用 m_homes.size()（蓝门数量）当「应该部署几个人」的阈值，语义不成立：
-            // 蓝门多不代表该多下人，蓝门少反而会永远觉得不够。改用场上人数的绝对下限。
-            bool battlefield_enough = m_battlefield_opers.size() >= 4;
-            bool available_too_few = cur_available_count <= cur_deployments_count / 2;
-            bool not_too_many_cooling = current_departures.size() < cur_available_count;
-
-            if (battlefield_enough && available_too_few && not_too_many_cooling) {
-                Log.info("wait a minute");
-                return true;
-            }
-        }
-        else {
+        if (urgent_home_opt) {
             m_cur_home_index = *urgent_home_opt;
 
             if (m_allow_to_use_dice) {
@@ -1160,12 +1146,20 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
         }
 
         if (!best_oper_is_dice) {
-            if (auto best_oper_opt = calc_best_oper()) {
+            if (auto best_oper_opt = calc_best_oper(urgent_home_opt.has_value(), cost_observed)) {
                 best_oper = *best_oper_opt;
             }
             else {
                 return true;
             }
+        }
+
+        const bool starting_core = m_config->get_theme() == RoguelikeTheme::BlackFlow && m_deploy_plan.empty() &&
+                                   best_oper.name == m_config->get_core_char();
+        if (!urgent_home_opt && !starting_core && m_battlefield_opers.size() >= 4 &&
+            cur_available_count <= cur_deployments_count / 2 && current_departures.size() < cur_available_count) {
+            LogTrace << __FUNCTION__ << "Wait for stronger deployment candidates";
+            return true;
         }
 
         // 计算最优部署位置及方向
@@ -1353,8 +1347,40 @@ std::optional<size_t> asst::RoguelikeBattleTaskPlugin::check_urgent(
     return m_urgent_home_index.front();
 }
 
-std::optional<asst::battle::DeploymentOper> asst::RoguelikeBattleTaskPlugin::calc_best_oper() const
+std::optional<asst::battle::DeploymentOper>
+    asst::RoguelikeBattleTaskPlugin::calc_best_oper(bool urgent_home, bool cost_observed) const
 {
+    // Authored mechanics retain their own order and budget. For unplanned
+    // BlackFlow stages, the configured starting core must precede filler roles.
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_deploy_plan.empty() && !urgent_home) {
+        const auto core_name = m_config->get_core_char();
+        const auto core = std::ranges::find_if(m_cur_deployment_opers, [&](const DeploymentOper& oper) {
+            return !core_name.empty() && oper.name == core_name && oper.role != Role::Drone && !oper.cooling &&
+                   !RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name) &&
+                   !m_battlefield_opers.contains({ oper.role, oper.name });
+        });
+        if (core != m_cur_deployment_opers.end()) {
+            const bool initial_blocking = std::ranges::any_of(m_battlefield_opers, [&](const auto& entry) {
+                return persistent_blocking_available(entry.first);
+            });
+            const auto action = starting_core_action(
+                *core,
+                cost_observed ? m_cost : -1,
+                initial_blocking,
+                urgent_home,
+                calc_best_loc(*core).has_value());
+            if (action == StartingCoreAction::Deploy) {
+                LogInfo << __FUNCTION__ << "Prioritize configured starting core" << core->name << core->cost;
+                return *core;
+            }
+            if (action == StartingCoreAction::Reserve) {
+                LogTrace << __FUNCTION__ << "Reserve DP after initial blocking for starting core" << core->name
+                         << core->cost << m_cost;
+                return std::nullopt;
+            }
+        }
+    }
+
     bool has_medic = false;
     bool has_blocking = false;
     bool has_air_defense = false;
