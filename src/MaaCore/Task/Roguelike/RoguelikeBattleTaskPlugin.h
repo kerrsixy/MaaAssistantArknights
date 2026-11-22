@@ -16,6 +16,8 @@ namespace asst
 namespace blackflow
 {
 class BlackFlowHunterPreludeController;
+class BlackFlowSoulObserver;
+class BlackFlowSummonRetreat;
 }
 
 class RoguelikeBattleTaskPlugin : public AbstractRoguelikeTaskPlugin, private BattleHelper
@@ -114,6 +116,7 @@ protected:
         const battle::DeploymentOper& oper,
         const battle::roguelike::DeployInfoWithRank& plan) const;
     bool observe_hunter_prelude(const cv::Mat& image, bool normal_battle = true);
+    bool observe_blackflow_souls();
     bool calc_stage_info();
 
     void all_melee_retreat();
@@ -264,5 +267,11 @@ protected:
     int m_diag_last_kills = 0;                                      // 上一帧击杀数，用于检测停滞
     int m_diag_last_heartbeat = -1;                                 // 上次打印心跳的 30 秒刻度，避免刷屏
     bool m_diag_stall_warned = false;                               // 本轮停滞是否已告警，避免重复刷
+
+    std::unique_ptr<blackflow::BlackFlowSoulObserver> m_soul_observer;
+    std::unique_ptr<blackflow::BlackFlowSummonRetreat> m_soul_retreat;
+    std::map<battle::OperNameTag, battle::DeployDirection> m_observed_deploy_directions;
+    std::uint64_t m_soul_sequence = 0;
+    bool m_soul_selection_owned = false;
 };
 } // namespace asst
