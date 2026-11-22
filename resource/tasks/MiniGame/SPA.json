@@ -24,10 +24,10 @@
         "next": ["MiniGame@SPA@Observe"]
     },
     "MiniGame@SPA@OpenLobby": {
-        "doc": "Match the current-season title strip; the small stylized title is unstable under cropped OCR",
+        "doc": "Match the season title strip across the home-screen banner variants",
         "algorithm": "MatchTemplate",
         "template": "MiniGame@SPA@HomeBanner.png",
-        "templThreshold": 0.95,
+        "templThreshold": 0.75,
         "roi": [980, 70, 300, 190],
         "action": "ClickSelf",
         "postDelay": 4000,
