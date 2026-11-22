@@ -150,46 +150,65 @@ bool asst::spa::RoundTaskPlugin::_run()
         return false;
     }
     auto image = ctrler()->get_image();
-    if (image.empty() || image.cols != 1280 || image.rows != 720) {
-        return false;
-    }
     OCRer ocr(image);
-    const auto recognized = ocr.analyze();
-    if (!recognized) {
-        return false;
-    }
     std::vector<TextObservation> texts;
     std::optional<Rect> ready;
-    const auto hidden_badge = m_round == HiddenCoreRound ? match_hidden_round_badge(image) : std::nullopt;
-    for (const auto& text : *recognized) {
-        if (!hidden_badge || !is_round_badge_position(text.rect.x, text.rect.y)) {
-            texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+    bool hidden_core_preparation = false;
+    for (int attempt = 0;; ++attempt) {
+        if (image.empty() || image.cols != 1280 || image.rows != 720) {
+            return false;
         }
-        if (text.text == "准备就绪" && text.score >= 0.9 && text.rect.x > 1100 && text.rect.y < 150) {
-            ready = text.rect;
+        const auto recognized = ocr.analyze();
+        if (!recognized) {
+            return false;
         }
+        texts.clear();
+        ready.reset();
+        const auto hidden_badge = m_round == HiddenCoreRound ? match_hidden_round_badge(image) : std::nullopt;
+        for (const auto& text : *recognized) {
+            if (!hidden_badge || !is_round_badge_position(text.rect.x, text.rect.y)) {
+                texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+            }
+            if (text.text == "准备就绪" && text.score >= 0.9 && text.rect.x > 1100 && text.rect.y < 150) {
+                ready = text.rect;
+            }
+        }
+        if (hidden_badge) {
+            texts.push_back(*hidden_badge);
+        }
+        const auto observed = observe_page(texts, {});
+        const auto funds = shop_number(image, Rect(1180, 510, 45, 40));
+        const auto round =
+            hidden_badge && observed.bonus_round ? observed.round : preparation_round_number(image, m_round);
+        const auto counter = observe_deployment_counter(texts);
+        const auto remaining = remaining_deployment_number(image, texts);
+        const bool unreadable_counter =
+            !counter.contradictory && counter.label_y >= 0 && !remaining && !observed.remaining_deployment;
+        const bool inferred_counter_visible =
+            m_remaining_inferred && m_remaining >= 0 && m_remaining <= 8 && !counter.contradictory && !remaining &&
+            !observed.remaining_deployment && std::any_of(texts.begin(), texts.end(), [](const auto& text) {
+                return text.score >= 0.85 && text.text.find("剩余可放置角色") != std::string::npos;
+            });
+        const bool remaining_ok = (remaining && *remaining == m_remaining) || inferred_counter_visible;
+        const bool page_matches = observed.page == Page::Preparation && !observed.contradictory && ready &&
+                                  funds == m_expected_funds && round == m_round;
+        if (page_matches && remaining_ok) {
+            hidden_core_preparation =
+                !m_joint_mode && hidden_badge && observed.bonus_round == HiddenRoundMode::Independent;
+            break;
+        }
+        if (!page_matches || !unreadable_counter || attempt != 0 || !sleep(150)) {
+            LogError << "SPA ready preconditions differ from the reviewed formation and budget";
+            return false;
+        }
+        // One frame can catch the deployment label but miss its digit. Wait
+        // here instead of sending the caller back through shopping and layout.
+        auto receipt = basic_info_with_what("SPARoundReadyCounterResampled");
+        receipt["details"] = json::object { { "round", m_round }, { "input_issued", false } };
+        callback(AsstMsg::SubTaskExtraInfo, receipt);
+        image = ctrler()->get_image();
+        ocr.set_image(image);
     }
-    if (hidden_badge) {
-        texts.push_back(*hidden_badge);
-    }
-    const auto observed = observe_page(texts, {});
-    const auto funds = shop_number(image, Rect(1180, 510, 45, 40));
-    const auto round = hidden_badge && observed.bonus_round ? observed.round : preparation_round_number(image, m_round);
-    const auto counter = observe_deployment_counter(texts);
-    const auto remaining = remaining_deployment_number(image, texts);
-    const bool inferred_counter_visible =
-        m_remaining_inferred && m_remaining >= 0 && m_remaining <= 8 && !counter.contradictory && !remaining &&
-        !observed.remaining_deployment && std::any_of(texts.begin(), texts.end(), [](const auto& text) {
-            return text.score >= 0.85 && text.text.find("剩余可放置角色") != std::string::npos;
-        });
-    const bool remaining_ok = (remaining && *remaining == m_remaining) || inferred_counter_visible;
-    if (observed.page != Page::Preparation || observed.contradictory || !ready || !funds ||
-        *funds != m_expected_funds || !round || *round != m_round || !remaining_ok) {
-        LogError << "SPA ready preconditions differ from the reviewed formation and budget";
-        return false;
-    }
-    const bool hidden_core_preparation =
-        !m_joint_mode && hidden_badge && observed.bonus_round == HiddenRoundMode::Independent;
     const bool preparation_frame_saved = save_evidence(image, utils::path("debug/SPA/before_ready"), true);
     if (!ctrler()->click(*ready)) {
         return false;
