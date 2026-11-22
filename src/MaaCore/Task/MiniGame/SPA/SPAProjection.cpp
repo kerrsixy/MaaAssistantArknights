@@ -1226,8 +1226,11 @@ std::optional<cv::Point> asst::spa::registered_deployment_cell_pose(
     cv::Point receiver_hint)
 {
     if (grid_to_held.type() != CV_64FC1 || grid_to_held.rows != 3 || grid_to_held.cols != 3 ||
-        !cv::checkRange(grid_to_held) || std::abs(cv::determinant(grid_to_held)) < 1e-8 ||
-        !registered_deployment_pose(held, collapsed, receiver_hint)) {
+        !cv::checkRange(grid_to_held) || std::abs(cv::determinant(grid_to_held)) < 1e-8) {
+        return std::nullopt;
+    }
+    const auto projection = estimate_camera_projection(held, collapsed, true);
+    if (!registered_field_points(projection, { receiver_hint })) {
         return std::nullopt;
     }
     std::vector<cv::Point2f> grid;
@@ -1250,7 +1253,8 @@ std::optional<cv::Point> asst::spa::registered_deployment_cell_pose(
     if (centers.empty() || !std::isfinite(centers[0].x) || !std::isfinite(centers[0].y)) {
         return std::nullopt;
     }
-    return registered_deployment_pose(held, collapsed, { cvRound(centers[0].x), cvRound(centers[0].y) });
+    const auto points = registered_field_points(projection, { { cvRound(centers[0].x), cvRound(centers[0].y) } });
+    return points ? std::optional(points->front()) : std::nullopt;
 }
 
 std::optional<cv::Point> asst::spa::registered_grid_receiver_pose(
@@ -1586,15 +1590,36 @@ asst::spa::EquipmentPreviewEvidence asst::spa::equipment_target_preview(
     bool replacement_above_blocking_device,
     const std::optional<RegisteredReplacementReceiver>& registered_receiver)
 {
-    EquipmentPreviewEvidence result;
     if (before.type() != CV_8UC3 || held.type() != CV_8UC3) {
+        return {};
+    }
+    return equipment_target_preview(
+        estimate_camera_projection(before, held, true),
+        before,
+        held,
+        recipient,
+        verified_field_feet,
+        replacement_above_blocking_device,
+        registered_receiver);
+}
+
+asst::spa::EquipmentPreviewEvidence asst::spa::equipment_target_preview(
+    const CameraProjection& projection,
+    const cv::Mat& before,
+    const cv::Mat& held,
+    cv::Point recipient,
+    const std::vector<cv::Point>& verified_field_feet,
+    bool replacement_above_blocking_device,
+    const std::optional<RegisteredReplacementReceiver>& registered_receiver)
+{
+    EquipmentPreviewEvidence result;
+    if (before.size() != cv::Size(1280, 720) || held.size() != before.size() || before.type() != CV_8UC3 ||
+        held.type() != CV_8UC3) {
         return result;
     }
-    const auto projection = estimate_camera_projection(before, held, true);
     result.matches = projection.matches;
     result.inliers = projection.inliers;
-    if (!projection.estimated || projection.inliers < 30 || projection.inliers < .65 * projection.matches ||
-        projection.median_error > 2 || cv::contourArea(projection.source_hull) < 30'000) {
+    if (!valid_field_camera_projection(projection)) {
         return result;
     }
     const auto target = project_supported_point(projection, cv::Point2f(recipient));

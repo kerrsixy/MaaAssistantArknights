@@ -2391,12 +2391,17 @@ bool asst::spa::SwapTaskPlugin::held_drag()
             }
             // Spatial member coordinates come from the collapsed-map ledger.
             // Register them into this held frame before range/lane scoring.
+            const bool needs_equipment_projection =
+                !m_placement_members.empty() || m_replace_only || m_find_equipment_source;
+            const auto equipment_projection =
+                !m_equipment_reference.empty() && needs_equipment_projection
+                    ? estimate_camera_projection(m_equipment_reference, map_image, true)
+                    : CameraProjection {};
             if (!m_equipment_reference.empty() && !m_placement_members.empty()) {
-                const auto projection = estimate_camera_projection(m_equipment_reference, map_image, true);
                 std::vector<PlacementMember> registered_members;
                 for (auto member : m_placement_members) {
                     if (const auto point = project_supported_point(
-                            projection,
+                            equipment_projection,
                             cv::Point2f(static_cast<float>(member.x), static_cast<float>(member.y)))) {
                         member.x = cvRound(point->x);
                         member.y = cvRound(point->y);
@@ -2423,6 +2428,7 @@ bool asst::spa::SwapTaskPlugin::held_drag()
             if (m_replace_only || m_find_equipment_source) {
                 if (!m_equipment_reference.empty()) {
                     const auto paired = equipment_target_preview(
+                        equipment_projection,
                         m_equipment_reference,
                         map_image,
                         cv::Point(m_target.x, m_target.y),

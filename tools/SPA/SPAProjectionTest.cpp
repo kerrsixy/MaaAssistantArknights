@@ -771,6 +771,12 @@ int main()
     std::cerr << "Gear preview projection: " << gear_preview.inliers << "/" << gear_preview.matches
               << " green=" << gear_preview.added_green << " target=" << gear_preview.target << '\n';
     assert(gear_preview.verified && cv::norm(gear_preview.target - cv::Point(877, 236)) < 20);
+    const auto reused_preview = equipment_target_preview(gear_projection, gear_normal, gear_held, { 800, 185 });
+    assert(reused_preview.verified && reused_preview.target == gear_preview.target &&
+           reused_preview.added_green == gear_preview.added_green &&
+           reused_preview.matches == gear_projection.matches && reused_preview.inliers == gear_projection.inliers);
+    assert(!equipment_target_preview(CameraProjection {}, gear_normal, gear_held, { 800, 185 }).verified);
+    assert(!equipment_target_preview(gear_projection, gear_normal, gear_held, { 500, 185 }).verified);
     const auto collapsed_pose = registered_deployment_pose(gear_held, gear_normal, gear_preview.target);
     assert(collapsed_pose && cv::norm(*collapsed_pose - cv::Point(800, 185)) < 4);
     assert(cv::norm(*collapsed_pose - gear_preview.target) > 50);

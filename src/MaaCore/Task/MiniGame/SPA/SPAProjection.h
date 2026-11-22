@@ -110,6 +110,16 @@ EquipmentPreviewEvidence equipment_target_preview(
     bool replacement_above_blocking_device = false,
     const std::optional<RegisteredReplacementReceiver>& registered_receiver = std::nullopt);
 
+// Reuse the board-view fit only for the same before/held frame pair.
+EquipmentPreviewEvidence equipment_target_preview(
+    const CameraProjection& projection,
+    const cv::Mat& before,
+    const cv::Mat& held,
+    cv::Point recipient,
+    const std::vector<cv::Point>& verified_field_feet = {},
+    bool replacement_above_blocking_device = false,
+    const std::optional<RegisteredReplacementReceiver>& registered_receiver = std::nullopt);
+
 bool occupied_swap_hint(const cv::Mat& image, cv::Point center);
 // Name rectangle and pixels must belong to one immutable frame. A clipped
 // icon or blank background is unknown, not evidence of a banned pact.
