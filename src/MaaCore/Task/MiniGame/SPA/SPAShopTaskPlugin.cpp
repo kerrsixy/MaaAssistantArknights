@@ -51,7 +51,25 @@ std::optional<OperatorCardObservation>
             texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
         }
     }
-    return observe_operator_card(texts, names, verified_panel_name);
+    auto card = observe_operator_card(texts, names, verified_panel_name);
+    if (!card && std::ranges::any_of(texts, [](const auto& text) {
+            return text.score >= .90 && text.x >= 103 && text.x < 113 && text.y >= 210 && text.y <= 245 &&
+                   (text.text.starts_with('v') || text.text.starts_with('V'));
+        })) {
+        // In some portraits the anchored LV letters extend inside the first
+        // crop. Exclude that strip and keep the same numeric/form checks.
+        OCRer digits(image, Rect(113, 210, 52, 34));
+        if (const auto recognized = digits.analyze()) {
+            for (const auto& text : *recognized) {
+                texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+            }
+            card = observe_operator_card(texts, names, verified_panel_name);
+            if (card) {
+                LogTrace << "SPA training level recovered from digit crop" << card->name << card->training_level;
+            }
+        }
+    }
+    return card;
 }
 
 std::optional<int> defence_life_number(const cv::Mat& image)

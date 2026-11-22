@@ -1849,6 +1849,7 @@ std::optional<std::vector<std::pair<std::string, bool>>> asst::spa::SwapTaskPlug
                  return equipment_title_matches(profile.name, *name);
              }));
         if (!non_operator) {
+            save_evidence(panel, utils::path("debug/SPA/bench_form_unverified"), false);
             LogWarn << "SPA initial/elite form unverified during bench reconciliation" << round << centre.x << centre.y
                     << name.value_or("");
             return std::nullopt;
