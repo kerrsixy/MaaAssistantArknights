@@ -105,6 +105,9 @@ struct OpeningStrategyContext
 std::optional<StrategyUnlockRule> strategy_unlock_rule(std::string_view id);
 bool strategy_available_in_mode(std::string_view id, std::string_view mode);
 
+// A scheduled grant is a reason to inspect the inventory, not proof it arrived.
+bool strategy_grants_preparation_equipment(std::string_view id, int round);
+
 struct OpeningStrategyAssessment
 {
     bool known = false;

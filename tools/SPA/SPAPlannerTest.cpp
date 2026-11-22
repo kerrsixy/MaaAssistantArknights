@@ -6677,6 +6677,19 @@ int main()
     assert(!prefer_higher_tier_strategy_refresh("band_support", 4, 0, 0, true));
     assert(!prefer_higher_tier_strategy_refresh("band_support", 4, 4, 0, false));
     assert(!prefer_higher_tier_strategy_refresh("band_high", 4, 4, 0, true));
+    for (int round = 1; round <= 20; ++round) {
+        const bool common_grant = round == 4 || round == 7 || round == 10 || round == 13;
+        assert(strategy_grants_preparation_equipment("band_jesica", round) == common_grant);
+        assert(strategy_grants_preparation_equipment("band_kjerag2", round) == common_grant);
+        assert(strategy_grants_preparation_equipment("band_damaztic", round) == (round % 5 == 0));
+        assert(!strategy_grants_preparation_equipment("band_emperor", round));
+    }
+    assert(!strategy_grants_preparation_equipment("band_damaztic", 0));
+    assert(!strategy_grants_preparation_equipment("band_damaztic", 25));
+    assert(strategy_grants_preparation_equipment("band_smith", 14));
+    assert(!strategy_grants_preparation_equipment("band_smith", 15));
+    assert(strategy_grants_preparation_equipment("band_fang", 8));
+    assert(!strategy_grants_preparation_equipment("band_fang", 7));
 
     // Opening selection must act on badge evidence, even when the completed
     // card has a much brighter portrait. Banned cards cannot win this preference.

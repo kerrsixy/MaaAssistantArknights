@@ -25,6 +25,26 @@ bool asst::spa::strategy_available_in_mode(std::string_view id, std::string_view
            (mode == "independent" && rule->independent_available) || (mode == "joint" && rule->joint_available);
 }
 
+bool asst::spa::strategy_grants_preparation_equipment(std::string_view id, int round)
+{
+    if (round < 1 || round > 20) {
+        return false;
+    }
+    if (id == "band_jesica" || id == "band_kjerag2") {
+        constexpr std::array rounds { 4, 7, 10, 13 };
+        return std::ranges::find(rounds, round) != rounds.end();
+    }
+    if (id == "band_smith") {
+        constexpr std::array rounds { 3, 6, 9, 12, 14 };
+        return std::ranges::find(rounds, round) != rounds.end();
+    }
+    if (id == "band_fang") {
+        constexpr std::array rounds { 8, 10, 12, 14 };
+        return std::ranges::find(rounds, round) != rounds.end();
+    }
+    return id == "band_damaztic" && round % 5 == 0;
+}
+
 bool asst::spa::prefer_higher_tier_strategy_refresh(
     const std::string& strategy_id,
     int shop_level,

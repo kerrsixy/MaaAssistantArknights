@@ -9,6 +9,7 @@
 #include "Task/MiniGame/SPA/SPAGrowth.h"
 #include "Task/MiniGame/SPA/SPAOperatorCatalogue.h"
 #include "Task/MiniGame/SPA/SPAPlanner.h"
+#include "Task/MiniGame/SPA/SPAStrategyEligibility.h"
 #include "Task/MiniGame/SPA/SPASummonPolicy.h"
 #include "Task/MiniGame/SPA/SPASwapTaskPlugin.h"
 #include "Task/MiniGame/SPA/SPATerrainModel.h"
@@ -231,6 +232,7 @@ bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value
         return false;
     }
     const int round = state.get("round", -1);
+    const bool scheduled_strategy_gift = spa::strategy_grants_preparation_equipment(m_selected_strategy_id, round);
     const bool preparation_gifts = std::any_of(m_policy.owned.begin(), m_policy.owned.end(), [&](const auto& item) {
         if (!item.second.deployed) {
             return false;
@@ -244,7 +246,7 @@ bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value
                (item.first == "白铁" && equipped != m_equipped_items.end() && !equipped->second.empty());
     });
     if (!m_auto_run || !m_policy.dynamic_decision_mode || m_decision_only ||
-        (!m_equipment_inventory_dirty && !preparation_gifts && !m_pending_cash_equipment) ||
+        (!m_equipment_inventory_dirty && !preparation_gifts && !scheduled_strategy_gift && !m_pending_cash_equipment) ||
         m_equipment_inventory_scan_rounds.contains(round) || state.get("page", std::string()) != "preparation" ||
         !state.get("round_known", false) || !state.get("funds_known", false) ||
         !state.get("remaining_deployment_known", false) || m_pending_spatial_orientation ||
@@ -306,6 +308,7 @@ bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value
     receipt["details"] =
         json::object { { "run_id", m_run_id },
                        { "round", round },
+                       { "scheduled_strategy_equipment_grant", scheduled_strategy_gift },
                        { "detected_candidates_inspected", probes_complete },
                        { "equipment_slots_observed", inspect.inspected_equipment().size() },
                        { "summon_slots_observed", inspect.inspected_summons().size() },
