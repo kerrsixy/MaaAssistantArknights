@@ -23,6 +23,8 @@ public:
         bool joint_mode = false);
 
     void track_primary_pact(std::string name) { m_primary_pact = std::move(name); }
+    void allow_joint_emote_probe(bool enabled) { m_joint_emote_probe = enabled; }
+    bool joint_emote_probe_attempted() const { return m_joint_emote_probe_attempted; }
 
     std::optional<int> latest_primary_layers() const { return m_latest_primary_layers; }
 
@@ -71,5 +73,7 @@ private:
     std::string m_spending_reason;
     bool m_remaining_inferred = false;
     bool m_joint_mode = false;
+    bool m_joint_emote_probe = false;
+    bool m_joint_emote_probe_attempted = false;
 };
 }

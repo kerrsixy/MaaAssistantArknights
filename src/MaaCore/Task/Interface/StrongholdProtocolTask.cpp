@@ -136,6 +136,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_last_observed_automated_battle_round = -1;
     m_last_ursus_battle_with_layer_growth = -1;
     m_joint_preparation_deadline = {};
+    m_joint_emote_probe = m_mode == "joint" && params.get("joint_emote_probe", false);
     m_supply_confirmation_after_round = params.get("supply_confirmation_after_round", -1);
     m_previous_round_life.reset();
     m_replacement_round = -1;
@@ -5210,7 +5211,9 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                { "battle_authorized", true } };
             callback(AsstMsg::SubTaskExtraInfo, authorized);
             round.track_primary_pact(m_policy.primary_pact);
+            round.allow_joint_emote_probe(m_joint_emote_probe);
             const bool round_ok = round.run();
+            m_joint_emote_probe = m_joint_emote_probe && !round.joint_emote_probe_attempted();
             m_lifecycle_battle_seen = m_lifecycle_battle_seen || round.battle_seen();
             const int fought_round = state.get("round", -1);
             if (round_ok && round.battle_seen()) {
