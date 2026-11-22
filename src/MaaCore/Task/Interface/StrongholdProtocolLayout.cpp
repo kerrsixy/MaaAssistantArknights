@@ -1352,7 +1352,8 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
     }
     else {
         // Field identities alone do not update the old logical-grid camera.
-        // Reacquire it before another front/back or same-row decision.
+        // Reacquire it before another front/back, same-row or boss-range decision.
+        m_spatial_snapshot_round = -1;
         m_population_grid_members.clear();
         m_growth_population_poses.clear();
         m_row_growth_populations.clear();

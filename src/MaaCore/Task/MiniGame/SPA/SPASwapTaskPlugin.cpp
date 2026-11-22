@@ -3386,10 +3386,9 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
                 m_observed_grid_members = std::move(*grid);
                 m_observed_field_members = m_reoriented_field_members;
             }
-            else if (m_relocation_applied) {
-                return false;
-            }
         }
+        // A verified field move can be reconciled before the logical grid
+        // is readable. The controller rebuilds that grid separately.
         m_field_pose_verified = true;
         auto verified = basic_info_with_what(
             m_grid_probe_only       ? "SPAFieldGridProbeVerified"
@@ -3403,6 +3402,8 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
                                              { "source_identity_and_field_control_verified", true },
                                              { "source_panel_probed_before_hold", !reused_source_pose },
                                              { "field_coordinates_registered", points->size() },
+                                             { "logical_grid_verified",
+                                               m_observed_grid_members.size() == m_reoriented_field_members.size() },
                                              { "hud_cache_hits", m_preparation_hud_cache_hits },
                                              { "hud_fields_reused", m_preparation_hud_fields_reused },
                                              { "hud_ocr_checks", m_preparation_hud_ocr_checks },
