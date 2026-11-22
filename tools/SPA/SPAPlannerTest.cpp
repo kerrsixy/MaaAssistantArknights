@@ -1882,6 +1882,29 @@ int main()
     assert(summon_placement_cells("工程蓄水炮", wolf_owner, {}, summon_terrain, {}, straight_approach).empty());
     assert(deployable_summon_owner("铁钳号·原型机") == "白铁");
     assert(deployable_summon_owner("风雪之眼").empty());
+    wolf_owner.facing = '\0';
+    assert(
+        summon_placement_cells("狼群", wolf_owner, marksman_range, summon_terrain, marksman_screen, straight_approach)
+            .empty());
+    assert(
+        (summon_placement_cells(
+             "狼群",
+             wolf_owner,
+             marksman_range,
+             summon_terrain,
+             marksman_screen,
+             straight_approach,
+             true) == std::vector<BoardCell> { { 6, 2 }, { 5, 2 }, { 2, 2 } }));
+    shield_owner.facing = '\0';
+    assert(
+        (summon_placement_cells(
+             "机动盾牌",
+             shield_owner,
+             {},
+             summon_terrain,
+             marksman_screen,
+             straight_approach,
+             true) == std::vector<BoardCell> { { 2, 2 } }));
 
     DeploymentUnit strayed_medic;
     strayed_medic.id = "褐果";

@@ -176,8 +176,8 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
         if (const auto facing = m_committed_facings.find(point); facing != m_committed_facings.end()) {
             verified_owner.facing = facing->second;
         }
-        else if (owner_name != "温蒂" && owner_name != "白铁") {
-            continue;
+        else {
+            verified_owner.facing = '\0';
         }
         const auto stats = spa::season_combat_stats(verified_owner.name, m_policy.owned.at(verified_owner.name).elite);
         if (!stats) {
@@ -190,7 +190,8 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
             range,
             terrain->buildable,
             m_population_grid_members,
-            spa::active_preparation_lanes(*terrain, round));
+            spa::active_preparation_lanes(*terrain, round),
+            true);
         std::erase_if(targets, [&](const auto& cell) { return m_confirmed_summon_cells.contains({ round, cell }); });
         if (owner_name == "白铁") {
             std::map<spa::BoardCell, int> charging_allies;
@@ -243,6 +244,7 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
         auto receipt = basic_info_with_what("SPAPreparationSummonPlacement");
         receipt["details"] = json::object { { "name", summon },
                                             { "owner", verified_owner.name },
+                                            { "owner_facing_known", verified_owner.facing != '\0' },
                                             { "round", round },
                                             { "candidate_cells", targets.size() },
                                             { "drop_attempted", placement.has_value() },

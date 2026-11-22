@@ -85,18 +85,22 @@ inline std::vector<BoardCell> summon_placement_cells(
     const std::vector<BoardCell>& attack_range,
     const std::vector<BoardCell>& buildable,
     const std::vector<GridPlacementMember>& allies,
-    const std::vector<DeploymentLane>& lanes)
+    const std::vector<DeploymentLane>& lanes,
+    bool allow_unknown_facing_for_preview = false)
 {
     if (deployable_summon_owner(summon) != owner.name || owner.name.empty()) {
         return {};
     }
-    const auto [dx, dy] = growth_facing_step(owner.facing);
     const bool water_cannon = owner.name == "温蒂";
     const bool anywhere = water_cannon || owner.name == "白铁";
-    if (!anywhere && dx == 0 && dy == 0) {
+    const std::string_view all_facings = "EWNS";
+    const bool facing_known = all_facings.find(owner.facing) != std::string_view::npos;
+    if (!anywhere && !facing_known && !allow_unknown_facing_for_preview) {
         return {};
     }
-    const BoardCell front { owner.col + dx, owner.row + dy };
+    // With no observed facing, these are candidates for the game's held-card
+    // preview. Release still requires green inside the selected registered cell.
+    const auto facings = facing_known ? std::string_view(&owner.facing, 1) : all_facings;
     std::vector<BoardCell> candidates;
     for (const auto& cell : buildable) {
         if (cell == BoardCell { owner.col, owner.row } ||
@@ -105,10 +109,13 @@ inline std::vector<BoardCell> summon_placement_cells(
             })) {
             continue;
         }
-        if (anywhere ||
-            (summon == "机动盾牌"
-                 ? cell == front
-                 : grid_range_covers(owner.col, owner.row, owner.facing, cell.first, cell.second, attack_range))) {
+        if (anywhere || std::any_of(facings.begin(), facings.end(), [&](char facing) {
+                if (summon == "机动盾牌") {
+                    const auto [dx, dy] = growth_facing_step(facing);
+                    return cell == BoardCell { owner.col + dx, owner.row + dy };
+                }
+                return grid_range_covers(owner.col, owner.row, facing, cell.first, cell.second, attack_range);
+            })) {
             candidates.push_back(cell);
         }
     }
