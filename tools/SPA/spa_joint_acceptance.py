@@ -34,22 +34,29 @@ def combat_hud_verified(observation, difficulty_name="险境模拟"):
     return mode and counter
 
 
-def native_battle_sample_verified(event, scope):
-    """Accept RoundTask's parsed HUD only inside a verified native execution."""
+def in_verified_execution(event, scope):
     if not scope or not scope.get("complete") or not scope.get("boundaries_verified"):
         return False
     envelope = event.get("details", {})
-    details = envelope.get("details", {})
-    if (
-        event.get("message") != 20003
-        or envelope.get("what") != "SPABattleSample"
-        or envelope.get("class") != "asst::spa::RoundTaskPlugin"
-        or envelope.get("taskchain") != "StrongholdProtocol"
-        or envelope.get("taskid") != scope.get("task_id")
-        or any(
-            not scope.get(key) or envelope.get(key) != scope[key]
+    return (
+        event.get("message") == 20003
+        and envelope.get("taskchain") == "StrongholdProtocol"
+        and envelope.get("taskid") == scope.get("task_id")
+        and all(
+            scope.get(key) and envelope.get(key) == scope[key]
             for key in ("run_id", "run_execution_id", "host_session_id")
         )
+    )
+
+
+def native_battle_sample_verified(event, scope):
+    """Accept RoundTask's parsed HUD only inside a verified native execution."""
+    envelope = event.get("details", {})
+    details = envelope.get("details", {})
+    if (
+        not in_verified_execution(event, scope)
+        or envelope.get("what") != "SPABattleSample"
+        or envelope.get("class") != "asst::spa::RoundTaskPlugin"
         or details.get("contradictory", False)
         or details.get("enemies_total_known") is not True
         or details.get("enemies_resolved_known") is not True
@@ -91,6 +98,70 @@ def combat_evidence(events, difficulty_name, scope=None):
                 }
             )
     return samples
+
+
+def local_round_evidence(events, scope):
+    rounds = {}
+    for index, event in enumerate(events):
+        if not in_verified_execution(event, scope):
+            continue
+        envelope = event["details"]
+        what, data = envelope.get("what"), envelope.get("details", {})
+        round_number = data.get("round")
+        if type(round_number) is not int or not 1 <= round_number <= 20:
+            continue
+        row = rounds.setdefault(
+            round_number,
+            {
+                "round": round_number,
+                "local_finished_samples": [],
+                "local_leak_counts": [],
+                "purchases": 0,
+                "sales": 0,
+                "deployments": 0,
+                "deadline_deferrals": 0,
+                "last_preparation_seconds": None,
+                "ready_input_before_battle": None,
+                "battle_started": False,
+            },
+        )
+        if (
+            what == "SPAPreparationSchedulingObserved"
+            and data.get("preparation_seconds_remaining_known") is True
+            and type(data.get("preparation_seconds_remaining")) is int
+            and data["preparation_seconds_remaining"] >= 0
+        ):
+            row["last_preparation_seconds"] = data["preparation_seconds_remaining"]
+        elif what == "SPAJointPreparationDeadline":
+            row["deadline_deferrals"] += 1
+        elif what == "SPAJointReadySubmitted" and not row["battle_started"]:
+            row["ready_input_before_battle"] = index
+        elif what == "SPARoundStarted":
+            row["battle_started"] = True
+        elif what == "SPAShopPurchase":
+            row["purchases"] += 1
+        elif what == "SPASaleVerified":
+            row["sales"] += 1
+        elif what == "SPADeploymentVerified":
+            row["deployments"] += 1
+        elif (
+            native_battle_sample_verified(event, scope)
+            and data.get("battle_frame_saved") is True
+            and data.get("joint_local_wave_finished") is True
+        ):
+            row["local_finished_samples"].append(index)
+            leaks = data.get("joint_local_leaks")
+            if type(leaks) is int and 0 <= leaks <= data["enemies_total"]:
+                row["local_leak_counts"].append(leaks)
+    for row in rounds.values():
+        counts = set(row.pop("local_leak_counts"))
+        row["local_leaks"] = counts.pop() if len(counts) == 1 else None
+        row["ready_input_before_battle"] = (
+            row["ready_input_before_battle"] is not None
+            if row["battle_started"]
+            else None
+        )
+    return [rounds[n] for n in sorted(rounds)]
 
 
 def audit_joint_run(events, policy, *, scope=None):
@@ -144,8 +215,7 @@ def audit_joint_run(events, policy, *, scope=None):
         and o.get("result_text_verified")
         and o.get("result_joint")
         and o.get("result_difficulty_name") == difficulty_name
-        and o.get("result_completed")
-        and not o.get("result_interrupted")
+        and (o.get("result_completed") is True) != (o.get("result_interrupted") is True)
         and o.get("passed_rounds_known")
         and not o.get("contradictory", False)
     ]
@@ -154,12 +224,12 @@ def audit_joint_run(events, policy, *, scope=None):
         bool(receipt)
         and receipt.get("result_joint") is True
         and receipt.get("result_difficulty_name") == difficulty_name
-        and receipt.get("result_completed") is True
-        and not receipt.get("result_interrupted")
         and not receipt.get("contradictory", False)
         and any(
             i in result_indices
             and o.get("passed_rounds") == receipt.get("passed_rounds")
+            and (o.get("result_completed") is True)
+            == (receipt.get("result_completed") is True)
             for i, o in observations
         )
     )
@@ -213,7 +283,8 @@ def audit_joint_run(events, policy, *, scope=None):
         "simulation_start_observed": bool(start_indices),
         "opening_preparation_observed": bool(first_round),
         "real_combat_hud_observed": bool(combats),
-        "completed_full_team_result": bool(result_indices) and final_result,
+        "completed_full_team_result": final_result
+        and receipt.get("result_completed") is True,
         "completed_personal_result": personal_verified,
         "personal_summary_ordered": bool(summaries and combats and result_indices)
         and combats[-1] < summaries[-1][0] < result_indices[-1],
@@ -224,10 +295,19 @@ def audit_joint_run(events, policy, *, scope=None):
         "no_manual_recovery_request": not recovery_requests,
         "no_abandon_input": not exit_inputs,
     }
+    flow = (
+        bool(personal and final_result)
+        and all(
+            condition
+            for key, condition in checks.items()
+            if key not in ("completed_full_team_result", "completed_personal_result")
+        )
+    )
     return {
         "run_id": policy.get("run_id", ""),
         "checks": checks,
         "same_host_full_run_candidate": all(checks.values()),
+        "same_host_flow_candidate": flow,
         "stable_acceptance_verified": False,
         "hidden_boss_victory_verified": False,
         "passed_rounds": receipt.get("passed_rounds") if receipt else None,
@@ -252,6 +332,7 @@ def audit_joint_run(events, policy, *, scope=None):
         ),
         "combat_hud_samples": len(combats),
         "combat_evidence": combat_samples,
+        "local_round_evidence": local_round_evidence(events, scope),
         "recovery_requests": recovery_requests,
         "abandon_inputs": exit_inputs,
     }

@@ -78,6 +78,47 @@ class JointAcceptanceTests(unittest.TestCase):
         self.assertTrue(audit["same_host_full_run_candidate"])
         self.assertFalse(audit["stable_acceptance_verified"])
 
+    def test_interrupted_match_can_verify_flow_but_never_claim_a_win(self):
+        events = full_run()
+        events[5]["details"]["details"]["texts"][1]["text"] = "模拟中断"
+        for index in (6, 8):
+            details = events[index]["details"]["details"]
+            details["result_completed"] = False
+            details["result_interrupted"] = True
+        audit = audit_joint_run(events, self.policy)
+        self.assertTrue(audit["same_host_flow_candidate"])
+        self.assertFalse(audit["same_host_full_run_candidate"])
+
+    def test_leaks_only_accept_own_final_saved_wave_and_valid_execution(self):
+        identity = dict(run_id="one-run", run_execution_id="e1", host_session_id="h1")
+        scope = {**identity, "task_id": 1, "complete": True, "boundaries_verified": True}
+        events = full_run()
+        def scoped(what, payload):
+            row = event(what, {"round": 4, **payload})
+            row["details"].update(
+                identity, taskchain="StrongholdProtocol", **{"class": "asst::spa::RoundTaskPlugin"}
+            )
+            return row
+        events.append(scoped("SPAJointReadySubmitted", {}))
+        events.append(scoped("SPARoundStarted", {}))
+        sample = {
+            "enemies_resolved_known": True,
+            "enemies_resolved": 19,
+            "enemies_total_known": True,
+            "enemies_total": 19,
+            "battle_frame_saved": True,
+            "joint_local_wave_finished": True,
+            "joint_local_leaks": 2,
+        }
+        events.append(scoped("SPABattleSample", {**sample, "joint_local_wave_finished": False, "joint_local_leaks": 5}))
+        events.append(scoped("SPABattleSample", sample))
+        row, = audit_joint_run(events, self.policy, scope=scope)["local_round_evidence"]
+        self.assertEqual(row["local_leaks"], 2)
+        self.assertTrue(row["ready_input_before_battle"])
+        events.append(scoped("SPABattleSample", {**sample, "joint_local_leaks": 3}))
+        row, = audit_joint_run(events, self.policy, scope=scope)["local_round_evidence"]
+        self.assertIsNone(row["local_leaks"])
+
     def test_all_joint_tiers_require_matching_selection_hud_and_result(self):
         for level, name in JOINT_DIFFICULTIES.items():
             events = json.loads(

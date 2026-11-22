@@ -16,7 +16,7 @@ from spa_checkpoint import (
 )
 from spa_deployment_audit import audit_deployment_ledger
 from spa_joint_acceptance import audit_joint_run
-from spa_staged_acceptance import audit_run
+from spa_staged_acceptance import audit_run, execution_scope
 from spa_device_guard import authorize_client
 from spa_host_completion import audit_host_completion, require_host_completion
 from spa_relocation import relocation_options, relocation_verified
@@ -964,7 +964,10 @@ def main():
             staged_audit = audit_run(events, policy, {"run_id": policy.get("run_id")})
             persist_json("staged-run-audit.json", staged_audit)
         if args.task == "auto-preparation" and policy.get("mode") == "joint":
-            persist_json("joint-acceptance-audit.json", audit_joint_run(events, policy))
+            persist_json(
+                "joint-acceptance-audit.json",
+                audit_joint_run(events, policy, scope=execution_scope(events, policy)),
+            )
         if args.task == "auto-preparation":
             host_completion = audit_host_completion(
                 events,
