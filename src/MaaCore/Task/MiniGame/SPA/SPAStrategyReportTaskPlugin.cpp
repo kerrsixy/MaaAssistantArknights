@@ -16,7 +16,7 @@
 namespace asst::spa
 {
 static constexpr std::array<int, 5> StrategyReportColumns { 578, 710, 841, 973, 1104 };
-static constexpr int StrategyReportRowTop = 102;
+static constexpr int StrategyReportRowTop = 90;
 static constexpr int StrategyReportRowBottom = 594;
 
 static bool strategy_report_tab_visible(const cv::Mat& image)
@@ -38,7 +38,11 @@ static std::vector<int> strategy_report_rows(const cv::Mat& image, const cv::Mat
     }
     std::array<cv::Mat, StrategyReportColumns.size()> matches;
     for (size_t col = 0; col < matches.size(); ++col) {
-        const cv::Rect strip(StrategyReportColumns[col] - 3, StrategyReportRowTop - 3, 13, 520);
+        const cv::Rect strip(
+            StrategyReportColumns[col] - 3,
+            StrategyReportRowTop - 3,
+            13,
+            StrategyReportRowBottom - StrategyReportRowTop + 3 + edge.rows);
         cv::Mat gray;
         cv::cvtColor(image(strip), gray, cv::COLOR_BGR2GRAY);
         cv::matchTemplate(gray, edge, matches[col], cv::TM_CCOEFF_NORMED);
@@ -85,6 +89,13 @@ static bool strategy_report_cell_selected(const cv::Mat& image, int x, int y)
     return pale_border(cv::Rect(x + 18, y + 4, 82, 10), .45) && pale_border(cv::Rect(x - 3, y + 21, 10, 96), .25);
 }
 
+static bool same_strategy_report_grid(const cv::Mat& left, const cv::Mat& right)
+{
+    const cv::Rect catalogue(565, StrategyReportRowTop, 675, 705 - StrategyReportRowTop);
+    return left.size() == right.size() && left.type() == right.type() &&
+           cv::norm(left(catalogue), right(catalogue), cv::NORM_L1) / (catalogue.area() * 3.0) < 2.0;
+}
+
 bool StrategyReportTaskPlugin::verify(AsstMsg msg, const json::value& details) const
 {
     return msg == AsstMsg::SubTaskStart && details.get("subtask", std::string()) == "ProcessTask" &&
@@ -108,11 +119,13 @@ bool StrategyReportTaskPlugin::_run()
     observer.set_task_id(m_task_id);
     std::map<std::string, StrategyProgress> progress;
     int visited_viewports = 0;
-    for (; visited_viewports < 10 && !need_exit(); ++visited_viewports) {
+    constexpr int max_viewports = 10;
+    while (visited_viewports < max_viewports && !need_exit()) {
         const auto rows = strategy_report_rows(image, edge);
         if (rows.empty() || !strategy_report_tab_visible(image)) {
             break;
         }
+        ++visited_viewports;
         bool viewport_changed = false;
         for (const int row : rows) {
             for (const int column : StrategyReportColumns) {
@@ -167,22 +180,41 @@ bool StrategyReportTaskPlugin::_run()
                 break;
             }
         }
-        if (viewport_changed || progress.size() == StrategyUnlockCatalogue.size() ||
+        if (visited_viewports == max_viewports || progress.size() == StrategyUnlockCatalogue.size() ||
             (!m_target.empty() && progress.contains(m_target))) {
             break;
+        }
+        if (viewport_changed) {
+            // A click during scroll may leave the report on a new grid.
+            // Rematch this view before attempting any other report cell.
+            continue;
         }
         if (!ctrler()->swipe(Point(1185, 640), Point(1185, 250), 370) || !sleep(500)) {
             return false;
         }
-        const auto next = ctrler()->get_image();
-        if (next.size() != image.size() || next.type() != image.type()) {
+        cv::Mat previous;
+        cv::Mat next_viewport;
+        for (int sample = 0; sample < 5 && !need_exit(); ++sample) {
+            auto current = ctrler()->get_image();
+            if (!strategy_report_rows(current, edge).empty() && !same_strategy_report_grid(image, current)) {
+                if (!previous.empty() && same_strategy_report_grid(previous, current) &&
+                    strategy_report_tab_visible(current)) {
+                    next_viewport = std::move(current);
+                    break;
+                }
+                previous = std::move(current);
+            }
+            else {
+                previous.release();
+            }
+            if (!sleep(250)) {
+                return false;
+            }
+        }
+        if (next_viewport.empty()) {
             break;
         }
-        const cv::Rect catalogue(565, 120, 675, 585);
-        if (cv::norm(image(catalogue), next(catalogue), cv::NORM_L1) / (catalogue.area() * 3.0) < 2.0) {
-            break;
-        }
-        image = next;
+        image = std::move(next_viewport);
     }
 
     json::array entries;
@@ -201,6 +233,7 @@ bool StrategyReportTaskPlugin::_run()
         json::object { { "target_band_id", m_target },
                        { "target_progress_verified", !m_target.empty() && progress.contains(m_target) },
                        { "strategies", std::move(entries) },
+                       { "viewports_scanned", visited_viewports },
                        { "identified_strategies", progress.size() },
                        { "expected_strategies", StrategyUnlockCatalogue.size() },
                        { "all_strategy_identities_observed", progress.size() == StrategyUnlockCatalogue.size() },
