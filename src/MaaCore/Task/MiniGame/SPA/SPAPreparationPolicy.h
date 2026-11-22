@@ -81,6 +81,9 @@ struct PreparationPolicy
     int primary_deadline_round = 6;
     int shop_level = 0;
     int free_refreshes = 0;
+    // Unknown after attaching in the middle of a preparation or an
+    // unreconciled refresh. Free ordinary refreshes also count.
+    std::optional<int> ordinary_refreshes_this_round;
     bool shop_frozen_this_round = false;
     bool allow_freeze = true;
     // Phase-1 runner: prefer the cheapest verified affordable card and basic
@@ -158,6 +161,7 @@ struct PreparationChoice
     bool is_equipment = false;
     bool banked_value_purchase = false;
     int growth_score = 0;
+    int expected_refresh_layers = 0;
 };
 
 struct DynamicPactSignal

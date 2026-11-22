@@ -73,6 +73,7 @@ struct GrowthProfile
     // A single trigger may have different gains/caps for different pacts.
     std::map<std::string, GrowthFormula> pact_formulas;
     std::vector<GrowthPhase> additional_phases;
+    bool scales_with_round_refreshes = false;
 };
 
 const std::map<std::string, GrowthProfile>& growth_profiles();

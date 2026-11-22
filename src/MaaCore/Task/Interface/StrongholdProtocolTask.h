@@ -70,6 +70,7 @@ private:
     bool m_shop_reviewed_last_ordinary_coin = false;
     int m_last_coin_review_after_deployment_round = -1;
     int m_last_economy_round = -1;
+    int m_last_observed_automated_battle_round = -1;
     spa::PreparationDeadline m_joint_preparation_deadline;
     int m_supply_confirmation_after_round = -1;
     std::optional<int> m_previous_round_life;

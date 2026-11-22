@@ -133,6 +133,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_shop_reviewed_last_ordinary_coin = false;
     m_last_coin_review_after_deployment_round = -1;
     m_last_economy_round = -1;
+    m_last_observed_automated_battle_round = -1;
     m_last_ursus_battle_with_layer_growth = -1;
     m_joint_preparation_deadline = {};
     m_supply_confirmation_after_round = params.get("supply_confirmation_after_round", -1);
@@ -3306,7 +3307,12 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         }
         if (state.get("page", std::string()) == "preparation" && state.get("round_known", false) &&
             state.get("round", -1) != m_last_economy_round) {
-            m_last_economy_round = state.get("round", -1);
+            const int current_round = state.get("round", -1);
+            m_policy.ordinary_refreshes_this_round = m_last_observed_automated_battle_round > 0 &&
+                                                             current_round == m_last_observed_automated_battle_round + 1
+                                                         ? std::optional(0)
+                                                         : std::nullopt;
+            m_last_economy_round = current_round;
             m_shopping_complete = false;
             m_shop_review_after_replacements = false;
             m_shop_reviewed_last_ordinary_coin = false;
@@ -3556,6 +3562,8 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         const auto page_name = state.get("page", std::string());
         m_lifecycle_battle_seen = m_lifecycle_battle_seen || page_name == "battle";
         if (page_name == "authentication_expired" || page_name == "data_updated") {
+            m_policy.ordinary_refreshes_this_round.reset();
+            m_last_observed_automated_battle_round = -1;
             auto recovery = basic_info_with_what("SPASessionRecoveryRequired");
             recovery["details"] = json::object { { "run_id", m_run_id },
                                                  { "round", m_policy.round },
@@ -5092,6 +5100,9 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             const bool round_ok = round.run();
             m_lifecycle_battle_seen = m_lifecycle_battle_seen || round.battle_seen();
             const int fought_round = state.get("round", -1);
+            if (round_ok && round.battle_seen()) {
+                m_last_observed_automated_battle_round = fought_round;
+            }
             if (round_ok && fought_round > 0 && round.next_round() == fought_round + 1 &&
                 m_policy.primary_pact == "乌萨斯" && primary_active_for_battle &&
                 round.primary_layers_increased_during_battle()) {
@@ -6333,6 +6344,9 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             { "is_equipment", decision.is_equipment },
             { "cost", decision.price },
             { "preparation_growth_score", decision.growth_score },
+            { "expected_primary_refresh_layers", decision.expected_refresh_layers },
+            { "ordinary_refreshes_this_round",
+              m_policy.ordinary_refreshes_this_round ? json::value(*m_policy.ordinary_refreshes_this_round) : nullptr },
             { "reason", decision.reason },
             { "decision_only", m_decision_only },
             { "action",
@@ -6451,6 +6465,9 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             // is followed by a new observation, never another paid action using
             // this frame or a blind repeat of the command.
             ++m_strategy_refresh_attempts[round];
+            // A strategy-specific refresh can change the shop without
+            // sharing the ordinary refresh trigger. Its contribution is unknown.
+            m_policy.ordinary_refreshes_this_round.reset();
             const bool verified = shop.configure_strategy_refresh(funds, round, m_policy.shop_level) && shop.run();
             if (!verified) {
                 m_strategy_refresh_blocked_rounds.insert(round);
@@ -6497,6 +6514,9 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                     ? shop.configure_freeze(funds, round)
                                     : shop.configure_refresh(decision.price, funds, round);
         if (!configured || !shop.run()) {
+            if (configured && decision.action == spa::PreparationAction::Refresh) {
+                m_policy.ordinary_refreshes_this_round.reset();
+            }
             if (shop.equipment_capacity_rejection_verified() && decision.is_equipment) {
                 m_equipment_capacity_blocked_round = round;
                 m_equipment_inventory_dirty = true;
@@ -6624,21 +6644,23 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             }
             observer.expect_unchanged_preparation(round);
         }
-        else if (decision.action == spa::PreparationAction::Refresh && decision.free_refresh) {
-            if (m_policy.free_refreshes <= 0) {
+        else if (decision.action == spa::PreparationAction::Refresh) {
+            if (m_policy.ordinary_refreshes_this_round) {
+                ++*m_policy.ordinary_refreshes_this_round;
+            }
+            if (decision.free_refresh && m_policy.free_refreshes <= 0) {
                 return false;
             }
-            --m_policy.free_refreshes;
-            auto receipt = basic_info_with_what("SPAShopFreeRefreshReconciled");
-            receipt["details"] = json::object { { "round", round },
-                                                { "funds", funds },
-                                                { "free_refreshes_remaining", m_policy.free_refreshes },
-                                                { "cost", 0 },
-                                                { "shop_changed_verified", true } };
-            callback(AsstMsg::SubTaskExtraInfo, receipt);
-            observer.expect_unchanged_preparation(round);
-        }
-        else if (decision.action == spa::PreparationAction::Refresh) {
+            if (decision.free_refresh) {
+                --m_policy.free_refreshes;
+                auto receipt = basic_info_with_what("SPAShopFreeRefreshReconciled");
+                receipt["details"] = json::object { { "round", round },
+                                                    { "funds", funds },
+                                                    { "free_refreshes_remaining", m_policy.free_refreshes },
+                                                    { "cost", 0 },
+                                                    { "shop_changed_verified", true } };
+                callback(AsstMsg::SubTaskExtraInfo, receipt);
+            }
             observer.expect_unchanged_preparation(round);
         }
         else if (decision.action == spa::PreparationAction::Freeze) {

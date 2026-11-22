@@ -6319,6 +6319,32 @@ int main()
     reserve.last_round_life_loss = 1;
     assert(choose_preparation(reserve, 5, {}, {}).action == PreparationAction::Refresh);
 
+    PreparationPolicy refresh_growth;
+    refresh_growth.selected_strategy_id = "band_dance";
+    refresh_growth.primary_pact = "叙拉古";
+    refresh_growth.dynamic_decision_mode = true;
+    refresh_growth.growth_primary_active_verified = true;
+    refresh_growth.deployed_population = 8;
+    refresh_growth.round = 11;
+    refresh_growth.owned["复奏"] = { 1, false, false };
+    refresh_growth.owned["安洁莉娜"] = { 1, true, true };
+    assert(choose_preparation(refresh_growth, 1, {}, catalog).action == PreparationAction::Review);
+    refresh_growth.ordinary_refreshes_this_round = 0;
+    const auto first = choose_preparation(refresh_growth, 1, {}, catalog);
+    assert(first.action == PreparationAction::Refresh && first.price == 1 && first.expected_refresh_layers == 6);
+    refresh_growth.ordinary_refreshes_this_round = 3;
+    assert(choose_preparation(refresh_growth, 1, {}, catalog).expected_refresh_layers == 4);
+    refresh_growth.ordinary_refreshes_this_round = 4;
+    assert(choose_preparation(refresh_growth, 1, {}, catalog).action == PreparationAction::Review);
+    refresh_growth.ordinary_refreshes_this_round = 0;
+    refresh_growth.owned["安洁莉娜"].deployed = false;
+    assert(choose_preparation(refresh_growth, 1, {}, catalog).expected_refresh_layers == 2);
+    refresh_growth.selected_strategy_id = "band_cannot";
+    assert(choose_preparation(refresh_growth, 1, {}, catalog).action == PreparationAction::Review);
+    refresh_growth.selected_strategy_id = "band_dance";
+    refresh_growth.growth_primary_active_verified = false;
+    assert(choose_preparation(refresh_growth, 1, {}, catalog).action == PreparationAction::Review);
+
     const std::vector<StrategyCandidate> strategies {
         { "unclaimed", "Unclaimed", { "莱塔尼亚" }, { "精准" }, { "灵巧" }, { "奥术" }, 1, false },
         { "claimed", "Claimed", { "乌萨斯" }, {}, {}, {}, 50, true },

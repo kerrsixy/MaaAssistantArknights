@@ -1825,6 +1825,43 @@ static bool can_recruit_after_paid_refresh(
     });
 }
 
+static int additional_primary_layers_from_refresh(const PreparationPolicy& policy)
+{
+    if (!policy.growth_primary_active_verified || !policy.ordinary_refreshes_this_round ||
+        *policy.ordinary_refreshes_this_round < 0 || contains(policy.disabled_pacts, policy.primary_pact)) {
+        return 0;
+    }
+    int layers = 0;
+    const int preceding_refreshes = *policy.ordinary_refreshes_this_round;
+    const auto& growth = growth_profiles();
+    for (const auto& [name, owned] : policy.owned) {
+        const auto found = growth.find(name);
+        if (found == growth.end() || owned.copies != 1 || !owned_form_counts(owned)) {
+            continue;
+        }
+        const auto& profile = found->second;
+        if (profile.kind != GrowthKind::CappedConditional || (!owned.deployed && !profile.works_on_bench) ||
+            !contains(profile.pacts, policy.primary_pact)) {
+            continue;
+        }
+        const auto override = profile.pact_formulas.find(policy.primary_pact);
+        const auto formula =
+            override == profile.pact_formulas.end()
+                ? GrowthFormula { profile.normal_gain, profile.elite_gain, profile.normal_cap, profile.elite_cap }
+                : override->second;
+        const int gain = owned.elite ? formula.elite_gain : formula.normal_gain;
+        const int cap = owned.elite ? formula.elite_cap : formula.normal_cap;
+        if (profile.phase == GrowthPhase::ShopRefresh && preceding_refreshes == 0) {
+            layers += std::min(gain, cap);
+        }
+        else if (profile.scales_with_round_refreshes && gain > 0 && cap > 0) {
+            const int counted = std::clamp(preceding_refreshes, 0, cap / gain + 1);
+            layers += std::min(cap, (counted + 1) * gain) - std::min(cap, counted * gain);
+        }
+    }
+    return layers;
+}
+
 static std::optional<PreparationChoice> choose_open_field_recruit(
     const PreparationPolicy& policy,
     int funds,
@@ -2399,6 +2436,17 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
         can_recruit_after_paid_refresh(resolved, funds, pacts)) {
         return { PreparationAction::Refresh, "刷新", 1, -1, "Refresh while retaining a recruitment budget",
                  resolved.primary_pact,      false };
+    }
+    if (funds == 1 && resolved.dynamic_decision_mode && resolved.allow_refresh && !resolved.shop_frozen_this_round &&
+        retention && !retention->carries) {
+        if (const int layers = additional_primary_layers_from_refresh(resolved); layers > 0) {
+            return { .action = PreparationAction::Refresh,
+                     .name = "刷新",
+                     .price = 1,
+                     .reason = "Use the expiring coin for a confirmed refresh growth source below its cap",
+                     .selected_pact = resolved.primary_pact,
+                     .expected_refresh_layers = layers };
+        }
     }
     // Ordinary cash expires, but a single verified one-price body can be held
     // until a later preparation needs its actual sale quote. Never buy and
