@@ -5534,6 +5534,32 @@ int main()
     const auto active_pivot = choose_dynamic_primary_pact(active_transition, funded_transition, catalog, 8);
     assert(active_pivot.valid && active_pivot.primary_pact == "维多利亚");
     assert(choose_dynamic_primary_pact(active_transition, funded_transition, catalog, 2).primary_pact == "萨尔贡");
+
+    // In regulation 5 R9, purchasing 乌啾 used the last bench slot.
+    // The quote was affordable, but three battles started before the
+    // selected challenger ever activated. Preserve the current route here.
+    PreparationPolicy no_exchange_space;
+    no_exchange_space.primary_pact = "莱塔尼亚";
+    no_exchange_space.enabled_core_pacts = { "莱塔尼亚", "乌萨斯" };
+    no_exchange_space.primary_locked_after_activation = true;
+    no_exchange_space.deployed_population = 8;
+    no_exchange_space.bench_occupied = 9;
+    no_exchange_space.round = 9;
+    no_exchange_space.shop_level = 4;
+    no_exchange_space.observed_pact_layers = { { "莱塔尼亚", 11 }, { "乌萨斯", 0 } };
+    no_exchange_space.owned = { { "卡涅利安", { 2, false, true } }, { "地灵", { 2, false, true } },
+                                { "复奏", { 2, false, true } },     { "折桠", { 2, false, true } },
+                                { "烈夏", { 1, false, true } },     { "车尔尼", { 2, false, false } } };
+    const std::vector<ShopOffer> ursus_quotes { { "乌啾", 3, 1 }, { "维伊", 3, 2 } };
+    const auto full_after_purchase = choose_dynamic_primary_pact(no_exchange_space, ursus_quotes, catalog, 4);
+    assert(full_after_purchase.primary_pact == "莱塔尼亚");
+    const auto challenger = std::ranges::find(full_after_purchase.ranking, "乌萨斯", &DynamicPactSignal::pact);
+    assert(challenger != full_after_purchase.ranking.end() && challenger->funded_growth_package_cost == 3);
+    no_exchange_space.bench_occupied = 8;
+    assert(choose_dynamic_primary_pact(no_exchange_space, ursus_quotes, catalog, 4).primary_pact == "乌萨斯");
+    no_exchange_space.deployed_population = 7;
+    no_exchange_space.bench_occupied = 9;
+    assert(choose_dynamic_primary_pact(no_exchange_space, ursus_quotes, catalog, 4).primary_pact == "乌萨斯");
     active_transition.bench_occupied = 10;
     assert(choose_dynamic_primary_pact(active_transition, funded_transition, catalog, 8).primary_pact == "萨尔贡");
     active_transition.bench_occupied = 2;

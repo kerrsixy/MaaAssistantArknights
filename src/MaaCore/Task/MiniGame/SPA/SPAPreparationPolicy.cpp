@@ -964,6 +964,15 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
             return result;
         }
         const auto& challenger = result.ranking.front();
+        const int activation_recruits = std::max(0, challenger.required_members - challenger.owned_members);
+        // On a full field an incoming unit must leave room for the outgoing
+        // unit. A funded quote that fills the last bench slot cannot put an
+        // inactive challenger on the field without a separate verified sale.
+        if (policy.deployed_population == 8 && challenger.deployed_members < challenger.required_members &&
+            (policy.bench_occupied < 0 || policy.bench_occupied + activation_recruits >= 10)) {
+            keep_current("Keep the active faction until the challenger has room to complete a field exchange");
+            return result;
+        }
         // Layer count is a sunk-investment preference, not a damage forecast.
         const int retention = 450 + std::clamp(layers->second, 0, 999) * 20;
         if (!challenger.funded_growth_package_cost ||
