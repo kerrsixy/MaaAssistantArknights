@@ -204,6 +204,20 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         LogError << "SPA strategy card task did not see the verified 2/3 page";
         return false;
     }
+    const bool joint_mode = m_context_provider && m_context_provider().mode == "joint";
+    const auto own_turn_verified = [](const auto& texts) {
+        std::vector<TextObservation> observations;
+        for (const auto& text : texts) {
+            observations.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+        }
+        return joint_strategy_own_turn(observations);
+    };
+    if (joint_mode && !own_turn_verified(*recognized)) {
+        if (auto* process = dynamic_cast<ProcessTask*>(m_task_ptr)) {
+            process->override_next("MiniGame@SPA@SelectStrategy", { "MiniGame@SPA@LifecycleWait" });
+        }
+        return true;
+    }
     save_evidence(image, utils::path("debug/SPA/strategy_opening"), false);
     auto countdown_seconds = opening_strategy_display_countdown(image);
     for (const auto& text : *recognized) {
@@ -577,8 +591,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                         }
                     }
                     details_open = details_open || confirmation || identity.has_value();
-                    if (!identity ||
-                        !opening_strategy_cell_selected(panel_image, slot_at(candidate.index, rows, details_open))) {
+                    if (!identity || !selected_tile_matches(panel_image, candidate.index, slot)) {
                         continue;
                     }
                     report_occupied(identity, occupied);
@@ -603,7 +616,11 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                                    { "support_score", candidate.support_score },
                                    { "reason", assessment.reason } });
             }
-            if (page == 3 || std::chrono::steady_clock::now() + std::chrono::seconds(5) >= deadline) {
+            const bool selectable_in_view = std::ranges::any_of(candidates, [](const auto& card) {
+                return card.available;
+            });
+            if (page == 3 || (joint_mode && selectable_in_view) ||
+                std::chrono::steady_clock::now() + std::chrono::seconds(5) >= deadline) {
                 break;
             }
             last_marker = viewport_marker(ctrler()->get_image());
@@ -745,13 +762,19 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         LogWarn << "SPA strategy confirmation is unavailable; retry with the current default pool";
         return false;
     }
+    if (joint_mode) {
+        OCRer turn(selected_image, Rect(880, 0, 225, 62));
+        const auto header = turn.analyze();
+        if (!header || !own_turn_verified(*header)) {
+            return false;
+        }
+    }
     if (!ctrler()->click(*confirm_rect) || !sleep(300)) {
         LogError << "SPA strategy card selection did not expose a confirmation button";
         return false;
     }
     bool stage_three = false;
     bool joint_waiting = false;
-    const bool joint_mode = m_context_provider && m_context_provider().mode == "joint";
     for (int frame = 0; frame < 3 && !need_exit(); ++frame) {
         const auto after = ctrler()->get_image();
         OCRer confirm(after, Rect(400, 0, 520, 120));

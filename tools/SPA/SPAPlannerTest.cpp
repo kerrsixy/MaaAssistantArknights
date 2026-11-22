@@ -1379,6 +1379,15 @@ int main()
     opening_context.mode.clear();
     assert(assess_opening_strategy("band_takecare", opening_context).eligible);
     assert(!assess_opening_strategy("band_siracusa", opening_context).eligible);
+    OpeningStrategyContext joint_partial_context;
+    joint_partial_context.mode = "joint";
+    joint_partial_context.disabled_pacts = { "精准", "坚守" };
+    joint_partial_context.observed_available_pacts = { "维多利亚", "谢拉格" };
+    assert(assess_opening_strategy("band_victoria", joint_partial_context).eligible);
+    assert(assess_opening_strategy("band_harold", joint_partial_context).eligible);
+    assert(!assess_opening_strategy("band_egir", joint_partial_context).eligible);
+    joint_partial_context.disabled_pacts.push_back("维多利亚");
+    assert(!assess_opening_strategy("band_victoria", joint_partial_context).eligible);
     opening_context.pact_availability_known = true;
     assert(assess_opening_strategy("band_siracusa", opening_context).eligible);
     opening_context.disabled_pacts = { "叙拉古", "不屈" };
@@ -3112,6 +3121,12 @@ int main()
     assert(lifecycle_next(joint) == "MiniGame@SPA@ReconnectCurrent");
     joint.page = "unknown";
     joint.setup_stage = "2/3";
+    assert(lifecycle_next(joint) == "MiniGame@SPA@LifecycleWait");
+    assert(joint_strategy_own_turn({ { "请选择策略", .999925, 937, 17 } }));
+    assert(!joint_strategy_own_turn({ { "正在选择策略…", .999, 899, 60 } }));
+    assert(!joint_strategy_own_turn({ { "请选择策略", .999925, 555, 17 } }));
+    joint.joint_strategy_own_turn_verified = true;
+    assert(lifecycle_next(joint) == "MiniGame@SPA@SelectStrategy");
     joint.joint_setup_committed = true;
     assert(lifecycle_next(joint) == "MiniGame@SPA@LifecycleWait");
     joint.setup_stage = "3/3";

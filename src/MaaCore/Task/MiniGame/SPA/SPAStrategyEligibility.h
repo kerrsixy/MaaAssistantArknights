@@ -100,6 +100,7 @@ struct OpeningStrategyContext
     std::vector<std::string> disabled_pacts;
     std::vector<std::string> occupied_strategy_ids;
     std::string mode;
+    std::vector<std::string> observed_available_pacts;
 };
 
 std::optional<StrategyUnlockRule> strategy_unlock_rule(std::string_view id);

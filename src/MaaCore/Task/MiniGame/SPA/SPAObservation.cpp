@@ -225,6 +225,14 @@ std::optional<int> asst::spa::preparation_countdown(const std::vector<TextObserv
     return seconds;
 }
 
+bool asst::spa::joint_strategy_own_turn(const std::vector<TextObservation>& texts)
+{
+    return std::ranges::any_of(texts, [](const auto& text) {
+        return std::isfinite(text.score) && text.score >= .90 && text.x >= 875 && text.x < 1100 && text.y >= 0 &&
+               text.y < 60 && text.text == "请选择策略";
+    });
+}
+
 std::optional<std::string> asst::spa::joint_teammate_view(const std::vector<TextObservation>& texts)
 {
     std::optional<std::string> player;

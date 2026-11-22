@@ -195,6 +195,7 @@ bool asst::spa::LifecycleTaskPlugin::_run()
         }
         page.quick_start_available = page.quick_start_available && quick_selected;
         page.loading_verified = verified_loading_page(loading_texts);
+        page.joint_strategy_own_turn_verified = m_mode == "joint" && joint_strategy_own_turn(loading_texts);
         // Solo setup can also retain its 3/3 header after ready. Never replay
         // formation selection while its cancel-ready control is visible.
         page.joint_setup_committed = m_mode == "joint" ? joint_setup_wait : formation_ready;

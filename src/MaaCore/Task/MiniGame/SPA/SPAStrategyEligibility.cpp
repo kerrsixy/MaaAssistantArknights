@@ -85,12 +85,12 @@ asst::spa::OpeningStrategyAssessment
         return result;
     }
     const auto available = [&](const std::string& pact) {
-        return context.pact_availability_known &&
-               std::find(context.disabled_pacts.begin(), context.disabled_pacts.end(), pact) ==
-                   context.disabled_pacts.end();
+        return std::ranges::find(context.disabled_pacts, pact) == context.disabled_pacts.end() &&
+               (context.pact_availability_known ||
+                std::ranges::find(context.observed_available_pacts, pact) != context.observed_available_pacts.end());
     };
     if (!fact->pact.empty() && !available(std::string(fact->pact))) {
-        result.reason = "Faction strategy requires a pact whose availability is banned or unknown";
+        result.reason = "Faction strategy needs a pact verified as available";
         return result;
     }
     result.eligible = true;

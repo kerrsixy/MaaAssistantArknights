@@ -2985,6 +2985,7 @@ bool asst::StrongholdProtocolTask::run_single()
     std::shared_ptr<spa::LifecycleTaskPlugin> lifecycle;
     std::shared_ptr<spa::DifficultyTaskPlugin> start_simulation;
     bool opening_pacts_known = false;
+    std::vector<std::string> opening_available_pacts;
     bool settled_return_verified = false;
 
     const auto forwarding = [&](AsstMsg msg, const json::value& info, Assistant* inst) {
@@ -3014,6 +3015,14 @@ bool asst::StrongholdProtocolTask::run_single()
         if (what == "SPAPactAvailabilityScanned" && info.get("details", "after_core_selection_verified", false)) {
             opening_pacts_known = info.get("details", "complete", false);
             const auto details = info.find<json::object>("details");
+            if (const auto available = details ? details->find<json::array>("available_pacts") : std::nullopt) {
+                opening_available_pacts.clear();
+                for (const auto& item : *available) {
+                    if (item.is_string()) {
+                        opening_available_pacts.push_back(item.as_string());
+                    }
+                }
+            }
             if (const auto disabled = details ? details->find<json::array>("disabled_pacts") : std::nullopt) {
                 m_observed_disabled_pacts.clear();
                 for (const auto& item : *disabled) {
@@ -3088,7 +3097,8 @@ bool asst::StrongholdProtocolTask::run_single()
         return spa::OpeningStrategyContext { opening_pacts_known,
                                              m_policy.disabled_pacts,
                                              m_policy.occupied_strategy_ids,
-                                             m_mode };
+                                             m_mode,
+                                             opening_available_pacts };
     });
     auto formation = flow.register_plugin<spa::FormationSelectTaskPlugin>();
     const auto opening_core =

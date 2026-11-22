@@ -22,6 +22,7 @@ struct LifecyclePage
     bool loading_verified = false;
     bool battle_seen = false;
     bool issued_start_required = false;
+    bool joint_strategy_own_turn_verified = false;
 };
 
 inline bool lifecycle_login_start_game_enabled(std::string_view mode)
@@ -170,7 +171,9 @@ inline std::string lifecycle_next(const LifecyclePage& state)
         return "MiniGame@SPA@LifecycleWait";
     }
     if (state.setup_stage == "2/3") {
-        return "MiniGame@SPA@SelectStrategy";
+        return state.mode == "joint" && !state.joint_strategy_own_turn_verified
+                   ? "MiniGame@SPA@LifecycleWait"
+                   : "MiniGame@SPA@SelectStrategy";
     }
     if (state.setup_stage == "3/3") {
         return "MiniGame@SPA@SelectFormation";

@@ -24,6 +24,7 @@ struct TextObservation
 // The local field's completion banner appears before the view can switch
 // to a teammate. A spectator banner or a disabled-stacking wave is not ours.
 bool joint_local_wave_finished(const std::vector<TextObservation>& texts);
+bool joint_strategy_own_turn(const std::vector<TextObservation>& texts);
 std::optional<std::string> joint_teammate_view(const std::vector<TextObservation>& texts);
 bool joint_auxiliary_battle(const std::vector<TextObservation>& texts);
 
