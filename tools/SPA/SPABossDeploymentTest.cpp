@@ -319,6 +319,22 @@ int main()
     const std::vector<BoardCell> surrounding_footprint { { 5, 2 }, { 4, 3 }, { 3, 2 }, { 4, 1 } };
     assert(stationary_boss_attackers({ unobserved_facing }, surrounding_footprint) == 1);
     assert(stationary_boss_attack_weight({ unobserved_facing }, surrounding_footprint) == 500);
+    auto after_synthesis = unobserved_facing;
+    after_synthesis.id = "伺夜";
+    after_synthesis.movable = true;
+    const std::vector<DeploymentUnit> boss_board { guard, medic, after_synthesis };
+    const auto repair_boss_facing =
+        propose_deployment(boss_board, one_lane, firing_terrain, 96, {}, boss_firing_cells, {}, {}, 1);
+    assert(repair_boss_facing.improved && repair_boss_facing.boss_coverage_improvement == 500);
+    assert(repair_boss_facing.units.back().facing_known && repair_boss_facing.units.back().facing == 'E');
+    const auto repair_sequence = sequence_deployment(boss_board, repair_boss_facing.units);
+    assert(repair_sequence.complete && repair_sequence.steps.size() == 1);
+    assert(repair_sequence.steps.front().kind == DeploymentStepKind::Face);
+    assert(repair_sequence.steps.front().unit == "伺夜");
+    assert(sequence_deployment(boss_board, boss_board).steps.empty());
+    auto unplanned_move = boss_board;
+    unplanned_move.back().cell = { 3, 3 };
+    assert(!sequence_deployment(boss_board, unplanned_move).complete);
     auto unknown_medic = medic;
     unknown_medic.facing_known = false;
     assert(boss_movement_attack_weight({ unknown_medic, covered_attacker }, boss_firing_cells) == 500);

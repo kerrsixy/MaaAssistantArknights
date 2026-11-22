@@ -528,7 +528,8 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
                     if (result.evaluations >= evaluation_budget) {
                         break;
                     }
-                    if (cell == result.units[index].cell && direction == result.units[index].facing) {
+                    if (cell == result.units[index].cell && result.units[index].facing_known &&
+                        direction == result.units[index].facing) {
                         continue;
                     }
                     auto candidate = result.units;
@@ -537,20 +538,24 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
                             return unit.cell == cell;
                         });
                     if (occupied != candidate.end() && occupied->id != candidate[index].id) {
-                        if (!occupied->movable || !accepts(*occupied, candidate[index].cell)) {
+                        if (!occupied->movable || !occupied->facing_known ||
+                            !accepts(*occupied, candidate[index].cell)) {
                             continue;
                         }
                         occupied->cell = candidate[index].cell;
                     }
                     candidate[index].cell = cell;
                     candidate[index].facing = direction;
+                    candidate[index].facing_known = true;
                     const auto value = score(candidate);
                     if (value < next_score) {
                         if (available_input_steps) {
                             int changed = 0;
                             for (size_t member = 0; member < units.size(); ++member) {
-                                changed += units[member].cell != candidate[member].cell ||
-                                           units[member].facing != candidate[member].facing;
+                                changed +=
+                                    units[member].cell != candidate[member].cell ||
+                                    (candidate[member].facing_known &&
+                                     (!units[member].facing_known || units[member].facing != candidate[member].facing));
                             }
                             if (changed > *available_input_steps) {
                                 continue;
@@ -659,6 +664,7 @@ asst::spa::DeploymentSequence asst::spa::sequence_deployment(
     std::vector<BoardCell> start;
     std::vector<BoardCell> goal;
     std::vector<char> facings;
+    std::vector<bool> target_facings_known;
     const auto accepts = [&](size_t index, BoardCell cell) {
         const auto& cells = current[index].placement_cells;
         return std::find(cells.begin(), cells.end(), cell) != cells.end();
@@ -672,13 +678,19 @@ asst::spa::DeploymentSequence asst::spa::sequence_deployment(
             !accepts(index, destination->cell) ||
             (std::string("ESWN").find(unit.facing) == std::string::npos && (unit.facing != '\0' || !unit.movable)) ||
             std::string("ESWN").find(destination->facing) == std::string::npos ||
-            (!unit.movable && (unit.cell != destination->cell || unit.facing != destination->facing))) {
+            (!destination->facing_known && unit.cell != destination->cell) ||
+            (!unit.movable && (unit.cell != destination->cell || unit.facing != destination->facing ||
+                               (destination->facing_known && !unit.facing_known)))) {
             return result;
         }
         start.push_back(unit.cell);
         goal.push_back(destination->cell);
         facings.push_back(destination->facing);
+        target_facings_known.push_back(destination->facing_known);
     }
+    const auto can_move = [&](size_t index) {
+        return current[index].movable && target_facings_known[index];
+    };
 
     struct Node
     {
@@ -698,7 +710,7 @@ asst::spa::DeploymentSequence asst::spa::sequence_deployment(
             break;
         }
         const auto append = [&](size_t index, BoardCell cell) {
-            if (!current[index].movable) {
+            if (!can_move(index)) {
                 return;
             }
             auto next = cells;
@@ -706,7 +718,7 @@ asst::spa::DeploymentSequence asst::spa::sequence_deployment(
             const size_t other = static_cast<size_t>(found - next.begin());
             DeploymentStep step { DeploymentStepKind::Move, current[index].id, {}, cells[index], cell, facings[index] };
             if (other < current.size()) {
-                if (other == index || !current[other].movable || !accepts(other, cells[index])) {
+                if (other == index || !can_move(other) || !accepts(other, cells[index])) {
                     return;
                 }
                 next[other] = cells[index];
@@ -759,8 +771,10 @@ asst::spa::DeploymentSequence asst::spa::sequence_deployment(
             std::find_if(result.steps.rbegin(), result.steps.rend(), [&](const DeploymentStep& step) {
                 return step.unit == current[index].id || step.displaced == current[index].id;
             });
-        const bool needs_facing = last_move != result.steps.rend() ? last_move->displaced == current[index].id
-                                                                   : current[index].facing != facings[index];
+        const bool needs_facing = target_facings_known[index] &&
+                                  (last_move != result.steps.rend()
+                                       ? last_move->displaced == current[index].id
+                                       : !current[index].facing_known || current[index].facing != facings[index]);
         if (needs_facing) {
             result.steps.push_back(
                 { DeploymentStepKind::Face, current[index].id, {}, goal[index], goal[index], facings[index] });

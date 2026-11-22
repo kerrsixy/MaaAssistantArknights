@@ -100,11 +100,11 @@ inline DeploymentPlanContinuation continue_deployment_plan(
                      std::nullopt,
                      "Cached target identities are inconsistent" };
         }
-        if (!goal->movable) {
-            // A unit whose facing was already unknown at planning time was
-            // deliberately immovable. A later observed direction must not
-            // turn the original fallback E into a new Face instruction.
+        if (!goal->movable || !goal->facing_known) {
+            // An unchanged unit has no facing action in this plan. A new
+            // observation must not turn its fallback direction into input.
             goal->facing = unit.facing;
+            goal->facing_known = false;
             continue;
         }
         if (directions_known.contains(unit.id)) {
@@ -120,6 +120,7 @@ inline DeploymentPlanContinuation continue_deployment_plan(
         // facing. Its last verified swap accounts for its current cell. Keep
         // the observed facing unknown until the verified Move or Face commits.
         unit.facing = '\0';
+        unit.facing_known = false;
         unit.movable = true;
         unit.placement_cells = goal->placement_cells;
     }

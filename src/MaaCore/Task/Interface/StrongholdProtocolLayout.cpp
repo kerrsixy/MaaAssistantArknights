@@ -351,6 +351,9 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     }
     const int available_input_steps = layout_action_budget - m_dynamic_layout_attempts[round];
     const auto map_context = m_spatial_map_id + (boss_round ? "#boss" : "#normal");
+    const auto boss_target = boss_opening_target(round);
+    const auto& boss_cells = boss_target.cells;
+    const auto& movement_waypoints = boss_target.movement_waypoints;
     const auto rejected_vacant_drop = [&](const spa::DeploymentUnit& unit, const spa::BoardCell& cell) {
         if (unit.cell == cell || m_failed_spatial_actions.empty() ||
             std::any_of(members.begin(), members.end(), [&](const auto& member) {
@@ -375,7 +378,10 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         auto unit = describe_deployed_unit(member, range == ranges.end() ? empty_range : range->second, boss_round);
         const bool healer_already_adjusted = !boss_round && member.role == spa::PlacementRole::Healer &&
                                              m_spatial_orientation_attempts.contains({ round, member.name });
-        unit.movable = m_auto_deploy_positions.count(member.name) == 1 && member.facing && !healer_already_adjusted;
+        const bool can_plan_boss_facing = boss_round && (!boss_cells.empty() || !movement_waypoints.empty()) &&
+                                          unit.range_known && (unit.damage_output || unit.healer);
+        unit.movable = m_auto_deploy_positions.count(member.name) == 1 && (member.facing || can_plan_boss_facing) &&
+                       !healer_already_adjusted;
         names[unit.id] = member.name;
         roles[unit.id] = member.role;
         if (member.facing) {
@@ -397,9 +403,6 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     m_deployable_cells = terrain->buildable;
     m_dynamic_layout_observed = true;
     const auto boss_mobility = spa::boss_family_mobility(m_advertised_boss_family, m_spatial_boss_hidden_variant);
-    const auto boss_target = boss_opening_target(round);
-    const auto& boss_cells = boss_target.cells;
-    const auto& movement_waypoints = boss_target.movement_waypoints;
     std::string boss_context;
     for (const auto& [col, row] : boss_cells) {
         boss_context += "#boss-cell:" + std::to_string(col) + "." + std::to_string(row);
@@ -435,8 +438,8 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
                 json::object { { "name", unit.id },
                                { "col", unit.cell.first },
                                { "row", unit.cell.second },
-                               { "direction", unit.movable ? std::string(1, unit.facing) : "" },
-                               { "direction_planned", unit.movable } });
+                               { "direction", unit.movable && unit.facing_known ? std::string(1, unit.facing) : "" },
+                               { "direction_planned", unit.movable && unit.facing_known } });
         }
         return result;
     };
@@ -558,7 +561,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
                   unit.cell.second,
                   roles.at(unit.id),
                   names.at(unit.id),
-                  directions_known.contains(unit.id) ? unit.facing : '\0' });
+                  unit.facing_known ? unit.facing : '\0' });
         }
         return grid;
     };
@@ -617,7 +620,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
             engagement += spa::engagement_position_value(
                 roles.at(unit.id),
                 unit.cell,
-                directions_known.contains(unit.id) ? unit.facing : '\0',
+                unit.facing_known ? unit.facing : '\0',
                 unit.local_range,
                 terrain->lanes);
             const auto& name = names.at(unit.id);
@@ -994,9 +997,8 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
             layout_step = egir_layout_step(members, ranges, round, egir_harmony_active);
         }
         else if (!m_layout_supplied && m_dynamic_layout_attempts[round] < layout_action_budget) {
-            // Unknown direction is an observation gap, not an instruction to
-            // turn east. New generic plans keep that unit immovable; a cached
-            // target can explicitly restore its previously planned facing.
+            // The boss planner can explicitly choose a new facing for a
+            // verified body. Ordinary waves require prior facing evidence.
             // Egir has its own chain-facing intent above.
             layout_step = dynamic_layout_step(members, ranges, formation.active_pacts, round);
         }
