@@ -5,6 +5,7 @@
 #include "SPANumberOcr.h"
 #include "SPAObservation.h"
 #include "SPAPlanner.h"
+#include "SPAPreparationPolicy.h"
 #include "SPAProjection.h"
 
 #include <algorithm>
@@ -163,6 +164,7 @@ bool asst::spa::RoundTaskPlugin::_run()
     m_latest_primary_layers.reset();
     m_latest_primary_layer_sample_enemies.reset();
     m_latest_pact_layer_snapshot.clear();
+    m_observed_teammate_core_pacts.clear();
     m_session_interrupted = false;
     m_next_round = -1;
     if (m_round < 1) {
@@ -433,6 +435,10 @@ bool asst::spa::RoundTaskPlugin::_run()
                         }
                         if (teammate) {
                             info["details"]["joint_teammate_pact_layers"] = std::move(values);
+                            if (const auto core = auxiliary ? std::nullopt : leading_core_pact(layers)) {
+                                m_observed_teammate_core_pacts[*teammate] = *core;
+                                info["details"]["joint_teammate_leading_observed_core_pact"] = *core;
+                            }
                         }
                         else if (!other_board) {
                             m_latest_pact_layer_snapshot = layers;

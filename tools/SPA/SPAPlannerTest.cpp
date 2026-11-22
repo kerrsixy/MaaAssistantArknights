@@ -4366,6 +4366,25 @@ int main()
         assert(signal.score == before->score - signal.inferred_contention * 6);
         assert(signal.inferred_contention == 25);
     }
+    assert(leading_core_pact({ { "阿戈尔", 35 }, { "维多利亚", 20 }, { "迅捷", 99 } }) == "阿戈尔");
+    assert(!leading_core_pact({ { "阿戈尔", 20 }, { "维多利亚", 20 } }));
+    assert(!leading_core_pact({ { "阿戈尔", 0 }, { "迅捷", 99 }, { "维多利亚", 1000 } }));
+    competition_policy.round = 6;
+    competition_policy.observed_teammate_core_pacts = {
+        { "current#1234", { "阿戈尔", 5 } },
+        { "recent#1234", { "阿戈尔", 4 } },
+        { "stale#1234", { "阿戈尔", 3 } },
+        { "future#1234", { "维多利亚", 8 } },
+    };
+    const auto with_observations = choose_dynamic_primary_pact(competition_policy, faction_shop, catalog);
+    assert(with_observations.valid && with_observations.ranking.size() == no_competition.ranking.size());
+    const auto observed_route = std::ranges::find(with_observations.ranking, "阿戈尔", &DynamicPactSignal::pact);
+    const auto uncontrolled_route = std::ranges::find(no_competition.ranking, "阿戈尔", &DynamicPactSignal::pact);
+    assert(observed_route != with_observations.ranking.end() && uncontrolled_route != no_competition.ranking.end());
+    assert(observed_route->observed_competing_teammates == 2);
+    assert(observed_route->score == uncontrolled_route->score - 800);
+    const auto other_route = std::ranges::find(with_observations.ranking, "维多利亚", &DynamicPactSignal::pact);
+    assert(other_route != with_observations.ranking.end() && other_route->observed_competing_teammates == 0);
     // One already-owned transition card must not pin the route when a live
     // shop offer contains another faction's named stacker/output hand.
     auto transition_pivot_policy = dynamic_policy;

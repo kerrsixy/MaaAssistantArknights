@@ -38,6 +38,10 @@ public:
 
     const std::map<std::string, int>& latest_pact_layer_snapshot() const { return m_latest_pact_layer_snapshot; }
 
+    const std::map<std::string, std::string>& observed_teammate_core_pacts() const
+    {
+        return m_observed_teammate_core_pacts;
+    }
     bool battle_seen() const { return m_battle_seen; }
 
     bool result_seen() const { return m_result_seen; }
@@ -60,6 +64,7 @@ private:
     std::optional<int> m_latest_primary_layers;
     std::optional<int> m_latest_primary_layer_sample_enemies;
     std::map<std::string, int> m_latest_pact_layer_snapshot;
+    std::map<std::string, std::string> m_observed_teammate_core_pacts;
     bool m_battle_seen = false;
     bool m_result_seen = false;
     json::object m_last_result;

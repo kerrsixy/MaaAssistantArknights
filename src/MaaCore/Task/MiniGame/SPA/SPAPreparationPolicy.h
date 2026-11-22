@@ -54,6 +54,14 @@ int early_recruit_score(
     bool can_attack_air,
     bool has_anti_air_recruit);
 
+struct ObservedTeammateCorePact
+{
+    std::string pact;
+    int round = 0;
+};
+
+std::optional<std::string> leading_core_pact(const std::map<std::string, int>& layers);
+
 struct PreparationPolicy
 {
     std::string primary_pact;
@@ -62,6 +70,7 @@ struct PreparationPolicy
     std::string selected_strategy_id;
     // Joint-only, exact occupied-card observations. Route pressure is inferred.
     std::vector<std::string> occupied_strategy_ids;
+    std::map<std::string, ObservedTeammateCorePact> observed_teammate_core_pacts;
     // When true, primary_pact is a live preference rather than an opening
     // promise.  The preparation controller may pivot to another enabled
     // faction after observing the current shop and roster.
@@ -195,6 +204,7 @@ struct DynamicPactSignal
     int output_offers = 0;
     int score = 0;
     int inferred_contention = 0;
+    int observed_competing_teammates = 0;
     // Diagnostics used by the controller and live audit.  A route can have
     // a promising role card without being activation-ready yet; that is why
     // these are kept separate instead of collapsing everything into `viable`.

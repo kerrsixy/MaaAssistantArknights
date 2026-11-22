@@ -1,5 +1,6 @@
 #include "SPAPreparationPolicy.h"
 #include "SPAEconomyPolicy.h"
+#include "SPAFormation.h"
 #include "SPAGrowth.h"
 #include "SPAGuideRoutes.h"
 #include "SPAOperatorCatalogue.h"
@@ -9,6 +10,26 @@
 #include <algorithm>
 #include <cmath>
 #include <tuple>
+
+std::optional<std::string> asst::spa::leading_core_pact(const std::map<std::string, int>& layers)
+{
+    std::optional<std::string> leading;
+    int highest = 0;
+    for (const auto& requirement : pact_requirements()) {
+        const auto count = layers.find(requirement.name);
+        if (!requirement.core || count == layers.end() || count->second <= 0 || count->second > 999) {
+            continue;
+        }
+        if (count->second > highest) {
+            highest = count->second;
+            leading = requirement.name;
+        }
+        else if (count->second == highest) {
+            leading.reset();
+        }
+    }
+    return leading;
+}
 
 int asst::spa::early_recruit_score(
     PlacementRole role,
@@ -265,8 +286,6 @@ bool asst::spa::reconcile_promotion_reward(
     return true;
 }
 
-#include "SPAFormation.h"
-#include "SPAGrowth.h"
 #include "SPARouteProfile.h"
 #include <map>
 #include <set>
@@ -839,9 +858,15 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
         signal.score -= dual_role_owned * 300 + dual_role_offers * 900;
         signal.inferred_contention =
             inferred_route_contention(signal.pact, policy.occupied_strategy_ids, policy.disabled_pacts);
-        // A soft preference keeps every legal fallback available and preserves
-        // the investment/budget checks below for an already developed faction.
-        signal.score -= signal.inferred_contention * 6;
+        signal.observed_competing_teammates =
+            static_cast<int>(std::ranges::count_if(policy.observed_teammate_core_pacts, [&](const auto& entry) {
+                const auto& observed = entry.second;
+                const auto age = policy.round - observed.round;
+                return observed.pact == signal.pact && age >= 1 && age <= 2;
+            }));
+        // Use the larger penalty so a teammate's observed lineup and opening
+        // strategy cannot count as two separate sources of pool pressure.
+        signal.score -= std::max(signal.inferred_contention * 6, signal.observed_competing_teammates * 400);
         // A faction can be worth keeping before its named engine/carry is
         // visible when the observed distinct-member density already reaches
         // the activation threshold.  This is the important distinction

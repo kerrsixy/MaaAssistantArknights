@@ -5226,6 +5226,15 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             m_joint_emote_probe = m_joint_emote_probe && !round.joint_emote_probe_attempted();
             m_lifecycle_battle_seen = m_lifecycle_battle_seen || round.battle_seen();
             const int fought_round = state.get("round", -1);
+            if (m_mode == "joint" && fought_round > 0 && round.next_round() == fought_round + 1) {
+                auto& observed = m_policy.observed_teammate_core_pacts;
+                std::erase_if(observed, [fought_round](const auto& item) {
+                    return fought_round - item.second.round >= 2;
+                });
+                for (const auto& [identity, pact] : round.observed_teammate_core_pacts()) {
+                    observed[identity] = { pact, fought_round };
+                }
+            }
             if (round_ok && round.battle_seen()) {
                 m_last_observed_automated_battle_round = fought_round;
             }
@@ -5672,6 +5681,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                        { "output_offers", signal.output_offers },
                                        { "score", signal.score },
                                        { "inferred_contention", signal.inferred_contention },
+                                       { "observed_competing_teammates", signal.observed_competing_teammates },
                                        { "activation_ready", signal.activation_ready },
                                        { "funded_growth_package_cost",
                                          signal.funded_growth_package_cost
