@@ -146,6 +146,7 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
     m_equipment_reference.release();
     m_displaced_name.clear();
     m_strategy_only = options.get("strategy_only", false);
+    m_strategy_target_on_field = options.get("strategy_target_on_field", false);
     m_strategy_copy_contact_attempted = false;
     m_layers_before = options.get("layers_before", -1);
     m_target_elite = options.get("target_elite", false);
@@ -462,8 +463,8 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
                    true,
                    true,
                    m_target_elite,
-                   m_target.y >= 140 && m_target.y < 420,
-                   deployment_source_is_bench(m_target.x, m_target.y)) &&
+                   m_strategy_target_on_field ? in_field(m_target) : m_target.y >= 140 && m_target.y < 420,
+                   !m_strategy_target_on_field && deployment_source_is_bench(m_target.x, m_target.y)) &&
                in_field(m_target) && in_field(m_drag_target) && m_source.x >= 1190 && m_source.x < 1270 &&
                m_source.y >= 200 && m_source.y < 280 && m_round >= 1 && m_round <= 20 && m_remaining >= 0 &&
                m_remaining <= 8 && !m_face_only && !m_move_only && !m_deploy_only && !m_sell_only && !m_inspect_only &&
@@ -3970,8 +3971,19 @@ bool asst::spa::SwapTaskPlugin::_run()
         return held_drag();
     }
     if (m_strategy_only && m_replaced == "全场聚焦") {
-        if (!restore_preparation() || !active_strategy_ready(ctrler()->get_image()) ||
-            !selected_identity(m_target, m_name) || !close_selection()) {
+        cv::Mat board;
+        if (m_strategy_target_on_field ? !capture_collapsed_preparation(board) : !restore_preparation()) {
+            return false;
+        }
+        if (!active_strategy_ready(board.empty() ? ctrler()->get_image() : board)) {
+            return false;
+        }
+        cv::Mat target_panel;
+        const bool identity_verified = m_strategy_target_on_field
+                                           ? selected_field_identity(m_target, m_name, target_panel)
+                                           : selected_identity(m_target, m_name, &target_panel);
+        const auto card = identity_verified ? selected_operator_card(target_panel, m_name) : std::nullopt;
+        if (!close_selection() || !card || card->elite) {
             return false;
         }
         const Point view(1155, 235);
@@ -3987,10 +3999,12 @@ bool asst::spa::SwapTaskPlugin::_run()
                 }
             }
         }
-        if (description.find("全场聚焦") == std::string::npos || description.find("大嘴莫布") == std::string::npos ||
+        if (!ctrler()->click(view) || !sleep(500) ||
+            description.find("全场聚焦") == std::string::npos || description.find("大嘴莫布") == std::string::npos ||
             description.find("精锐干员") == std::string::npos ||
-            description.find("持续至战斗结束") == std::string::npos || !ctrler()->click(view) || !sleep(500) ||
-            !restore_preparation() || !held_drag()) {
+            description.find("持续至战斗结束") == std::string::npos ||
+            (m_strategy_target_on_field ? !capture_collapsed_preparation(board) : !restore_preparation()) ||
+            !active_strategy_ready(board.empty() ? ctrler()->get_image() : board) || !held_drag()) {
             return false;
         }
         auto issued = basic_info_with_what("SPAActiveStrategyInputIssued");

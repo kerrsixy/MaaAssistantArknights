@@ -380,6 +380,7 @@ private:
     bool m_sell_only = false;
     bool m_sale_committed = false;
     bool m_strategy_only = false;
+    bool m_strategy_target_on_field = false;
     bool m_strategy_copy_contact_attempted = false;
     int m_layers_before = -1;
     bool m_target_elite = false;

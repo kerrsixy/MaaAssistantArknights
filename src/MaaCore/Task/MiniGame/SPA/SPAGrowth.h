@@ -79,6 +79,9 @@ struct GrowthProfile
 const std::map<std::string, GrowthProfile>& growth_profiles();
 bool is_primary_growth_engine(const std::string& name, const std::string& pact);
 bool is_redeployment_growth_engine(const std::string& name, const std::vector<std::string>& active_pacts, bool elite);
+// Extra printed gain per qualifying battle trigger while temporarily elite.
+// Preparation triggers and unconfirmed battle-end order are excluded.
+int temporary_elite_battle_growth(const std::string& name, const std::string& active_pact);
 
 // A tactical preference only. The actual trigger, active pact and board
 // adjacency must still be checked by the caller; this does not project layers.

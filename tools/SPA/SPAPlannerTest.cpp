@@ -3278,6 +3278,11 @@ int main()
     assert(parse_shop_level("Ⅴ") == 5);
     assert(parse_shop_level("6") == 6);
     assert(!parse_shop_level("0") && !parse_shop_level("7") && !parse_shop_level("LEVEL") && !parse_shop_level("I川"));
+    assert(temporary_elite_battle_growth("伺夜", "叙拉古") == 2);
+    assert(temporary_elite_battle_growth("伺夜", "精准") == 2);
+    assert(temporary_elite_battle_growth("伺夜", "维多利亚") == 0);
+    assert(temporary_elite_battle_growth("复奏", "叙拉古") == 0);
+    assert(temporary_elite_battle_growth("未记录", "叙拉古") == 0);
     assert(can_queue_temporary_elite(1, true, true, false, true, false));
     assert(can_queue_temporary_elite(1, true, true, false, false, true));
     assert(!can_queue_temporary_elite(0, true, true, false, true, false));

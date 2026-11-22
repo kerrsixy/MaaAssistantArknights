@@ -3,6 +3,25 @@
 #include <algorithm>
 #include <set>
 
+int asst::spa::temporary_elite_battle_growth(const std::string& name, const std::string& active_pact)
+{
+    const auto& profiles = growth_profiles();
+    const auto found = profiles.find(name);
+    if (found == profiles.end() || active_pact.empty()) {
+        return 0;
+    }
+    const auto& profile = found->second;
+    if (profile.dynamic_recipients ||
+        (profile.kind != GrowthKind::FixedPhase && profile.kind != GrowthKind::CappedConditional) ||
+        (profile.phase != GrowthPhase::BattleStart && profile.phase != GrowthPhase::BattleEvent) ||
+        std::find(profile.pacts.begin(), profile.pacts.end(), active_pact) == profile.pacts.end()) {
+        return 0;
+    }
+    const auto formula = profile.pact_formulas.find(active_pact);
+    return std::max(0, formula == profile.pact_formulas.end() ? profile.elite_gain - profile.normal_gain
+                                                             : formula->second.elite_gain - formula->second.normal_gain);
+}
+
 bool asst::spa::is_redeployment_growth_engine(
     const std::string& name,
     const std::vector<std::string>& active_pacts,

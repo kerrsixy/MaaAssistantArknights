@@ -2891,13 +2891,30 @@ bool asst::StrongholdProtocolTask::handle_temporary_elite_instruction(const json
         (m_mode == "joint" && state.get("preparation_seconds_remaining", 0) < 25)) {
         return false;
     }
+    std::string growth_pact;
+    if (round < m_expected_boss_round) {
+        std::vector<spa::RosterUnit> roster;
+        for (const auto& [name, unit] : m_policy.owned) {
+            roster.push_back({ name, unit.deployed, field_added_pacts(name), unit.elite });
+        }
+        const auto formation = spa::evaluate_formation(
+            roster,
+            spa::operator_pacts(),
+            spa::pact_requirements(),
+            spa::enabled_formation_pacts(m_enabled_core_pacts, m_policy.disabled_pacts));
+        if (formation.complete &&
+            std::ranges::find(formation.active_pacts, m_policy.primary_pact) != formation.active_pacts.end()) {
+            growth_pact = m_policy.primary_pact;
+        }
+    }
     std::string target;
     std::pair<int, int> cell;
-    int best_value = 0;
+    std::pair<int, int> best_value;
     for (const auto& [name, point] : m_auto_deploy_positions) {
         const auto owned = m_policy.owned.find(name);
-        if (owned == m_policy.owned.end() || owned->second.elite || m_auto_deploy_positions.count(name) != 1 ||
-            !m_verified_field_pose_points.contains(point) || point.second >= 420) {
+        if (owned == m_policy.owned.end() || !owned->second.deployed || owned->second.elite ||
+            m_auto_deploy_positions.count(name) != 1 || !m_verified_field_pose_points.contains(point) ||
+            point.first < 180 || point.first >= 1000 || point.second < 140 || point.second >= 510) {
             continue;
         }
         const auto initial = spa::season_combat_stats(name, false);
@@ -2906,7 +2923,8 @@ bool asst::StrongholdProtocolTask::handle_temporary_elite_instruction(const json
             continue;
         }
         const bool carry = std::find(m_policy.carries.begin(), m_policy.carries.end(), name) != m_policy.carries.end();
-        const int value = (carry ? 1500 : 0) + elite->attack - initial->attack + (elite->max_hp - initial->max_hp) / 5;
+        const int combat_value = (carry ? 1500 : 0) + elite->attack - initial->attack + (elite->max_hp - initial->max_hp) / 5;
+        const std::pair value { spa::temporary_elite_battle_growth(name, growth_pact), combat_value };
         if (value > best_value) {
             target = name;
             cell = point;
@@ -2917,6 +2935,13 @@ bool asst::StrongholdProtocolTask::handle_temporary_elite_instruction(const json
         return false;
     }
     m_preparation_instruction_attempts.insert(round);
+    auto decision = basic_info_with_what("SPATemporaryEliteTargetSelected");
+    decision["details"] = json::object { { "round", round },
+                                         { "target", target },
+                                         { "active_primary_pact", growth_pact },
+                                         { "extra_layers_per_qualifying_trigger", best_value.first },
+                                         { "effect_verified", false } };
+    callback(AsstMsg::SubTaskExtraInfo, decision);
     spa::SwapTaskPlugin instruction(m_callback, m_inst, TaskType);
     instruction.set_retry_times(0);
     instruction.set_task_id(m_task_id);
@@ -2925,6 +2950,7 @@ bool asst::StrongholdProtocolTask::handle_temporary_elite_instruction(const json
             json::object { { "name", target },
                            { "replaced", "全场聚焦" },
                            { "strategy_only", true },
+                           { "strategy_target_on_field", true },
                            { "source_x", 1230 },
                            { "source_y", 235 },
                            { "target_x", cell.first },
