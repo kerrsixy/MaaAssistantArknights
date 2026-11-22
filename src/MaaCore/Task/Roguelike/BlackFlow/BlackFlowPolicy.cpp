@@ -492,6 +492,19 @@ bool ResourceRegistry::contains(std::string_view id) const noexcept
     return m_readers.contains(std::string(id));
 }
 
+bool ResourceRegistry::is_movement_resource(std::string_view id) const noexcept
+{
+    return m_movement_groups.contains(std::string(id)) ||
+           std::ranges::any_of(movement_specs(), [id](const MovementSpec& spec) {
+               return spec.kind != MovementKind::Walk && spec.id == id;
+           });
+}
+
+std::string ResourceRegistry::route_resource_fact_key(std::string_view id)
+{
+    return "route.resource_after." + std::string(id);
+}
+
 std::optional<std::int64_t> ResourceRegistry::read(std::string_view id, const RunState& state) const
 {
     const auto found = m_readers.find(std::string(id));
@@ -710,7 +723,16 @@ PolicyDecision PolicyExecutor::choose(
                 kept.emplace_back(candidate);
                 continue;
             }
-            const auto after = resources.read_after(reserve.resource, run, candidate->move);
+            // Planned rewards and movement reserves must describe the same
+            // complete route. An immediate walk may still spend the reserved
+            // item later; that is not a preservation advantage.
+            const auto* route_value =
+                resources.is_movement_resource(reserve.resource)
+                    ? candidate->facts.find(ResourceRegistry::route_resource_fact_key(reserve.resource))
+                    : nullptr;
+            const auto* route_after = route_value == nullptr ? nullptr : std::get_if<std::int64_t>(route_value);
+            const auto after = route_after == nullptr ? resources.read_after(reserve.resource, run, candidate->move)
+                                                      : std::optional<std::int64_t>(*route_after);
             if (!after.has_value() || *after < reserve.minimum) {
                 dropped.emplace_back(candidate);
             }
@@ -1097,7 +1119,4 @@ std::optional<std::reference_wrapper<const ShoppingRule>>
 }
 
 } // namespace asst::blackflow
-
-
-
 

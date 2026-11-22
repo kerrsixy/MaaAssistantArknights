@@ -421,6 +421,8 @@ public:
     // 因此读数与扣减用的是同一份定义。
     bool register_movement_group(std::string id, const std::function<bool(const MovementSpec&)>& member);
     [[nodiscard]] bool contains(std::string_view id) const noexcept;
+    [[nodiscard]] bool is_movement_resource(std::string_view id) const noexcept;
+    [[nodiscard]] static std::string route_resource_fact_key(std::string_view id);
     [[nodiscard]] std::optional<std::int64_t> read(std::string_view id, const RunState& state) const;
     [[nodiscard]] std::optional<std::int64_t>
         read_after(std::string_view id, const RunState& state, const MoveCandidate& candidate) const;

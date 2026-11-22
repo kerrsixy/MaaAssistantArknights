@@ -2056,6 +2056,7 @@ BlackFlowPlan BlackFlowPlanner::plan_impl(const BlackFlowPlanRequest& request) c
         const int rhs_processing = rhs->candidate.movement == MovementKind::Walk ? 0 : 1;
         return lhs_processing < rhs_processing;
     });
+    ResourceRegistry resources;
     for (const OnDemandSafetyAction* action_pointer : ordered_root_actions) {
         const OnDemandSafetyAction& action = *action_pointer;
         PolicyCandidate candidate;
@@ -2127,6 +2128,8 @@ BlackFlowPlan BlackFlowPlanner::plan_impl(const BlackFlowPlanRequest& request) c
         std::vector<int> guaranteed_progress;
         RouteMetric worst_metric;
         int worst_intermediate_interactions = 0;
+        std::unordered_map<std::string, std::int64_t> route_resources_after;
+        bool complete_route_resources = true;
         for (const OnDemandSafetyOutcome& outcome : action.outcomes) {
             const int remaining =
                 action_points_after(current_action_points, action.action_point_cost, outcome.action_point_gain);
@@ -2149,6 +2152,32 @@ BlackFlowPlan BlackFlowPlanner::plan_impl(const BlackFlowPlanRequest& request) c
                 result.error =
                     "candidate route calculation failed: " + (!error.empty() ? error : relaxed_oracle.error());
                 return result;
+            }
+            const bool complete = relaxed_graph.is_terminal(route.state);
+            complete_route_resources = complete_route_resources && complete;
+            if (complete) {
+                RunState terminal_run = *request.run;
+                terminal_run.current_node = relaxed_graph.state(route.state).node;
+                terminal_run.resources.action_points = route.action_points;
+                terminal_run.resources.movement_charges.clear();
+                for (const auto& spec : movement_specs()) {
+                    if (spec.kind != MovementKind::Walk) {
+                        terminal_run.resources.movement_charges.emplace(
+                            spec.kind,
+                            relaxed_graph.state(route.state).movement_charges[static_cast<std::size_t>(spec.kind)]);
+                    }
+                }
+                for (const auto& reserve : request.policy->reserves) {
+                    if (!resources.is_movement_resource(reserve.resource)) {
+                        continue;
+                    }
+                    if (const auto value = resources.read(reserve.resource, terminal_run)) {
+                        auto [position, inserted] = route_resources_after.emplace(reserve.resource, *value);
+                        if (!inserted) {
+                            position->second = std::min(position->second, *value);
+                        }
+                    }
+                }
             }
             worst_intermediate_interactions =
                 std::max(worst_intermediate_interactions, route.intermediate_interactions);
@@ -2201,6 +2230,12 @@ BlackFlowPlan BlackFlowPlanner::plan_impl(const BlackFlowPlanRequest& request) c
         candidate.processing_move_count = worst_metric.processing_moves;
         candidate.persistent_processing_move_count = worst_metric.persistent_processing_moves;
         candidate.estimated_duration = worst_metric.duration;
+        candidate.facts.set("route.resources.complete", complete_route_resources);
+        if (complete_route_resources) {
+            for (const auto& [resource, value] : route_resources_after) {
+                candidate.facts.set(ResourceRegistry::route_resource_fact_key(resource), value);
+            }
+        }
         candidate.development_score = 0;
         policy_candidates.emplace_back(std::move(candidate));
     }
@@ -2236,7 +2271,6 @@ BlackFlowPlan BlackFlowPlanner::plan_impl(const BlackFlowPlanRequest& request) c
         "floor_development_exhausted",
         boolean_fact(*request.facts, "floor_development_exhausted") || !has_safe_non_exit);
 
-    ResourceRegistry resources;
     PolicyExecutor executor;
     if (request.probe_target.has_value()) {
         std::vector<PolicyCandidate> probe_candidates;
