@@ -3258,15 +3258,30 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
             return cancel_held();
         }
     }
-    const auto map = ctrler()->get_image();
+    auto map = ctrler()->get_image();
     save_evidence(clean, utils::path("debug/SPA/reorientation_clean_map"), false);
-    OCRer identity(map, Rect(0, 160, 340, 65));
-    const auto names = identity.analyze();
-    save_evidence(map, utils::path("debug/SPA/reorientation_held_map"), false);
-    if (!names || !std::any_of(names->begin(), names->end(), [&](const auto& item) {
-            return item.score >= .90 && item.rect.x < 40 && item.text == m_name;
-        })) {
-        return cancel_held();
+    for (int frame = 0;; ++frame) {
+        OCRer identity(map, Rect(0, 160, 340, 65));
+        std::vector<TextObservation> titles;
+        if (const auto names = identity.analyze()) {
+            for (const auto& name : *names) {
+                titles.push_back({ name.text, name.score, name.rect.x, name.rect.y });
+            }
+        }
+        save_evidence(map, utils::path("debug/SPA/reorientation_held_map"), false);
+        if (operator_panel_identity(titles, { m_name }) == m_name ||
+            reread_single_operator_title(map, titles, m_name)) {
+            break;
+        }
+        // The translucent held title can settle after the registered field
+        // card was picked up. Recheck one frame while keeping the same hold.
+        if (frame != 0 || !bench_replacement_title_needs_settle(titles, m_name) || !sleep(120)) {
+            return cancel_held();
+        }
+        auto retry = basic_info_with_what("SPASpatialHeldTitleResampled");
+        retry["details"] = json::object { { "round", m_round }, { "name", m_name }, { "new_input_issued", false } };
+        callback(AsstMsg::SubTaskExtraInfo, retry);
+        map = ctrler()->get_image();
     }
     auto held_points = registered_field_points(clean, map, *clean_points, FieldView::Held);
     if (!held_points && !m_registered_grid_reference.empty() && !m_registered_grid_projection.empty()) {

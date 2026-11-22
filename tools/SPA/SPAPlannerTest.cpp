@@ -1000,6 +1000,12 @@ int main()
                                                               { "X", .919717, 63, 218 },
                                                               { "LV1", .931393, 93, 216 } };
     assert(bench_replacement_title_needs_settle(settling_bench_title, "至简"));
+    // Actual D4 R4 held field title. The first read warrants resampling
+    // the held panel but does not authorize a swap by itself.
+    const std::vector<TextObservation> settling_held_bison { { "拜松", .881764, 13, 183 } };
+    assert(!operator_panel_identity(settling_held_bison, { "拜松" }));
+    assert(bench_replacement_title_needs_settle(settling_held_bison, "拜松"));
+    assert(!bench_replacement_title_needs_settle(settling_held_bison, "深靛"));
     assert(!bench_replacement_title_needs_settle(settling_bench_title, "折桠"));
     assert(!bench_replacement_title_needs_settle({ { "至简", .821679, 13, 700 } }, "至简"));
     assert(!operator_panel_identity(settling_bench_title, { "至简" }));
