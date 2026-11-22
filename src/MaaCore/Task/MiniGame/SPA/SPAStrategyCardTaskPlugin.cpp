@@ -468,6 +468,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
     }
     bool selected_badge_known = false;
     bool selected_completed = false;
+    bool selected_orange_only = false;
     if (selected_strategy_index < 0) {
         // Card colour is visibility evidence, not tactical value. Read each
         // inspected card's actual identity and availability before comparing
@@ -538,13 +539,16 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                     badge.set_threshold(.80);
                     return badge.analyze().has_value();
                 };
-                const bool completed = has_badge(orange_badge) || has_badge(silver_badge);
-                visible.push_back(
-                    { index, false, completed || (!orange_badge.empty() && !silver_badge.empty()), completed, 0 });
+                const bool orange = has_badge(orange_badge);
+                const bool silver = (!orange || m_prefer_unclaimed) && has_badge(silver_badge);
+                const bool completed = orange || silver;
+                const bool templates_known = !orange_badge.empty() && !silver_badge.empty();
+                visible.push_back({ index, false, completed || templates_known, completed, 0,
+                                    templates_known && orange && !silver && m_prefer_unclaimed });
             }
             std::stable_sort(visible.begin(), visible.end(), [&](const auto& a, const auto& b) {
-                return std::pair(a.index == initially_selected, m_prefer_unclaimed && a.badge_known && !a.completed) >
-                       std::pair(b.index == initially_selected, m_prefer_unclaimed && b.badge_known && !b.completed);
+                return std::pair(a.index == initially_selected, m_prefer_unclaimed ? a.badge_priority() : 0) >
+                       std::pair(b.index == initially_selected, m_prefer_unclaimed ? b.badge_priority() : 0);
             });
             // Reserve an inspection budget per viewport so a slow first page does not consume the entire search.
             const auto page_deadline = std::min(deadline, std::chrono::steady_clock::now() + std::chrono::seconds(7));
@@ -616,8 +620,9 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                                    { "support_score", candidate.support_score },
                                    { "reason", assessment.reason } });
             }
-            const bool selectable_in_view = std::ranges::any_of(candidates, [](const auto& card) {
-                return card.available;
+            const bool selectable_in_view = std::ranges::any_of(candidates, [&](const auto& card) {
+                return card.available &&
+                       (!m_prefer_unclaimed || (card.badge_known && !card.completed));
             });
             if (page == 3 || (joint_mode && selectable_in_view) ||
                 std::chrono::steady_clock::now() + std::chrono::seconds(5) >= deadline) {
@@ -673,6 +678,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         selected_card = slot_at(selected_strategy_index, rows, details_open);
         selected_badge_known = selected.badge_known;
         selected_completed = selected.completed;
+        selected_orange_only = selected.orange_only;
         auto preference = basic_info_with_what("SPAStrategyCardPriority");
         preference["details"] =
             json::object { { "prefer_unclaimed_strategy", m_prefer_unclaimed },
@@ -680,6 +686,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                            { "badge_known", selected_badge_known },
                            { "completed", selected_completed },
                            { "unclaimed_priority", m_prefer_unclaimed && selected_badge_known && !selected_completed },
+                           { "silver_progress_candidate", selected_orange_only },
                            { "selection_basis", "verified_identity_effects_and_pact_bans" },
                            { "inspected_cards", inspected_strategy_cards },
                            { "inspection_ms",
@@ -819,7 +826,8 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                                      { "auto_selected", m_auto_selected },
                                      { "prefer_unclaimed_strategy", m_prefer_unclaimed },
                                      { "badge_known", selected_badge_known },
-                                     { "completed", selected_completed } };
+                                     { "completed", selected_completed },
+                                     { "silver_progress_candidate", selected_orange_only } };
     if (!expected_default_identity.empty()) {
         info["details"]["selection_basis"] = "verified_identity_effects_and_pact_bans";
         info["details"]["inspected_cards"] = inspected_strategy_cards;

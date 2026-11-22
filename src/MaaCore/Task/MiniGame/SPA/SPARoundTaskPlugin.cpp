@@ -367,7 +367,7 @@ bool asst::spa::RoundTaskPlugin::_run()
                 }
                 if (m_joint_mode && battle_frame_saved) {
                     info["details"]["joint_board_scope"] =
-                        teammate ? "teammate" : auxiliary ? "auxiliary" : local_finished ? "local_finished" : "unknown";
+                        auxiliary ? "auxiliary" : teammate ? "teammate" : local_finished ? "local_finished" : "unknown";
                     if (teammate) {
                         info["details"]["joint_teammate_identity"] = *teammate;
                         info["details"]["joint_teammate_life"] = life ? json::value(*life) : json::value(nullptr);
@@ -414,9 +414,9 @@ bool asst::spa::RoundTaskPlugin::_run()
                         for (const auto& [pact, value] : layers) {
                             values[pact] = value;
                         }
-                        if (teammate) {
+                        if (teammate && !auxiliary) {
                             info["details"]["joint_teammate_pact_layers"] = std::move(values);
-                            if (const auto core = auxiliary ? std::nullopt : leading_core_pact(layers)) {
+                            if (const auto core = leading_core_pact(layers)) {
                                 m_observed_teammate_core_pacts[*teammate] = *core;
                                 info["details"]["joint_teammate_leading_observed_core_pact"] = *core;
                             }

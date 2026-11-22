@@ -2481,15 +2481,13 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
         const int refresh_opportunity_cost =
             400 + unused_slots * 450 + (can_recruit_after_paid_refresh(resolved, funds, pacts) ? 600 : 0);
         if (retention_value > refresh_opportunity_cost) {
-            return { PreparationAction::Freeze,
-                     "冻结",
-                     0,
-                     -1,
-                     "Preserve " + best_unaffordable->name + "; retention=" + std::to_string(retention_value) +
-                         ", natural-refresh cost=" + std::to_string(refresh_opportunity_cost) +
-                         ", unused slots=" + std::to_string(unused_slots),
-                     resolved.primary_pact,
-                     false };
+            return { .action = PreparationAction::Freeze,
+                     .name = "冻结",
+                     .reason = "Preserve " + best_unaffordable->name + "; retention=" + std::to_string(retention_value) +
+                               ", natural-refresh cost=" + std::to_string(refresh_opportunity_cost) +
+                               ", unused slots=" + std::to_string(unused_slots),
+                     .selected_pact = resolved.primary_pact,
+                     .freeze_target = *best_unaffordable };
         }
         result.reason = "Do not freeze " + best_unaffordable->name + "; retention=" + std::to_string(retention_value) +
                         ", natural-refresh cost=" + std::to_string(refresh_opportunity_cost) +

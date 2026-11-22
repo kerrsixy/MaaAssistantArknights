@@ -186,6 +186,7 @@ struct PreparationChoice
     bool banked_value_purchase = false;
     int growth_score = 0;
     int expected_refresh_layers = 0;
+    std::optional<ShopOffer> freeze_target;
 };
 
 struct DynamicPactSignal

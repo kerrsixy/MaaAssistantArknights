@@ -145,8 +145,8 @@ int asst::spa::choose_opening_strategy_card(const std::vector<OpeningStrategyCar
 {
     const OpeningStrategyCard* best = nullptr;
     const auto rank = [&](const OpeningStrategyCard& card) {
-        // A visible unmarked card outranks an unknown badge; unknown never means completed.
-        const int badge_rank = !prefer_unclaimed ? 0 : !card.badge_known ? 1 : card.completed ? 0 : 2;
+        // First pursue orange badges, then complete known orange cards to silver.
+        const int badge_rank = prefer_unclaimed ? card.badge_priority() : 0;
         return std::make_tuple(badge_rank, card.support_score, -card.index);
     };
     for (const auto& card : cards) {

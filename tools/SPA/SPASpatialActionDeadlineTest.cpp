@@ -91,6 +91,25 @@ int main()
     // A cached frame in a new round must clear stale digits without turning
     // an expired same-round clock into an unlimited unknown clock above.
     assert(!frame_clock.observe_frame(5, 180, std::nullopt, now + std::chrono::seconds(47)));
+    using namespace std::chrono_literals;
+    PreparationDeadline joint_round_twelve;
+    assert(joint_round_twelve.observe(12, 114, now) == 114);
+    assert(joint_round_twelve.observe(12, 110, now + 4s) == 110);
+    assert(joint_round_twelve.observe(12, 6, now + 8s) == 6);
+    assert(joint_round_twelve.shortening_requires_confirmation());
+    assert(joint_round_twelve.observe(12, 104, now + 10s) == 104);
+    assert(!joint_round_twelve.shortening_requires_confirmation());
+    assert(joint_round_twelve.observe(12, 5, now + 11s) == 5);
+    assert(joint_round_twelve.observe(12, 5, now + 11s) == 5);
+    assert(joint_round_twelve.shortening_requires_confirmation());
+    assert(joint_round_twelve.observe(12, 4, now + 12s) == 4);
+    assert(!joint_round_twelve.shortening_requires_confirmation());
+    PreparationDeadline missing_after_shortening;
+    assert(missing_after_shortening.observe(12, 110, now) == 110);
+    assert(missing_after_shortening.observe(12, 6, now + 4s) == 6);
+    assert(missing_after_shortening.shortening_requires_confirmation());
+    assert(missing_after_shortening.observe(12, std::nullopt, now + 11s) == 99);
+    assert(!missing_after_shortening.shortening_requires_confirmation());
     remaining = frame_clock.observe_frame(5, 40, now + std::chrono::seconds(48), now + std::chrono::seconds(55));
     assert(remaining == 33);
     // Floor fractional elapsed time conservatively, and reject a future

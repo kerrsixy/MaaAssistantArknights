@@ -429,7 +429,10 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
         }
         else {
             for (const auto& cell : cells) {
-                targets.push_back({ cell });
+                const char facing = owner_name == "白铁"
+                                        ? spa::white_iron_summon_facing(cell, verified_owner.facing, lanes)
+                                        : verified_owner.facing;
+                targets.push_back({ cell, facing });
             }
         }
         if (targets.empty()) {

@@ -3771,14 +3771,15 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         const auto joint_seconds = m_mode == "joint" && state.get("preparation_seconds_remaining_known", false)
                                        ? std::optional(state.get("preparation_seconds_remaining", 0))
                                        : std::nullopt;
+        const bool joint_clock_recheck = m_mode == "joint" && m_joint_preparation_deadline.shortening_requires_confirmation();
         const bool prioritize_joint_ready =
-            m_auto_run && !m_decision_only && !m_round_only && !m_stop_before_battle && !m_stop_after_deployment &&
+            !joint_clock_recheck && m_auto_run && !m_decision_only && !m_round_only && !m_stop_before_battle && !m_stop_after_deployment &&
             !m_movement_only && !m_verify_layout_identities && !m_pending_spatial_orientation &&
             !m_pending_field_replacement && !m_pending_cash_equipment && !m_pending_direct_promotion &&
             m_pending_promotion.empty() && m_pending_pact_recruitment.empty() && m_unreconciled_sale.empty() &&
             state.get("remaining_deployment_known", false) && !state.get("remaining_deployment_inferred", false) &&
             spa::joint_ready_reserves_remaining_time(joint_seconds, state.get("remaining_deployment", -1));
-        if (joint_seconds && *joint_seconds <= 8 && !prioritize_joint_ready) {
+        if (joint_clock_recheck || (joint_seconds && *joint_seconds <= 8 && !prioritize_joint_ready)) {
             // Stop new transactions, not cancellation or observation of an
             // already issued spatial transaction. Never fall through to new
             // preparation actions even when this reconciliation succeeds.
@@ -3789,10 +3790,11 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             deadline["details"] = json::object { { "round", state.get("round", -1) },
                                                  { "seconds_remaining", state.get("preparation_seconds_remaining", 0) },
                                                  { "funds", state.get("funds", -1) },
+                                                 { "clock_shortening_requires_confirmation", joint_clock_recheck },
                                                  { "new_transaction_issued", false },
                                                  { "funds_carryover_assumed", false } };
             callback(AsstMsg::SubTaskExtraInfo, deadline);
-            if (!sleep(400)) {
+            if (!joint_clock_recheck && !sleep(400)) {
                 return false;
             }
             continue;
@@ -6238,6 +6240,9 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         const int bench_before_funding = m_policy.bench_occupied;
         auto funding = purchase_reserved_after_sale ? std::nullopt
                                                     : spa::choose_funding_purchase(m_policy, funds, offers, catalog);
+        if (!funding && !purchase_reserved_after_sale) {
+            funding = spa::choose_freeze_target_funding(m_policy, funds, offers, catalog, decision);
+        }
         if (m_bench_funding_pair) {
             const auto& pair = *m_bench_funding_pair;
             if (purchase_reserved_after_sale) {
@@ -6301,24 +6306,6 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                                { "reobserve_shop_before_purchase", true } };
             callback(AsstMsg::SubTaskExtraInfo, funded);
             continue;
-        }
-        if (decision.action == spa::PreparationAction::Freeze && m_policy.primary_locked_after_activation) {
-            int deficit = 0;
-            for (const auto& offer : offers) {
-                if (offer.price <= funds) {
-                    continue;
-                }
-                // Only fund a card whose own isolated decision warrants
-                // preservation. A cheap faction filler is not a sale goal.
-                const auto isolated = spa::choose_preparation(m_policy, funds, { offer }, catalog);
-                if (isolated.action == spa::PreparationAction::Freeze) {
-                    const int shortfall = offer.price - funds;
-                    deficit = deficit == 0 ? shortfall : std::min(deficit, shortfall);
-                }
-            }
-            if (deficit > 0 && handle_full_bench_sale(state, deficit)) {
-                continue;
-            }
         }
         if (!m_policy.full_field_offer_improvements.empty()) {
             json::object improvements;
@@ -6592,6 +6579,8 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                                                                             : std::string() },
             { "is_equipment", decision.is_equipment },
             { "cost", decision.price },
+            { "freeze_target", decision.freeze_target ? decision.freeze_target->name : std::string() },
+            { "freeze_target_cost", decision.freeze_target ? decision.freeze_target->price : -1 },
             { "preparation_growth_score", decision.growth_score },
             { "expected_primary_refresh_layers", decision.expected_refresh_layers },
             { "ordinary_refreshes_this_round",

@@ -25,6 +25,8 @@ class PreparationDeadline
 public:
     using Clock = std::chrono::steady_clock;
 
+    bool shortening_requires_confirmation() const { return m_pending_shortening.has_value(); }
+
     // The number belongs to the captured frame, not to the later OCR result.
     // A missing frame timestamp denotes a cached observation: its old digits
     // cannot seed or extend a deadline, even when they were once verified.
@@ -50,19 +52,23 @@ public:
             m_deadline.reset();
             m_pending_shortening.reset();
         }
+        if (m_pending_shortening && now >= m_pending_shortening->sampled_at + std::chrono::seconds(7)) {
+            m_pending_shortening.reset();
+        }
         if (seconds && *seconds >= 0 && *seconds <= 180) {
             const auto observed = now + std::chrono::seconds(*seconds);
             // A missing leading digit (86 -> 6) must not permanently consume
             // the rest of preparation. Pause new actions provisionally, then
             // require another consistent read before shortening substantially.
             if (m_deadline && observed + std::chrono::seconds(5) < *m_deadline) {
-                if (m_pending_shortening && observed >= *m_pending_shortening - std::chrono::seconds(3) &&
-                    observed <= *m_pending_shortening + std::chrono::seconds(3)) {
-                    m_deadline = std::min(*m_pending_shortening, observed);
+                if (m_pending_shortening && now > m_pending_shortening->sampled_at &&
+                    observed >= m_pending_shortening->deadline - std::chrono::seconds(3) &&
+                    observed <= m_pending_shortening->deadline + std::chrono::seconds(3)) {
+                    m_deadline = std::min(m_pending_shortening->deadline, observed);
                     m_pending_shortening.reset();
                 }
                 else {
-                    m_pending_shortening = observed;
+                    m_pending_shortening = PendingShortening { observed, now };
                 }
             }
             else {
@@ -73,13 +79,18 @@ public:
         if (!m_deadline) {
             return std::nullopt;
         }
-        const auto effective = m_pending_shortening ? std::min(*m_deadline, *m_pending_shortening) : *m_deadline;
+        const auto effective = m_pending_shortening ? std::min(*m_deadline, m_pending_shortening->deadline) : *m_deadline;
         return std::max(0, static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(effective - now).count()));
     }
 
 private:
     int m_round = -1;
     std::optional<Clock::time_point> m_deadline;
-    std::optional<Clock::time_point> m_pending_shortening;
+    struct PendingShortening
+    {
+        Clock::time_point deadline;
+        Clock::time_point sampled_at;
+    };
+    std::optional<PendingShortening> m_pending_shortening;
 };
 }

@@ -82,6 +82,12 @@ struct OpeningStrategyCard
     bool badge_known = false;
     bool completed = false;
     double support_score = 0;
+    bool orange_only = false;
+
+    int badge_priority() const
+    {
+        return !badge_known ? 1 : !completed ? 3 : orange_only ? 2 : 0;
+    }
 };
 
 // Opening the right-hand detail panel translates the four-column grid left

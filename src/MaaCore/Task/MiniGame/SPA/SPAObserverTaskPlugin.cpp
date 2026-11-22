@@ -225,7 +225,7 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
     const bool result_text_verified = settlement_text_verified(observed);
     std::optional<int> preparation_seconds;
     if (observed.page == Page::Preparation && !observed.contradictory) {
-        preparation_seconds = preparation_countdown(texts);
+        preparation_seconds = preparation_countdown(texts, m_joint_countdown_enabled);
         if (!preparation_seconds && m_joint_countdown_enabled) {
             // Full-frame OCR sometimes drops digits from the small CRT clock.
             OCRer clock(image, Rect(1124, 18, 93, 76));
@@ -234,7 +234,9 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
                 for (const auto& item : *digits) {
                     clock_text.push_back({ item.text, item.score, item.rect.x, item.rect.y });
                 }
-                preparation_seconds = preparation_countdown(clock_text);
+                // The joint display uses leading zeroes (08, 04, 00).
+                // An isolated digit can be one part of a split two-digit read.
+                preparation_seconds = preparation_countdown(clock_text, true);
                 for (const auto& item : clock_text) {
                     raw.emplace_back(
                         json::object { { "text", item.text },

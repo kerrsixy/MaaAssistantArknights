@@ -42,7 +42,7 @@ std::optional<HiddenRoundMode> observe_hidden_round(const std::vector<TextObserv
 
 // Read only the CRT countdown digits; callers must verify the preparation
 // page. Missing/ambiguous digits are unknown, never zero remaining seconds.
-std::optional<int> preparation_countdown(const std::vector<TextObservation>& texts);
+std::optional<int> preparation_countdown(const std::vector<TextObservation>& texts, bool require_two_digits = false);
 bool verified_loading_page(const std::vector<TextObservation>& texts);
 // The scrollable pact list may hide its heading. Require fixed stage/ready
 // anchors and pact-specific content on the same frame, including split OCR.

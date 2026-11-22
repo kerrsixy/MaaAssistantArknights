@@ -130,6 +130,34 @@ inline bool unique_funding_quote(const std::vector<ShopOffer>& offers, const Sho
            std::none_of(std::next(quoted), offers.end(), same_slot);
 }
 
+// A card worth preserving may also be buyable after a sale. Evaluate that
+// exact quote at its funded price and leave the original freeze decision
+// intact when a different purchase would win.
+inline std::optional<FundingPurchase> choose_freeze_target_funding(
+    const PreparationPolicy& policy,
+    int funds,
+    const std::vector<ShopOffer>& offers,
+    const std::map<std::string, std::vector<std::string>>& pacts,
+    const PreparationChoice& decision)
+{
+    if (decision.action != PreparationAction::Freeze || !decision.freeze_target ||
+        !policy.primary_locked_after_activation || policy.bench_occupied < 0 || funds < 0) {
+        return std::nullopt;
+    }
+    const auto& quote = *decision.freeze_target;
+    if (quote.price <= funds || !unique_funding_quote(offers, quote)) {
+        return std::nullopt;
+    }
+    auto funded_policy = policy;
+    funded_policy.bench_occupied = std::min(policy.bench_occupied, 9);
+    const auto buy = choose_preparation(funded_policy, quote.price, offers, pacts);
+    if (buy.action == PreparationAction::Buy && buy.name == quote.name && buy.price == quote.price &&
+        buy.right_slot == quote.right_slot) {
+        return FundingPurchase { quote, quote.price - funds };
+    }
+    return std::nullopt;
+}
+
 struct BenchCapacityTrade
 {
     std::string spare_initial;

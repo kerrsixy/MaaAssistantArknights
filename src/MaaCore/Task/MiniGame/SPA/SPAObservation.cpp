@@ -204,12 +204,14 @@ std::optional<asst::spa::OperatorCardObservation> asst::spa::observe_operator_ca
     return OperatorCardObservation { *name, *level, *level == elite->level };
 }
 
-std::optional<int> asst::spa::preparation_countdown(const std::vector<TextObservation>& texts)
+std::optional<int>
+    asst::spa::preparation_countdown(const std::vector<TextObservation>& texts, bool require_two_digits)
 {
+    const size_t minimum_digits = require_two_digits ? 2 : 1;
     std::optional<int> seconds;
     for (const auto& item : texts) {
         if (!std::isfinite(item.score) || item.score < 0.95 || item.x < 1120 || item.x > 1210 || item.y < 15 ||
-            item.y > 85 || item.text.empty() || item.text.size() > 3 ||
+            item.y > 85 || item.text.size() < minimum_digits || item.text.size() > 3 ||
             !std::all_of(item.text.begin(), item.text.end(), [](char c) { return c >= '0' && c <= '9'; })) {
             continue;
         }

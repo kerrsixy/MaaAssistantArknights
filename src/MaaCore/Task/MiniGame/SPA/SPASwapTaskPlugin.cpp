@@ -2200,21 +2200,28 @@ std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(
     if (!issued || !sleep(450)) {
         return false;
     }
-    if (chosen->facing != '\0') {
-        const auto frame = ctrler()->get_image();
-        if (const auto center = direction_selection_center(frame)) {
-            if (cv::norm(*center - *destination) > 70) {
-                return false;
-            }
-            const auto [dx, dy] = growth_facing_step(chosen->facing);
-            m_direction = Point(dx * 120, dy * 120);
-            if (!drag_direction_only(Point(center->x, center->y))) {
-                return false;
-            }
+    const auto direction_frame = ctrler()->get_image();
+    if (direction_modal_visible(direction_frame)) {
+        const auto center = direction_selection_center(direction_frame);
+        if (!center || chosen->facing == '\0' || cv::norm(*center - *destination) > 70) {
+            save_evidence(direction_frame, utils::path("debug/SPA/summon_direction_unverified"), false);
+            cancel_direction_modal(direction_frame);
+            return false;
         }
-        else {
-            chosen->facing = '\0'; // A missing modal does not establish the placed heading.
+        const auto [dx, dy] = growth_facing_step(chosen->facing);
+        m_direction = Point(dx * 120, dy * 120);
+        if (!drag_direction_only(Point(center->x, center->y))) {
+            return false;
         }
+        const auto directed = ctrler()->get_image();
+        if (direction_modal_visible(directed)) {
+            save_evidence(directed, utils::path("debug/SPA/summon_direction_unverified"), false);
+            cancel_direction_modal(directed);
+            return false;
+        }
+    }
+    else {
+        chosen->facing = '\0'; // A missing modal does not establish the placed heading.
     }
     if (!close_selection() || !ensure_collapsed_shop() || !preparation_matches()) {
         return false;
@@ -2222,6 +2229,11 @@ std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(
     // The drop ends the green placement preview. Recover only the grid
     // geometry on the clean frame, then read the title at the placed cell.
     const auto after = ctrler()->get_image();
+    if (direction_modal_visible(after)) {
+        save_evidence(after, utils::path("debug/SPA/summon_direction_unverified"), false);
+        cancel_direction_modal(after);
+        return false;
+    }
     const auto projected = registered_grid_projection(m_registered_grid_reference, after, m_registered_grid_projection);
     if (!projected) {
         save_evidence(after, utils::path("debug/SPA/summon_field_grid_unverified"), false);

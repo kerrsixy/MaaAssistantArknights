@@ -1974,6 +1974,9 @@ int main()
     assert(!boss_cannons.empty() && boss_cannons.front().cell == BoardCell(8, 4) && boss_cannons.front().facing == 'N');
 
     assert(deployable_summon_owner("铁钳号·原型机") == "白铁");
+    assert(white_iron_summon_facing({ 4, 2 }, 'E', westward_fire) == 'W');
+    assert(white_iron_summon_facing({ 4, 2 }, 'N', {}) == 'N');
+    assert(white_iron_summon_facing({ 4, 2 }, '\0', {}) == '\0');
     assert(deployable_summon_owner("风雪之眼").empty());
     wolf_owner.facing = '\0';
     assert(
@@ -3041,7 +3044,9 @@ int main()
     assert(lifecycle_next({ "joint_idle_removal" }).empty());
     assert(preparation_countdown({ { "13", .997045, 1140, 37 } }) == 13);
     assert(preparation_countdown({ { "12", .999263, 1138, 35 } }) == 12);
-    assert(preparation_countdown({ { "08", .990717, 1136, 35 } }) == 8);
+    assert(preparation_countdown({ { "08", .990717, 1136, 35 } }, true) == 8);
+    assert(preparation_countdown({ { "00", .995, 1139, 37 } }, true) == 0);
+    assert(!preparation_countdown({ { "2", .739105, 1150, 35 }, { "4", .96619, 1146, 45 } }, true));
     assert(!preparation_countdown({ { "37", .736222, 1131, 31 } }));
     assert(!preparation_countdown({ { "O", .319564, 1124, 18 } }));
     assert(lifecycle_next({ "ready_confirmation" }) == "MiniGame@SPA@LifecycleExecute");
@@ -4246,7 +4251,16 @@ int main()
     freeze_value.owned.erase("凛御银灰");
     auto crucial_frozen_shop = weak_frozen_shop;
     crucial_frozen_shop.front() = { "凛御银灰", 4, 0 };
-    assert(choose_preparation(freeze_value, 0, crucial_frozen_shop, catalog).action == PreparationAction::Freeze);
+    const auto freeze_choice = choose_preparation(freeze_value, 0, crucial_frozen_shop, catalog);
+    assert(freeze_choice.action == PreparationAction::Freeze);
+    assert(freeze_choice.freeze_target && freeze_choice.freeze_target->name == "凛御银灰");
+    auto sale_and_freeze = freeze_value;
+    sale_and_freeze.bench_occupied = 3;
+    const auto funded_kept = choose_freeze_target_funding(sale_and_freeze, 0, crucial_frozen_shop, catalog, freeze_choice);
+    assert(funded_kept && funded_kept->offer.name == "凛御银灰" && funded_kept->deficit == 4);
+    auto different_shop = crucial_frozen_shop;
+    different_shop[0].right_slot = 5;
+    assert(!choose_freeze_target_funding(sale_and_freeze, 0, different_shop, catalog, freeze_choice));
     assert(choose_preparation(freeze_value, 2, crucial_frozen_shop, catalog).action != PreparationAction::Freeze);
     assert(choose_preparation(freeze_value, 11, crucial_frozen_shop, catalog).action != PreparationAction::Freeze);
     freeze_value.allow_freeze = false;
@@ -6851,6 +6865,12 @@ int main()
     assert(choose_opening_strategy_card({ { 2, true, true, false, 1 }, { 18, true, true, false, 7 } }) == 18);
     assert(choose_opening_strategy_card({ { 2, true, true, false, 1 }, { 18, false, true, false, 7 } }) == 2);
     assert(choose_opening_strategy_card({ { 0, false, true, false, 100 } }) == -1);
+    const OpeningStrategyCard silver_finished { 0, true, true, true, 100 };
+    const OpeningStrategyCard orange_only { 1, true, true, true, 50, true };
+    const OpeningStrategyCard unmarked { 2, true, true, false, 1 };
+    assert(choose_opening_strategy_card({ silver_finished, orange_only, unmarked }) == 2);
+    assert(choose_opening_strategy_card({ silver_finished, orange_only }) == 1);
+    assert(choose_opening_strategy_card({ silver_finished, orange_only }, false) == 0);
 
     PreparationPolicy promotion_roster;
     promotion_roster.bench_occupied = 3;

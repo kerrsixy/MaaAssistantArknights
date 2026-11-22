@@ -37,7 +37,7 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
 
     def test_expired_branch_reconciles_existing_pending_without_new_actions(self):
         boundary = self.session.split(
-            "if (joint_seconds && *joint_seconds <= 8 && !prioritize_joint_ready) {", 1
+            "if (joint_clock_recheck || (joint_seconds && *joint_seconds <= 8 && !prioritize_joint_ready)) {", 1
         )[1].split("if (m_bench_recount_pending", 1)[0]
         self.assertIn(
             "if (m_pending_spatial_orientation) {\n"
@@ -50,7 +50,9 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
             boundary.index('basic_info_with_what("SPAJointPreparationDeadline")'),
         )
         self.assertIn('"new_transaction_issued", false', boundary)
-        self.assertIn("if (!sleep(400))", boundary)
+        self.assertIn("if (!joint_clock_recheck && !sleep(400))", boundary)
+        ready_gate = self.session.split("const bool prioritize_joint_ready =", 1)[1].split(";", 1)[0]
+        self.assertIn("!joint_clock_recheck && m_auto_run", ready_gate)
         self.assertTrue(boundary.rstrip().endswith("continue;\n        }"))
 
     def test_full_field_swap_waits_for_shop_review_but_reconciliation_does_not(self):

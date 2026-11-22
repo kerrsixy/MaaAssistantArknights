@@ -145,6 +145,30 @@ inline std::vector<BoardCell> summon_placement_cells(
     return candidates;
 }
 
+inline char white_iron_summon_facing(BoardCell cell, char owner_facing, const std::vector<DeploymentLane>& lanes)
+{
+    char best = owner_facing;
+    int best_score = 0;
+    for (const char facing : std::string_view("ENSW")) {
+        const auto [dx, dy] = growth_facing_step(facing);
+        int score = 0;
+        for (const auto& lane : lanes) {
+            for (const auto& approach : lane.path) {
+                const int col = approach.first - cell.first, row = approach.second - cell.second;
+                const int distance = std::abs(col) + std::abs(row);
+                if (distance <= 3 && col * dx + row * dy > 0) {
+                    score += lane.blocking_weight * (4 - distance);
+                }
+            }
+        }
+        if (score > best_score || (score == best_score && facing == owner_facing)) {
+            best = facing;
+            best_score = score;
+        }
+    }
+    return best;
+}
+
 inline std::vector<SummonTarget> rank_water_cannon_targets(
     const std::vector<BoardCell>& candidates,
     const GridPlacementMember& owner,
