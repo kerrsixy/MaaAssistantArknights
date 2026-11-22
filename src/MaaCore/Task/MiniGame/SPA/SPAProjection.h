@@ -138,7 +138,8 @@ std::optional<int> battle_boss_hp_bar_fill_percent(const cv::Mat& image);
 // visible phase marker, not a boss identity or a guessed ground coordinate.
 std::optional<cv::Rect> preparation_boss_health_bar(const cv::Mat& image);
 // Recognized red diagonal hatching above a separately established boss bar.
-// Only visible red pixels are retained; occluded body pixels are not invented.
+// Frames with the direction-and-cancel overlay yield no region. Only visible
+// red pixels are retained; occluded body pixels are not inferred.
 std::optional<cv::Mat> boss_attackable_region(const cv::Mat& image, cv::Rect boss_bar);
 std::vector<std::pair<int, int>> project_boss_attackable_cells(const cv::Mat& region, const cv::Mat& grid_to_screen);
 // Estimate the five-by-three opening footprint from the visible lower boundary

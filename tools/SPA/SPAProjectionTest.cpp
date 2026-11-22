@@ -153,6 +153,15 @@ int main()
     const auto manual_region = boss_attackable_region(manual_boss_preview, *manual_boss_bar);
     assert(manual_region && cv::countNonZero(*manual_region) > 3000);
     assert(cv::countNonZero((*manual_region)(cv::Rect(820, 190, 270, 220))) > 3000);
+    const auto cocoon_direction_crop = cv::imread("spa-boss-direction-overlay-live.png");
+    assert(cocoon_direction_crop.size() == cv::Size(560, 540));
+    cv::Mat cocoon_direction = cv::Mat::zeros(720, 1280, CV_8UC3);
+    cocoon_direction_crop.copyTo(cocoon_direction(cv::Rect(645, 135, 560, 540)));
+    const auto cocoon_bar = preparation_boss_health_bar(cocoon_direction);
+    const auto cocoon_center = direction_selection_center(cocoon_direction);
+    assert(cocoon_bar && cocoon_center && direction_cancel_target(cocoon_direction, *cocoon_center));
+    assert(!boss_attackable_region(cocoon_direction, *cocoon_bar));
+
     cv::Mat mirrored_boss;
     cv::flip(manual_boss_preview, mirrored_boss, 1);
     auto mirrored_bar = *manual_boss_bar;

@@ -236,6 +236,7 @@ endif()
 
 option(SPA_WITH_IMAGE_TESTS "Build native camera registration tests with OpenCV" OFF)
 if(SPA_WITH_IMAGE_TESTS)
+    configure_file(fixtures/boss_direction_overlay_live.png spa-boss-direction-overlay-live.png COPYONLY)
     configure_file(fixtures/boss_battle_hud_live.png spa-boss-battle-hud-live.png COPYONLY)
     configure_file(fixtures/life_boss_pending_header.png spa-life-boss-pending-header.png COPYONLY)
     configure_file(fixtures/life_40_header.png spa-life-40-header.png COPYONLY)

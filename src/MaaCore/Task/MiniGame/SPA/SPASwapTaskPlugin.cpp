@@ -3465,11 +3465,6 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
         }
         return placement_grid;
     };
-    if (modal_visible && preparation_boss_health_bar(placement)) {
-        if (const auto& projected = project_placement_grid()) {
-            observe_boss_attackable_region(placement, *projected);
-        }
-    }
     const auto center = modal_visible ? direction_selection_center(placement) : std::nullopt;
     auto foot =
         center ? registered_deployment_pose(placement, map, cv::Point(center->x, center->y + 20)) : std::nullopt;

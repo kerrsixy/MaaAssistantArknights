@@ -830,7 +830,15 @@ std::optional<cv::Mat> asst::spa::boss_attackable_region(const cv::Mat& image, c
         }
         result(bounds) |= component;
     }
-    return cv::countNonZero(result) > 0 ? std::optional(result) : std::nullopt;
+    if (cv::countNonZero(result) == 0) {
+        return std::nullopt;
+    }
+    // The direction selector's red cancel stripe has diagonal bands too.
+    // Its position follows the selected tile, not the boss.
+    if (const auto center = direction_selection_center(image); center && direction_cancel_target(image, *center)) {
+        return std::nullopt;
+    }
+    return result;
 }
 
 std::vector<std::pair<int, int>>
