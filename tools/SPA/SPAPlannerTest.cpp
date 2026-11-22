@@ -4743,6 +4743,40 @@ int main()
     // activation members, even though they may be useful for synthesis.
     assert(should_upgrade_dynamic_shop(live_activation_window, 8, 6, { { "折光", 3, 1 }, { "折光", 3, 3 } }, catalog));
     assert(should_upgrade_dynamic_shop(live_activation_window, 6, 0, real_activation_shop, catalog));
+    // D4 child 3, R7. The prior round waited at book III; its next quote
+    // left only two funds even though two fieldable Elysium cards cost three.
+    auto iberia_sale_engine_window = live_activation_window;
+    iberia_sale_engine_window.primary_pact = "伊比利亚";
+    iberia_sale_engine_window.selected_strategy_id = "band_dance";
+    iberia_sale_engine_window.round = 7;
+    iberia_sale_engine_window.shop_level = 3;
+    iberia_sale_engine_window.shop_discount_wait_level = 3;
+    iberia_sale_engine_window.shop_discount_wait_round = 6;
+    iberia_sale_engine_window.current_life = 28;
+    iberia_sale_engine_window.deployed_population = 8;
+    iberia_sale_engine_window.bench_occupied = 0;
+    iberia_sale_engine_window.economy_scenario_horizon_round = 14;
+    iberia_sale_engine_window.growth_scenario_horizon_round = 14;
+    iberia_sale_engine_window.primary_locked_after_activation = true;
+    iberia_sale_engine_window.growth_primary_active_verified = true;
+    iberia_sale_engine_window.owned = { { "伺夜", { 1, false, true } }, { "拉普兰德", { 1, true, true } },
+                                        { "拜松", { 1, false, true } }, { "星源", { 1, false, true } },
+                                        { "海沫", { 1, false, true } }, { "深靛", { 1, false, true } },
+                                        { "瑰盐", { 2, false, true } } };
+    iberia_sale_engine_window.full_field_offer_improvements = { { "旅骨", 2500 }, { "乌有", 240 } };
+    const std::vector<ShopOffer> iberia_book_three { { "乌有", 3, 0 },
+                                                     { "旅骨", 3, 1 },
+                                                     { "旅骨", 3, 2 },
+                                                     { "乌有", 3, 3 } };
+    assert(choose_preparation(iberia_sale_engine_window, 10, iberia_book_three, catalog).name == "旅骨");
+    assert(!should_upgrade_dynamic_shop(iberia_sale_engine_window, 10, 8, iberia_book_three, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->reason.find("sale-price pact growth") != std::string::npos);
+    assert(should_upgrade_dynamic_shop(iberia_sale_engine_window, 12, 8, iberia_book_three, catalog));
+    assert(should_upgrade_dynamic_shop(iberia_sale_engine_window, 10, 8, {}, catalog));
+    assert(should_upgrade_dynamic_shop(iberia_sale_engine_window, 10, 0, iberia_book_three, catalog));
+    iberia_sale_engine_window.full_field_offer_improvements["旅骨"] = 0;
+    assert(should_upgrade_dynamic_shop(iberia_sale_engine_window, 10, 8, iberia_book_three, catalog));
+
     leave_first_shop.owned["烈夏"] = { 2, false, true };
     assert(!should_upgrade_dynamic_shop(leave_first_shop, 5, 3, { { "烈夏", 2, 0 } }, catalog));
     auto offered_pair = dynamic_decision;

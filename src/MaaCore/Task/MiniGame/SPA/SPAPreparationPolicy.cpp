@@ -1424,6 +1424,19 @@ static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
     if (!current_purchase || can_open_and_recruit) {
         return std::nullopt;
     }
+    // A visible sale-price growth source can start stacking in the current
+    // formation. A prior decision to wait for a cheaper upgrade does not
+    // exhaust the recruitment priority for a newly available engine.
+    const auto growth = growth_profiles().find(purchase.name);
+    const auto fit = policy.full_field_offer_improvements.find(purchase.name);
+    const bool fieldable = (policy.deployed_population >= 0 && policy.deployed_population < 8) ||
+                           (fit != policy.full_field_offer_improvements.end() && fit->second > 0);
+    if (!purchase.is_equipment && purchase.selected_pact == policy.primary_pact &&
+        policy.growth_primary_active_verified && !policy.owned.contains(purchase.name) && fieldable &&
+        growth != growth_profiles().end() && growth->second.kind == GrowthKind::SalePriceDependent &&
+        contains(growth->second.pacts, policy.primary_pact)) {
+        return ShopUpgradeHold { "Recruit " + purchase.name + " to add sale-price pact growth before upgrading" };
+    }
     if (purchase.growth_score > 0 && discount_wait_available) {
         return ShopUpgradeHold { "Fund " + purchase.name + " for the current growth window before another book",
                                  {},
