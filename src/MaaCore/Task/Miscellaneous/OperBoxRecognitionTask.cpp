@@ -1,11 +1,11 @@
 #include "OperBoxRecognitionTask.h"
 
 #include <algorithm>
-#include <cstdlib>
 #include <chrono>
+#include <cstdlib>
 #include <future>
-#include <thread>
 #include <ranges>
+#include <thread>
 
 #include "Config/Miscellaneous/BattleDataConfig.h"
 #include "Config/TaskData.h"
@@ -33,6 +33,7 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
     std::string pre_first_oper;
     int reswipe = 0;
     m_own_opers.clear();
+    m_repeated_page_stop = false;
 
     // 游戏会记住上次的滚动位置，先把它拖回列表顶端，否则会从中间开始扫、少读一批干员
     // 回顶：每滑一次就看一眼首张卡的名字，连续两次没变化说明已经到头了，立即停，
@@ -40,6 +41,10 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
     std::string head_oper;
     for (int i = 0; i < 25; ++i) {
         if (need_exit()) {
+            return false;
+        }
+        if (m_page_guard && !m_page_guard()) {
+            LogWarn << __FUNCTION__ << "Operator list navigation guard failed at head";
             return false;
         }
         OperBoxImageAnalyzer head_analyzer(ctrler()->get_image());
@@ -67,6 +72,10 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
             std::this_thread::sleep_for(std::chrono::milliseconds(700));
         }
         first_page = false;
+        if (m_page_guard && !m_page_guard()) {
+            LogWarn << __FUNCTION__ << "Operator list navigation guard failed before page analysis";
+            return false;
+        }
 
         // 同页多采：单帧常常只认出 6~13 张卡（边界卡、半张卡容易漏），
         // 连采两帧再把结果并起来，能把单页召回率拉满。
@@ -88,8 +97,9 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
                 page_last_oper = one_shot.back().name;
             }
             for (const auto& box_info : one_shot) {
-                const bool seen = std::any_of(opers_result.begin(), opers_result.end(),
-                                              [&](const auto& item) { return item.name == box_info.name; });
+                const bool seen = std::any_of(opers_result.begin(), opers_result.end(), [&](const auto& item) {
+                    return item.name == box_info.name;
+                });
                 if (!seen) {
                     opers_result.emplace_back(box_info);
                 }
@@ -120,6 +130,7 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
         // 否则会提前停在列表中段（实测会少读一半以上）。
         const std::size_t before_count = m_own_opers.size();
         if (last_oper == pre_last_oper && pre_last_oper == pre_pre_last_oper && before_count == pre_pre_count) {
+            m_repeated_page_stop = true;
             LogInfo << __FUNCTION__ << "stop at the list tail" << last_oper << "unique" << before_count;
             break;
         }
@@ -131,7 +142,14 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
             m_own_opers.emplace(box_info.name, box_info);
         }
         LogInfo << __FUNCTION__ << "page_last" << last_oper << "unique" << m_own_opers.size();
+        if (m_page_visitor && !m_page_visitor(opers_result)) {
+            LogWarn << __FUNCTION__ << "Page observer could not restore the verified operator list";
+            return false;
+        }
         callback_analyze_result(false);
+        if (m_stop_after_page && m_stop_after_page()) {
+            return true;
+        }
 
         // 调试用：设了 MAA_OPERBOX_MAX_PAGES 就只扫这么多页，方便快速验证识别率
         char max_pages_buf[16] {};
