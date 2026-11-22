@@ -1416,15 +1416,27 @@ void asst::BattleHelper::remove_cooling_from_battlefield(const battle::Deploymen
     if (!oper.cooling || deployment_kind(oper) != battle::DeploymentKind::Operator) {
         return;
     }
+    remove_returned_operator_from_battlefield(oper);
+}
 
-    auto iter = std::ranges::find_if(m_battlefield_opers, [&](const auto& pair) {
-        return pair.first.role == oper.role && pair.first.name == oper.name;
-    });
-    if (iter == m_battlefield_opers.end()) {
-        return;
+bool asst::BattleHelper::remove_returned_operator_from_battlefield(const battle::DeploymentOper& oper)
+{
+    if (oper.name.empty() || deployment_kind(oper) != battle::DeploymentKind::Operator) {
+        return false;
     }
-    auto loc = iter->second;
-    m_used_tiles.erase(loc);
-    m_battlefield_opers.erase(iter);
+    const battle::OperNameTag tag { oper.role, oper.name };
+    const auto tracked = m_battlefield_opers.find(tag);
+    if (tracked == m_battlefield_opers.end()) {
+        return false;
+    }
+    const auto location = tracked->second;
+    const auto occupied = m_used_tiles.find(location);
+    if (occupied != m_used_tiles.end() && occupied->second == tag) {
+        m_used_tiles.erase(occupied);
+    }
+    m_battlefield_opers.erase(tracked);
+    LogInfo << __FUNCTION__ << "Observed returned operator card; released prior battlefield occupancy" << tag
+            << location << "cooling" << oper.cooling << "available" << oper.available;
+    return true;
 }
 

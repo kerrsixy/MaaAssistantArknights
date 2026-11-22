@@ -560,6 +560,28 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_requirements_met(
     return covers(plan.required_attack_tiles) && covers(plan.required_range_tiles);
 }
 
+bool asst::RoguelikeBattleTaskPlugin::deployment_cost_wait_required(
+    const battle::DeploymentOper& oper,
+    int observed_cost)
+{
+    return !oper.available && !oper.cooling && observed_cost >= 0 && oper.cost > 0 && oper.cost > observed_cost;
+}
+
+std::unordered_set<std::string> asst::RoguelikeBattleTaskPlugin::reconcile_returned_blackflow_operators()
+{
+    std::unordered_set<std::string> returned;
+    if (m_config->get_theme() != RoguelikeTheme::BlackFlow) {
+        return returned;
+    }
+    for (const auto& oper : m_cur_deployment_opers) {
+        if (!oper.cooling && remove_returned_operator_from_battlefield(oper)) {
+            returned.emplace(oper.name);
+            m_deployed_time.erase({ oper.role, oper.name });
+        }
+    }
+    return returned;
+}
+
 int asst::RoguelikeBattleTaskPlugin::preferred_deployment_coverage(
     const battle::DeploymentOper& oper,
     const battle::roguelike::DeployInfoWithRank& plan) const
@@ -825,17 +847,15 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
             const auto oper_it = std::ranges::find_if(m_cur_deployment_opers, [&](const auto& oper) {
                 return oper.role == deploy_plan.role && oper.name == deploy_plan.oper_name;
             });
-            if (oper_it == m_cur_deployment_opers.end() || !oper_it->available) { // 等费
-                // 费用不够时继续尝试排名更低的干员，而不是直接放弃本次部署。
-                // 否则高费干员排在 rank 1 时会把整条部署链卡死：既不放低费先锋回费，
-                // 也永远等不到高费干员所需的费用，最终一路漏怪。
-                Log.info(
-                    "    best deploy is",
-                    deploy_plan.oper_name,
-                    "with rank",
-                    deploy_plan.rank,
-                    "but now waiting for cost, try next.");
-                if (best_waiting_plan == nullptr || deploy_plan < *best_waiting_plan) {
+            if (oper_it == m_cur_deployment_opers.end()) {
+                continue;
+            }
+            if (!oper_it->available) {
+                const bool cost_wait = deployment_cost_wait_required(*oper_it, m_cost);
+                LogInfo << __FUNCTION__ << "Deployment card unavailable" << deploy_plan.oper_name << "rank"
+                        << deploy_plan.rank << "card cost" << oper_it->cost << "observed cost" << m_cost << "cost wait"
+                        << cost_wait;
+                if (cost_wait && (best_waiting_plan == nullptr || deploy_plan < *best_waiting_plan)) {
                     best_waiting_plan = &deploy_plan;
                 }
                 continue;
@@ -1025,10 +1045,6 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
         return observe_blackflow_souls();
     }
     check_drone_tiles();
-    if (!m_first_deploy &&
-        (!m_hunter_prelude || m_hunter_main_allowed || m_hunter_prelude->bait_skill_allowed(m_battlefield_opers))) {
-        use_all_ready_skill(image);
-    }
 
     std::unordered_set<std::string> pre_cooling;
     for (const auto& oper : m_cur_deployment_opers) {
@@ -1056,8 +1072,15 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
     if (!update_deployment(false, image, true)) {
         return check_in_battle(image);
     }
+    // A freshly recognized ordinary card is no longer a deployed entity, even
+    // when a forced return resets its cooldown. This does not prove unlock.
+    auto returned_operators = reconcile_returned_blackflow_operators();
     update_cost(image, image_prev);
     update_kills(image, image_prev);
+    if (!m_first_deploy &&
+        (!m_hunter_prelude || m_hunter_main_allowed || m_hunter_prelude->bait_skill_allowed(m_battlefield_opers))) {
+        use_all_ready_skill(image);
+    }
     // 漏怪 / 崩盘诊断：只记录，不干预部署
     diagnose_battle_progress();
     if (m_soul_observer && observe_blackflow_souls()) {
@@ -1067,7 +1090,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
         return true;
     }
 
-    std::unordered_set<std::string> cur_cooling;
+    std::unordered_set<std::string> current_departures = std::move(returned_operators);
     size_t cur_available_count = 0;   // without drones
     size_t cur_deployments_count = 0; // without drones
     for (const auto& oper : m_cur_deployment_opers) {
@@ -1077,7 +1100,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
 
         ++cur_deployments_count;
         if (oper.cooling) {
-            cur_cooling.emplace(oper.name);
+            current_departures.emplace(oper.name);
             m_deployed_time.erase({ oper.role, oper.name });
         }
         if (oper.available) {
@@ -1086,7 +1109,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
     }
 
     // 退场事件必须先处理；预设部署成功后提前返回会漏掉这一帧的防线失守。
-    auto urgent_home_opt = check_urgent(pre_cooling, cur_cooling, pre_battlefield);
+    auto urgent_home_opt = check_urgent(pre_cooling, current_departures, pre_battlefield);
     if (m_deploy_plan_only) {
         if (do_best_deploy()) {
             m_first_deploy = false;
@@ -1109,7 +1132,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
             // 蓝门多不代表该多下人，蓝门少反而会永远觉得不够。改用场上人数的绝对下限。
             bool battlefield_enough = m_battlefield_opers.size() >= 4;
             bool available_too_few = cur_available_count <= cur_deployments_count / 2;
-            bool not_too_many_cooling = cur_cooling.size() < cur_available_count;
+            bool not_too_many_cooling = current_departures.size() < cur_available_count;
 
             if (battlefield_enough && available_too_few && not_too_many_cooling) {
                 Log.info("wait a minute");
