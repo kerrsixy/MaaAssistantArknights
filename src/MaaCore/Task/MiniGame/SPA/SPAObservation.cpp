@@ -1074,13 +1074,15 @@ asst::spa::PageObservation
         });
     };
     const bool solo_difficulty_hud = anchored("规程等级", 90, 250, 0, 70) || anchored("极速模拟", 90, 250, 0, 70);
-    const bool solo_boss_view = anchored("自己", 520, 720, 560, 650) && solo_difficulty_hud;
+    const bool boss_self_view = anchored("自己", 520, 720, 560, 650);
+    const bool solo_boss_view = boss_self_view && solo_difficulty_hud;
     const bool joint_difficulty_hud = anchored("标准模拟", 90, 250, 0, 70) || anchored("险境模拟", 90, 250, 0, 70) ||
                                       anchored("绝境模拟", 90, 250, 0, 70) || anchored("终极模拟", 90, 250, 0, 70);
-    // Joint boss battles can automatically enter the panoramic team view.
-    // Its counter uses the same left HUD slot, without a round/self label.
-    const bool joint_boss_view =
-        joint_difficulty_hud && anchored("全景", 520, 720, 560, 650) && anchored("返回战场", 0, 200, 120, 490);
+    // Joint boss battles can show the local board or the panoramic view.
+    // Both use the same left counter slot and can hide the round label.
+    const bool joint_panorama =
+        anchored("全景", 520, 720, 560, 650) && anchored("返回战场", 0, 200, 120, 490);
+    const bool joint_boss_view = joint_difficulty_hud && (boss_self_view || joint_panorama);
     const auto countdown_visible = [&] {
         return std::ranges::any_of(texts, [](const auto& item) {
             return std::isfinite(item.score) && item.score >= .85 && item.x >= 1080 && item.y >= 0 && item.y < 130 &&

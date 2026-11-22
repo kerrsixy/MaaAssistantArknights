@@ -3966,6 +3966,14 @@ int main()
     assert(observe_page(joint_boss_hud, identities).page == Page::Battle);
     joint_boss_hud.pop_back();
     assert(observe_page(joint_boss_hud, identities).page != Page::Battle);
+    const std::vector<TextObservation> joint_self_boss_hud { { "险境模拟", .999, 145, 21 },
+                                                            { "35/49", .999, 462, 21 },
+                                                            { "自己", .999, 622, 606 },
+                                                            { "交流", .999, 111, 659 } };
+    const auto joint_self_boss = observe_page(joint_self_boss_hud, identities);
+    assert(joint_self_boss.page == Page::Battle && joint_self_boss.enemies_resolved == 35 &&
+           joint_self_boss.enemies_total == 49);
+    assert(!joint_self_boss.round && !joint_self_boss.contradictory);
     preparation.push_back({ "0", 0.99, 1180, 520 });
     assert(observe_page(preparation, identities).funds == 0);
     preparation.push_back({ "2", 0.99, 1180, 520 });
