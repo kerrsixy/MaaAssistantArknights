@@ -64,6 +64,13 @@ bool BlackFlowRoutingTaskPlugin::_run()
         return true;
     }
     if (work == PendingWork::MapPrepared) {
+        if (m_session != nullptr && !m_session->terminated() && !m_session->current_floor().has_value()) {
+            LogInfo << __FUNCTION__ << "Recover floor identity before map routing";
+            Task.set_task_base(
+                "BlackFlow@Roguelike@MapPrepare-ReadyAction",
+                "BlackFlow@Roguelike@MapFloorRecovery-Enter");
+            return true;
+        }
         // 第五层每次准备地图都向左滑，避免最右列被遮挡
         const bool swipe = m_session != nullptr && !m_session->terminated() && m_session->current_floor() == 5;
         Task.set_task_base(
@@ -96,7 +103,7 @@ bool BlackFlowRoutingTaskPlugin::_run()
         // 仍失败才退出重进一次；每一阶段都有界，不能在相同失败帧上无限循环。
         if (m_map_recovery_stage == MapRecoveryStage::None) {
             m_map_recovery_stage = MapRecoveryStage::ViewportReset;
-            Task.set_task_base("BlackFlow@Roguelike@RoutingAction", "BlackFlow@Roguelike@MapViewportReset-Enter");
+            Task.set_task_base("BlackFlow@Roguelike@RoutingAction", "BlackFlow@Roguelike@MapViewportReset-Dispatch");
         }
         else if (m_map_recovery_stage == MapRecoveryStage::ViewportReset) {
             m_map_recovery_stage = MapRecoveryStage::PageRecovery;
