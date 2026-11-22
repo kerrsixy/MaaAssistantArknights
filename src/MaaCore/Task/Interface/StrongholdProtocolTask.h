@@ -260,6 +260,7 @@ private:
     json::value pending_replacement_snapshot() const;
     int m_replacement_round = -1;
     std::set<std::tuple<std::string, std::string, int, int>> m_failed_replacements;
+    std::set<std::tuple<std::string, int, int>> m_unverified_replacement_receivers;
     std::set<spa::ReplacementLineup> m_visited_replacement_lineups;
     spa::ReplacementHistory m_completed_replacement_exchanges;
     std::set<std::string> m_unavailable_replacement_sources;

@@ -2707,6 +2707,15 @@ int main()
     };
     assert(choose_replacement("炎", dusk_lineup, dusk, {}, evaluate_dusk).outgoing == "卡达");
     assert(choose_replacement("炎", dusk_lineup, dusk, {}, evaluate_dusk, {}, { "奥术" }).outgoing == "黍");
+    const std::set<std::tuple<std::string, int, int>> rejected_dusk_receivers { { "卡达", 740, 235 } };
+    assert(choose_replacement("炎", dusk_lineup, dusk, {}, evaluate_dusk, {}, {}, {}, {}, rejected_dusk_receivers)
+               .outgoing == "卡达"); // Completing the active roster condition takes precedence.
+    assert(choose_replacement("奥术", dusk_lineup, dusk, {}, evaluate_dusk, {}, {}, {}, {}, rejected_dusk_receivers)
+               .outgoing == "黍");
+    const std::set<std::tuple<std::string, std::string, int, int>> blocked_dusk_exchange { { "夕", "黍", 800, 235 } };
+    assert(choose_replacement(
+               "奥术", dusk_lineup, dusk, blocked_dusk_exchange, evaluate_dusk, {}, {}, {}, {}, rejected_dusk_receivers)
+               .outgoing == "卡达");
     const std::vector<ReplacementMember> two_blockers {
         { "上路", PlacementRole::Frontline, { "萨尔贡" }, 100, 800, 235, true },
         { "下路", PlacementRole::Frontline, { "萨尔贡" }, 100, 800, 437, true }

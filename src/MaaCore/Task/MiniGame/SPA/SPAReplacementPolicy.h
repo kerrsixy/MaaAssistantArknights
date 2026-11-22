@@ -533,7 +533,8 @@ inline ReplacementChoice choose_replacement(
     const std::set<ReplacementLineup>& visited_lineups = {},
     const std::vector<std::string>& disabled_pacts = {},
     const ReplacementHistory& completed_exchanges = {},
-    const ReplacementBossTargets& boss = {})
+    const ReplacementBossTargets& boss = {},
+    const std::set<std::tuple<std::string, int, int>>& rejected_previews = {})
 {
     ReplacementChoice best;
     if (primary.empty() || field.empty() || field.size() > 16 || bench.size() > 10) {
@@ -546,7 +547,7 @@ inline ReplacementChoice choose_replacement(
         return evaluate ? evaluate(lineup) : replacement_lineup_value(lineup, primary);
     };
     const int baseline = value(field);
-    int best_rank = 0;
+    std::tuple<bool, bool, int> best_rank {};
     const int strategy_cores = static_cast<int>(
         std::count_if(field.begin(), field.end(), [](const auto& unit) { return unit.strategy_core; }));
     const auto activation_members = [&](const auto& lineup) {
@@ -665,12 +666,14 @@ inline ReplacementChoice choose_replacement(
             // A same-role exchange sharing a live pact preserves the old
             // slot's job. Apply this preference only after proving a net
             // lineup improvement, so a sideways exchange cannot cycle.
-            const int rank = improvement + (same_auxiliary_role ? 800 : 0);
-            // Restore a strategy foundation before optimizing faction bonuses.
-            // Route coverage and active-pact constraints above still apply.
-            if ((restores_core || improvement > 100) &&
-                (!best.found || (restores_core && !best.restores_strategy_core) ||
-                 (restores_core == best.restores_strategy_core && rank > best_rank))) {
+            // During ordinary preparation, try another beneficial receiver before rechecking
+            // the same occupied tile. Keep its retry available if it can activate the pact
+            // now, is needed for the boss, or no other valid improvement exists.
+            const bool preferred_preview = boss_targets_known || activates_primary ||
+                                           !rejected_previews.contains({ outgoing.name, outgoing.x, outgoing.y });
+            const auto rank = std::tuple { restores_core, preferred_preview,
+                                           improvement + (same_auxiliary_role ? 800 : 0) };
+            if ((restores_core || improvement > 100) && (!best.found || rank > best_rank)) {
                 best = { true,        incoming.name, outgoing.name,           outgoing.x,      outgoing.y,
                          improvement, restores_core, healing.value_or(false), boss_attack_gain };
                 best_rank = rank;

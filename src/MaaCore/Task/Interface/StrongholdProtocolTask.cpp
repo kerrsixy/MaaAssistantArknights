@@ -144,6 +144,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_previous_round_life.reset();
     m_replacement_round = -1;
     m_failed_replacements.clear();
+    m_unverified_replacement_receivers.clear();
     m_visited_replacement_lineups.clear();
     m_completed_replacement_exchanges.clear();
     m_unavailable_replacement_sources.clear();
@@ -1916,16 +1917,20 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
     const auto evaluate = [this](const auto& lineup) {
         return replacement_lineup_context_value(lineup);
     };
-    auto choice = spa::choose_replacement(
-        m_policy.primary_pact,
-        field,
-        bench,
-        blocked,
-        evaluate,
-        m_visited_replacement_lineups,
-        m_policy.disabled_pacts,
-        m_completed_replacement_exchanges,
-        boss);
+    const auto choose = [&] {
+        return spa::choose_replacement(
+            m_policy.primary_pact,
+            field,
+            bench,
+            blocked,
+            evaluate,
+            m_visited_replacement_lineups,
+            m_policy.disabled_pacts,
+            m_completed_replacement_exchanges,
+            boss,
+            m_unverified_replacement_receivers);
+    };
+    auto choice = choose();
     std::string target_failure_key;
     while (choice.found) {
         target_failure_key = failure_key(choice);
@@ -1935,16 +1940,7 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
         // No input: the same source form and local target geometry already
         // failed its held preview. A new round alone is not new evidence.
         blocked.emplace(choice.incoming, choice.outgoing, choice.x, choice.y);
-        choice = spa::choose_replacement(
-            m_policy.primary_pact,
-            field,
-            bench,
-            blocked,
-            evaluate,
-            m_visited_replacement_lineups,
-            m_policy.disabled_pacts,
-            m_completed_replacement_exchanges,
-            boss);
+        choice = choose();
     }
     if (!choice.found) {
         return false;
@@ -2110,6 +2106,7 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
         const bool drop_issued = exchange->replacement_committed();
         if (!drop_issued && exchange->replacement_target_unavailable() && !target_failure_key.empty()) {
             m_failed_spatial_actions.insert(target_failure_key);
+            m_unverified_replacement_receivers.emplace(choice.outgoing, choice.x, choice.y);
         }
         if (!drop_issued && exchange->bench_source_search_exhausted()) {
             // Changing the outgoing target cannot reveal a source that the
@@ -3881,6 +3878,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         if (m_replacement_round != preparation_round) {
             m_replacement_round = preparation_round;
             m_failed_replacements.clear();
+            m_unverified_replacement_receivers.clear();
             m_visited_replacement_lineups.clear();
             m_completed_replacement_exchanges.clear();
             m_unavailable_replacement_sources.clear();
