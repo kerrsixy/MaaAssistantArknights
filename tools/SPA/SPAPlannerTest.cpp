@@ -3094,6 +3094,21 @@ int main()
         assert(!formation_handoff.should_wait({ "preparation" }, loading_time + 46s));
         assert(!formation_handoff.formation_pending());
         assert(!formation_handoff.should_wait(blank_page, loading_time + 47s));
+
+        LifecycleLoadingGrace joint_handoff;
+        LifecyclePage joint_committed { "unknown", "3/3" };
+        joint_committed.mode = "joint";
+        joint_committed.joint_setup_committed = true;
+        assert(!joint_handoff.should_wait(joint_committed, loading_time));
+        assert(!joint_handoff.should_wait(joint_committed, loading_time + 60s));
+        assert(joint_handoff.formation_pending());
+        blank_page.loading_verified = joint_handoff.should_wait(blank_page, loading_time + 104s);
+        assert(blank_page.loading_verified && lifecycle_next(blank_page) == "MiniGame@SPA@LifecycleWait");
+        blank_page.loading_verified = false;
+        assert(!joint_handoff.should_wait(blank_page, loading_time + 105s));
+        assert(joint_handoff.formation_wait_expired(loading_time + 105s));
+        assert(!joint_handoff.should_wait({ "preparation" }, loading_time + 106s));
+        assert(!joint_handoff.formation_pending());
     }
     LifecycleNavigationGuard navigation;
     for (int loading_frame = 0; loading_frame < 10; ++loading_frame) {

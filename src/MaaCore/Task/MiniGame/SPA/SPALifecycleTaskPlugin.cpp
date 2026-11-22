@@ -173,7 +173,12 @@ bool asst::spa::LifecycleTaskPlugin::_run()
                 }
             }
             loading_texts.push_back({ text, item.get("score", 0.0), item.get("x", -1), item.get("y", -1) });
-            joint_setup_wait = joint_setup_wait || text == "已选定策略" || text == "取消准备";
+            const int x = item.get("x", -1), y = item.get("y", -1);
+            const auto score = item.get("score", 0.0);
+            if (score >= .90 && x >= 900 && x < 1240) {
+                joint_setup_wait = joint_setup_wait || (text == "已选定策略" && y >= 220 && y < 365) ||
+                                   (text == "取消准备" && y >= 575 && y < 700);
+            }
             formation_ready = formation_ready || text == "取消准备";
             page.reconnect_available = page.reconnect_available || text == "断线重连";
             page.joint_selected = page.joint_selected || text == "搜寻队友" || text == "同盟模拟";
@@ -246,11 +251,13 @@ bool asst::spa::LifecycleTaskPlugin::_run()
     const bool observed_loading = page.loading_verified;
     const auto observed_at = LifecycleLoadingGrace::Clock::now();
     const bool loading_wait = m_loading_grace.should_wait(page, observed_at);
-    const bool blank_formation_timeout =
-        blank_formation_frame && !loading_wait && m_loading_grace.formation_wait_expired(observed_at);
+    const bool formation_transition_unverified = blank_formation_frame ||
+                                                 (m_mode == "joint" && page.page == "unknown" && page.setup_stage.empty());
+    const bool formation_transition_timeout = formation_transition_unverified && !loading_wait &&
+                                              m_loading_grace.formation_wait_expired(observed_at);
     page.loading_verified = loading_wait;
     auto next = lifecycle_next(page);
-    if (blank_formation_timeout || (m_fresh_independent_difficulty && different_independent_difficulty)) {
+    if (formation_transition_timeout || (m_fresh_independent_difficulty && different_independent_difficulty)) {
         next.clear();
     }
     else if (
@@ -265,7 +272,7 @@ bool asst::spa::LifecycleTaskPlugin::_run()
             { "page", page.page },
             { "reason",
               page.page == "joint_idle_removal" ? "Game displayed the idle removal prompt. No confirmation was issued."
-              : blank_formation_timeout ? "Formation was committed but the client remained blank past the loading window"
+              : formation_transition_timeout ? "Formation was committed without a verified destination after loading"
               : different_independent_difficulty
                   ? "Observed a different independent difficulty than the verified requested start"
               : page.issued_start_required ? "An existing game appeared before this execution verified a fresh start"

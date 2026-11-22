@@ -55,6 +55,11 @@ public:
 
     bool should_wait(const LifecyclePage& state, Clock::time_point now = Clock::now())
     {
+        if (state.mode == "joint" && state.setup_stage == "3/3" && state.joint_setup_committed) {
+            // Teammates can extend setup. Start the transition grace from the
+            // latest frame that still showed our own committed formation.
+            m_formation_ready = now;
+        }
         if (state.loading_verified) {
             m_last_loading = now;
             return true;
