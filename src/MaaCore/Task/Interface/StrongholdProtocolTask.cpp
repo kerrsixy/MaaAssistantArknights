@@ -3933,6 +3933,11 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
               preparation_round > m_pending_direct_promotion->get("contact_round", -1)));
         const bool field_work_due =
             field_finalization || confirmed_full_bench || equipment_capacity_blocked || promotion_due;
+        // The joint deadline can consume an entire opening with purchases
+        // alone. Put a small starting board on the field while there is time.
+        const bool joint_opening_deployment = m_mode == "joint" && m_auto_deploy && !field_finalization &&
+                                              preparation_round >= 1 && preparation_round <= 3 && free_field_slots >= 6 &&
+                                              m_policy.bench_occupied > 0 && !m_bench_recount_pending;
         // Clearing equipment space does not free a bench slot. Defer
         // ordinary scans and assignments until the bench trade is resolved.
         const bool prioritize_bench_space = confirmed_full_bench && available_funds > 0 && !field_finalization &&
@@ -3968,6 +3973,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             { "deadline_emergency", nullptr },
             { "preparation_seconds_remaining_known", state.get("preparation_seconds_remaining_known", false) },
             { "field_work_due", field_work_due },
+            { "joint_opening_deployment", joint_opening_deployment },
             { "ordinary_equipment_work_deferred_for_bench_space", prioritize_bench_space },
             { "resume_purchase_after_verified_sale", resume_funded_purchase },
             { "replacement_reconciliation_pending", m_pending_field_replacement.has_value() }
@@ -4126,13 +4132,22 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                           !m_auto_deploy_blocked_names.contains(opening_gift);
         if (m_auto_deploy && !m_pending_spatial_orientation && !m_pending_field_replacement &&
             state.get("remaining_deployment_known", false) && state.get("remaining_deployment", 0) > 0 &&
-            m_deployment_targets.empty() && field_work_due) {
+            m_deployment_targets.empty() && (field_work_due || (joint_opening_deployment && !resume_funded_purchase))) {
             const auto deployable = [&](const std::string& name) {
                 return !m_auto_deploy_blocked_names.contains(name) && spa::bench_operator_can_deploy(m_policy, name);
             };
             std::optional<std::string> deploy_name;
             if (opening_gift_pending) {
                 deploy_name = opening_gift;
+            }
+            if (!deploy_name && joint_opening_deployment && free_field_slots == 8) {
+                const auto frontline = std::ranges::find_if(m_policy.owned, [&](const auto& entry) {
+                    return deployable(entry.first) &&
+                           spa::operator_placement_role(entry.first) == spa::PlacementRole::Frontline;
+                });
+                if (frontline != m_policy.owned.end()) {
+                    deploy_name = frontline->first;
+                }
             }
             if (!deploy_name && m_policy.primary_pact == "阿戈尔") {
                 // A legacy list of possible carries must not leave an actual
