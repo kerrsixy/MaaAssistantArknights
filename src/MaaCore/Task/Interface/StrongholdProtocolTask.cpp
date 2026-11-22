@@ -3584,6 +3584,13 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             }
         }
         if (!m_pending_tactical_recruitment.empty() && state.get("page", std::string()) == "preparation") {
+            // The tactics overlay can interrupt a pending field verification.
+            // Resolve its recorded exchange before comparing the tactic's
+            // grant against the old roster. This branch only verifies an
+            // issued swap and never sends another drag.
+            if (m_pending_field_replacement && handle_full_field_replacement(state)) {
+                continue;
+            }
             if (reconcile_tactical_recruitment(state)) {
                 continue;
             }
