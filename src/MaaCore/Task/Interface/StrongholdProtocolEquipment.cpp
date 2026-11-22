@@ -773,17 +773,20 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
     if (!m_policy.dynamic_decision_mode || m_decision_only || m_equipment_candidates.empty() ||
         m_pending_field_replacement || m_pending_spatial_orientation || m_field_checkpoint_loaded ||
         !state.get("funds_known", false) || !state.get("remaining_deployment_known", false) ||
-        m_auto_deploy_positions.empty() || (state.get("remaining_deployment", 0) > 0 && m_policy.bench_occupied > 0) ||
-        std::count_if(
-            m_persistent_equipment_attempts.begin(),
-            m_persistent_equipment_attempts.end(),
-            [&](const auto& entry) { return entry.first == round; }) >= 2) {
+        m_auto_deploy_positions.empty() || (state.get("remaining_deployment", 0) > 0 && m_policy.bench_occupied > 0)) {
+        return false;
+    }
+    const bool solo_boss_finalization = m_mode != "joint" && m_spatial_boss_phase &&
+                                       m_spatial_boss_phase_round == round &&
+                                       (m_shopping_complete || state.get("funds", -1) == 0);
+    m_persistent_equipment_preparation.begin_round(round);
+    if (!m_persistent_equipment_preparation.within_attempt_budget(solo_boss_finalization)) {
         return false;
     }
     auto [context, recipients] = equipment_assignment_inputs();
     std::vector<std::string> candidates;
     for (const auto& name : m_equipment_candidates) {
-        if (!m_persistent_equipment_attempts.contains({ round, name })) {
+        if (m_persistent_equipment_preparation.may_try(name)) {
             candidates.push_back(name);
         }
     }
@@ -806,7 +809,6 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
         return false;
     }
     const bool identity_tag = identity_tag_target.has_value();
-    m_persistent_equipment_attempts.emplace(round, assignment.equipment);
     const auto target = m_auto_deploy_positions.find(assignment.recipient)->second;
     json::array field;
     for (const auto& [name, point] : m_auto_deploy_positions) {
@@ -842,6 +844,11 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
                                  { "funds", state.get("funds", -1) },
                                  { "remaining_deployment", state.get("remaining_deployment", -1) } };
     const bool verified = equip.configure(options) && equip.run();
+    const bool additional_purchased_item_pending = m_persistent_equipment_preparation.record_assignment(
+        assignment.equipment,
+        verified,
+        equip.equipment_committed() || (identity_tag && equip.equipment_contact_attempted()),
+        solo_boss_finalization);
     if (const auto source_x = equip.equipment_source_x()) {
         // A priority hint only: every later use still checks the live name.
         m_equipment_source_hints[assignment.equipment] = *source_x;
@@ -851,7 +858,10 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
             m_equipped_items.at(assignment.recipient).push_back(assignment.equipment);
         }
         m_equipment_capacity_blocked_round = -1;
-        m_equipment_candidates.erase(assignment.equipment);
+        if (!additional_purchased_item_pending) {
+            m_equipment_candidates.erase(assignment.equipment);
+        }
+        m_equipment_source_hints.erase(assignment.equipment);
         m_equipment_inventory_dirty = true;
     }
     else if (identity_tag && equip.equipment_contact_attempted()) {
@@ -880,6 +890,8 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
                        { "verification_stage", equip.equipment_stage() },
                        { "equipped_verified", verified && !identity_tag },
                        { "consumable_effect_verified", verified && identity_tag },
+                       { "solo_boss_finalization", solo_boss_finalization },
+                       { "additional_purchased_item_pending", additional_purchased_item_pending },
                        { "equipment_candidates", equipment_candidates_snapshot() },
                        { "equipment_slots", equipment_slots_snapshot() },
                        { "roster", roster_snapshot() },

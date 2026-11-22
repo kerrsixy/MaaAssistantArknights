@@ -125,6 +125,64 @@ bool asst::spa::pact_recruitment_offer_eligible(const std::string& name, const s
            std::find(member->second.begin(), member->second.end(), pact) != member->second.end();
 }
 
+void asst::spa::PersistentEquipmentPreparation::begin_round(int round)
+{
+    if (round != m_round) {
+        m_round = round;
+        m_attempts = 0;
+        m_boss_finalization_failures = 0;
+        m_failed_names.clear();
+    }
+}
+
+bool asst::spa::PersistentEquipmentPreparation::within_attempt_budget(bool solo_boss_finalization) const
+{
+    // Shopping and multiplayer retain the usual work limit. After solo
+    // boss shopping, verified attachments consume the recipient's slots.
+    return solo_boss_finalization ? m_boss_finalization_failures < 2 : m_attempts < 2;
+}
+
+bool asst::spa::PersistentEquipmentPreparation::may_try(const std::string& name) const
+{
+    return !m_failed_names.contains(name);
+}
+
+void asst::spa::PersistentEquipmentPreparation::record_purchase(const std::string& name)
+{
+    const auto& profiles = equipment_profiles();
+    const auto item = std::ranges::find(profiles, name, &EquipmentProfile::name);
+    if (item != profiles.end() && !item->consumable && item->role != EquipmentRole::Economy) {
+        ++m_unassigned_purchases[name];
+    }
+}
+
+bool asst::spa::PersistentEquipmentPreparation::record_assignment(
+    const std::string& name,
+    bool verified,
+    bool committed_unverified,
+    bool solo_boss_finalization)
+{
+    ++m_attempts;
+    if (!verified) {
+        m_failed_names.insert(name);
+        m_boss_finalization_failures += solo_boss_finalization;
+        if (committed_unverified) {
+            // The next source must come from a fresh scan after an uncertain drop.
+            m_unassigned_purchases.erase(name);
+        }
+        return false;
+    }
+    const auto pending = m_unassigned_purchases.find(name);
+    if (pending == m_unassigned_purchases.end()) {
+        return false;
+    }
+    if (--pending->second > 0) {
+        return true;
+    }
+    m_unassigned_purchases.erase(pending);
+    return false;
+}
+
 asst::spa::EquipmentAssignment asst::spa::choose_equipment_assignment(
     const EquipmentAssignmentContext& context,
     const std::vector<std::string>& candidates,

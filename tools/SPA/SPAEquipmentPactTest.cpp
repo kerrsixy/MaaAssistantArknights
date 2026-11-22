@@ -68,5 +68,48 @@ int main()
     excessive.push_back("精准狙击镜");
     assert(equipment_added_pacts(excessive, true).empty());
 
+    // The observed solo Boss preparation used two field-equipment
+    // attempts before purchasing two knives and a short blade.
+    asst::spa::PersistentEquipmentPreparation boss_gear;
+    boss_gear.begin_round(14);
+    assert(boss_gear.within_attempt_budget(false));
+    assert(!boss_gear.record_assignment("乌萨斯呼吸器", true, false, false));
+    assert(!boss_gear.record_assignment("蜂鸣器", false, false, false));
+    assert(!boss_gear.within_attempt_budget(false));
+    assert(!boss_gear.may_try("蜂鸣器"));
+    boss_gear.record_purchase("伊比利亚骨刺刀");
+    boss_gear.record_purchase("炎国短刀");
+    boss_gear.record_purchase("伊比利亚骨刺刀");
+    assert(boss_gear.within_attempt_budget(true));
+    assert(boss_gear.record_assignment("伊比利亚骨刺刀", true, false, true));
+    assert(boss_gear.may_try("伊比利亚骨刺刀"));
+    assert(!boss_gear.record_assignment("伊比利亚骨刺刀", true, false, true));
+    assert(!boss_gear.record_assignment("炎国短刀", true, false, true));
+    assert(boss_gear.within_attempt_budget(true));
+
+    // An uncertain drop consumes the retry for that name. No second
+    // pending purchase hint can justify replaying the action.
+    boss_gear.record_purchase("伊比利亚骨刺刀");
+    boss_gear.record_purchase("伊比利亚骨刺刀");
+    assert(!boss_gear.record_assignment("伊比利亚骨刺刀", false, true, true));
+    assert(!boss_gear.may_try("伊比利亚骨刺刀"));
+    assert(!boss_gear.record_assignment("谢拉格不融冰", false, false, true));
+    assert(!boss_gear.within_attempt_budget(true));
+    boss_gear.begin_round(15);
+    assert(boss_gear.may_try("伊比利亚骨刺刀") && boss_gear.within_attempt_budget(false));
+    assert(!boss_gear.record_assignment("伊比利亚骨刺刀", true, false, false));
+
+    const asst::spa::EquipmentRecipient wearer {
+        .name = "忍冬",
+        .slots_known = true,
+        .equipped = { "伊比利亚骨刺刀" },
+        .attacks = true,
+        .carry = true,
+    };
+    const asst::spa::EquipmentRecipient second_wearer { .name = "荒芜拉普兰德", .slots_known = true, .attacks = true };
+    const auto knife_assignment =
+        asst::spa::choose_equipment_assignment({}, { "伊比利亚骨刺刀" }, { wearer, second_wearer });
+    assert(knife_assignment.found && knife_assignment.recipient == "荒芜拉普兰德");
+
     std::cout << "Equipment pact evidence tests passed\n";
 }

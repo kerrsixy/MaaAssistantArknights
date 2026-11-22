@@ -186,7 +186,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_confirmed_summon_cells.clear();
     m_equipment_capacity_blocked_round = -1;
     m_inventory_operator_hints.clear();
-    m_persistent_equipment_attempts.clear();
+    m_persistent_equipment_preparation = {};
     m_cash_equipment_attempted_rounds.clear();
     const int cash_attempt = params.get("cash_equipment_attempted_round", -1);
     if (cash_attempt != -1 && (cash_attempt < 1 || cash_attempt > 20)) {
@@ -6471,6 +6471,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             const bool discounted_quote_seen = m_equipment_discount_round == round;
             m_equipment_discount_round = -1;
             m_equipment_candidates.insert(decision.name);
+            m_persistent_equipment_preparation.record_purchase(decision.name);
             if (decision.name == "盟约之币") {
                 m_cash_equipment_acquired_round = round;
             }

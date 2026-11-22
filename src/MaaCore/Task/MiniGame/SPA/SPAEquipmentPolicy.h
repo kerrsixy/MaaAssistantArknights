@@ -1,6 +1,7 @@
 #pragma once
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -103,6 +104,26 @@ bool safe_pact_recruitment_recipient(
     bool equipment_known,
     const std::vector<std::string>& equipped);
 bool pact_recruitment_offer_eligible(const std::string& name, const std::string& pact, int shop_level);
+
+// Verified shop purchases provide hints for another live source search.
+// This tracks unresolved purchases, not a complete equipment inventory.
+class PersistentEquipmentPreparation
+{
+public:
+    void begin_round(int round);
+    bool within_attempt_budget(bool solo_boss_finalization) const;
+    bool may_try(const std::string& name) const;
+    void record_purchase(const std::string& name);
+    // Returns true when a verified assignment leaves another purchased item to find.
+    bool record_assignment(const std::string& name, bool verified, bool committed_unverified, bool solo_boss_finalization);
+
+private:
+    int m_round = -1;
+    int m_attempts = 0;
+    int m_boss_finalization_failures = 0;
+    std::set<std::string> m_failed_names;
+    std::map<std::string, int> m_unassigned_purchases;
+};
 
 struct EquipmentRecipient
 {

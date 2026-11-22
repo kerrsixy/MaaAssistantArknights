@@ -188,7 +188,7 @@ private:
     std::set<std::string> m_equipment_candidates;
     std::map<std::string, std::vector<std::string>> m_equipped_items;
     std::map<std::string, int> m_equipment_source_hints;
-    std::set<std::pair<int, std::string>> m_persistent_equipment_attempts;
+    spa::PersistentEquipmentPreparation m_persistent_equipment_preparation;
     std::set<int> m_cash_equipment_attempted_rounds;
     std::optional<json::object> m_pending_cash_equipment;
     int m_cash_equipment_source_verified_round = -1;
