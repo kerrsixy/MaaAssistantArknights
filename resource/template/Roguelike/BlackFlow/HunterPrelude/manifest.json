@@ -43,7 +43,9 @@
         "upper_blue_masked.png": "1c4d97bbad86a4281e47a9d326e89c32990d5699b6250512c88fa129119e0073",
         "upper_full_guide.png": "00df3788f5a422797eb36607eaf3ea8610fc75f2924843caec3f853bc2132e85",
         "spawn0_empty_run31_f13.png": "9586d229364e9bcc5b52803ca9c60fcfd86ff905bc413593720e1fd239cff40a",
-        "spawn1_empty_run31_f10.png": "fd730ddb5615c148f92a0b5a0c7ef13f8521a02c6ef04d3000b2abe75eb150c3"
+        "spawn1_empty_run31_f10.png": "fd730ddb5615c148f92a0b5a0c7ef13f8521a02c6ef04d3000b2abe75eb150c3",
+        "upper_front_interior_run32_f01.png": "e8db0731af6147c585603c1d3056500ddaaa9b94688f50613c96f16eb1fe24aa",
+        "upper_front_interior_run32_f01_eye_mask_v5.png": "8ace2e14b5525d1eafbea28506b9581780db8668da74a9ea103b736b44e0dd2c"
     },
     "head_present_threshold": 0.68,
     "head_absent_threshold": 0.5,
@@ -111,6 +113,35 @@
             },
             "live_stage_clear_proven": false,
             "scope": "Append two clean empty backgrounds; original thresholds, assets, geometry, positive profiles and temporal/visibility/actor guards unchanged."
+        },
+        "overlap_foreground": {
+            "run": 32,
+            "construct_sequence": 1,
+            "source_sha256": "14fdceaff5702d3619cbae83f4e16d27d6bbefce3ee8c4cfa1160cd0e6a419ec",
+            "crop_native_xywh": [407, 186, 55, 44],
+            "valid_mask_pixels": 1078,
+            "total_mask_pixels": 2420,
+            "eye_pixels_added_to_v1": 23,
+            "construction": "Only real foreground pixels from construction frame1; original crop unchanged; old models and all existing thresholds retained.",
+            "selection_note": "V1 and face-only alternatives retained privately; V1 produced a known waterfall false Unknown. Known regressions were used for model selection and are not a blind future-run estimate.",
+            "validation": {
+                "native_checks": {
+                    "after_overlap_v5": 280,
+                    "after_clear_v5": 131,
+                    "legacy_v5": 48
+                },
+                "baseline_overlap_failures": 6,
+                "independent_visual_frames": [
+                    5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+                    31, 32, 33
+                ],
+                "strong_positive_frames": [5, 7, 10, 17],
+                "unknown_is_allowed_not_absence": true,
+                "moving_and_obscured_28_to31_not_absent": true,
+                "complete_recorded_controller_lifecycle_used": true,
+                "second_bait_action_only_permitted_not_replayed_as_real_input": true,
+                "unattended_live_stage_clear_proven": false
+            }
         }
     },
     "resource_relative_path": "template/Roguelike/BlackFlow/HunterPrelude/manifest.json",
@@ -124,7 +155,8 @@
         "clear_requires": "previous positive hunter observation, verified closed spawn window, both fixed spawn regions empty, complete whole-field visibility without allied/UI occlusion, all upper/lower appearance domains below ambiguous threshold for distinct timed frames; approach/track count is diagnostic only",
         "never_uses_kill_counter": true,
         "full_field_visibility_required": true,
-        "approach_is_not_death_evidence": true
+        "approach_is_not_death_evidence": true,
+        "localized_spawn_presence": "Only an unoccluded foreground head above its existing profile Present threshold, wholly contained in a projected spawn ROI, can add Present. It never adds Absent or bypasses independent bait-removal, identity, actor, budget, full-field visibility or temporal clearance guards."
     },
     "battlefield_roi": [136, 71, 914, 511],
     "head_profiles": [
@@ -150,6 +182,15 @@
             "domain": "upper",
             "scales": [1.0],
             "mirror": false,
+            "present_threshold": 0.8
+        },
+        {
+            "id": "upper-front-interior-run32-f01-eye23-v5",
+            "file": "upper_front_interior_run32_f01.png",
+            "mask": "upper_front_interior_run32_f01_eye_mask_v5.png",
+            "domain": "upper",
+            "scales": [1.0],
+            "mirror": true,
             "present_threshold": 0.8
         }
     ],
