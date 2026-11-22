@@ -1094,7 +1094,7 @@ int main()
     const auto lower_center = direction_selection_center(lower_diamond);
     assert(lower_center && cv::norm(*lower_center - cv::Point(650, 510)) < 4);
     auto lower_left_held = blank.clone();
-    auto lower_left_texture = lower_left_held(cv::Rect(610, 150, 433, 335));
+    auto lower_left_texture = lower_left_held(cv::Rect(625, 150, 418, 335));
     edge_rng.fill(lower_left_texture, cv::RNG::UNIFORM, 0, 160);
     auto lower_left_diamond = lower_left_held.clone();
     const std::vector<cv::Point> lower_left_vertices { { 557, 244 }, { 778, 429 }, { 538, 660 }, { 322, 429 } };
@@ -1108,11 +1108,17 @@ int main()
     assert(!registered_field_points(lower_left_fit, { lower_left_target }, FieldView::Held));
     const auto lower_left_hull_distance =
         cv::pointPolygonTest(lower_left_fit.source_hull, cv::Point2f(lower_left_target), true);
-    assert(lower_left_hull_distance < -48 && lower_left_hull_distance >= -64);
+    assert(lower_left_hull_distance < -64 && lower_left_hull_distance >= -80);
     assert(replacement_direction_center(lower_left_diamond, lower_left_held, lower_left_target) == lower_left_center);
     assert(!replacement_direction_center(lower_left_diamond, lower_left_held, { 474, 437 }));
     assert(!replacement_direction_center(lower_left_diamond, lower_left_held, { 630, 437 }));
     assert(!replacement_direction_center(lower_left_diamond, lower_left_held, { 552, 367 }));
+    // Keep a valid diamond while moving the camera enough to invalidate extrapolation.
+    cv::Mat displaced_lower_left_diamond;
+    const cv::Mat slight_shift = (cv::Mat_<double>(2, 3) << 1, 0, 5, 0, 1, 0);
+    cv::warpAffine(lower_left_diamond, displaced_lower_left_diamond, slight_shift, lower_left_diamond.size());
+    assert(direction_selection_center(displaced_lower_left_diamond));
+    assert(!replacement_direction_center(displaced_lower_left_diamond, lower_left_held, lower_left_target));
     auto hint_image = blank.clone();
     cv::rectangle(hint_image, cv::Rect(700, 200, 80, 60), cv::Scalar(30, 210, 50), -1);
     assert(green_deployment_hint(hint_image, cv::Point(740, 230)));

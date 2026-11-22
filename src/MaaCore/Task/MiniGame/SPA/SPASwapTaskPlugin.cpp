@@ -2349,6 +2349,7 @@ bool asst::spa::SwapTaskPlugin::held_drag()
                 // camera. Verify the actually held identity from this frame,
                 // rather than trusting the earlier source coordinate alone.
                 bool held_identity = false;
+                bool joined_title_fragments = false;
                 bool conflicting_title = false;
                 OCRer held_name(map_image, Rect(0, 160, 340, 65));
                 if (const auto names = held_name.analyze()) {
@@ -2358,13 +2359,14 @@ bool asst::spa::SwapTaskPlugin::held_drag()
                         conflicting_title |= text.score >= .85 && text.rect.x < 40 && text.text != m_name &&
                                              operator_pacts().contains(text.text);
                     }
-                    held_identity = std::any_of(
-                                        names->begin(),
-                                        names->end(),
-                                        [&](const auto& text) {
-                                            return text.score >= .85 && text.rect.x < 40 && text.text == m_name;
-                                        }) ||
-                                    reread_single_operator_title(map_image, titles, m_name);
+                    held_identity = std::any_of(names->begin(), names->end(), [&](const auto& text) {
+                        return text.score >= .85 && text.rect.x < 40 && text.text == m_name;
+                    });
+                    if (!held_identity && !conflicting_title) {
+                        joined_title_fragments = operator_panel_identity(titles, { m_name }) == m_name;
+                        held_identity =
+                            joined_title_fragments || reread_single_operator_title(map_image, titles, m_name);
+                    }
                 }
                 // Joint portraits can cover the held title. Require a newly
                 // read bench title, same-slot sprite at touch-down, and no
@@ -2372,14 +2374,15 @@ bool asst::spa::SwapTaskPlugin::held_drag()
                 const bool joint_identity = m_joint_deployment && !conflicting_title && picked_named_joint_slot;
                 const bool identity_verified = !conflicting_title && (held_identity || joint_identity);
                 auto identity = basic_info_with_what("SPAHeldOperatorIdentity");
-                identity["details"] = json::object { { "name", m_name },
-                                                     { "verified", identity_verified },
-                                                     { "source", identity_verified
-                                                                     ? (held_identity ? "held_title"
-                                                                                      : "joint_bench_touch_continuity")
-                                                                     : "unverified" },
-                                                     { "round", m_round },
-                                                     { "drop_issued", false } };
+                identity["details"] =
+                    json::object { { "name", m_name },
+                                   { "verified", identity_verified },
+                                   { "joined_title_fragments", joined_title_fragments },
+                                   { "source",
+                                     identity_verified ? (held_identity ? "held_title" : "joint_bench_touch_continuity")
+                                                       : "unverified" },
+                                   { "round", m_round },
+                                   { "drop_issued", false } };
                 callback(AsstMsg::SubTaskExtraInfo, identity);
                 if (!identity_verified) {
                     send(InputEvent::Type::TOUCH_MOVE, Point(20, 300));

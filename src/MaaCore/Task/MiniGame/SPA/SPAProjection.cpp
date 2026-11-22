@@ -1550,12 +1550,13 @@ std::optional<cv::Point>
     if (valid_field_camera_projection(fit) && fit.inliers >= 60 && fit.median_error <= 1) {
         const cv::Point2f receiver(expected_target);
         const auto hull_distance = cv::pointPolygonTest(fit.source_hull, receiver, true);
-        if (hull_distance >= -64) {
+        if (hull_distance >= -80) {
             std::vector<cv::Point2f> projected;
             cv::perspectiveTransform(std::vector<cv::Point2f> { receiver }, projected, fit.matrix);
             const auto camera_shift = cv::norm(projected.front() - receiver);
             const auto foot_error = cv::norm(projected.front() - cv::Point2f(placement_foot));
             const bool near_registered_terrain = hull_distance >= -24 && camera_shift <= 8 && foot_error <= 18;
+            // A tightly registered stationary scene can bridge roughly one tile of occlusion.
             const bool stationary_camera = fit.inliers >= 120 && fit.inliers * 5 >= fit.matches * 4 &&
                                            fit.median_error <= .35 && camera_shift <= 2 && foot_error <= 12;
             if (near_registered_terrain || stationary_camera) {

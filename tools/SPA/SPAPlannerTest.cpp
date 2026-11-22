@@ -1113,6 +1113,11 @@ int main()
     assert(!operator_panel_identity(merged_haruka, { "遥", "余" }));
     assert(!operator_title_contains_rank_artifact({ { "遥M", .69, 7, 178 } }, "遥"));
     assert(operator_panel_identity({ { "遥", .998723, 12, 182 } }, { "遥", "余" }) == "遥");
+    // Same-frame OCR from the R6 held drag successfully read both parts of the name.
+    const std::vector<TextObservation> held_harold { { "哈洛", .997717, 13, 184 }, { "德", .999087, 56, 186 } };
+    assert(operator_panel_identity(held_harold, { "哈洛德" }) == "哈洛德");
+    assert(!operator_panel_identity(held_harold, { "异客" }));
+    assert(!operator_panel_identity({ held_harold.front() }, { "哈洛德" }));
     assert(!operator_title_contains_rank_artifact({ { "余烬", .99, 10, 181 } }, "余"));
     assert(!operator_title_contains_rank_artifact({ { "余M", .95, 12, 665 } }, "余"));
     assert(!operator_title_contains_rank_artifact({ { "余M", .95, 10, 181 }, { "黍", .98, 10, 187 } }, "余"));
