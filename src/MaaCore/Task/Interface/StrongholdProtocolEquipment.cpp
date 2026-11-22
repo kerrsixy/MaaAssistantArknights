@@ -1024,6 +1024,7 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
                            { "field_pose_verified", m_verified_field_pose_points.contains(point) } });
     }
     spa::SwapTaskPlugin equip(m_callback, m_inst, TaskType);
+    equip.use_bench_identity_hints(m_inventory_operator_hints);
     equip.set_retry_times(0);
     equip.set_task_id(m_task_id);
     equip.set_task_ptr(this);

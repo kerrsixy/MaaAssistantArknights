@@ -6450,6 +6450,15 @@ int main()
     const auto no_promotion = choose_promotion_option(promotion_options, {}, { "主输出", "被禁用" }, 5);
     assert(!no_promotion.found);
 
+    assert(can_search_full_bench_shop(12, 1, false, 1, 0, false));
+    assert(!can_search_full_bench_shop(12, 1, false, 1, 1, false));
+    assert(can_search_full_bench_shop(12, 1, false, 1, 1, true));
+    assert(can_search_full_bench_shop(9, 1, false, 1, 3, true));
+    assert(!can_search_full_bench_shop(9, 1, false, 1, 4, true));
+    assert(!can_search_full_bench_shop(3, 1, false, 1, 1, true));
+    assert(can_search_full_bench_shop(4, 1, false, 1, 1, true));
+    assert(!can_search_full_bench_shop(12, -1, false, 1, 1, true));
+    assert(can_search_full_bench_shop(3, -1, true, 1, 1, true));
     auto economy = choose_economy_action({ 9, 8, 3, 4, 1, 4, 2500, false, false, false, false, true, false });
     assert(economy.action == EconomyAction::UpgradeShop && economy.spend == 4);
     economy = choose_economy_action({ 10, 3, 4, 0, 1, 0, 1500, false, true, false, false, true, false });

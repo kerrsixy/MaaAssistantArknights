@@ -5802,8 +5802,16 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             }
         }
         std::optional<int> equipped_population;
+        bool boss_damage_slot_available = false;
         if (field_poses_complete) {
             const auto [equipment_context, recipients] = equipment_assignment_inputs();
+            boss_damage_slot_available =
+                boss_preparation && !equipment_capacity_blocked &&
+                std::any_of(recipients.begin(), recipients.end(), [](const auto& target) {
+                    return target.attacks && target.slots_known &&
+                           target.equipped.size() <
+                               static_cast<size_t>(spa::equipment_capacity(target.name, target.elite));
+                });
             if (recipients.size() == static_cast<size_t>(field_population) &&
                 std::all_of(recipients.begin(), recipients.end(), [](const auto& target) {
                     return target.slots_known;
@@ -6390,32 +6398,45 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             }
         }
         std::string full_bench_refresh_quote_source;
+        const int full_bench_attempts = m_full_bench_refresh_attempts[round];
         if (decision.action == spa::PreparationAction::Review && confirmed_full_bench && field_poses_complete &&
             ordinary_balance_rule_known && m_policy.dynamic_decision_mode && m_policy.allow_refresh &&
             !m_policy.shop_frozen_this_round && !m_pending_field_replacement && !m_pending_spatial_orientation &&
-            !m_bench_recount_pending && (m_mode != "joint" || state.get("preparation_seconds_remaining", 0) >= 30) &&
-            !m_full_bench_refresh_attempts.contains(round)) {
+            !m_bench_recount_pending && (m_mode != "joint" || state.get("preparation_seconds_remaining", 0) >= 30)) {
             const bool free_refresh = state.get("free_refreshes_known", false) && m_policy.free_refreshes > 0;
             const bool observed_paid_quote = state.get("paid_refresh_price_known", false);
             const int refresh_price = observed_paid_quote ? state.get("paid_refresh_price", -1) : 1;
-            const bool can_pay =
-                !free_refresh && refresh_price > 0 && funds >= refresh_price + m_policy.minimum_recruit_price;
+            const bool boss_has_purchase_capacity =
+                boss_preparation && (m_mode != "joint" || state.get("preparation_seconds_remaining", 0) >= 45) &&
+                (boss_damage_slot_available ||
+                 (m_policy.primary_locked_after_activation && spa::choose_full_bench_sale(m_policy).has_value()));
+            const bool can_search = spa::can_search_full_bench_shop(
+                funds,
+                refresh_price,
+                free_refresh,
+                m_policy.minimum_recruit_price,
+                full_bench_attempts,
+                boss_has_purchase_capacity);
             // The whole-screen OCR misses the small price badge on busy
             // boards. Reuse the same crop that the executor verifies again.
-            const bool paid_refresh =
-                can_pay && (observed_paid_quote || spa::paid_shop_refresh_price(image) == refresh_price);
-            if (free_refresh || paid_refresh) {
-                m_full_bench_refresh_attempts.insert(round);
+            const bool paid_refresh = !free_refresh && can_search &&
+                                      (observed_paid_quote || spa::paid_shop_refresh_price(image) == refresh_price);
+            if (can_search && (free_refresh || paid_refresh)) {
+                ++m_full_bench_refresh_attempts[round];
                 full_bench_refresh_quote_source = free_refresh          ? "free_counter"
                                                   : observed_paid_quote ? "observer"
                                                                         : "price_badge_crop";
-                decision = { spa::PreparationAction::Refresh,
-                             "刷新",
-                             free_refresh ? 0 : refresh_price,
-                             -1,
-                             "Full bench with funds remaining; inspect one refreshed shop for equipment or trades",
-                             m_policy.primary_pact,
-                             free_refresh };
+                decision = {
+                    spa::PreparationAction::Refresh,
+                    "刷新",
+                    free_refresh ? 0 : refresh_price,
+                    -1,
+                    boss_has_purchase_capacity
+                        ? "Search for usable boss equipment or a lineup upgrade with expiring funds"
+                        : "Full bench with funds remaining; inspect one refreshed shop for equipment or trades",
+                    m_policy.primary_pact,
+                    free_refresh
+                };
             }
         }
         auto info = basic_info_with_what("SPAAutomationDecision");
@@ -6461,6 +6482,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                                                    : "review" },
             { "free_refresh", decision.free_refresh },
             { "full_bench_refresh_quote_source", full_bench_refresh_quote_source },
+            { "full_bench_refresh_attempts_before_decision", full_bench_attempts },
             { "banked_value_purchase", decision.banked_value_purchase },
             { "banking_board_verified", m_policy.one_coin_bank_allowed },
             { "economy_scenario_horizon_round", m_policy.economy_scenario_horizon_round },
@@ -6655,7 +6677,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 continue;
             }
             if (!full_bench_refresh_quote_source.empty() && !need_exit()) {
-                // Reobserve the shop and wallet after this one bounded try.
+                // Reobserve the shop and wallet after each bounded probe.
                 continue;
             }
             return false;
@@ -6681,6 +6703,18 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                                 { "equipment_candidates", equipment_candidates_snapshot() },
                                                 { "cash_equipment_acquired_round", m_cash_equipment_acquired_round } };
             callback(AsstMsg::SubTaskExtraInfo, receipt);
+            const auto before_slots = spa::equipment_inventory_candidates(image);
+            const auto after_slots = spa::equipment_inventory_candidates(ctrler()->get_image());
+            if (const auto source = spa::added_equipment_contact_hint(before_slots, after_slots)) {
+                m_equipment_source_hints[decision.name] = source->x;
+                auto hint = basic_info_with_what("SPAPurchasedEquipmentContactHint");
+                hint["details"] = json::object { { "name", decision.name },
+                                                 { "round", round },
+                                                 { "x", source->x },
+                                                 { "y", source->y },
+                                                 { "source_identity_verified", false } };
+                callback(AsstMsg::SubTaskExtraInfo, hint);
+            }
             observer.expect_unchanged_preparation(round);
             continue;
         }

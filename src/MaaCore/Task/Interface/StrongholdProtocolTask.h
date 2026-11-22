@@ -327,7 +327,7 @@ private:
     std::set<int> m_dynamic_upgrade_done_rounds;
     std::map<int, int> m_strategy_refresh_attempts;
     std::set<int> m_strategy_refresh_blocked_rounds;
-    std::set<int> m_full_bench_refresh_attempts;
+    std::map<int, int> m_full_bench_refresh_attempts;
     // Dynamic role order for the selected route: growth engines first, then
     // terminal outputs and finally battle-redeploy helpers. This is rebuilt
     // only when the live primary route changes.

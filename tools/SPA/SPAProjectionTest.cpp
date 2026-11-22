@@ -29,6 +29,19 @@ int main()
     assert(!inventory_slot_removal_observed(inventory_before, { { 500, 450 }, { 580, 450 } }, { 500, 450 }));
     assert(!inventory_slot_removal_observed(inventory_before, { { 580, 450 }, { 660, 450 } }, { 420, 450 }));
     assert(!inventory_slot_removal_observed(inventory_before, { { 580, 450 }, { 580, 450 } }, { 500, 450 }));
+    const std::vector<cv::Point> boss_inventory_before {
+        { 640, 393 }, { 718, 393 }, { 795, 394 }, { 873, 394 }, { 236, 465 }, { 317, 466 }, { 398, 465 },
+        { 479, 466 }, { 559, 466 }, { 640, 466 }, { 721, 466 }, { 802, 466 }, { 883, 466 },
+    };
+    auto boss_inventory_after = boss_inventory_before;
+    boss_inventory_after.emplace_back(758, 487);
+    assert(added_equipment_contact_hint(boss_inventory_before, boss_inventory_after) == cv::Point(758, 487));
+    assert(!added_equipment_contact_hint(boss_inventory_before, boss_inventory_before));
+    boss_inventory_after.back() = cv::Point(965, 487);
+    assert(!added_equipment_contact_hint(boss_inventory_before, boss_inventory_after));
+    boss_inventory_after.back() = cv::Point(758, 487);
+    boss_inventory_after[4].x += 40;
+    assert(!added_equipment_contact_hint(boss_inventory_before, boss_inventory_after));
     const auto life_pending = cv::imread("spa-life-boss-pending-header.png");
     const auto life_40 = cv::imread("spa-life-40-header.png");
     const auto life_27 = cv::imread("spa-life-27-header.png");

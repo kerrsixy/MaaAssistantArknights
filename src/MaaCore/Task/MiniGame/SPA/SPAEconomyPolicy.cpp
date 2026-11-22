@@ -30,6 +30,24 @@ std::string asst::spa::round_balance_review_reason(std::string_view strategy, in
            " extra next-round gold if play continues";
 }
 
+bool asst::spa::can_search_full_bench_shop(
+    int funds,
+    int refresh_price,
+    bool free_refresh,
+    int minimum_recruit_price,
+    int attempts,
+    bool boss_has_purchase_capacity)
+{
+    constexpr int BossSearchPages = 4;
+    if (attempts < 0 || attempts >= (boss_has_purchase_capacity ? BossSearchPages : 1) || funds < 0) {
+        return false;
+    }
+    // Leave enough for a useful late shop card after searching. The ordinary
+    // first probe keeps its normal purchase threshold.
+    const int reserve = std::max(attempts > 0 ? 3 : 1, minimum_recruit_price);
+    return free_refresh || (refresh_price > 0 && funds >= refresh_price && funds - refresh_price >= reserve);
+}
+
 asst::spa::EconomyDecision asst::spa::choose_economy_action(const EconomyContext& c)
 {
     if (c.round < 1 || c.funds < 0 || c.shop_level < 1 || c.refresh_cost < 1 || c.purchase_deadline_ms < 0 ||

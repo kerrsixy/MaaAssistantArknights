@@ -4156,6 +4156,13 @@ bool asst::spa::SwapTaskPlugin::_run()
                        std::abs(candidates[b].x - m_preferred_equipment_x);
             });
         }
+        if (m_bench_identity_hints) {
+            std::stable_partition(order.begin(), order.end(), [&](size_t index) {
+                const auto& source = candidates[index];
+                return (m_preferred_equipment_x >= 0 && std::abs(source.x - m_preferred_equipment_x) <= 12) ||
+                       !inventory_operator_visual_hint(*m_bench_identity_hints, inventory_image, source);
+            });
+        }
         for (size_t probe = 0; probe < order.size() && probe < 10; ++probe) {
             const auto index = order[probe];
             if (need_exit() || !ensure_expanded_shop()) {

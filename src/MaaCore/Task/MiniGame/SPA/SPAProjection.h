@@ -121,6 +121,8 @@ std::optional<bool> pact_icon_available(const cv::Mat& image, const cv::Rect& la
 bool overlaps_expanded_shop_controls(cv::Point point, int top_margin = 0);
 bool equipment_inventory_probe_safe(cv::Point point);
 std::vector<cv::Point> equipment_inventory_candidates(const cv::Mat& image);
+std::optional<cv::Point>
+    added_equipment_contact_hint(const std::vector<cv::Point>& before, const std::vector<cv::Point>& after);
 
 struct RetreatControlMatch
 {

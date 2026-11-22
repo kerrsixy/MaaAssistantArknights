@@ -1037,6 +1037,18 @@ std::vector<cv::Point> asst::spa::equipment_inventory_candidates(const cv::Mat& 
     return result;
 }
 
+std::optional<cv::Point>
+    asst::spa::added_equipment_contact_hint(const std::vector<cv::Point>& before, const std::vector<cv::Point>& after)
+{
+    if (after.size() != before.size() + 1 || after.size() > 20) {
+        return std::nullopt;
+    }
+    const auto added = std::find_if(after.begin(), after.end(), [&](const auto& point) {
+        return equipment_inventory_probe_safe(point) && inventory_slot_removal_observed(after, before, point);
+    });
+    return added == after.end() ? std::nullopt : std::optional(*added);
+}
+
 std::optional<asst::spa::RetreatControlMatch>
     asst::spa::selected_retreat_control(const cv::Mat& image, const cv::Mat& reference)
 {
