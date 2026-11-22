@@ -11,7 +11,8 @@ namespace asst::spa
 {
 // A global inventory index is not an identity: unrelated animated operator
 // badges can appear or disappear while the same equipment stays in place.
-inline std::optional<size_t> stable_cash_source(cv::Point verified_source, const std::vector<cv::Point>& candidates)
+inline std::optional<size_t>
+    stable_equipment_source(cv::Point verified_source, const std::vector<cv::Point>& candidates)
 {
     if (!equipment_inventory_probe_safe(verified_source)) {
         return std::nullopt;

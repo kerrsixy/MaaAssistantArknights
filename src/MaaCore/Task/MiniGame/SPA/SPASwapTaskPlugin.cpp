@@ -572,7 +572,7 @@ bool asst::spa::SwapTaskPlugin::reacquire_cash_equipment_source(const Point& ver
     const auto frame = ctrler()->get_image();
     const auto candidates = equipment_inventory_candidates(frame);
     const cv::Point anchor(verified_source.x, verified_source.y);
-    const auto source = stable_cash_source(anchor, candidates);
+    const auto source = stable_equipment_source(anchor, candidates);
     const auto reject = [&](const std::string& reason, const std::vector<cv::Point>& refreshed) {
         json::array points;
         for (const auto& point : refreshed) {
@@ -612,7 +612,7 @@ bool asst::spa::SwapTaskPlugin::reacquire_cash_equipment_source(const Point& ver
     m_cash_source_inventory = equipment_inventory_candidates(ctrler()->get_image());
     // Keep the original anchor through title inspection. Small successive
     // camera shifts must not accumulate into permission to drag another slot.
-    const auto final_source = stable_cash_source(anchor, m_cash_source_inventory);
+    const auto final_source = stable_equipment_source(anchor, m_cash_source_inventory);
     if (!final_source) {
         return reject("The verified cash source moved or became ambiguous", m_cash_source_inventory);
     }
@@ -4231,6 +4231,8 @@ bool asst::spa::SwapTaskPlugin::_run()
                     }
                     const auto amount = equipment_next_round_cash_gain(m_name, description);
                     if (!amount) {
+                        m_equipment_stage = "delayed_cash_quote_unverified";
+                        close_selection();
                         return false;
                     }
                     m_equipment_next_round_credit_quote = *amount;
@@ -4244,12 +4246,16 @@ bool asst::spa::SwapTaskPlugin::_run()
                     }
                 }
                 else {
-                    const auto refreshed = equipment_inventory_candidates(ctrler()->get_image());
-                    if (refreshed.size() != candidates.size() || index >= refreshed.size()) {
+                    const auto frame = ctrler()->get_image();
+                    const auto refreshed = equipment_inventory_candidates(frame);
+                    const auto source = stable_equipment_source(candidates[index], refreshed);
+                    if (!source) {
+                        m_equipment_stage = "equipment_source_anchor_unverified";
+                        save_evidence(frame, utils::path("debug/SPA/equipment_source_anchor_unverified"), false);
                         return false;
                     }
-                    m_source = Point(refreshed[index].x, refreshed[index].y);
-                    m_equipment_source_index = index;
+                    m_source = Point(refreshed[*source].x, refreshed[*source].y);
+                    m_equipment_source_index = *source;
                 }
                 break;
             }
@@ -5189,10 +5195,12 @@ bool asst::spa::SwapTaskPlugin::_run()
             }
             else {
                 const auto sources = equipment_inventory_candidates(ctrler()->get_image());
-                if (*m_equipment_source_index >= sources.size()) {
+                const auto source = stable_equipment_source({ m_source.x, m_source.y }, sources);
+                if (!source) {
                     return false;
                 }
-                m_source = Point(sources[*m_equipment_source_index].x, sources[*m_equipment_source_index].y);
+                m_source = Point(sources[*source].x, sources[*source].y);
+                m_equipment_source_index = *source;
             }
         }
         const bool id_tag = m_name == "随身身份牌";
@@ -5283,18 +5291,12 @@ bool asst::spa::SwapTaskPlugin::_run()
             }
             m_equipment_next_round_credit_quote = *quote;
             delayed_cash_inventory = equipment_inventory_candidates(ctrler()->get_image());
-            const auto reacquired = std::min_element(
-                delayed_cash_inventory.begin(),
-                delayed_cash_inventory.end(),
-                [&](const auto& a, const auto& b) {
-                    return cv::norm(a - cv::Point(m_source.x, m_source.y)) <
-                           cv::norm(b - cv::Point(m_source.x, m_source.y));
-                });
-            if (reacquired == delayed_cash_inventory.end() ||
-                cv::norm(*reacquired - cv::Point(m_source.x, m_source.y)) >= 15) {
+            const auto reacquired = stable_equipment_source({ m_source.x, m_source.y }, delayed_cash_inventory);
+            if (!reacquired) {
                 return false;
             }
-            m_source = Point(reacquired->x, reacquired->y);
+            const auto point = delayed_cash_inventory[*reacquired];
+            m_source = Point(point.x, point.y);
         }
         std::optional<int> defense_before;
         std::optional<int> unyielding_before;

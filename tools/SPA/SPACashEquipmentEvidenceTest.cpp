@@ -14,24 +14,28 @@ int main()
     const auto new_points = equipment_inventory_candidates(after);
     assert(old_points.size() == 5 && new_points.size() == 6);
     const cv::Point coin(873, 394);
-    const auto old_match = stable_cash_source(coin, old_points);
-    const auto new_match = stable_cash_source(coin, new_points);
+    const auto old_match = stable_equipment_source(coin, old_points);
+    const auto new_match = stable_equipment_source(coin, new_points);
     assert(old_match && new_match);
     assert(old_points[*old_match] == coin && new_points[*new_match] == coin);
 
     auto missing = new_points;
     missing.erase(std::remove(missing.begin(), missing.end(), coin), missing.end());
-    assert(!stable_cash_source(coin, missing));
+    assert(!stable_equipment_source(coin, missing));
     auto shifted = old_points;
     shifted[*old_match].x += 20;
     assert(shifted.size() == old_points.size());
-    assert(!stable_cash_source(coin, shifted));
+    assert(!stable_equipment_source(coin, shifted));
     auto ambiguous = new_points;
     ambiguous.emplace_back(coin.x + 5, coin.y);
-    assert(!stable_cash_source(coin, ambiguous));
-    assert(!stable_cash_source({ 963, 466 }, { { 963, 466 } }));
-    assert(!stable_cash_source(coin, {}));
-    assert(stable_cash_source(coin, { { 875, 396 } }));
+    assert(!stable_equipment_source(coin, ambiguous));
+    assert(!stable_equipment_source({ 963, 466 }, { { 963, 466 } }));
+    assert(!stable_equipment_source(coin, {}));
+    assert(stable_equipment_source(coin, { { 875, 396 } }));
+
+    const cv::Point doll(757, 393);
+    const std::vector<cv::Point> reordered { { 679, 394 }, { 834, 393 }, { 519, 466 }, { 756, 394 } };
+    assert(stable_equipment_source(doll, reordered) == 3);
 
     assert(cash_source_retry_allowed(1, false, false, "source_identity"));
     assert(cash_source_retry_allowed(1, false, false, "cash_source_reacquisition"));
