@@ -271,10 +271,14 @@ static bool
     const auto overlaps = [&](asst::spa::BoardCell cell) {
         return asst::spa::boss_attack_overlaps_cell(unit, cell);
     };
-    return !context.boss_cells.empty() &&
-           (context.boss_cells_are_alternatives
-                ? std::all_of(context.boss_cells.begin(), context.boss_cells.end(), overlaps)
-                : std::any_of(context.boss_cells.begin(), context.boss_cells.end(), overlaps));
+    if (context.boss_cells.empty()) {
+        return false;
+    }
+    if (context.boss_cells_are_alternatives) {
+        return std::ranges::all_of(context.boss_cells, overlaps);
+    }
+    return std::ranges::any_of(context.boss_cells, overlaps) ||
+           (!context.stationary_boss && std::ranges::any_of(context.boss_movement_waypoints, overlaps));
 }
 
 asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
@@ -283,7 +287,8 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
     const std::string& forced_core)
 {
     EgirFormationPlan result;
-    const bool aim_at_boss = context.stationary_boss || context.boss_opening_only;
+    const bool aim_at_boss =
+        context.stationary_boss || context.boss_opening_only || !context.boss_movement_waypoints.empty();
     if (units.empty() || units.size() > 8 || !context.pact_active || context.evaluation_budget <= 0 ||
         !context.chain_facing || std::string("ENSW").find(context.chain_facing) == std::string::npos ||
         (aim_at_boss ? context.boss_cells.empty() : context.lanes.empty())) {
@@ -550,9 +555,7 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
             context.boss_movement_waypoints.begin(),
             context.boss_movement_waypoints.end(),
             [&](auto cell) { return boss_attack_overlaps_cell(candidate[*core], cell); }));
-        if (aim_at_boss
-                ? (context.boss_cells_are_alternatives ? boss_covered != context.boss_cells.size() : !boss_covered)
-                : guarded != context.lanes.size()) {
+        if (aim_at_boss ? !egir_boss_pose_reaches(candidate[*core], context) : guarded != context.lanes.size()) {
             return;
         }
         const int distance = std::abs(root.first - context.home.first) + std::abs(root.second - context.home.second);
@@ -712,12 +715,7 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
             auto attacking_pose = units[*core].deployment;
             attacking_pose.cell = root;
             attacking_pose.facing = context.chain_facing;
-            const auto covered =
-                std::count_if(context.boss_cells.begin(), context.boss_cells.end(), [&](const auto& cell) {
-                    return boss_attack_overlaps_cell(attacking_pose, cell);
-                });
-            if (context.boss_cells_are_alternatives ? static_cast<size_t>(covered) != context.boss_cells.size()
-                                                    : covered == 0) {
+            if (!egir_boss_pose_reaches(attacking_pose, context)) {
                 continue;
             }
         }
@@ -757,7 +755,8 @@ asst::spa::EgirFormationPlan
     });
     EgirFormationPlan result;
     int evaluated = 0;
-    if ((!context.stationary_boss && !context.boss_opening_only) || context.boss_cells.empty()) {
+    if (context.boss_cells.empty() ||
+        (!context.stationary_boss && !context.boss_opening_only && context.boss_movement_waypoints.empty())) {
         for (const auto index : cores) {
             if (!context.defended_chain_prefix.empty() &&
                 units[index].entity.id != context.defended_chain_prefix.front()) {
@@ -816,6 +815,7 @@ asst::spa::EgirFormationPlan
                 [&](const auto& item) { return item.source == plan.core; });
             return std::tuple(
                 plan.boss_priority_attackers,
+                plan.boss_core_movement_waypoints,
                 source == plan.conditional_consumption.sources.end() ? 0.0 : source->inherited_base_attack.value_or(0),
                 plan.boss_chain_attack_priority,
                 plan.conditional_consumption.conditional_unique_target_layers.value_or(0),
@@ -885,6 +885,7 @@ asst::spa::EgirFormationPlan
                 auto growth_context = context;
                 growth_context.stationary_boss = false;
                 growth_context.boss_opening_only = false;
+                growth_context.boss_movement_waypoints.clear();
                 if (!growth_context.defended_chain_prefix.empty() &&
                     growth_context.defended_chain_prefix.front() == attacker.entity.id) {
                     growth_context.defended_chain_prefix.clear();
@@ -901,6 +902,10 @@ asst::spa::EgirFormationPlan
                     growth.core = attacker.entity.id;
                     growth.attacking_core_separate_from_chain = true;
                     growth.boss_priority_attackers = 1;
+                    growth.boss_core_movement_waypoints =
+                        static_cast<int>(std::ranges::count_if(context.boss_movement_waypoints, [&](BoardCell cell) {
+                            return boss_attack_overlaps_cell(pose, cell);
+                        }));
                     growth.evaluations = evaluated;
                     growth.reason = "Provisional boss attacker with a separate defended Egir growth chain";
                     return growth;

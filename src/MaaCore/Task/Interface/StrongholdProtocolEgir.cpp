@@ -157,17 +157,18 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
     spa::BossObjective boss;
     bool boss_bar_verified = false;
     std::string boss_target_source = "unknown";
-    if (boss_phase && !visible_bar) {
-        return std::nullopt;
-    }
-    if (visible_bar) {
+    if (boss_phase) {
         const auto projection =
             spa::registered_grid_projection(m_spatial_grid_reference, frame, m_spatial_grid_projection);
-        boss_bar_verified = projection.has_value();
+        boss_bar_verified = visible_bar.has_value() && projection.has_value();
         if (projection && m_mode == "independent") {
-            boss = spa::boss_objective(m_advertised_boss_family, request.home, m_difficulty, m_spatial_boss_hidden_variant);
+            boss = spa::boss_objective(
+                m_advertised_boss_family,
+                request.home,
+                m_difficulty,
+                m_spatial_boss_hidden_variant);
         }
-        if (projection) {
+        if (boss_bar_verified) {
             if (const auto red_region = spa::boss_attackable_region(frame, *visible_bar)) {
                 const auto cells = spa::project_boss_attackable_cells(*red_region, *projection);
                 if (!cells.empty()) {
@@ -193,6 +194,15 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
                 }
             }
         }
+        bool current_route_verified = false;
+        if (!visible_bar && projection && m_mode == "independent" && boss.known) {
+            const auto registered_target = boss_opening_target(round);
+            request.boss_cells = registered_target.cells;
+            if (!request.boss_cells.empty()) {
+                boss_target_source = registered_target.source;
+                current_route_verified = true;
+            }
+        }
         request.boss_opening_only = !boss.known && !request.boss_cells.empty();
         request.stationary_boss = boss.stationary_route;
         request.boss_movement_waypoints = boss.movement_waypoints;
@@ -207,7 +217,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
             request.boss_cells_are_alternatives = !boss.variant_known;
             boss_target_source = "client_route_translated_from_registered_home";
         }
-        if (!boss_bar_verified || request.boss_cells.empty()) {
+        if ((!boss_bar_verified && !current_route_verified) || request.boss_cells.empty()) {
             m_dynamic_layout_target.clear();
             const auto deferred_context = "unresolved-boss:" + std::to_string(round);
             if (m_egir_plan_context != deferred_context) {
@@ -223,7 +233,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
             return std::nullopt;
         }
     }
-    const bool prioritize_boss = request.stationary_boss || request.boss_opening_only;
+    const bool prioritize_boss = boss_phase;
     json::array conditional_windows;
     const auto catalogue = spa::operator_pacts();
     std::vector<spa::EgirPlacementUnit> inputs;
@@ -409,7 +419,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
         field_signature += id + "\n";
     }
     std::string objective_context = "#egir-home";
-    if (boss_bar_verified) {
+    if (prioritize_boss) {
         objective_context = "#egir-boss:" + m_advertised_boss_family;
         for (const auto& cell : request.boss_cells) {
             objective_context += ":" + std::to_string(cell.first) + "." + std::to_string(cell.second);
@@ -447,45 +457,46 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
                                { "row", unit.cell.second },
                                { "facing", std::string(1, unit.facing) } });
         }
-        receipt["details"] =
-            json::object { { "round", round },
-                           { "map_id", m_spatial_map_id },
-                           { "core", proposal.core },
-                           { "boss_priority_attackers", proposal.boss_priority_attackers },
-                           { "boss_chain_attack_priority", proposal.boss_chain_attack_priority },
-                           { "boss_movement_waypoints_known", request.boss_movement_waypoints.size() },
-                           { "boss_core_movement_waypoints_covered", proposal.boss_core_movement_waypoints },
-                           { "attacking_core_separate_from_chain", proposal.attacking_core_separate_from_chain },
-                           { "input_complete", proposal.input_complete },
-                           { "found", proposal.found },
-                           { "chain", std::move(chain) },
-                           { "defended_chain_prefix", request.defended_chain_prefix },
-                           { "defended_chain_names", request.defended_chain_names },
-                           { "placements", std::move(placements) },
-                           { "changed_units", proposal.changed_units },
-                           { "evaluations", proposal.evaluations },
-                           { "budget_exhausted", proposal.budget_exhausted },
-                           { "validation_mode", true },
-                           { "failed_spatial_inputs_excluded", true },
-                           { "current_season_semantics_live_verified", false },
-                           { "objective",
-                             request.stationary_boss     ? "stationary_boss_attack"
-                             : request.boss_opening_only ? "boss_opening_attack"
+        receipt["details"] = json::object {
+            { "round", round },
+            { "map_id", m_spatial_map_id },
+            { "core", proposal.core },
+            { "boss_priority_attackers", proposal.boss_priority_attackers },
+            { "boss_chain_attack_priority", proposal.boss_chain_attack_priority },
+            { "boss_movement_waypoints_known", request.boss_movement_waypoints.size() },
+            { "boss_core_movement_waypoints_covered", proposal.boss_core_movement_waypoints },
+            { "attacking_core_separate_from_chain", proposal.attacking_core_separate_from_chain },
+            { "input_complete", proposal.input_complete },
+            { "found", proposal.found },
+            { "chain", std::move(chain) },
+            { "defended_chain_prefix", request.defended_chain_prefix },
+            { "defended_chain_names", request.defended_chain_names },
+            { "placements", std::move(placements) },
+            { "changed_units", proposal.changed_units },
+            { "evaluations", proposal.evaluations },
+            { "budget_exhausted", proposal.budget_exhausted },
+            { "validation_mode", true },
+            { "failed_spatial_inputs_excluded", true },
+            { "current_season_semantics_live_verified", false },
+            { "objective",
+              request.stationary_boss                    ? "stationary_boss_attack"
+              : !request.boss_movement_waypoints.empty() ? "moving_boss_route_attack"
+              : request.boss_opening_only                ? "boss_opening_attack"
                                                          : "home_defense" },
-                           { "boss_family_name", m_advertised_boss_family },
-                           { "catalogue_hidden_variant",
-                             m_spatial_boss_hidden_variant ? json::value(*m_spatial_boss_hidden_variant)
-                                                           : json::value(nullptr) },
-                           { "boss_health_bar_verified", boss_bar_verified },
-                           { "boss_variant_verified", boss.variant_known },
-                           { "possible_boss_cells", std::move(boss_cells) },
-                           { "all_alternative_cells_required", request.boss_cells_are_alternatives },
-                           { "boss_target_source", boss_target_source },
-                           { "boss_physical_hit_verified", false },
-                           { "conditional_skill_windows", std::move(conditional_windows) },
-                           { "enemy_paths_observed", false },
-                           { "movement_executed", false },
-                           { "reason", proposal.reason } };
+            { "boss_family_name", m_advertised_boss_family },
+            { "catalogue_hidden_variant",
+              m_spatial_boss_hidden_variant ? json::value(*m_spatial_boss_hidden_variant) : json::value(nullptr) },
+            { "boss_health_bar_verified", boss_bar_verified },
+            { "boss_variant_verified", boss.variant_known },
+            { "possible_boss_cells", std::move(boss_cells) },
+            { "all_alternative_cells_required", request.boss_cells_are_alternatives },
+            { "boss_target_source", boss_target_source },
+            { "boss_physical_hit_verified", false },
+            { "conditional_skill_windows", std::move(conditional_windows) },
+            { "enemy_paths_observed", false },
+            { "movement_executed", false },
+            { "reason", proposal.reason }
+        };
         const auto core_source = std::find_if(
             proposal.conditional_consumption.sources.begin(),
             proposal.conditional_consumption.sources.end(),

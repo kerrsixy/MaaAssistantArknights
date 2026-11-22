@@ -753,6 +753,22 @@ int main()
     assert(
         *m06_attack->inherited_base_attack >=
         season_combat_stats("乌尔比安", false)->attack + season_combat_stats("斯卡蒂", false)->attack);
+    // A moving boss can start outside everyone's range and enter the
+    // field later along a known route. Keep the chain aimed at that route.
+    auto moving_egir_boss = m06_boss_request;
+    moving_egir_boss.stationary_boss = false;
+    moving_egir_boss.boss_cells = { { 0, 0 } };
+    moving_egir_boss.boss_movement_waypoints = { { 10, 3 }, { 9, 3 } };
+    const auto moving_egir_plan = plan_egir_formation(m06_boss_units, moving_egir_boss);
+    std::cerr << "Moving M06 boss plan found=" << moving_egir_plan.found << " core=" << moving_egir_plan.core
+              << " evaluations=" << moving_egir_plan.evaluations
+              << " route coverage=" << moving_egir_plan.boss_core_movement_waypoints
+              << " reason=" << moving_egir_plan.reason << '\n';
+    assert(
+        moving_egir_plan.found && moving_egir_plan.core == "克莱门莎" &&
+        moving_egir_plan.boss_core_movement_waypoints > 0);
+    moving_egir_boss.boss_cells_are_alternatives = true;
+    assert(!plan_egir_formation(m06_boss_units, moving_egir_boss).found);
     // A mirrored boss board needs a west-facing output and food chain.
     // This is a logical planner test, not camera registration or coop proof.
     auto mirrored_m06_units = m06_boss_units;

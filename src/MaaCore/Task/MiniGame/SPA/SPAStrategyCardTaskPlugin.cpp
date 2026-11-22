@@ -710,10 +710,11 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
     }
     const auto [x, y, width, height] = opening_strategy_card_rect(selected_strategy_index, details_open);
     const Rect card = selected_card.value_or(Rect(x, y, width, height));
-    // The selection click is synchronous on the client. Polling the next
-    // frame below is enough; a full one-second delay made this stage feel
-    // frozen on fast emulators and multiplied when ProcessTask retried.
-    if (!specific_selected && (!ctrler()->click(card) || !sleep(180))) {
+    // After scroll restoration the row estimate can differ from the actual tile position.
+    // A center tap tolerates that offset; a random point near the bottom can hit the next row.
+    // The post-tap title and highlight still have to match the planned strategy.
+    const Point card_center(card.x + card.width / 2, card.y + card.height / 2);
+    if (!specific_selected && (!ctrler()->click(card_center) || !sleep(180))) {
         return false;
     }
     // Selecting a strategy card only highlights it.  The game requires the
