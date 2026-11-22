@@ -372,20 +372,41 @@ int sustained_boss_attack_weight(int opening, int supported)
 {
     return opening + 4 * supported;
 }
+
+struct BossRouteCoverage
+{
+    int first_weight = 0;
+    int weakest_weight = 0;
+    int total_weight = 0;
+    int uncovered_waypoints = 0;
+};
+
+BossRouteCoverage boss_route_coverage(const std::vector<DeploymentUnit>& units, std::span<const BoardCell> waypoints)
+{
+    BossRouteCoverage result;
+    // These are route checkpoints, with no measured travel time between
+    // them. Score local attack access and healing at each known checkpoint.
+    for (size_t i = 0; i < waypoints.size(); ++i) {
+        const auto& waypoint = waypoints[i];
+        const auto [attack, supported] = boss_attack_weights(units, std::span(&waypoint, 1));
+        const int weight = sustained_boss_attack_weight(attack, supported);
+        if (i == 0) {
+            result.first_weight = weight;
+            result.weakest_weight = weight;
+        }
+        result.weakest_weight = std::min(result.weakest_weight, weight);
+        result.total_weight += weight / 100;
+        result.uncovered_waypoints += weight == 0;
+    }
+    return result;
+}
 }
 
 int asst::spa::boss_movement_attack_weight(
     const std::vector<DeploymentUnit>& units,
     const std::vector<BoardCell>& waypoints)
 {
-    int weight = 0;
-    // These are route checkpoints, with no measured travel time between
-    // them. Score local attack access and healing at each known checkpoint.
-    for (const auto& waypoint : waypoints) {
-        const auto [attack, supported] = boss_attack_weights(units, std::span(&waypoint, 1));
-        weight += sustained_boss_attack_weight(attack, supported) / 100;
-    }
-    return weight;
+    return boss_route_coverage(units, waypoints).total_weight;
 }
 
 asst::spa::DeploymentProposal asst::spa::propose_deployment(
@@ -425,6 +446,10 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
     {
         int unblocked_lanes = 0;
         int exposed_support = 0;
+        bool boss_opening_uncovered = false;
+        bool boss_first_contact_uncovered = false;
+        int boss_uncovered_waypoints = 0;
+        int boss_weakest_waypoint_cost = 0;
         int boss_route_only_cost = 0;
         int boss_early_contact_floor_cost = 0;
         int boss_early_contact_sum_cost = 0;
@@ -474,19 +499,13 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         // in reach of healing. This is a search priority, not predicted survival.
         const int boss_sustained_attack_weight =
             sustained_boss_attack_weight(boss_opening_weight, boss_supported_weight);
-        int early_contact_floor = 0;
-        int early_contact_sum = 0;
-        if (has_early_boss_positions) {
-            // The boss can stop on contact before reaching distant route
-            // points. Score the opening area and first checkpoint as two
-            // separate positions, so covering just one cannot count twice.
-            const auto [first_attack, first_supported] =
-                boss_attack_weights(candidate, std::span(boss_movement_waypoints).first(1));
-            const int first_sustained = sustained_boss_attack_weight(first_attack, first_supported);
-            early_contact_floor = std::min(boss_sustained_attack_weight, first_sustained);
-            early_contact_sum = boss_sustained_attack_weight + first_sustained;
-        }
-        const int movement_weight = boss_movement_attack_weight(candidate, boss_movement_waypoints);
+        const auto route = boss_route_coverage(candidate, boss_movement_waypoints);
+        // Preserve firing access at the opening and first contact. Once
+        // those are covered, an empty later checkpoint matters more than
+        // adding another attacker to the opening cluster.
+        const int early_contact_floor =
+            has_early_boss_positions ? std::min(boss_sustained_attack_weight, route.first_weight) : 0;
+        const int early_contact_sum = has_early_boss_positions ? boss_sustained_attack_weight + route.first_weight : 0;
         // Preparation-only growth can break a tie in survival coverage.
         // Preserve the original coverage ordering when there is no growth
         // objective. A pair cannot trade away a lane, a healing check or
@@ -494,7 +513,11 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         return CandidateScore {
             .unblocked_lanes = unblocked,
             .exposed_support = review.exposed_support_units,
-            .boss_route_only_cost = has_early_boss_positions ? 0 : -movement_weight,
+            .boss_opening_uncovered = has_early_boss_positions && boss_sustained_attack_weight == 0,
+            .boss_first_contact_uncovered = has_early_boss_positions && route.first_weight == 0,
+            .boss_uncovered_waypoints = route.uncovered_waypoints,
+            .boss_weakest_waypoint_cost = -route.weakest_weight,
+            .boss_route_only_cost = has_early_boss_positions ? 0 : -route.total_weight,
             .boss_early_contact_floor_cost = -early_contact_floor,
             .boss_early_contact_sum_cost = -early_contact_sum,
             .boss_sustained_attack_cost = -boss_sustained_attack_weight,
@@ -507,7 +530,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
             .preparation_growth_cost = prioritize_growth ? -preparation_growth_preference(candidate) : 0,
             .approach_penalty = lane_problems * 1000 + uncovered_approach * 100,
             .block_capacity_cost = -review.balanced_block_capacity,
-            .boss_movement_cost = has_early_boss_positions ? -movement_weight : 0,
+            .boss_movement_cost = has_early_boss_positions ? -route.total_weight : 0,
             .placement_preference_cost = preference ? -preference(candidate) : 0
         };
     };
@@ -585,6 +608,10 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
     result.blocking_capacity_improvement = initial_score.block_capacity_cost - best_score.block_capacity_cost;
     result.boss_movement_coverage_improvement = initial_score.boss_route_only_cost + initial_score.boss_movement_cost -
                                                 best_score.boss_route_only_cost - best_score.boss_movement_cost;
+    result.boss_uncovered_waypoints_improvement =
+        initial_score.boss_uncovered_waypoints - best_score.boss_uncovered_waypoints;
+    result.boss_weakest_waypoint_improvement =
+        initial_score.boss_weakest_waypoint_cost - best_score.boss_weakest_waypoint_cost;
     result.boss_early_contact_floor_improvement =
         initial_score.boss_early_contact_floor_cost - best_score.boss_early_contact_floor_cost;
     result.boss_early_contact_sum_improvement =
@@ -635,6 +662,7 @@ bool asst::spa::deployment_change_worth_input(const DeploymentProposal& proposal
     }
     if (proposal.unblocked_lanes_improvement > 0 || proposal.score_improvement > 0 ||
         proposal.blocking_capacity_improvement > 0 || proposal.boss_movement_coverage_improvement > 0 ||
+        proposal.boss_uncovered_waypoints_improvement > 0 || proposal.boss_weakest_waypoint_improvement > 0 ||
         proposal.boss_sustained_attack_improvement > 0 || proposal.boss_early_contact_floor_improvement > 0 ||
         proposal.boss_early_contact_sum_improvement > 0) {
         return true;

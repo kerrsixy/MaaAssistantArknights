@@ -702,6 +702,8 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         { "boss_early_contact_sum_improvement", proposal.boss_early_contact_sum_improvement },
         { "boss_movement_waypoints", std::move(movement_targets) },
         { "boss_movement_coverage_improvement", proposal.boss_movement_coverage_improvement },
+        { "boss_uncovered_waypoints_improvement", proposal.boss_uncovered_waypoints_improvement },
+        { "boss_weakest_waypoint_improvement", proposal.boss_weakest_waypoint_improvement },
         { "boss_basic_attack_weight_before", spa::stationary_boss_attack_weight(current, boss_cells) },
         { "boss_basic_attack_weight_after", spa::stationary_boss_attack_weight(proposal.units, boss_cells) },
         { "boss_damage_verified", false },

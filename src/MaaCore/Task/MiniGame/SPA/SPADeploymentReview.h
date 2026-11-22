@@ -89,6 +89,8 @@ struct DeploymentProposal
     std::string reason;
     int boss_coverage_improvement = 0;
     int boss_movement_coverage_improvement = 0;
+    int boss_uncovered_waypoints_improvement = 0;
+    int boss_weakest_waypoint_improvement = 0;
     int preparation_growth_preference_improvement = 0;
     int boss_estimated_attack_improvement = 0;
     int boss_supported_attack_improvement = 0;

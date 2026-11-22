@@ -292,6 +292,78 @@ int main()
            early_contact.boss_early_contact_sum_improvement > 0);
     assert(early_contact.boss_movement_coverage_improvement == -700);
     assert(deployment_change_worth_input(early_contact, sequence_deployment(route_only.units, early_contact.units)));
+
+    // The second live D4 矩兽 reached the west side with most units still
+    // aimed at its opening. Isolate that trade-off with two direction-only
+    // attackers while a separate blocker continues guarding the lane.
+    auto eastern_output = main_output;
+    eastern_output.facing = 'E';
+    eastern_output.local_range = { { 1, 0 }, { 2, 0 }, { 1, -1 } };
+    eastern_output.movable = false;
+    auto pivot_output = eastern_output;
+    pivot_output.id = "pivot-output";
+    pivot_output.cell = { 4, 3 };
+    pivot_output.placement_cells = { pivot_output.cell };
+    pivot_output.local_range = { { 1, 1 }, { 2, 1 }, { 1, 0 } };
+    pivot_output.movable = true;
+    const std::vector<DeploymentUnit> east_cluster { patrol_guard, medic, eastern_output, pivot_output };
+    const std::vector<BoardCell> attack_posts { guard.cell, medic.cell, eastern_output.cell, pivot_output.cell };
+    const std::vector<BoardCell> opening { { 5, 2 } };
+    const std::vector<BoardCell> moving_route { { 6, 2 }, { 3, 3 }, { 5, 3 } };
+    assert(stationary_boss_attackers(east_cluster, opening) == 2);
+    assert(stationary_boss_attackers(east_cluster, { moving_route[1] }) == 0);
+    const auto route_plan =
+        propose_deployment(east_cluster, one_lane, attack_posts, 96, {}, opening, moving_route, {}, 1);
+    assert(route_plan.input_complete && route_plan.improved && route_plan.units.back().facing == 'W');
+    assert(route_plan.boss_uncovered_waypoints_improvement == 1 && route_plan.boss_weakest_waypoint_improvement > 0);
+    assert(route_plan.boss_early_contact_floor_improvement < 0);
+    assert(stationary_boss_attackers(route_plan.units, opening) == 1);
+    assert(stationary_boss_attackers(route_plan.units, { moving_route[1] }) == 1);
+    const auto route_sequence = sequence_deployment(east_cluster, route_plan.units);
+    assert(route_sequence.steps.size() == 1 && deployment_change_worth_input(route_plan, route_sequence));
+    assert(review_deployment(route_plan.units, one_lane, attack_posts).lanes.front().blocker == patrol_guard.id);
+
+    // Regulation 4 R14 plan at 09:58:46. Replay the registered cells and
+    // verified forms with season ranges, independent of the live boss pose.
+    std::vector<DeploymentUnit> d4_ready {
+        member("伺夜", { 6, 1 }, 'E', true, PlacementRole::Ranged, *terrain),
+        member("忍冬", { 8, 1 }, 'E', true, PlacementRole::Frontline, *terrain),
+        member("拉普兰德", { 8, 2 }, 'E', true, PlacementRole::Frontline, *terrain),
+        member("渡桥", { 7, 3 }, 'E', false, PlacementRole::Ranged, *terrain),
+        member("空弦", { 7, 1 }, 'E', false, PlacementRole::Ranged, *terrain),
+        member("荒芜拉普兰德", { 7, 2 }, 'E', false, PlacementRole::Ranged, *terrain),
+        member("褐果", { 5, 1 }, 'E', false, PlacementRole::Healer, *terrain),
+        member("陨星", { 6, 2 }, 'E', true, PlacementRole::Ranged, *terrain),
+    };
+    d4_ready.front().facing_known = false;
+    for (auto& unit : d4_ready) {
+        if (std::ranges::find(unit.placement_cells, unit.cell) == unit.placement_cells.end()) {
+            unit.placement_cells.push_back(unit.cell);
+        }
+    }
+    const auto d4_spawn = estimate_solo_boss_opening_cells(d4_m01_boss);
+    const std::vector<BoardCell> d4_west { d4_m01_boss.movement_waypoints[1] };
+    const auto d4_boss_lanes = active_preparation_lanes(*terrain, 14);
+    assert(stationary_boss_attackers(d4_ready, d4_west) == 0);
+    const auto d4_route_plan = propose_deployment(
+        d4_ready,
+        d4_boss_lanes,
+        terrain->buildable,
+        4000,
+        {},
+        d4_spawn,
+        d4_m01_boss.movement_waypoints,
+        {},
+        8);
+    assert(d4_route_plan.input_complete && d4_route_plan.boss_uncovered_waypoints_improvement > 0);
+    assert(stationary_boss_attackers(d4_route_plan.units, d4_spawn) > 0);
+    assert(stationary_boss_attackers(d4_route_plan.units, d4_west) > 0);
+    const auto d4_sequence = sequence_deployment(d4_ready, d4_route_plan.units);
+    assert(d4_sequence.complete && deployment_input_steps_with_facing_repairs(d4_sequence) <= 8);
+    std::cout << "D4 Waverer modeled opening attackers " << stationary_boss_attackers(d4_ready, d4_spawn) << " -> "
+              << stationary_boss_attackers(d4_route_plan.units, d4_spawn) << ", west 0 -> "
+              << stationary_boss_attackers(d4_route_plan.units, d4_west) << '\n';
+
     // The supported attacker shares the only useful firing tile with a
     // stronger attacker who cannot be healed by this medic.
     auto covered_attacker = main_output;
