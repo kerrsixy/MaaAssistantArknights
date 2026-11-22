@@ -160,6 +160,8 @@ public:
 
     int sale_credit() const { return m_sale_credit; }
 
+    std::optional<int> observed_sale_credit() const { return m_observed_sale_credit; }
+
     bool equipment_committed() const { return m_equipment_committed; }
 
     bool equipment_contact_attempted() const { return m_equipment_contact_attempted; }
@@ -369,6 +371,7 @@ private:
     std::map<std::string, int> m_pact_baselines;
     int m_sale_credit = 0;
     int m_minimum_sale_credit = 1;
+    std::optional<int> m_observed_sale_credit;
     Point m_direction = Point(120, 0);
     int m_round = 0;
     int m_funds = 0;

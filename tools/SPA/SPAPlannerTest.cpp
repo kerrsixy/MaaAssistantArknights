@@ -1635,6 +1635,26 @@ int main()
     full_bench_funding.bench_occupied = 10;
     const auto funded_slot = choose_funding_purchase(full_bench_funding, 2, activation_shop, activation_catalog);
     assert(funded_slot && funded_slot->offer.name == "归溟幽灵鲨" && funded_slot->deficit == 1);
+    {
+        auto pair_policy = ursus_funding;
+        pair_policy.round = 11;
+        pair_policy.shop_level = 5;
+        pair_policy.bench_occupied = 9;
+        pair_policy.owned.emplace("摆渡人", OwnedOperator { 1, false, false });
+        pair_policy.owned.emplace("承曦格雷伊", OwnedOperator { 1, false, false });
+        const ShopOffer winter { "怒潮凛冬", 4, 1 };
+        const auto pair_purchase = choose_funding_purchase(pair_policy, 2, { winter }, activation_catalog);
+        assert(pair_purchase && pair_purchase->offer.name == winter.name && pair_purchase->deficit == 2);
+        assert(unique_funding_quote({ winter }, winter));
+        assert(!unique_funding_quote({ winter, { "冻河", 4, 1 } }, winter));
+        assert(!unique_funding_quote({ { "怒潮凛冬", 4, 0 } }, winter));
+        assert(!unique_funding_quote({ { "怒潮凛冬", 3, 1 } }, winter));
+        assert(choose_full_bench_sale(pair_policy, {}, 2) == "摆渡人");
+        assert(choose_full_bench_sale(pair_policy, { "摆渡人" }, 2) == "承曦格雷伊");
+        assert(choose_full_bench_sale(pair_policy, {}, 1, "摆渡人") == "摆渡人");
+        pair_policy.owned.at("摆渡人").deployed = true;
+        assert(!choose_full_bench_sale(pair_policy, {}, 1, "摆渡人"));
+    }
     assert(choose_full_bench_sale(activation_funding, {}, funding->deficit) == "杰克");
     auto coin_only_funding = activation_funding;
     coin_only_funding.bench_occupied = 0;

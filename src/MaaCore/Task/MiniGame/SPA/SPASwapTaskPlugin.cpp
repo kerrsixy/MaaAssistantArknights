@@ -119,6 +119,7 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
 {
     m_population_consumed = false;
     m_sale_committed = false;
+    m_observed_sale_credit.reset();
     m_equipment_committed = false;
     m_identity_tag_pact = options.get("identity_tag_pact", std::string());
     m_equipment_contact_attempted = false;
@@ -4551,8 +4552,11 @@ bool asst::spa::SwapTaskPlugin::_run()
                 callback(AsstMsg::SubTaskExtraInfo, quoted);
             }
         }
-        if (!quote || *quote < m_minimum_sale_credit || (m_sale_credit > 0 && m_sale_credit != *quote) ||
-            m_funds > 999 - *quote || !current_identity(m_name) || !selected_form_matches(sale_image, m_name)) {
+        if (quote && m_funds <= 999 - *quote && current_identity(m_name) && selected_form_matches(sale_image, m_name)) {
+            m_observed_sale_credit = quote;
+        }
+        if (!m_observed_sale_credit || *m_observed_sale_credit < m_minimum_sale_credit ||
+            (m_sale_credit > 0 && m_sale_credit != *m_observed_sale_credit)) {
             save_evidence(sale_image, utils::path("debug/SPA/sale_quote_unverified"), false);
             return false;
         }

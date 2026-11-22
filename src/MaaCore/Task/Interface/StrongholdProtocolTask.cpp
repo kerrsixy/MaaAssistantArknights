@@ -146,6 +146,8 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_pending_field_replacement.reset();
     m_blocked_purchases.clear();
     m_purchase_reserved_after_sale.reset();
+    m_bench_funding_pair.reset();
+    m_failed_bench_sales.clear();
     m_replacement_bench_space_round = -1;
     m_prefer_unclaimed = params.get("prefer_unclaimed_strategy", false);
     m_current_strategy_inspected = false;
@@ -1332,7 +1334,8 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
     const json::value& state,
     int funding_deficit,
     const spa::BenchCapacityTrade* capacity_trade,
-    const spa::ReplacementChoice* replacement_to_enable)
+    const spa::ReplacementChoice* replacement_to_enable,
+    const spa::ShopOffer* funding_offer)
 {
     const int remaining_deployment = state.get("remaining_deployment", -1);
     if (!m_policy.dynamic_decision_mode || m_decision_only || (m_policy.bench_occupied < 10 && funding_deficit <= 0) ||
@@ -1371,11 +1374,27 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
         protected_names.push_back(replacement_to_enable->incoming);
         protected_names.push_back(replacement_to_enable->outgoing);
     }
+    const bool can_plan_pair = funding_offer && funding_deficit == 2 &&
+                               (m_mode != "joint" || state.get("preparation_seconds_remaining", 0) >= 45);
+    const auto* pair = funding_offer && m_bench_funding_pair ? &*m_bench_funding_pair : nullptr;
+    std::string_view required_seller;
+    if (pair) {
+        if (!spa::choose_full_bench_sale(candidates, protected_names, funding_deficit, pair->reserved_seller)) {
+            m_bench_funding_pair.reset();
+            return false;
+        }
+        if (pair->partial_sale_verified) {
+            required_seller = pair->reserved_seller;
+        }
+        else {
+            protected_names.push_back(pair->reserved_seller);
+        }
+    }
     auto selected =
         capacity_trade && std::find(protected_names.begin(), protected_names.end(), capacity_trade->spare_initial) ==
                               protected_names.end()
             ? std::optional(capacity_trade->spare_initial)
-            : spa::choose_full_bench_sale(candidates, protected_names, funding_deficit);
+            : spa::choose_full_bench_sale(candidates, protected_names, funding_deficit, required_seller);
     if (!selected && replacement_to_enable && !capacity_trade) {
         std::map<std::string, int> field_counts;
         for (const auto& [name, position] : m_auto_deploy_positions) {
@@ -1389,11 +1408,14 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
         }
     }
     if (!selected || (capacity_trade && *selected != capacity_trade->spare_initial)) {
+        if (pair) {
+            m_bench_funding_pair.reset();
+        }
         return false;
     }
     std::optional<spa::OwnedOperator> remaining_copies;
     const bool verify_initial_form =
-        capacity_trade || (replacement_to_enable && candidates.owned.at(*selected).deployed);
+        capacity_trade || can_plan_pair || pair || (replacement_to_enable && candidates.owned.at(*selected).deployed);
     if (verify_initial_form) {
         const auto found = candidates.owned.find(*selected);
         if (found == candidates.owned.end()) {
@@ -1423,8 +1445,8 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
                            { "sell_only", true },
                            { "find_bench_source", true },
                            { "fast_mode", true },
-                           { "sale_credit", 0 },
-                           { "minimum_sale_credit", std::max(1, funding_deficit) },
+                           { "sale_credit", required_seller.empty() ? 0 : 1 },
+                           { "minimum_sale_credit", pair ? 1 : std::max(1, funding_deficit) },
                            { "round", round },
                            { "funds", state.get("funds", -1) },
                            { "remaining_deployment", remaining_deployment } };
@@ -1433,9 +1455,31 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
         options["target_elite"] = false;
     }
     if (!sale.configure(options) || !sale.run()) {
+        if (can_plan_pair && !pair && !sale.sale_committed() && sale.observed_sale_credit() == 1) {
+            auto excluded = protected_names;
+            excluded.push_back(*selected);
+            if (spa::choose_full_bench_sale(candidates, excluded, funding_deficit)) {
+                m_bench_funding_pair = BenchFundingPair { round,
+                                                          state.get("funds", -1),
+                                                          m_policy.primary_pact,
+                                                          *funding_offer,
+                                                          *selected };
+                auto quote = basic_info_with_what("SPABenchFundingPairQuote");
+                quote["details"] = json::object { { "round", round },
+                                                  { "purchase", funding_offer->name },
+                                                  { "seller", *selected },
+                                                  { "quoted_credit", 1 },
+                                                  { "sale_input_issued", false } };
+                callback(AsstMsg::SubTaskExtraInfo, quote);
+                return true;
+            }
+        }
         // A completed trade changes the bench and may make another worthwhile
         // purchase possible. Only failed probes consume the failure allowance.
         m_failed_bench_sales.emplace(round, *selected);
+        if (pair && (pair->partial_sale_verified || sale.sale_committed())) {
+            m_bench_funding_pair.reset();
+        }
         if (sale.sale_committed()) {
             // No second sale or new copy of this identity may obscure a
             // committed transaction before the roster has been reconstructed.
@@ -1450,6 +1494,15 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
                                              { "continue_current_run", true } };
         callback(AsstMsg::SubTaskExtraInfo, deferred);
         return true;
+    }
+    if (pair) {
+        if (!pair->partial_sale_verified && sale.sale_credit() == 1) {
+            m_bench_funding_pair->partial_sale_verified = true;
+            ++m_bench_funding_pair->funds;
+        }
+        else {
+            m_bench_funding_pair.reset();
+        }
     }
     if (remaining_copies) {
         m_policy.owned.at(*selected) = *remaining_copies;
@@ -3332,6 +3385,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             m_shop_review_after_replacements = false;
             m_shop_reviewed_last_ordinary_coin = false;
             m_purchase_reserved_after_sale.reset();
+            m_bench_funding_pair.reset();
             m_spending_reviewed = false;
             m_spending_reason.clear();
             // The policy round is also updated before deployment planning.
@@ -3827,7 +3881,9 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             m_purchase_reserved_after_sale && m_purchase_reserved_after_sale->first == preparation_round &&
             m_purchase_reserved_after_sale->second.price <= available_funds && !confirmed_full_bench &&
             !m_bench_recount_pending && m_policy.bench_occupied >= 0 && m_unreconciled_sale.empty();
-        const bool defer_ordinary_equipment = prioritize_bench_space || resume_funded_purchase;
+        const bool resume_funding_pair = m_bench_funding_pair && m_bench_funding_pair->round == preparation_round &&
+                                         m_bench_funding_pair->funds == available_funds;
+        const bool defer_ordinary_equipment = prioritize_bench_space || resume_funded_purchase || resume_funding_pair;
         auto scheduling = basic_info_with_what("SPAPreparationSchedulingObserved");
         scheduling["details"] = json::object {
             { "run_id", m_run_id },
@@ -5709,7 +5765,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             });
         if (confirmed_full_bench && funds > 0 && field_poses_complete && field_population == 8 &&
             !m_field_checkpoint_loaded && !m_pending_spatial_orientation && !m_bench_recount_pending &&
-            !m_purchase_reserved_after_sale && m_auto_run &&
+            !m_purchase_reserved_after_sale && !resume_funding_pair && m_auto_run &&
             (m_mode != "joint" || state.get("preparation_seconds_remaining", 0) >= 45)) {
             std::map<std::string, int> field_copies;
             for (const auto& [name, position] : m_auto_deploy_positions) {
@@ -5949,8 +6005,18 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         }
         // The live roster and the current quote determine whether to open the
         // next card tier, chase a promotion, or use this round's funds first.
+        if (m_bench_funding_pair) {
+            const auto& pair = *m_bench_funding_pair;
+            const int minimum_time = pair.partial_sale_verified ? 25 : 45;
+            if (pair.round != round || pair.funds != funds || pair.primary_pact != m_policy.primary_pact ||
+                !spa::unique_funding_quote(offers, pair.offer) || !m_unreconciled_sale.empty() ||
+                (m_mode == "joint" && state.get("preparation_seconds_remaining", 0) < minimum_time)) {
+                m_bench_funding_pair.reset();
+            }
+        }
         if (m_policy.dynamic_decision_mode && state.get("upgrade_price_known", false) &&
-            !m_purchase_reserved_after_sale && !m_dynamic_upgrade_done_rounds.contains(round)) {
+            !m_purchase_reserved_after_sale && !m_bench_funding_pair &&
+            !m_dynamic_upgrade_done_rounds.contains(round)) {
             const int upgrade_price = state.get("upgrade_price", -1);
             const int current_level = m_policy.shop_level;
             const int target_level = spa::dynamic_target_shop_level(m_policy, catalog);
@@ -6027,13 +6093,8 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         bool purchase_reserved_after_sale = false;
         if (m_purchase_reserved_after_sale) {
             const auto& [sold_round, reserved] = *m_purchase_reserved_after_sale;
-            const auto same_slot = [&](const auto& offer) {
-                return offer.right_slot == reserved.right_slot;
-            };
-            const auto quoted = std::find_if(offers.begin(), offers.end(), same_slot);
             if (sold_round == round && reserved.price <= funds && m_policy.bench_occupied >= 0 &&
-                m_policy.bench_occupied < 10 && quoted != offers.end() && quoted->name == reserved.name &&
-                quoted->price == reserved.price && std::none_of(std::next(quoted), offers.end(), same_slot)) {
+                m_policy.bench_occupied < 10 && spa::unique_funding_quote(offers, reserved)) {
                 decision = { spa::PreparationAction::Buy,
                              reserved.name,
                              reserved.price,
@@ -6045,19 +6106,38 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             m_purchase_reserved_after_sale.reset();
         }
         const int bench_before_funding = m_policy.bench_occupied;
-        const auto funding = purchase_reserved_after_sale
-                                 ? std::nullopt
-                                 : spa::choose_funding_purchase(m_policy, funds, offers, catalog);
+        auto funding = purchase_reserved_after_sale ? std::nullopt
+                                                    : spa::choose_funding_purchase(m_policy, funds, offers, catalog);
+        if (m_bench_funding_pair) {
+            const auto& pair = *m_bench_funding_pair;
+            if (purchase_reserved_after_sale) {
+                m_bench_funding_pair.reset();
+            }
+            else if (pair.partial_sale_verified) {
+                funding = spa::FundingPurchase { pair.offer, pair.offer.price - funds };
+            }
+            else if (!funding || funding->offer.right_slot != pair.offer.right_slot) {
+                m_bench_funding_pair.reset();
+            }
+        }
         // The source panel verifies the actual one- or two-coin credit before use.
         const auto coin_funding = !purchase_reserved_after_sale && m_equipment_candidates.contains("盟约之币") &&
                                           !m_cash_equipment_attempted_rounds.contains(round)
                                       ? spa::choose_funding_purchase(m_policy, funds, offers, catalog, 2)
                                       : std::nullopt;
         const auto& equipment_funding = coin_funding ? coin_funding : funding;
-        if (equipment_funding && handle_cash_equipment(state, boss_preparation, equipment_funding->deficit)) {
+        const bool finish_partial_sale = m_bench_funding_pair && m_bench_funding_pair->partial_sale_verified;
+        if (!finish_partial_sale && equipment_funding &&
+            handle_cash_equipment(state, boss_preparation, equipment_funding->deficit)) {
             continue;
         }
-        bool funding_sale_handled = funding && handle_full_bench_sale(state, funding->deficit);
+        const bool exact_funding_quote = funding && spa::unique_funding_quote(offers, funding->offer);
+        bool funding_sale_handled = funding && handle_full_bench_sale(
+                                                   state,
+                                                   funding->deficit,
+                                                   nullptr,
+                                                   nullptr,
+                                                   exact_funding_quote ? &funding->offer : nullptr);
         if (!funding_sale_handled && funding && ordinary_balance_rule_known && field_poses_complete &&
             !m_field_checkpoint_loaded && !m_pending_field_replacement && !m_pending_spatial_orientation &&
             (m_mode != "joint" || state.get("preparation_seconds_remaining", 0) >= 45)) {
@@ -6077,7 +6157,8 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         }
         if (funding_sale_handled) {
             const bool sale_verified = m_policy.bench_occupied == bench_before_funding - 1;
-            if (sale_verified) {
+            const bool partial = m_bench_funding_pair && m_bench_funding_pair->partial_sale_verified;
+            if (sale_verified && !partial) {
                 m_purchase_reserved_after_sale = std::pair(round, funding->offer);
             }
             auto funded = basic_info_with_what("SPAKeyPurchaseFundingAttempted");
@@ -6085,6 +6166,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                                { "name", funding->offer.name },
                                                { "deficit", funding->deficit },
                                                { "sale_verified", sale_verified },
+                                               { "partial_sale_verified", sale_verified && partial },
                                                { "purchase_committed", false },
                                                { "reobserve_shop_before_purchase", true } };
             callback(AsstMsg::SubTaskExtraInfo, funded);

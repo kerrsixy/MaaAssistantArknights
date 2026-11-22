@@ -98,7 +98,20 @@ private:
         const json::value& state,
         int funding_deficit = 0,
         const spa::BenchCapacityTrade* capacity_trade = nullptr,
-        const spa::ReplacementChoice* replacement_to_enable = nullptr);
+        const spa::ReplacementChoice* replacement_to_enable = nullptr,
+        const spa::ShopOffer* funding_offer = nullptr);
+
+    struct BenchFundingPair
+    {
+        int round;
+        int funds;
+        std::string primary_pact;
+        spa::ShopOffer offer;
+        std::string reserved_seller;
+        bool partial_sale_verified = false;
+    };
+
+    std::optional<BenchFundingPair> m_bench_funding_pair;
     std::optional<std::pair<int, spa::ShopOffer>> m_purchase_reserved_after_sale;
     std::set<std::pair<int, std::string>> m_failed_bench_sales;
     std::string m_unreconciled_sale;

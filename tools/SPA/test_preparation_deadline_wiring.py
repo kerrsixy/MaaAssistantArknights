@@ -89,9 +89,7 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
             scheduling,
         )
         pending = quote_review.split("const int bench_before_funding", 1)[0]
-        self.assertIn("offer.right_slot == reserved.right_slot", pending)
-        self.assertIn("quoted->name == reserved.name", pending)
-        self.assertIn("quoted->price == reserved.price", pending)
+        self.assertIn("spa::unique_funding_quote(offers, reserved)", pending)
         self.assertIn("m_purchase_reserved_after_sale.reset()", pending)
 
     def test_replacements_share_one_shop_review_after_equipment_and_last_coin_review(self):

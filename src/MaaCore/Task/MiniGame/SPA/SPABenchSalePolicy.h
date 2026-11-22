@@ -9,8 +9,10 @@
 #include "SPAPreparationPolicy.h"
 #include "SPAStrategyCore.h"
 #include <algorithm>
+#include <iterator>
 #include <optional>
 #include <set>
+#include <string_view>
 
 namespace asst::spa
 {
@@ -53,7 +55,8 @@ inline std::optional<int> sale_credit_from_panel(const std::vector<TextObservati
 inline std::optional<std::string> choose_full_bench_sale(
     const PreparationPolicy& policy,
     const std::vector<std::string>& protected_names = {},
-    int funding_deficit = 0)
+    int funding_deficit = 0,
+    std::string_view required_name = {})
 {
     const bool fund_planned_card = funding_deficit > 0;
     if ((policy.bench_occupied < 10 && !fund_planned_card) || policy.shop_level < (fund_planned_card ? 1 : 2) ||
@@ -66,7 +69,7 @@ inline std::optional<std::string> choose_full_bench_sale(
     std::optional<std::string> result;
     std::pair<int, int> best_sale_priority { 2, 7 };
     for (const auto& [name, owned] : policy.owned) {
-        if (is_strategy_core(policy.selected_strategy_id, name) ||
+        if ((!required_name.empty() && name != required_name) || is_strategy_core(policy.selected_strategy_id, name) ||
             std::find(protected_names.begin(), protected_names.end(), name) != protected_names.end() ||
             owned.deployed || owned.elite || owned.copies != 1 ||
             ((policy.primary_locked_after_activation || fund_planned_card) &&
@@ -113,6 +116,19 @@ struct FundingPurchase
     ShopOffer offer;
     int deficit = 0;
 };
+
+inline bool unique_funding_quote(const std::vector<ShopOffer>& offers, const ShopOffer& reserved)
+{
+    if (reserved.right_slot < 0 || reserved.name.empty() || reserved.price <= 0) {
+        return false;
+    }
+    const auto same_slot = [&](const ShopOffer& offer) {
+        return offer.right_slot == reserved.right_slot;
+    };
+    const auto quoted = std::find_if(offers.begin(), offers.end(), same_slot);
+    return quoted != offers.end() && quoted->name == reserved.name && quoted->price == reserved.price &&
+           std::none_of(std::next(quoted), offers.end(), same_slot);
+}
 
 struct BenchCapacityTrade
 {
