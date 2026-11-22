@@ -462,6 +462,7 @@ bool BlackFlowMapObservationSource::persist_diagnostics(const DiagnosticArtifact
         std::filesystem::create_directories(directory);
         json::object snapshot = request.snapshot;
         snapshot["accepted_observation_id"] = request.observation_id;
+        snapshot["artifact_set_id"] = request.artifact_set_id;
         snapshot["recognition_attempt_id"] = m_last_attempt_id;
         snapshot["recognition_attempt_count"] = m_last_attempt_count;
         snapshot["recognition_retry_count"] = m_last_retry_count;
@@ -481,7 +482,25 @@ bool BlackFlowMapObservationSource::persist_diagnostics(const DiagnosticArtifact
             set_error(error, "failed to create BlackFlow diagnostic snapshot");
             return false;
         }
-        snapshot_file << json::value(std::move(snapshot)).format();
+        const auto serialized = json::value(std::move(snapshot)).format();
+        // A route decision updates the latest view but must not erase the map
+        // graph that produced it. Keep each accepted artifact for offline replay.
+        const auto history_directory = directory / "snapshots";
+        std::filesystem::create_directories(history_directory);
+        std::ofstream history_file(
+            history_directory / utils::path(request.artifact_set_id + ".json"),
+            std::ios::binary);
+        if (!history_file) {
+            set_error(error, "failed to create BlackFlow diagnostic history");
+            return false;
+        }
+        history_file << serialized;
+        history_file.flush();
+        if (!history_file) {
+            set_error(error, "failed to write BlackFlow diagnostic history");
+            return false;
+        }
+        snapshot_file << serialized;
         std::ofstream weather_file(directory / "weather_recognition.json", std::ios::binary);
         if (!weather_file) {
             set_error(error, "failed to create BlackFlow weather diagnostic snapshot");
