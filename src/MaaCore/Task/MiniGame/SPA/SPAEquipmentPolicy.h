@@ -1,4 +1,6 @@
 #pragma once
+#include "SPAObservation.h"
+
 #include <map>
 #include <optional>
 #include <set>
@@ -8,7 +10,6 @@
 
 namespace asst::spa
 {
-struct TextObservation;
 enum class EquipmentRole
 {
     Damage,
@@ -90,8 +91,10 @@ bool equipment_title_matches(const std::string& expected, const std::string& obs
 int equipment_capacity(const std::string& recipient, bool elite);
 // A visible same-frame recipient title is required even for an empty list.
 // This returns only this viewport; it does not imply hidden slots were read.
-std::optional<std::vector<std::string>>
-    equipment_panel_items(const std::vector<TextObservation>& texts, const std::string& recipient);
+std::optional<std::vector<std::string>> equipment_panel_items(
+    const std::vector<TextObservation>& texts,
+    const std::string& recipient,
+    const std::vector<TextObservation>& same_frame_title = {});
 // Complete, same-recipient slot observations only. A transformation item
 // supplies membership; ordinary equipment only selects its possible pact.
 // Multiple distinct selectors have no verified ordering rule and stay unknown.

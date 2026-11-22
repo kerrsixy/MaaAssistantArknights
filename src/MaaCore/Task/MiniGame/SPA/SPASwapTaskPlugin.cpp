@@ -1421,7 +1421,22 @@ std::optional<std::vector<std::string>> asst::spa::SwapTaskPlugin::selected_equi
         for (const auto& text : *texts) {
             panel_texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
         }
-        const auto page_items = equipment_panel_items(panel_texts, m_replaced);
+        auto page_items = equipment_panel_items(panel_texts, m_replaced);
+        if (!page_items) {
+            // Resize for full-panel OCR can make a clear title miss the
+            // confidence threshold. Read the title crop from this same frame.
+            OCRer title(frame, Rect(0, 165, 350, 75));
+            if (const auto reread = title.analyze()) {
+                std::vector<TextObservation> title_texts;
+                for (const auto& text : *reread) {
+                    title_texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+                }
+                page_items = equipment_panel_items(panel_texts, m_replaced, title_texts);
+                if (page_items) {
+                    LogTrace << "SPA equipment panel identity recovered from title crop" << m_replaced << m_round;
+                }
+            }
+        }
         if (!page_items) {
             return std::nullopt;
         }

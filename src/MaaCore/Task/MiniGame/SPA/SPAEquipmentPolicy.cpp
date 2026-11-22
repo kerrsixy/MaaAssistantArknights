@@ -25,10 +25,14 @@ bool asst::spa::equipment_title_matches(const std::string& expected, const std::
     });
 }
 
-std::optional<std::vector<std::string>>
-    asst::spa::equipment_panel_items(const std::vector<TextObservation>& texts, const std::string& recipient)
+std::optional<std::vector<std::string>> asst::spa::equipment_panel_items(
+    const std::vector<TextObservation>& texts,
+    const std::string& recipient,
+    const std::vector<TextObservation>& same_frame_title)
 {
-    if (recipient.empty() || operator_panel_identity(texts, { recipient }) != recipient) {
+    if (texts.empty() || recipient.empty() ||
+        (operator_panel_identity(texts, { recipient }) != recipient &&
+         operator_panel_identity(same_frame_title, { recipient }) != recipient)) {
         return std::nullopt;
     }
     std::vector<std::string> result;

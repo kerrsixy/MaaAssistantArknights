@@ -5753,6 +5753,21 @@ int main()
     assert(equipment_panel_items(shield_mech_panel, mech_recipient) == shield_mech_items);
     shield_mech_panel[0].score = .3;
     assert(!equipment_panel_items(shield_mech_panel, mech_recipient));
+    const std::vector<TextObservation> olga_equipment_panel {
+        { "奥尔佳", .896491, 15, 183 },
+        { "获得一件乌萨斯呼吸器", .97, 27, 429 },
+    };
+    const std::vector<TextObservation> olga_title { { "奥尔佳", .965938, 14, 181 } };
+    assert(!equipment_panel_items(olga_equipment_panel, "奥尔佳"));
+    const auto olga_items = equipment_panel_items(olga_equipment_panel, "奥尔佳", olga_title);
+    assert(olga_items && olga_items->empty());
+    assert(!equipment_panel_items(olga_equipment_panel, "烈夏", olga_title));
+    assert(!equipment_panel_items({}, "奥尔佳", olga_title));
+    auto olga_with_equipment = olga_equipment_panel;
+    olga_with_equipment.push_back({ "乌萨斯呼吸器", .99, 106, 520 });
+    assert(
+        equipment_panel_items(olga_with_equipment, "奥尔佳", olga_title) ==
+        std::vector<std::string> { "乌萨斯呼吸器" });
     assert(equipment_cash_gain("盟约之币", "装备时销毁，并获得2资金") == 2);
     assert(equipment_title_matches("盟约之币", "进阶盟约之币"));
     assert(!equipment_title_matches("盟约之币", "未进阶盟约之币"));
