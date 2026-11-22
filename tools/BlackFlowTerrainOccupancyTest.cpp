@@ -76,10 +76,35 @@ int wmain(int argc, wchar_t** argv)
     probe.register_deployed_oper(worker.role, worker.name, { 5, 3 });
     expect(probe.units() == 1, "worker registration is unchanged");
     probe.remove_cooling_from_battlefield(worker);
-    expect(probe.units() == 0 && !probe.occupied({ 5, 3 }), "worker removal is unchanged");
+    expect(
+        probe.units() == 1 && probe.occupied({ 5, 3 }),
+        "reusable worker card cooldown is not evidence that its deployed entity disappeared");
+    DeploymentOper tentacle { .role = Role::Drone, .cooling = true, .name = "触手" };
+    probe.register_deployed_oper(tentacle.role, tentacle.name, { 5, 4 });
+    probe.register_deployed_oper(tentacle.role, tentacle.name, { 5, 5 });
+    expect(
+        probe.occupied({ 5, 4 }) && probe.occupied({ 5, 5 }),
+        "run32 same-name summons occupy both independently registered tiles");
+    for (int frame = 0; frame < 3; ++frame) {
+        probe.remove_cooling_from_battlefield(tentacle);
+        expect(
+            probe.occupied({ 5, 4 }) && probe.occupied({ 5, 5 }),
+            "reusable summon card cooldown never frees a physical blocking tile");
+    }
+    DeploymentOper token { .role = Role::Drone, .cooling = true, .name = "结构性原理" };
+    probe.register_deployed_oper(token.role, token.name, { 7, 3 });
+    probe.remove_cooling_from_battlefield(token);
+    expect(probe.occupied({ 7, 3 }), "run32 mechanic token cooldown also preserves physical occupancy");
+    probe.register_deployed_oper(mech.role, mech.name, { 5, 2 });
+    probe.remove_cooling_from_battlefield(mech);
+    expect(
+        !probe.occupied({ 5, 2 }) && probe.occupied({ 5, 4 }) && probe.occupied({ 5, 5 }),
+        "normal operator retirement does not release any neighboring summon");
     probe.clear();
     expect(
-        !probe.occupied({ 3, 3 }) && !probe.occupied({ 6, 1 }) && probe.units() == 0 && probe.skill_timers() == 0,
+        !probe.occupied({ 3, 3 }) && !probe.occupied({ 6, 1 }) && !probe.occupied({ 5, 3 }) &&
+            !probe.occupied({ 5, 4 }) && !probe.occupied({ 5, 5 }) && !probe.occupied({ 7, 3 }) && probe.units() == 0 &&
+            probe.skill_timers() == 0,
         "battle reset clears terrain occupancy and unit state");
     std::cout << "TERRAIN_OCCUPANCY checks=" << checks << " failures=" << failures << " connections=0 inputs=0\n";
     return failures == 0 ? 0 : 1;

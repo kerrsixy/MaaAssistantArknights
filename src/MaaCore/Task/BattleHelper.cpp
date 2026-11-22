@@ -1404,7 +1404,9 @@ void asst::BattleHelper::register_deployed_oper(battle::Role role, const std::st
 
 void asst::BattleHelper::remove_cooling_from_battlefield(const battle::DeploymentOper& oper)
 {
-    if (!oper.cooling) {
+    // A reusable card can cool down while its placed entities remain alive.
+    // Release those occupied tiles only from independent per-tile retirement evidence.
+    if (!oper.cooling || deployment_kind(oper) != battle::DeploymentKind::Operator) {
         return;
     }
 
