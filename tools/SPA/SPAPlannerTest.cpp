@@ -1933,6 +1933,14 @@ int main()
     assert(
         desert_cannon.size() == 1 && desert_cannon.front().cell == BoardCell(8, 2) &&
         desert_cannon.front().facing == 'S');
+    const GridPlacementMember boss_weedy { 8, 3, PlacementRole::Frontline, "温蒂", 'S' };
+    const auto boss_cannons = rank_water_cannon_targets(
+        { { 5, 1 }, { 8, 4 }, { 10, 3 } },
+        boss_weedy,
+        { boss_weedy },
+        desert->lanes,
+        { { 8, 2 }, { 9, 2 }, { 9, 3 } });
+    assert(!boss_cannons.empty() && boss_cannons.front().cell == BoardCell(8, 4) && boss_cannons.front().facing == 'N');
 
     assert(deployable_summon_owner("铁钳号·原型机") == "白铁");
     assert(deployable_summon_owner("风雪之眼").empty());

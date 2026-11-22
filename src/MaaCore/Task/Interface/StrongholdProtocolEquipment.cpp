@@ -399,8 +399,15 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
             });
         }
         std::vector<spa::SummonTarget> targets;
+        BossOpeningTarget boss_target;
         if (owner_name == "温蒂") {
-            targets = spa::rank_water_cannon_targets(cells, verified_owner, m_population_grid_members, lanes);
+            boss_target = boss_opening_target(round);
+            targets = spa::rank_water_cannon_targets(
+                cells,
+                verified_owner,
+                m_population_grid_members,
+                lanes,
+                boss_target.cells);
         }
         else {
             for (const auto& cell : cells) {
@@ -436,6 +443,8 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
             { "name", summon },
             { "owner", verified_owner.name },
             { "owner_facing_known", verified_owner.facing != '\0' },
+            { "boss_opening_target_source", boss_target.source },
+            { "boss_opening_region_verified", boss_target.measured },
             { "round", round },
             { "candidate_cells", targets.size() },
             { "drop_attempted", placement.has_value() },

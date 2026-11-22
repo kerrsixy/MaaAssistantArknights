@@ -5,7 +5,6 @@
 #include "SPASpatialGrowthPolicy.h"
 #include <array>
 #include <cstdlib>
-#include <tuple>
 
 namespace asst::spa
 {
@@ -150,12 +149,26 @@ inline std::vector<SummonTarget> rank_water_cannon_targets(
     const std::vector<BoardCell>& candidates,
     const GridPlacementMember& owner,
     const std::vector<GridPlacementMember>& allies,
-    const std::vector<DeploymentLane>& lanes)
+    const std::vector<DeploymentLane>& lanes,
+    const std::vector<BoardCell>& boss_opening_cells = {})
 {
     // Token range 3-2 covers its own tile and three tiles in front. Only
     // targets in those three front tiles can be pushed by its basic attack.
     constexpr int forward_range = 3;
-    using Score = std::tuple<bool, bool, int, int>;
+
+    struct Score
+    {
+        bool reaches_boss = false;
+        bool linked_boss_shot = false;
+        int boss_coverage = 0;
+        bool pushes_back = false;
+        bool linked_wave_shot = false;
+        int push_back = 0;
+        int approach = 0;
+
+        auto operator<=>(const Score&) const = default;
+    };
+
     std::vector<std::pair<SummonTarget, Score>> ranked;
     std::vector<size_t> contact_indices;
     for (const auto& lane : lanes) {
@@ -171,17 +184,22 @@ inline std::vector<SummonTarget> rank_water_cannon_targets(
         std::pair<SummonTarget, Score> best { { cell, 'E' }, {} };
         for (const char facing : std::string_view("ENSW")) {
             const auto [dx, dy] = growth_facing_step(facing);
+            const auto in_range = [&](BoardCell target, int minimum_distance) {
+                const int delta_col = target.first - cell.first;
+                const int delta_row = target.second - cell.second;
+                const int distance = delta_col * dx + delta_row * dy;
+                return distance >= minimum_distance && distance <= forward_range && delta_col == dx * distance &&
+                       delta_row == dy * distance;
+            };
+            const int boss_coverage = static_cast<int>(
+                std::ranges::count_if(boss_opening_cells, [&](BoardCell target) { return in_range(target, 0); }));
             int push_back = 0;
             int approach = 0;
             for (size_t index = 0; index < lanes.size(); ++index) {
                 const auto& lane = lanes[index];
                 for (size_t step = 0; step < lane.path.size() && step <= contact_indices[index]; ++step) {
                     const auto [col, row] = lane.path[step];
-                    const int delta_col = col - cell.first;
-                    const int delta_row = row - cell.second;
-                    const int distance = delta_col * dx + delta_row * dy;
-                    if (distance < 1 || distance > forward_range || delta_col != dx * distance ||
-                        delta_row != dy * distance) {
+                    if (!in_range({ col, row }, 1)) {
                         continue;
                     }
                     const int value = lane.blocking_weight * std::max(1, 20 - static_cast<int>(step));
@@ -192,14 +210,16 @@ inline std::vector<SummonTarget> rank_water_cannon_targets(
                     }
                 }
             }
-            const Score score { push_back > 0, near_owner && approach > 0, push_back, approach };
+            const Score score { boss_coverage > 0, near_owner && boss_coverage > 0, boss_coverage,
+                                push_back > 0,     near_owner && approach > 0,      push_back,
+                                approach };
             if (score > best.second) {
                 best = { { cell, facing }, score };
             }
         }
         // A square away from all useful fire cannot justify a placement
         // even if the held-card preview marks it legal.
-        if (std::get<3>(best.second) > 0) {
+        if (best.second.reaches_boss || best.second.approach > 0) {
             ranked.push_back(best);
         }
     }
