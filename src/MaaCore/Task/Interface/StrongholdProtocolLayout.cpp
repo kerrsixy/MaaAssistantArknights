@@ -684,6 +684,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         { "unblocked_lanes_improvement", proposal.unblocked_lanes_improvement },
         { "score_improvement", proposal.score_improvement },
         { "blocking_capacity_improvement", proposal.blocking_capacity_improvement },
+        { "first_block_capacity_improvement", proposal.first_block_capacity_improvement },
         { "boss_opening_region_verified", boss_target.measured },
         { "boss_opening_region_cells", boss_cells.size() },
         { "boss_opening_target_source", boss_target.source },

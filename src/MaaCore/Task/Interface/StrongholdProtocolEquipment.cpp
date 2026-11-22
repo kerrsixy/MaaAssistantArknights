@@ -364,15 +364,16 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
             continue;
         }
         const std::vector<spa::BoardCell> range(stats->basic_range.begin(), stats->basic_range.end());
-        auto targets = spa::summon_placement_cells(
+        const auto lanes = spa::active_preparation_lanes(*terrain, round);
+        auto cells = spa::summon_placement_cells(
             summon,
             verified_owner,
             range,
             terrain->buildable,
             m_population_grid_members,
-            spa::active_preparation_lanes(*terrain, round),
+            lanes,
             true);
-        std::erase_if(targets, [&](const auto& cell) { return m_confirmed_summon_cells.contains({ round, cell }); });
+        std::erase_if(cells, [&](const auto& cell) { return m_confirmed_summon_cells.contains({ round, cell }); });
         if (owner_name == "白铁") {
             std::map<spa::BoardCell, int> charging_allies;
             for (const auto& ally : m_population_grid_members) {
@@ -386,16 +387,25 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
                     continue;
                 }
                 const std::vector<spa::BoardCell> ally_range(combat->basic_range.begin(), combat->basic_range.end());
-                for (const auto& cell : targets) {
+                for (const auto& cell : cells) {
                     if (spa::grid_range_covers(ally.col, ally.row, ally.facing, cell.first, cell.second, ally_range)) {
                         ++charging_allies[cell];
                     }
                 }
             }
-            std::erase_if(targets, [&](const auto& cell) { return !charging_allies.contains(cell); });
-            std::stable_sort(targets.begin(), targets.end(), [&](const auto& left, const auto& right) {
+            std::erase_if(cells, [&](const auto& cell) { return !charging_allies.contains(cell); });
+            std::stable_sort(cells.begin(), cells.end(), [&](const auto& left, const auto& right) {
                 return charging_allies.at(left) > charging_allies.at(right);
             });
+        }
+        std::vector<spa::SummonTarget> targets;
+        if (owner_name == "温蒂") {
+            targets = spa::rank_water_cannon_targets(cells, verified_owner, m_population_grid_members, lanes);
+        }
+        else {
+            for (const auto& cell : cells) {
+                targets.push_back({ cell });
+            }
         }
         if (targets.empty()) {
             continue;
@@ -409,7 +419,7 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
             continue;
         }
         m_preparation_summon_attempts.emplace(round, summon);
-        std::optional<spa::BoardCell> verified_cell;
+        std::optional<spa::SummonTarget> verified_target;
         const auto placement = deploy.deploy_preparation_summon(
             summon,
             observed.second,
@@ -417,23 +427,27 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
             round,
             state.get("funds", -1),
             remaining,
-            verified_cell);
-        if (verified_cell) {
-            m_confirmed_summon_cells.emplace(round, *verified_cell);
+            verified_target);
+        if (verified_target) {
+            m_confirmed_summon_cells.emplace(round, verified_target->cell);
         }
         auto receipt = basic_info_with_what("SPAPreparationSummonPlacement");
-        receipt["details"] = json::object { { "name", summon },
-                                            { "owner", verified_owner.name },
-                                            { "owner_facing_known", verified_owner.facing != '\0' },
-                                            { "round", round },
-                                            { "candidate_cells", targets.size() },
-                                            { "drop_attempted", placement.has_value() },
-                                            { "field_title_verified", placement.value_or(false) },
-                                            { "placed_col", verified_cell ? verified_cell->first : -1 },
-                                            { "placed_row", verified_cell ? verified_cell->second : -1 },
-                                            { "deployment_capacity_effect_known", placement.value_or(false) },
-                                            { "ordinary_operator_population_consumed",
-                                              placement.value_or(false) ? json::value(false) : json::value(nullptr) } };
+        receipt["details"] = json::object {
+            { "name", summon },
+            { "owner", verified_owner.name },
+            { "owner_facing_known", verified_owner.facing != '\0' },
+            { "round", round },
+            { "candidate_cells", targets.size() },
+            { "drop_attempted", placement.has_value() },
+            { "field_title_verified", placement.value_or(false) },
+            { "placed_col", verified_target ? verified_target->cell.first : -1 },
+            { "placed_row", verified_target ? verified_target->cell.second : -1 },
+            { "committed_facing",
+              verified_target && verified_target->facing ? std::string(1, verified_target->facing) : "" },
+            { "deployment_capacity_effect_known", placement.value_or(false) },
+            { "ordinary_operator_population_consumed",
+              placement.value_or(false) ? json::value(false) : json::value(nullptr) }
+        };
         callback(AsstMsg::SubTaskExtraInfo, receipt);
         return true; // Always reobserve after opening the bench or field panel.
     }

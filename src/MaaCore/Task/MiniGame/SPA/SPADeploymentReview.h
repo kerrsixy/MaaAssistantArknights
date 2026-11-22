@@ -85,6 +85,7 @@ struct DeploymentProposal
     int score_improvement = 0;
     int preference_improvement = 0;
     int blocking_capacity_improvement = 0;
+    int first_block_capacity_improvement = 0;
     std::vector<DeploymentUnit> units;
     std::string reason;
     int boss_coverage_improvement = 0;

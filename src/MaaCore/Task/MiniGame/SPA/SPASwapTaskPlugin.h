@@ -17,6 +17,8 @@
 
 namespace asst::spa
 {
+struct SummonTarget;
+
 class SwapTaskPlugin final : public AbstractTaskPlugin
 {
 public:
@@ -77,11 +79,11 @@ public:
     std::optional<bool> deploy_preparation_summon(
         const std::string& name,
         const Point& bench_hint,
-        const std::vector<std::pair<int, int>>& targets,
+        const std::vector<SummonTarget>& targets,
         int round,
         int funds,
         int remaining,
-        std::optional<std::pair<int, int>>& verified_cell);
+        std::optional<SummonTarget>& verified_target);
 
     void use_bench_identity_hints(std::vector<InventoryOperatorHint>& hints) { m_bench_identity_hints = &hints; }
 

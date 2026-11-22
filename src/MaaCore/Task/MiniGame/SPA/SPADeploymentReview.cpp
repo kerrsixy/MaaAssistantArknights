@@ -459,6 +459,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         int lost_first_block_capacity = 0;
         int lane_problem_count = 0;
         int lost_block_capacity = 0;
+        int first_block_capacity_cost = 0;
         int preparation_growth_cost = 0;
         int approach_penalty = 0;
         int block_capacity_cost = 0;
@@ -483,9 +484,11 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         int lane_problems = 0;
         int uncovered_approach = 0;
         int lost_first_block_capacity = 0;
+        int first_block_capacity = 0;
         for (size_t index = 0; index < review.lanes.size(); ++index) {
             const auto& lane = review.lanes[index];
             unblocked += lane.blocker.empty() ? 1 : 0;
+            first_block_capacity += lanes[index].blocking_weight * lane.first_block_capacity;
             if (regular_wave && review.balanced_block_capacity <= initial.balanced_block_capacity) {
                 // Moving capacity rearward must improve coverage between lanes.
                 lost_first_block_capacity +=
@@ -527,6 +530,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
             .lane_problem_count = prioritize_growth ? lane_problems : 0,
             .lost_block_capacity =
                 prioritize_growth ? std::max(0, initial.balanced_block_capacity - review.balanced_block_capacity) : 0,
+            .first_block_capacity_cost = regular_wave ? -first_block_capacity : 0,
             .preparation_growth_cost = prioritize_growth ? -preparation_growth_preference(candidate) : 0,
             .approach_penalty = lane_problems * 1000 + uncovered_approach * 100,
             .block_capacity_cost = -review.balanced_block_capacity,
@@ -606,6 +610,8 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
     result.score_improvement = (initial_score.exposed_support - best_score.exposed_support) * 10'000 +
                                initial_score.approach_penalty - best_score.approach_penalty;
     result.blocking_capacity_improvement = initial_score.block_capacity_cost - best_score.block_capacity_cost;
+    result.first_block_capacity_improvement =
+        initial_score.first_block_capacity_cost - best_score.first_block_capacity_cost;
     result.boss_movement_coverage_improvement = initial_score.boss_route_only_cost + initial_score.boss_movement_cost -
                                                 best_score.boss_route_only_cost - best_score.boss_movement_cost;
     result.boss_uncovered_waypoints_improvement =
@@ -661,10 +667,10 @@ bool asst::spa::deployment_change_worth_input(const DeploymentProposal& proposal
         return false;
     }
     if (proposal.unblocked_lanes_improvement > 0 || proposal.score_improvement > 0 ||
-        proposal.blocking_capacity_improvement > 0 || proposal.boss_movement_coverage_improvement > 0 ||
-        proposal.boss_uncovered_waypoints_improvement > 0 || proposal.boss_weakest_waypoint_improvement > 0 ||
-        proposal.boss_sustained_attack_improvement > 0 || proposal.boss_early_contact_floor_improvement > 0 ||
-        proposal.boss_early_contact_sum_improvement > 0) {
+        proposal.blocking_capacity_improvement > 0 || proposal.first_block_capacity_improvement > 0 ||
+        proposal.boss_movement_coverage_improvement > 0 || proposal.boss_uncovered_waypoints_improvement > 0 ||
+        proposal.boss_weakest_waypoint_improvement > 0 || proposal.boss_sustained_attack_improvement > 0 ||
+        proposal.boss_early_contact_floor_improvement > 0 || proposal.boss_early_contact_sum_improvement > 0) {
         return true;
     }
     // One additional covered approach cell is worth 200 preference points;

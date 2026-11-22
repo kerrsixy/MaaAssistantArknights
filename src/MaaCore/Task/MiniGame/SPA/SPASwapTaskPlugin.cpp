@@ -2015,13 +2015,13 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
 std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(
     const std::string& name,
     const Point& bench_hint,
-    const std::vector<BoardCell>& targets,
+    const std::vector<SummonTarget>& targets,
     int round,
     int funds,
     int remaining,
-    std::optional<BoardCell>& verified_cell)
+    std::optional<SummonTarget>& verified_target)
 {
-    verified_cell.reset();
+    verified_target.reset();
     if (deployable_summon_owner(name).empty() || targets.empty() || m_registered_grid_reference.empty() ||
         !deployment_source_is_bench(bench_hint.x, bench_hint.y) || round < 1 || funds < 0 || remaining < 0 ||
         remaining > 8) {
@@ -2075,18 +2075,19 @@ std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(
     // legality even when every projected tile center is occluded.
     const auto grid = registered_grid_projection(m_registered_grid_reference, held, m_registered_grid_projection);
     const bool boss_phase = preparation_boss_health_bar(held).has_value();
-    std::optional<BoardCell> chosen;
+    std::optional<SummonTarget> chosen;
     std::optional<cv::Point> destination;
     if (grid) {
         for (const auto& target : targets) {
+            const auto& [col, row] = target.cell;
             const auto interior = registered_green_cell_target(
                 held,
                 *grid,
-                cv::Point(target.first, target.second),
+                cv::Point(col, row),
                 true,
                 terrain_allows_deployment(
                     m_registered_grid_map_id,
-                    target,
+                    target.cell,
                     deployable_summon_owner(name) != "温蒂",
                     boss_phase),
                 true);
@@ -2099,8 +2100,11 @@ std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(
     }
     if (!chosen) {
         json::array considered;
-        for (const auto& [col, row] : targets) {
-            considered.emplace_back(json::object { { "col", col }, { "row", row } });
+        for (const auto& [cell, facing] : targets) {
+            considered.emplace_back(
+                json::object { { "col", cell.first },
+                               { "row", cell.second },
+                               { "planned_facing", facing ? std::string(1, facing) : "" } });
         }
         auto evidence = basic_info_with_what("SPASummonHeldTargetUnavailable");
         evidence["details"] = json::object { { "round", round },
@@ -2123,16 +2127,20 @@ std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(
     if (!issued || !sleep(450)) {
         return false;
     }
-    if (deployable_summon_owner(name) == "温蒂") {
+    if (chosen->facing != '\0') {
         const auto frame = ctrler()->get_image();
         if (const auto center = direction_selection_center(frame)) {
             if (cv::norm(*center - *destination) > 70) {
                 return false;
             }
-            m_direction = Point(120, 0);
+            const auto [dx, dy] = growth_facing_step(chosen->facing);
+            m_direction = Point(dx * 120, dy * 120);
             if (!drag_direction_only(Point(center->x, center->y))) {
                 return false;
             }
+        }
+        else {
+            chosen->facing = '\0'; // A missing modal does not establish the placed heading.
         }
     }
     if (!close_selection() || !ensure_collapsed_shop() || !preparation_matches()) {
@@ -2148,7 +2156,8 @@ std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(
     }
     std::vector<cv::Point2f> point;
     cv::perspectiveTransform(
-        std::vector<cv::Point2f> { { static_cast<float>(chosen->first), static_cast<float>(chosen->second) } },
+        std::vector<cv::Point2f> {
+            { static_cast<float>(chosen->cell.first), static_cast<float>(chosen->cell.second) } },
         point,
         *projected);
     if (point.size() != 1 || !std::isfinite(point.front().x) || !std::isfinite(point.front().y) ||
@@ -2158,7 +2167,7 @@ std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(
     const auto placed = bench_identity(Point(cvRound(point.front().x), cvRound(point.front().y) - 14));
     const bool preparation_restored = close_selection() && preparation_matches();
     if (placed && *placed == name && preparation_restored) {
-        verified_cell = chosen;
+        verified_target = chosen;
         save_evidence(after, utils::path("debug/SPA/summon_on_field"), false);
         return true;
     }

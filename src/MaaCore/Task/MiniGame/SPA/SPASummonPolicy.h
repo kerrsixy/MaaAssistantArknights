@@ -4,6 +4,8 @@
 #include "SPAPlacementPolicy.h"
 #include "SPASpatialGrowthPolicy.h"
 #include <array>
+#include <cstdlib>
+#include <tuple>
 
 namespace asst::spa
 {
@@ -17,6 +19,12 @@ enum class SummonPlacement
     CopiesOperator,
     Generated,
     QueueMarker
+};
+
+struct SummonTarget
+{
+    BoardCell cell;
+    char facing = '\0';
 };
 
 struct SummonRule
@@ -126,12 +134,6 @@ inline std::vector<BoardCell> summon_placement_cells(
             if (pos == lane.path.end()) {
                 continue;
             }
-            if (water_cannon && pos != lane.path.begin()) {
-                const auto approach = *std::prev(pos);
-                if (approach.first > cell.first && approach.second == cell.second) {
-                    value += 250; // A right-facing cannon pushes this approach away from the gate.
-                }
-            }
             // A summon blocks a real approach; favor enemy-side cells over
             // collecting an arbitrary empty spot closer to the blue gate.
             value += 1000 - static_cast<int>(pos - lane.path.begin()) * 10;
@@ -142,5 +144,73 @@ inline std::vector<BoardCell> summon_placement_cells(
         return lane_score(lhs) > lane_score(rhs);
     });
     return candidates;
+}
+
+inline std::vector<SummonTarget> rank_water_cannon_targets(
+    const std::vector<BoardCell>& candidates,
+    const GridPlacementMember& owner,
+    const std::vector<GridPlacementMember>& allies,
+    const std::vector<DeploymentLane>& lanes)
+{
+    // Token range 3-2 covers its own tile and three tiles in front. Only
+    // targets in those three front tiles can be pushed by its basic attack.
+    constexpr int forward_range = 3;
+    using Score = std::tuple<bool, bool, int, int>;
+    std::vector<std::pair<SummonTarget, Score>> ranked;
+    std::vector<size_t> contact_indices;
+    for (const auto& lane : lanes) {
+        const auto first_blocker = std::find_if(lane.path.begin(), lane.path.end(), [&](const auto& cell) {
+            return std::ranges::any_of(allies, [&](const auto& ally) {
+                return ally.role == PlacementRole::Frontline && cell == BoardCell { ally.col, ally.row };
+            });
+        });
+        contact_indices.push_back(static_cast<size_t>(first_blocker - lane.path.begin()));
+    }
+    for (const auto& cell : candidates) {
+        const bool near_owner = std::abs(cell.first - owner.col) + std::abs(cell.second - owner.row) == 1;
+        std::pair<SummonTarget, Score> best { { cell, 'E' }, {} };
+        for (const char facing : std::string_view("ENSW")) {
+            const auto [dx, dy] = growth_facing_step(facing);
+            int push_back = 0;
+            int approach = 0;
+            for (size_t index = 0; index < lanes.size(); ++index) {
+                const auto& lane = lanes[index];
+                for (size_t step = 0; step < lane.path.size() && step <= contact_indices[index]; ++step) {
+                    const auto [col, row] = lane.path[step];
+                    const int delta_col = col - cell.first;
+                    const int delta_row = row - cell.second;
+                    const int distance = delta_col * dx + delta_row * dy;
+                    if (distance < 1 || distance > forward_range || delta_col != dx * distance ||
+                        delta_row != dy * distance) {
+                        continue;
+                    }
+                    const int value = lane.blocking_weight * std::max(1, 20 - static_cast<int>(step));
+                    approach += value;
+                    if ((step > 0 && lane.path[step - 1] == BoardCell { col + dx, row + dy }) ||
+                        (step + 1 < lane.path.size() && lane.path[step + 1] == BoardCell { col - dx, row - dy })) {
+                        push_back += value;
+                    }
+                }
+            }
+            const Score score { push_back > 0, near_owner && approach > 0, push_back, approach };
+            if (score > best.second) {
+                best = { { cell, facing }, score };
+            }
+        }
+        // A square away from all useful fire cannot justify a placement
+        // even if the held-card preview marks it legal.
+        if (std::get<3>(best.second) > 0) {
+            ranked.push_back(best);
+        }
+    }
+    std::stable_sort(ranked.begin(), ranked.end(), [](const auto& left, const auto& right) {
+        return left.second > right.second;
+    });
+    std::vector<SummonTarget> result;
+    result.reserve(ranked.size());
+    for (const auto& [target, _] : ranked) {
+        result.push_back(target);
+    }
+    return result;
 }
 }

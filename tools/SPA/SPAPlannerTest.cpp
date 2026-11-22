@@ -928,6 +928,37 @@ int main()
     assert(vacated_capacity.complete && !vacated_capacity.static_constraints_met);
     assert(vacated_capacity.unique_route_block_capacity == 0 && vacated_capacity.balanced_block_capacity == 0);
     assert(moving_tank.block_count == capacity_tank.block_count); // Physical consumption value is preserved.
+
+    {
+        const std::vector<BoardCell> cells { { 3, 0 }, { 2, 0 }, { 1, 0 }, { 2, 1 } };
+        const std::vector<DeploymentLane> lane {
+            { "junction", { { 4, 0 }, { 3, 0 }, { 2, 0 }, { 1, 0 }, { 0, 0 } }, 1, 1 }
+        };
+        DeploymentUnit weedy { .id = "温蒂", .cell = { 3, 0 }, .block_count = 2, .frontline = true };
+        weedy.placement_cells = { { 3, 0 }, { 2, 0 } };
+        auto saria = weedy;
+        saria.id = "塞雷娅";
+        saria.cell = { 2, 0 };
+        saria.block_count = 3;
+        DeploymentUnit medic { .id = "治疗", .cell = { 2, 1 }, .healer = true, .range_known = true };
+        medic.local_range = { { 0, 1 }, { 1, 1 } };
+        medic.placement_cells = { medic.cell };
+        medic.movable = false;
+        DeploymentUnit sniper { .id = "输出", .cell = { 1, 0 }, .damage_output = true, .range_known = true };
+        sniper.local_range = { { 3, 0 } };
+        sniper.placement_cells = { sniper.cell };
+        sniper.movable = false;
+        const std::vector<DeploymentUnit> start { weedy, saria, medic, sniper };
+        assert(review_deployment(start, lane, cells).static_constraints_met);
+        const auto junction_plan = propose_deployment(start, lane, cells, 200, {}, {}, {}, [](const auto& units) {
+            return units[1].cell == BoardCell { 2, 0 } ? 1800 : 0;
+        });
+        assert(junction_plan.found && junction_plan.first_block_capacity_improvement == 1);
+        assert(junction_plan.blocking_capacity_improvement == 0);
+        assert(junction_plan.units[1].cell == weedy.cell);
+        assert(deployment_change_worth_input(junction_plan, sequence_deployment(start, junction_plan.units)));
+    }
+
     std::vector<EgirEntity> egir_chain {
         { "core", "Ghost", { 3, 4 }, 'E', true, 1, EgirIntent::Core, 100, 2, 10'000, 4500 },
         { "relay1", "Gladiia", { 4, 4 }, 'E', true, 2, EgirIntent::Relay, 200, 1, 6000, 4500 },
@@ -1886,6 +1917,23 @@ int main()
     assert(std::find(cannon_targets.begin(), cannon_targets.end(), BoardCell { 7, 2 }) != cannon_targets.end());
     assert(std::find(cannon_targets.begin(), cannon_targets.end(), BoardCell { 4, 2 }) == cannon_targets.end());
     assert(summon_placement_cells("工程蓄水炮", wolf_owner, {}, summon_terrain, {}, straight_approach).empty());
+
+    const std::vector<GridPlacementMember> cannon_screen { { 5, 2, PlacementRole::Frontline, "挡路", 'E' } };
+    const auto cannon_line =
+        rank_water_cannon_targets({ { 3, 4 }, { 4, 2 }, { 2, 3 } }, weedy, cannon_screen, straight_approach);
+    assert(cannon_line.size() == 1 && cannon_line.front().cell == BoardCell(4, 2) && cannon_line.front().facing == 'E');
+    const std::vector<DeploymentLane> westward_fire { { "mirror", { { 0, 2 }, { 1, 2 }, { 2, 2 }, { 3, 2 } } } };
+    const auto cannon_mirrored = rank_water_cannon_targets({ { 4, 2 } }, weedy, {}, westward_fire);
+    assert(cannon_mirrored.size() == 1 && cannon_mirrored.front().facing == 'W');
+    const auto desert = terrain_layout_model("m01");
+    assert(desert);
+    const GridPlacementMember forward_weedy { 8, 1, PlacementRole::Frontline, "温蒂", 'E' };
+    const auto desert_cannon =
+        rank_water_cannon_targets({ { 3, 4 }, { 8, 2 } }, forward_weedy, { forward_weedy }, desert->lanes);
+    assert(
+        desert_cannon.size() == 1 && desert_cannon.front().cell == BoardCell(8, 2) &&
+        desert_cannon.front().facing == 'S');
+
     assert(deployable_summon_owner("铁钳号·原型机") == "白铁");
     assert(deployable_summon_owner("风雪之眼").empty());
     wolf_owner.facing = '\0';
