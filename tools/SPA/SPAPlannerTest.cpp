@@ -2822,6 +2822,49 @@ int main()
     assert(!register_replacement_routes(healable_road, {}, {}));
     const auto unknown_healer_geometry = choose_replacement("叙拉古", healable_road, { harold_candidate });
     assert(unknown_healer_geometry.found && !unknown_healer_geometry.heals_frontline);
+    // M03 R9: a ground ambusher cannot inherit Greyy's high tile. The
+    // ground tile directly ahead of Archetto also has existing growth value.
+    std::vector<ReplacementMember> precision_replacement {
+        { "空弦", PlacementRole::Ranged, { "精准" }, 1000, 552, 438, true },
+        { "雪猎", PlacementRole::Ranged, { "精准" }, 100, 637, 438, true },
+        { "承曦格雷伊", PlacementRole::Ranged, { "精准" }, 0, 871, 300, true },
+        { "摆渡人", PlacementRole::Ranged, {}, 320, 637, 365, true },
+        { "伺夜", PlacementRole::Ranged, { "精准" }, 1000, 871, 367, true }
+    };
+    const auto precision_terrain = terrain_layout_model("m03");
+    assert(
+        precision_terrain && register_replacement_routes(
+                                 precision_replacement,
+                                 { { 4, 4, PlacementRole::Ranged, "空弦", 'E' },
+                                   { 5, 4, PlacementRole::Ranged, "雪猎", 'E' },
+                                   { 8, 2, PlacementRole::Ranged, "承曦格雷伊", 'W' },
+                                   { 5, 3, PlacementRole::Ranged, "摆渡人", 'E' },
+                                   { 8, 3, PlacementRole::Ranged, "伺夜", 'W' } },
+                                 precision_terrain->lanes,
+                                 "m03"));
+    assert(precision_replacement[2].ranged_only_cell && !precision_replacement[1].ranged_only_cell);
+    ReplacementMember ethan { "伊桑", PlacementRole::Ranged, {}, 900 };
+    const auto body_value = [](const auto& lineup) {
+        int value = 0;
+        for (const auto& member : lineup) {
+            value += member.value;
+        }
+        return value;
+    };
+    const auto unrestricted_terrain = choose_replacement("精准", precision_replacement, { ethan }, {}, body_value);
+    assert(unrestricted_terrain.found && unrestricted_terrain.outgoing == "承曦格雷伊");
+    ethan.melee_only = true;
+    const auto terrain_safe = choose_replacement("精准", precision_replacement, { ethan }, {}, body_value);
+    assert(terrain_safe.found && terrain_safe.outgoing == "雪猎");
+    const auto growth_value = [&](const auto& lineup) {
+        return body_value(lineup) + replacement_preparation_adjacency_value(lineup, "精准", {});
+    };
+    assert(replacement_preparation_adjacency_value(precision_replacement, "精准", {}) > 0);
+    const auto retains_adjacency = choose_replacement("精准", precision_replacement, { ethan }, {}, growth_value);
+    assert(retains_adjacency.found && retains_adjacency.outgoing == "摆渡人");
+    precision_replacement.front().facing = '\0';
+    assert(replacement_preparation_adjacency_value(precision_replacement, "精准", {}) == 0);
+
     auto contradictory_route = route_replacement;
     assert(!register_replacement_routes(contradictory_route, {}, city_route->lanes));
     assert(std::none_of(contradictory_route.begin(), contradictory_route.end(), [](const auto& member) {

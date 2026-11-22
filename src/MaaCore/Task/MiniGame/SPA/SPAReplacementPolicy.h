@@ -3,6 +3,8 @@
 #include "SPADeploymentReview.h"
 #include "SPAFormation.h"
 #include "SPAPlacementPolicy.h"
+#include "SPASpatialGrowthPolicy.h"
+#include "SPATerrainModel.h"
 #include <algorithm>
 #include <functional>
 #include <map>
@@ -40,6 +42,9 @@ struct ReplacementMember
     bool boss_basic_output_known = false;
     int boss_basic_attack_weight = 0;
     std::vector<BoardCell> boss_basic_range;
+    bool melee_only = false;
+    bool ranged_only_cell = false;
+    char facing = '\0';
 };
 
 inline bool replacement_blocks_ground(const ReplacementMember& member)
@@ -52,13 +57,17 @@ inline bool replacement_blocks_ground(const ReplacementMember& member)
 inline bool register_replacement_routes(
     std::vector<ReplacementMember>& field,
     const std::vector<GridPlacementMember>& grid,
-    const std::vector<DeploymentLane>& lanes)
+    const std::vector<DeploymentLane>& lanes,
+    const std::string& map_id = {},
+    bool boss_phase = false)
 {
     for (auto& unit : field) {
         unit.route_membership_registered = false;
         unit.terrain_routes.clear();
         unit.terrain_route_progress.clear();
         unit.grid_cell.reset();
+        unit.ranged_only_cell = false;
+        unit.facing = '\0';
     }
     if (field.empty() || field.size() != grid.size() || lanes.empty()) {
         return false;
@@ -80,6 +89,10 @@ inline bool register_replacement_routes(
         auto& unit = field[index];
         unit.route_membership_registered = true;
         unit.grid_cell = BoardCell { grid[index].col, grid[index].row };
+        unit.ranged_only_cell = !map_id.empty() &&
+                                terrain_allows_deployment(map_id, *unit.grid_cell, false, boss_phase) &&
+                                !terrain_allows_deployment(map_id, *unit.grid_cell, true, boss_phase);
+        unit.facing = grid[index].facing;
         for (const auto& lane : lanes) {
             const auto step =
                 std::find(lane.path.begin(), lane.path.end(), BoardCell { grid[index].col, grid[index].row });
@@ -448,6 +461,33 @@ inline int replacement_primary_members(const std::vector<ReplacementMember>& fie
     return static_cast<int>(distinct.size());
 }
 
+inline int replacement_preparation_adjacency_value(
+    const std::vector<ReplacementMember>& field,
+    const std::string& primary,
+    const std::vector<std::string>& disabled)
+{
+    static const auto rules = pact_requirements();
+    const auto rule = std::ranges::find(rules, primary, &PactRequirement::name);
+    if (rule == rules.end() || rule->bench_counts || std::ranges::find(disabled, primary) != disabled.end()) {
+        return 0;
+    }
+    const bool harmony = rule->core && std::ranges::find(disabled, "调和") == disabled.end() &&
+                         replacement_primary_members(field, "调和") > 0;
+    if (replacement_primary_members(field, primary) + harmony < rule->members) {
+        return 0;
+    }
+    std::vector<GridPlacementMember> grid;
+    grid.reserve(field.size());
+    for (const auto& member : field) {
+        if (!member.grid_cell) {
+            return 0;
+        }
+        const auto [col, row] = *member.grid_cell;
+        grid.push_back({ col, row, member.role, member.name, member.facing });
+    }
+    return primary_preparation_adjacency_value(grid, primary);
+}
+
 inline int replacement_lineup_value(const std::vector<ReplacementMember>& field, const std::string& primary)
 {
     std::map<std::string, int> distinct_values;
@@ -593,8 +633,9 @@ inline ReplacementChoice choose_replacement(
         for (size_t index = 0; index < field.size(); ++index) {
             const auto& outgoing = field[index];
             if (!outgoing.replaceable || (outgoing.strategy_core && strategy_cores <= 1) ||
-                outgoing.name == incoming.name || outgoing.x < 180 || outgoing.x >= 1000 || outgoing.y < 160 ||
-                outgoing.y >= 495 || blocked.contains({ incoming.name, outgoing.name, outgoing.x, outgoing.y })) {
+                (incoming.melee_only && outgoing.ranged_only_cell) || outgoing.name == incoming.name ||
+                outgoing.x < 180 || outgoing.x >= 1000 || outgoing.y < 160 || outgoing.y >= 495 ||
+                blocked.contains({ incoming.name, outgoing.name, outgoing.x, outgoing.y })) {
                 continue;
             }
             const auto healing = healer_replacement_covers_frontline(incoming, outgoing, field);
@@ -620,6 +661,7 @@ inline ReplacementChoice choose_replacement(
             proposed[index].terrain_routes = outgoing.terrain_routes;
             proposed[index].terrain_route_progress = outgoing.terrain_route_progress;
             proposed[index].grid_cell = outgoing.grid_cell;
+            proposed[index].ranged_only_cell = outgoing.ranged_only_cell;
             const bool opens_route =
                 std::any_of(intercepted_routes.begin(), intercepted_routes.end(), [&](const auto& route) {
                     return std::none_of(proposed.begin(), proposed.end(), [&](const auto& unit) {

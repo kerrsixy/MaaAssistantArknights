@@ -1610,6 +1610,9 @@ asst::spa::ReplacementMember asst::StrongholdProtocolTask::replacement_member(
         result.pacts = found->second;
     }
     result.role = spa::operator_placement_role(name);
+    result.melee_only =
+        spa::season_location_type(name, BattleData.get_location_type(BattleData.get_first_role(name), name)) ==
+        battle::LocationType::Melee;
     if (result.role == spa::PlacementRole::Healer && forms && (forms->initial == 0 || forms->elite == 0)) {
         if (const auto stats = spa::season_combat_stats(name, forms->elite > 0)) {
             result.healer_range.assign(stats->basic_range.begin(), stats->basic_range.end());
@@ -1678,6 +1681,10 @@ int asst::StrongholdProtocolTask::replacement_lineup_context_value(
     }
     int value = spa::replacement_lineup_value(scored, context.primary_pact) +
                 spa::replacement_support_pact_value(scored, context.support_pacts, context.disabled_pacts);
+    if (context.round < m_expected_boss_round &&
+        !(m_spatial_boss_phase && context.round == m_spatial_boss_phase_round)) {
+        value += spa::replacement_preparation_adjacency_value(scored, context.primary_pact, context.disabled_pacts);
+    }
     if (spa::kjerag_freeze_pair_available(context, true)) {
         value += 1800;
     }
@@ -1765,9 +1772,22 @@ std::pair<std::vector<asst::spa::ReplacementMember>, std::vector<asst::spa::Repl
         // Stored positions and projection share the certified collapsed
         // frame. The current shop may be expanded, so mixing a fresh shop
         // camera with these collapsed coordinates would invent route cells.
-        const auto grid = spa::registered_grid_members(m_spatial_grid_projection, placed);
+        auto grid = spa::registered_grid_members(m_spatial_grid_projection, placed);
         if (grid) {
-            spa::register_replacement_routes(field, *grid, spa::active_preparation_lanes(*terrain, m_policy.round));
+            for (size_t index = 0; index < field.size(); ++index) {
+                const auto facing = m_committed_facings.find({ field[index].x, field[index].y });
+                if (facing != m_committed_facings.end()) {
+                    (*grid)[index].facing = facing->second;
+                }
+            }
+            spa::register_replacement_routes(
+                field,
+                *grid,
+                spa::active_preparation_lanes(*terrain, m_policy.round),
+                m_policy.round < m_expected_boss_round || m_spatial_boss_phase_round == m_policy.round
+                    ? m_spatial_map_id
+                    : std::string(),
+                m_spatial_boss_phase);
         }
     }
     return { std::move(field), std::move(bench) };
