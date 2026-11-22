@@ -3765,8 +3765,17 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             }
             continue;
         }
-        if (m_mode == "joint" && state.get("preparation_seconds_remaining_known", false) &&
-            state.get("preparation_seconds_remaining", 0) <= 8) {
+        const auto joint_seconds = m_mode == "joint" && state.get("preparation_seconds_remaining_known", false)
+                                       ? std::optional(state.get("preparation_seconds_remaining", 0))
+                                       : std::nullopt;
+        const bool prioritize_joint_ready =
+            m_auto_run && !m_decision_only && !m_round_only && !m_stop_before_battle && !m_stop_after_deployment &&
+            !m_movement_only && !m_verify_layout_identities && !m_pending_spatial_orientation &&
+            !m_pending_field_replacement && !m_pending_cash_equipment && !m_pending_direct_promotion &&
+            m_pending_promotion.empty() && m_pending_pact_recruitment.empty() && m_unreconciled_sale.empty() &&
+            state.get("remaining_deployment_known", false) && !state.get("remaining_deployment_inferred", false) &&
+            spa::joint_ready_reserves_remaining_time(joint_seconds, state.get("remaining_deployment", -1));
+        if (joint_seconds && *joint_seconds <= 8 && !prioritize_joint_ready) {
             // Stop new transactions, not cancellation or observation of an
             // already issued spatial transaction. Never fall through to new
             // preparation actions even when this reconciliation succeeds.
@@ -3958,6 +3967,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             { "funds", available_funds },
             { "phase",
               m_pending_field_replacement  ? "reconcile_field_transaction"
+              : prioritize_joint_ready    ? "submit_joint_ready"
               : field_finalization         ? "finalize_formation"
               : confirmed_full_bench       ? "make_bench_space"
               : equipment_capacity_blocked ? "make_equipment_space"
@@ -4025,16 +4035,16 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         if (field_work_due && !defer_ordinary_equipment && refresh_equipment_inventory(state)) {
             continue;
         }
-        if (m_auto_run && !resume_funded_purchase &&
+        if (m_auto_run && !resume_funded_purchase && !prioritize_joint_ready &&
             (handle_cash_equipment(state, boss_preparation) || handle_delayed_cash_equipment(state) ||
              handle_pact_recruitment_equipment(state) ||
              (field_work_due && handle_direct_promotion_equipment(state)))) {
             continue;
         }
-        if (m_auto_run && !defer_ordinary_equipment && handle_persistent_equipment(state)) {
+        if (m_auto_run && !defer_ordinary_equipment && !prioritize_joint_ready && handle_persistent_equipment(state)) {
             continue;
         }
-        if (m_shop_review_after_replacements) {
+        if (m_shop_review_after_replacements && !prioritize_joint_ready) {
             m_shop_review_after_replacements = false;
             // An inventory scan or a reconciled cash effect may already
             // have opened shopping. One observation covers both reasons.
@@ -4130,7 +4140,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         // remains on the bench; do not discard its discovery hint at round 3.
         const bool opening_gift_pending = !opening_gift.empty() && !m_policy.owned.contains(opening_gift) &&
                                           !m_auto_deploy_blocked_names.contains(opening_gift);
-        if (m_auto_deploy && !m_pending_spatial_orientation && !m_pending_field_replacement &&
+        if (m_auto_deploy && !prioritize_joint_ready && !m_pending_spatial_orientation && !m_pending_field_replacement &&
             state.get("remaining_deployment_known", false) && state.get("remaining_deployment", 0) > 0 &&
             m_deployment_targets.empty() && (field_work_due || (joint_opening_deployment && !resume_funded_purchase))) {
             const auto deployable = [&](const std::string& name) {
@@ -4318,7 +4328,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             deployment_names.emplace_back(name);
         }
         std::optional<std::string> pending;
-        if (!m_pending_spatial_orientation && !m_pending_field_replacement &&
+        if (!prioritize_joint_ready && !m_pending_spatial_orientation && !m_pending_field_replacement &&
             state.get("remaining_deployment_known", false)) {
             pending = spa::choose_pending_deployment(m_policy, state.get("remaining_deployment", -1), deployment_names);
         }
@@ -4815,13 +4825,14 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 handle_spatial_reorientation(state)) {
                 continue;
             }
-            if (boss_preparation && (m_shopping_complete || state.get("funds", -1) == 0)) {
+            if (!prioritize_joint_ready && boss_preparation && (m_shopping_complete || state.get("funds", -1) == 0)) {
                 review_boss_opening_coverage(state);
             }
-            if ((m_shopping_complete || available_funds == 0) && handle_preparation_summons(state)) {
+            if (!prioritize_joint_ready && (m_shopping_complete || available_funds == 0) &&
+                handle_preparation_summons(state)) {
                 continue;
             }
-            if (m_auto_run && (m_shopping_complete || state.get("funds", -1) == 0) &&
+            if (m_auto_run && !prioritize_joint_ready && (m_shopping_complete || state.get("funds", -1) == 0) &&
                 (handle_temporary_elite_instruction(state) || handle_fear_trap_instruction(state))) {
                 continue;
             }
@@ -4966,6 +4977,10 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                            state.get("funds", -1) == 0 &&
                                            (!m_preparation_instruction_attempts.contains(preparation_round) ||
                                             m_equipment_discount_round == preparation_round);
+        if (prioritize_joint_ready) {
+            m_spending_reviewed = true;
+            m_spending_reason = "The joint countdown reserves time to ready the current formation";
+        }
         if (!review_free_equipment && spa::battle_entry_allowed(
                                           m_round_only,
                                           m_auto_run,
@@ -5243,6 +5258,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                      : (configured_layout ? "configured_coordinates" : "setup_receipt") },
                                { "primary_activation_verified", primary_active_for_battle },
                                { "primary_roles_verified", primary_roles.complete() },
+                               { "joint_deadline_ready_priority", prioritize_joint_ready },
                                { "combat_strength_verified", false },
                                { "battle_authorized", true } };
             callback(AsstMsg::SubTaskExtraInfo, authorized);

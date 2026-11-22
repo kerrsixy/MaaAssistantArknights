@@ -28,6 +28,14 @@ int main()
         assert(spatial_action_fits_preparation(std::nullopt, action, Phase::Cleanup));
     }
 
+    assert(joint_ready_reserves_remaining_time(25, 7));
+    assert(joint_ready_reserves_remaining_time(8, 0));
+    assert(!joint_ready_reserves_remaining_time(26, 7));
+    assert(!joint_ready_reserves_remaining_time(0, 7));
+    assert(!joint_ready_reserves_remaining_time(15, 8));
+    assert(!joint_ready_reserves_remaining_time(15, -1));
+    assert(!joint_ready_reserves_remaining_time(std::nullopt, 7));
+
     const auto now = PreparationDeadline::Clock::time_point {} + std::chrono::hours(24);
     PreparationDeadline clock;
     const auto admission_snapshot = clock.observe(4, 45, now);

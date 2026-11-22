@@ -13,6 +13,11 @@ inline bool deployment_fits_preparation(std::optional<int> remaining, bool unide
     return !remaining || *remaining >= (unidentified_source ? 25 : 18);
 }
 
+inline bool joint_ready_reserves_remaining_time(std::optional<int> remaining, int free_field_slots)
+{
+    return remaining && *remaining > 0 && *remaining <= 25 && free_field_slots >= 0 && free_field_slots < 8;
+}
+
 // Continue a verified countdown through short OCR gaps. Repeated stale
 // digits cannot extend a round, and a new round never inherits its deadline.
 class PreparationDeadline
