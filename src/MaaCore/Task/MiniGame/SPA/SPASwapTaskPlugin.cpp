@@ -1721,6 +1721,16 @@ bool asst::spa::SwapTaskPlugin::verify_replacement_bench_identity(const std::str
             return false;
         }
         if (matched) {
+            // Only the first probe uses the exact certified expanded frame.
+            // Later panel transitions can move the bench before its next click.
+            if (probes == 1 && m_bench_identity_hints) {
+                remember_inventory_operator_title(
+                    *m_bench_identity_hints,
+                    bench,
+                    { candidate.x, candidate.y },
+                    name,
+                    true);
+            }
             return true;
         }
     }
@@ -1890,13 +1900,21 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
     bool unknown_probe_input = false;
     bool ui_side_effect_observed = false;
     const auto original = equipment_inventory_candidates(inventory_frame);
+    auto fresh_frame = inventory_frame;
+    auto fresh = original;
     bool complete = original.size() <= 20;
+    int candidate_frames = 1;
     int fresh_title_probes = 0;
     int operator_hints_reused = 0;
     json::array observations;
     for (std::size_t index = 0; index < original.size() && index < 20 && !need_exit(); ++index) {
-        const auto fresh_frame = ctrler()->get_image();
-        const auto fresh = equipment_inventory_candidates(fresh_frame);
+        // Visual hints do not issue input. Reuse the same candidate frame
+        // until a real title probe opens a panel and changes the camera.
+        if (fresh_frame.empty()) {
+            fresh_frame = ctrler()->get_image();
+            fresh = equipment_inventory_candidates(fresh_frame);
+            ++candidate_frames;
+        }
         const auto source = std::min_element(fresh.begin(), fresh.end(), [&](const auto& a, const auto& b) {
             return cv::norm(a - original[index]) < cv::norm(b - original[index]);
         });
@@ -1953,6 +1971,7 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
                            { "equipment", equipment } });
         // Every probe is a title read in the inventory region. No dragging,
         // sale, card purchase or equipment replacement is authorized here.
+        fresh_frame.release();
         if (!close_selection() || !ensure_expanded_shop()) {
             complete = false;
             break;
@@ -1990,6 +2009,7 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
                        { "preparation_restored", restored },
                        { "candidate_count", original.size() },
                        { "fresh_title_probes", fresh_title_probes },
+                       { "candidate_frames", candidate_frames },
                        { "operator_visual_hints_reused", operator_hints_reused },
                        { "all_titles_freshly_verified", operator_hints_reused == 0 && complete && restored },
                        { "equipment_slots_observed", m_inspected_equipment.size() },
