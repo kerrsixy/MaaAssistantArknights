@@ -3562,7 +3562,11 @@
         "baseTask": "BlackFlow@Roguelike@AccountMapReturn",
         "action": "DoNothing",
         "requiredPage": "BlackFlow@Roguelike@RewardReturnMapActionPoints",
-        "next": ["BlackFlow@Roguelike@RewardReturnMapDismiss"]
+        "next": [
+            "BlackFlow@Roguelike@Stages-MapReady",
+            "BlackFlow@Roguelike@Stages-ZoomOut",
+            "BlackFlow@Roguelike@RewardReturnMapDismiss"
+        ]
     },
     "BlackFlow@Roguelike@RewardReturnMapActionPoints": {
         "algorithm": "OcrDetect",
@@ -3573,12 +3577,13 @@
         "next": []
     },
     "BlackFlow@Roguelike@RewardReturnMapDismiss": {
-        "Doc": "关闭重复领取点击误开的节点预览，再经既有节点完成回执处理同层返回或Boss自动进下一层。",
+        "Doc": "先由真实缩放锚点接回地图；预览仍遮住锚点时点击已实机验证的上缘空白区。旧左侧条带会点击放大地图边缘节点并重新打开预览。",
         "algorithm": "JustReturn",
-        "action": "DoNothing",
-        "sub": ["BlackFlow@Roguelike@CancelNodeSelectionClick"],
+        "action": "ClickRect",
         "next": ["BlackFlow@Roguelike@Stages-MapReady", "BlackFlow@Roguelike@Stages-ZoomOut"],
-        "onErrorNext": ["BlackFlow@Roguelike@RecoveryFailed"]
+        "onErrorNext": ["BlackFlow@Roguelike@RecoveryFailed"],
+        "specificRect": [445, 95, 10, 10],
+        "postDelay": 300
     },
     "BlackFlowAccountScan@Enter": {
         "algorithm": "JustReturn",
