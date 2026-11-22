@@ -1544,17 +1544,23 @@ std::optional<cv::Point>
     if (projected_receiver) {
         return cv::norm(projected_receiver->front() - placement_foot) <= 28 ? center : std::nullopt;
     }
-    // The direction overlay can cover the left end of the last row while
-    // leaving the camera stationary. Only use a nearby unsupported receiver
-    // when the measured shift is small and its diamond agrees more closely.
-    if (valid_field_camera_projection(fit) && fit.inliers >= 60 && fit.median_error <= 1 &&
-        cv::pointPolygonTest(fit.source_hull, cv::Point2f(expected_target), true) >= -24) {
-        std::vector<cv::Point2f> projected;
+    // The direction overlay hides terrain around the already verified receiver.
+    // Use the diamond foot when the camera stayed still and the terrain just
+    // outside the overlay supplies a consistent fit.
+    if (valid_field_camera_projection(fit) && fit.inliers >= 60 && fit.median_error <= 1) {
         const cv::Point2f receiver(expected_target);
-        cv::perspectiveTransform(std::vector<cv::Point2f> { receiver }, projected, fit.matrix);
-        if (cv::norm(projected.front() - receiver) <= 8 &&
-            cv::norm(projected.front() - cv::Point2f(placement_foot)) <= 18) {
-            return center;
+        const auto hull_distance = cv::pointPolygonTest(fit.source_hull, receiver, true);
+        if (hull_distance >= -64) {
+            std::vector<cv::Point2f> projected;
+            cv::perspectiveTransform(std::vector<cv::Point2f> { receiver }, projected, fit.matrix);
+            const auto camera_shift = cv::norm(projected.front() - receiver);
+            const auto foot_error = cv::norm(projected.front() - cv::Point2f(placement_foot));
+            const bool near_registered_terrain = hull_distance >= -24 && camera_shift <= 8 && foot_error <= 18;
+            const bool stationary_camera = fit.inliers >= 120 && fit.inliers * 5 >= fit.matches * 4 &&
+                                           fit.median_error <= .35 && camera_shift <= 2 && foot_error <= 12;
+            if (near_registered_terrain || stationary_camera) {
+                return center;
+            }
         }
     }
     const auto foot = registered_deployment_pose(placement, held, placement_foot);
