@@ -2588,6 +2588,36 @@ int main()
                fence_replacement,
                { { "凛御银灰", PlacementRole::Frontline, { "乌萨斯" }, 1500 } })
                .found);
+    const auto harold_stats = season_combat_stats("哈洛德", false);
+    assert(harold_stats);
+    ReplacementMember harold_candidate { "哈洛德", PlacementRole::Healer, { "维多利亚" }, 240 };
+    harold_candidate.healer_range.assign(harold_stats->basic_range.begin(), harold_stats->basic_range.end());
+    std::vector<ReplacementMember> healable_road {
+        { "拉普兰德", PlacementRole::Frontline, { "叙拉古" }, 500, 850, 295, true },
+        { "伺夜", PlacementRole::Ranged, { "叙拉古" }, 500, 765, 222, false },
+        { "奥斯塔", PlacementRole::Ranged, { "叙拉古" }, 500, 765, 365, false },
+        { "空弦", PlacementRole::Ranged, {}, 320, 727, 295, true },
+        { "黑键", PlacementRole::Ranged, {}, 80, 430, 420, true }
+    };
+    assert(register_replacement_routes(
+        healable_road,
+        { { 8, 2, PlacementRole::Frontline, "拉普兰德" },
+          { 7, 1, PlacementRole::Ranged, "伺夜" },
+          { 7, 3, PlacementRole::Ranged, "奥斯塔" },
+          { 7, 2, PlacementRole::Ranged, "空弦" },
+          { 2, 4, PlacementRole::Ranged, "黑键" } },
+        { { "main", { { 9, 2 }, { 8, 2 }, { 7, 2 }, { 6, 2 }, { 5, 2 } } } }));
+    const auto harold_swap = choose_replacement("叙拉古", healable_road, { harold_candidate });
+    assert(harold_swap.found && harold_swap.heals_frontline && harold_swap.outgoing == "空弦");
+    healable_road.front().accepts_direct_healing = false;
+    assert(!choose_replacement("叙拉古", healable_road, { harold_candidate }).found);
+    healable_road.front().accepts_direct_healing = true;
+    const auto blocked_healer_slot = choose_replacement(
+        "叙拉古", healable_road, { harold_candidate }, { { "哈洛德", "空弦", 727, 295 } });
+    assert(!blocked_healer_slot.found);
+    assert(!register_replacement_routes(healable_road, {}, {}));
+    const auto unknown_healer_geometry = choose_replacement("叙拉古", healable_road, { harold_candidate });
+    assert(unknown_healer_geometry.found && !unknown_healer_geometry.heals_frontline);
     auto contradictory_route = route_replacement;
     assert(!register_replacement_routes(contradictory_route, {}, city_route->lanes));
     assert(std::none_of(contradictory_route.begin(), contradictory_route.end(), [](const auto& member) {
@@ -4779,6 +4809,44 @@ int main()
     full_missing_healer.early_board_scores["褐果"] = 900;
     full_missing_healer.owned["褐果"] = { 1, false, false };
     assert(choose_preparation(full_missing_healer, 4, { { "褐果", 3, 1 } }, catalog).action != PreparationAction::Buy);
+    // D4 R10 live wallet and offer sheet after eight refreshes. The
+    // existing full-field fit said both healers could improve the lineup.
+    PreparationPolicy siracusa_healing_gap;
+    siracusa_healing_gap.primary_pact = "叙拉古";
+    siracusa_healing_gap.dynamic_decision_mode = true;
+    siracusa_healing_gap.primary_locked_after_activation = true;
+    siracusa_healing_gap.allow_refresh = true;
+    siracusa_healing_gap.round = 10;
+    siracusa_healing_gap.shop_level = 5;
+    siracusa_healing_gap.deployed_population = 8;
+    siracusa_healing_gap.bench_occupied = 3;
+    for (const auto& name : { "伺夜", "奥斯塔", "忍冬", "折桠", "拉普兰德", "斥罪", "空弦", "黑键" }) {
+        siracusa_healing_gap.owned[name] = { 1, false, true };
+    }
+    const std::vector<ShopOffer> r10_healer_shop {
+        { "哈洛德", 3, 0 }, { "星源", 3, 1 }, { "淬羽赫默", 3, 2 }, { "褐果", 2, 3 }, { "塞雷娅", 4, 4 }
+    };
+    siracusa_healing_gap.full_field_offer_improvements = {
+        { "哈洛德", 1260 }, { "褐果", 1140 }, { "星源", 0 }, { "淬羽赫默", 0 }, { "塞雷娅", 0 }
+    };
+    assert(choose_preparation(siracusa_healing_gap, 3, r10_healer_shop, catalog).action == PreparationAction::Refresh);
+    siracusa_healing_gap.first_healer_replacement_offers = { "哈洛德", "褐果" };
+    const auto buy_healer_instead_of_refresh = choose_preparation(siracusa_healing_gap, 3, r10_healer_shop, catalog);
+    assert(buy_healer_instead_of_refresh.action == PreparationAction::Buy && buy_healer_instead_of_refresh.name == "哈洛德");
+    assert(choose_preparation(siracusa_healing_gap, 2, r10_healer_shop, catalog).name == "褐果");
+    siracusa_healing_gap.owned["褐果"] = { 1, false, false };
+    assert(choose_preparation(siracusa_healing_gap, 2, r10_healer_shop, catalog).action != PreparationAction::Buy);
+    siracusa_healing_gap.owned.erase("褐果");
+    siracusa_healing_gap.full_field_offer_improvements["哈洛德"] = 0;
+    assert(choose_preparation(siracusa_healing_gap, 3, r10_healer_shop, catalog).name == "褐果");
+    siracusa_healing_gap.bench_occupied = 10;
+    assert(choose_preparation(siracusa_healing_gap, 3, r10_healer_shop, catalog).action == PreparationAction::Review);
+    siracusa_healing_gap.owned["深巡"] = { 1, false, false };
+    const auto healer_capacity_trade =
+        choose_bench_capacity_trade(siracusa_healing_gap, 3, r10_healer_shop, { { "斥罪", 1 } }, {});
+    assert(healer_capacity_trade && healer_capacity_trade->purchase.name == "褐果" &&
+           healer_capacity_trade->spare_initial == "深巡");
+    assert(!choose_bench_capacity_trade(siracusa_healing_gap, 3, r10_healer_shop, { { "斥罪", 1 } }, { "深巡" }));
     PreparationPolicy helper_line;
     PreparationPolicy awaiting_faction_deployment;
     awaiting_faction_deployment.primary_pact = "炎";

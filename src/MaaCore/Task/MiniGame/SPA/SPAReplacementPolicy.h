@@ -33,6 +33,8 @@ struct ReplacementMember
     bool reliable_blocker = true;
     bool strategy_core = false;
     std::map<std::string, size_t> terrain_route_progress;
+    std::optional<BoardCell> grid_cell;
+    std::vector<BoardCell> healer_range;
 };
 
 inline bool replacement_blocks_ground(const ReplacementMember& member)
@@ -51,6 +53,7 @@ inline bool register_replacement_routes(
         unit.route_membership_registered = false;
         unit.terrain_routes.clear();
         unit.terrain_route_progress.clear();
+        unit.grid_cell.reset();
     }
     if (field.empty() || field.size() != grid.size() || lanes.empty()) {
         return false;
@@ -71,6 +74,7 @@ inline bool register_replacement_routes(
     for (size_t index = 0; index < grid.size(); ++index) {
         auto& unit = field[index];
         unit.route_membership_registered = true;
+        unit.grid_cell = BoardCell { grid[index].col, grid[index].row };
         for (const auto& lane : lanes) {
             const auto step =
                 std::find(lane.path.begin(), lane.path.end(), BoardCell { grid[index].col, grid[index].row });
@@ -105,6 +109,35 @@ inline bool screened_replacement_cell(const ReplacementMember& outgoing, const s
     return true;
 }
 
+// An off-route healer must still reach an ally that holds an enemy route.
+// Unknown geometry is distinct from a registered target with no coverage.
+inline std::optional<bool> healer_replacement_covers_frontline(
+    const ReplacementMember& incoming,
+    const ReplacementMember& outgoing,
+    const std::vector<ReplacementMember>& field)
+{
+    if (incoming.role != PlacementRole::Healer || incoming.healer_range.empty() || !outgoing.grid_cell) {
+        return std::nullopt;
+    }
+    if (!screened_replacement_cell(outgoing, field)) {
+        return false;
+    }
+    const auto [col, row] = *outgoing.grid_cell;
+    return std::ranges::any_of(field, [&](const auto& target) {
+        if (!target.grid_cell || target.grid_cell == outgoing.grid_cell || target.terrain_routes.empty() ||
+            !replacement_blocks_ground(target) || (!target.accepts_direct_healing && !incoming.provides_regeneration)) {
+            return false;
+        }
+        const auto [target_col, target_row] = *target.grid_cell;
+        for (const char facing : { 'E', 'N', 'S', 'W' }) {
+            if (grid_range_covers(col, row, facing, target_col, target_row, incoming.healer_range)) {
+                return true;
+            }
+        }
+        return false;
+    });
+}
+
 struct ReplacementChoice
 {
     bool found = false;
@@ -114,6 +147,7 @@ struct ReplacementChoice
     int y = -1;
     int improvement = 0;
     bool restores_strategy_core = false;
+    bool heals_frontline = false;
 };
 
 using ReplacementLineup = std::vector<std::string>;
@@ -493,7 +527,9 @@ inline ReplacementChoice choose_replacement(
                 outgoing.y >= 495 || blocked.contains({ incoming.name, outgoing.name, outgoing.x, outgoing.y })) {
                 continue;
             }
-            if (needs_screened_position(incoming.name) && !screened_replacement_cell(outgoing, field)) {
+            const auto healing = healer_replacement_covers_frontline(incoming, outgoing, field);
+            if ((healing && !*healing) ||
+                (needs_screened_position(incoming.name) && !screened_replacement_cell(outgoing, field))) {
                 continue;
             }
             // A bench guard cannot inherit an arbitrary rear support tile.
@@ -513,6 +549,7 @@ inline ReplacementChoice choose_replacement(
             proposed[index].route_membership_registered = outgoing.route_membership_registered;
             proposed[index].terrain_routes = outgoing.terrain_routes;
             proposed[index].terrain_route_progress = outgoing.terrain_route_progress;
+            proposed[index].grid_cell = outgoing.grid_cell;
             const bool opens_route =
                 std::any_of(intercepted_routes.begin(), intercepted_routes.end(), [&](const auto& route) {
                     return std::none_of(proposed.begin(), proposed.end(), [&](const auto& unit) {
@@ -548,7 +585,8 @@ inline ReplacementChoice choose_replacement(
             if ((restores_core || improvement > 100) &&
                 (!best.found || (restores_core && !best.restores_strategy_core) ||
                  (restores_core == best.restores_strategy_core && rank > best_rank))) {
-                best = { true, incoming.name, outgoing.name, outgoing.x, outgoing.y, improvement, restores_core };
+                best = { true, incoming.name, outgoing.name, outgoing.x, outgoing.y, improvement, restores_core,
+                         healing.value_or(false) };
                 best_rank = rank;
             }
         }

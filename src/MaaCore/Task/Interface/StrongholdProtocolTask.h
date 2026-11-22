@@ -178,6 +178,7 @@ private:
     };
     std::map<std::string, SpatialGridRefresh> m_spatial_grid_refresh_attempts;
     std::string m_recent_bench_acquisition;
+    std::optional<std::pair<int, std::string>> m_first_healer_recruit;
     std::set<std::pair<int, std::string>> m_spatial_orientation_attempts;
     std::optional<json::object> m_pending_spatial_orientation;
     std::shared_ptr<spa::SwapTaskPlugin> m_pending_orientation_verifier;

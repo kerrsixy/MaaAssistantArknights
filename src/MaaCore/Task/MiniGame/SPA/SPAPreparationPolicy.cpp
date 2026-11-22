@@ -2227,10 +2227,13 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
             }
         }
         const int growth_support = primary_growth_support_value(offer.name, resolved, pacts);
-        if (!primary && !completes_support && growth_support == 0) {
+        const auto exchange = resolved.full_field_offer_improvements.find(offer.name);
+        const bool adds_first_healer = resolved.primary_locked_after_activation && resolved.deployed_population == 8 &&
+                                       copies == 0 && resolved.first_healer_replacement_offers.contains(offer.name) &&
+                                       exchange != resolved.full_field_offer_improvements.end() && exchange->second > 0;
+        if (!primary && !completes_support && growth_support == 0 && !adds_first_healer) {
             continue;
         }
-        const auto exchange = resolved.full_field_offer_improvements.find(offer.name);
         if (!primary && resolved.deployed_population == 8 && copies + 1 < required &&
             exchange != resolved.full_field_offer_improvements.end() && exchange->second <= 0) {
             continue;
@@ -2294,7 +2297,8 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
                  ? (carry ? (copies == 0 && (current_roles.output_owned == 0 || missing_terminal) ? 4000 : 500) : 0) +
                        (engine ? (copies == 0 && current_roles.growth_engine_owned == 0 ? 3000 : 1000) : 0) +
                        (copies == 0 ? new_member_priority : 20)
-                 : std::max(growth_support, 1500 * completes_support) + (preferred_support ? 250 : 0));
+                 : std::max({ growth_support, 1500 * completes_support, adds_first_healer ? exchange->second : 0 }) +
+                       (preferred_support ? 250 : 0));
         eligible_purchases.push_back({ &offer, score, !primary, growth_score });
         if (!best || score > best_score || (score == best_score && offer.price < best->price)) {
             best = &offer;
@@ -2312,6 +2316,8 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
                  budgeted.offer->right_slot,
                  budgeted.offer != best      ? "Use the final ordinary coin on equally ranked, visible purchases"
                  : budgeted.growth_score > 0 ? "Fund actionable pact growth in the remaining preparation window"
+                 : resolved.first_healer_replacement_offers.contains(budgeted.offer->name)
+                     ? "Recruit the first healer for a screened position covering a route blocker"
                  : budgeted.support
                      ? "Recruit a useful growth helper or a distinct configured support-pact member"
                      : "Prioritize primary-pact activation, a verified growth formula and the configured carry",

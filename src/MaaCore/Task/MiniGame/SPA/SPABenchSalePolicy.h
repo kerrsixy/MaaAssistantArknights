@@ -222,7 +222,9 @@ inline std::optional<BenchCapacityTrade> choose_bench_capacity_trade(
             return std::nullopt;
         }
         observed_slots[offer.right_slot] = true;
-        if (offer.price <= 0 || offer.price > funds || !belongs_to_planned_lineup(offer.name, policy, pacts)) {
+        if (offer.price <= 0 || offer.price > funds ||
+            (!policy.first_healer_replacement_offers.contains(offer.name) &&
+             !belongs_to_planned_lineup(offer.name, policy, pacts))) {
             continue;
         }
         const auto on_field = verified_field_counts.find(offer.name);

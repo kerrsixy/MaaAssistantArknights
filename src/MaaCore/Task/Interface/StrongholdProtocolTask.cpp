@@ -723,6 +723,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_field_checkpoint_loaded = false;
     m_spatial_grid_refresh_attempts.clear();
     m_recent_bench_acquisition.clear();
+    m_first_healer_recruit.reset();
     m_pending_spatial_orientation.reset();
     m_pending_orientation_verifier.reset();
     if (const auto pending = params.find<json::object>("pending_orientation")) {
@@ -1338,6 +1339,9 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
     if (m_pending_direct_promotion) {
         protected_names.push_back(m_pending_direct_promotion->get("operator", std::string()));
     }
+    if (m_first_healer_recruit && m_first_healer_recruit->first == round) {
+        protected_names.push_back(m_first_healer_recruit->second);
+    }
     if (replacement_to_enable) {
         protected_names.push_back(replacement_to_enable->incoming);
         protected_names.push_back(replacement_to_enable->outgoing);
@@ -1495,6 +1499,14 @@ asst::spa::ReplacementMember asst::StrongholdProtocolTask::replacement_member(
         result.pacts = found->second;
     }
     result.role = spa::operator_placement_role(name);
+    if (result.role == spa::PlacementRole::Healer) {
+        const auto forms = spa::owned_form_counts(owned);
+        if (forms && (forms->initial == 0 || forms->elite == 0)) {
+            if (const auto stats = spa::season_combat_stats(name, forms->elite > 0)) {
+                result.healer_range.assign(stats->basic_range.begin(), stats->basic_range.end());
+            }
+        }
+    }
     if (const auto props = BattleData.find_first_oper(battle::Role::Unknown, name, true)) {
         result.accepts_direct_healing = spa::accepts_direct_healing(props->sub_role);
         result.provides_regeneration = props->sub_role == battle::SubRole::Support_Bard;
@@ -5552,9 +5564,15 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
 
         // Compute the current offers before both upgrade and purchase policy.
         m_policy.full_field_offer_improvements.clear();
+        m_policy.first_healer_replacement_offers.clear();
         if (m_policy.dynamic_decision_mode && m_policy.deployed_population == 8 && !m_pending_field_replacement) {
             const auto [field, bench] = replacement_inputs();
             if (field.size() == 8) {
+                const bool healer_available = std::ranges::any_of(field, [](const auto& member) {
+                    return member.role == spa::PlacementRole::Healer || member.role == spa::PlacementRole::Unknown;
+                }) || std::ranges::any_of(bench, [](const auto& member) {
+                    return member.role == spa::PlacementRole::Healer;
+                });
                 const auto& visible_operators = confirmed_full_bench ? capacity_blocked_offers : offers;
                 for (const auto& offer : visible_operators) {
                     const auto incoming = replacement_member(offer.name, spa::OwnedOperator { 1, false, false });
@@ -5570,6 +5588,10 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                   m_policy.disabled_pacts)
                             : spa::ReplacementChoice {};
                     m_policy.full_field_offer_improvements[offer.name] = exchange.found ? exchange.improvement : 0;
+                    if (!healer_available && exchange.heals_frontline && exchange.improvement > 0 &&
+                        !m_policy.owned.contains(offer.name)) {
+                        m_policy.first_healer_replacement_offers.insert(offer.name);
+                    }
                 }
             }
         }
@@ -5603,6 +5625,9 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             if (m_pending_field_replacement) {
                 reserved_names.push_back(m_pending_field_replacement->incoming);
                 reserved_names.push_back(m_pending_field_replacement->outgoing);
+            }
+            if (m_first_healer_recruit && m_first_healer_recruit->first == round) {
+                reserved_names.push_back(m_first_healer_recruit->second);
             }
             const auto trade = spa::choose_bench_capacity_trade(
                 m_policy,
@@ -5989,6 +6014,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             auto fit = basic_info_with_what("SPAFullFieldOfferFit");
             fit["details"] = json::object { { "round", round },
                                             { "improvements", std::move(improvements) },
+                                            { "first_healer_candidates", m_policy.first_healer_replacement_offers },
                                             { "fit_is_planning_only", true },
                                             { "purchase_committed", false } };
             callback(AsstMsg::SubTaskExtraInfo, fit);
@@ -6472,6 +6498,10 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             m_policy.owned[decision.name] = *purchased_owned;
             m_policy.tactical_elite_purchase_pending = false;
             m_recent_bench_acquisition = decision.name;
+            const bool planned_first_healer = m_policy.first_healer_replacement_offers.contains(decision.name);
+            if (planned_first_healer) {
+                m_first_healer_recruit = std::pair(round, decision.name);
+            }
             m_unavailable_replacement_sources.erase(decision.name);
             ++m_policy.bench_occupied;
             record_acquired_equipment_hints(decision.name, purchased_elite, round);
@@ -6491,6 +6521,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                                 { "round", round },
                                                 { "name", decision.name },
                                                 { "banked_value_purchase", decision.banked_value_purchase },
+                                                { "first_healer_replacement_planned", planned_first_healer },
                                                 { "funds", funds - decision.price },
                                                 { "bench_occupied", m_policy.bench_occupied },
                                                 { "roster", roster_snapshot() },
