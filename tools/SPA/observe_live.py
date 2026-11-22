@@ -366,6 +366,8 @@ def main():
             "occupied_strategy_ids",
             "disabled_pacts",
             "enabled_core_pacts",
+            "boss_family_name",
+            "boss_advertisement_verified",
         )
         if isinstance(policy, dict) and key in policy
     }
@@ -427,7 +429,10 @@ def main():
         )
         if context_update and checkpoint_context.get("run_id"):
             checkpoint_context.update(context_update)
-            persist_checkpoint({})
+            # Native batch callbacks are scoped to a child simulation. Using
+            # the parent policy ID here would erase that child's checkpoint.
+            scope_run_id = value.get("run_id") or checkpoint_context["run_id"]
+            persist_checkpoint({"run_id": scope_run_id})
         if value.get("what") in (
             "SPAAutomationPurchaseReconciled",
             "SPAAutomationDeploymentReconciled",
