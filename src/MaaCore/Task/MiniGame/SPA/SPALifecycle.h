@@ -31,12 +31,26 @@ inline bool lifecycle_login_start_game_enabled(std::string_view mode)
     return mode != "joint";
 }
 
-// Loading fades briefly expose an unclassified battlefield. Only a recent,
-// positively recognized loading screen grants this bounded no-input wait.
+// A loading screen or a verified formation commit can be followed by
+// unclassified frames before the preparation HUD appears.
 class LifecycleLoadingGrace
 {
 public:
     using Clock = std::chrono::steady_clock;
+
+    void note_formation_ready(Clock::time_point now = Clock::now())
+    {
+        if (!m_formation_ready) {
+            m_formation_ready = now;
+        }
+    }
+
+    bool formation_pending() const { return m_formation_ready.has_value(); }
+
+    bool formation_wait_expired(Clock::time_point now) const
+    {
+        return m_formation_ready && now - *m_formation_ready >= std::chrono::seconds(45);
+    }
 
     bool should_wait(const LifecyclePage& state, Clock::time_point now = Clock::now())
     {
@@ -44,15 +58,22 @@ public:
             m_last_loading = now;
             return true;
         }
-        if (state.page != "unknown") {
+        if (state.page != "unknown" || !state.setup_stage.empty()) {
             m_last_loading.reset();
+            if (state.setup_stage != "3/3") {
+                m_formation_ready.reset();
+            }
             return false;
+        }
+        if (m_formation_ready && now >= *m_formation_ready && !formation_wait_expired(now)) {
+            return true;
         }
         return m_last_loading && now >= *m_last_loading && now - *m_last_loading < std::chrono::seconds(15);
     }
 
 private:
     std::optional<Clock::time_point> m_last_loading;
+    std::optional<Clock::time_point> m_formation_ready;
 };
 
 // The session executor owns battle and transaction progress. Navigation must

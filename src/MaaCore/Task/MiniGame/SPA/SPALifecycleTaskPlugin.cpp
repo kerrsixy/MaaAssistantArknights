@@ -4,6 +4,7 @@
 
 #include "Controller/Controller.h"
 #include "SPALifecycle.h"
+#include "SPALifecycleFrame.h"
 #include "SPAObservation.h"
 #include "SPAObserverTaskPlugin.h"
 #include "SPARunBatch.h"
@@ -101,7 +102,17 @@ bool asst::spa::LifecycleTaskPlugin::_run()
     ObserverTaskPlugin observer(m_callback, m_inst, m_task_chain);
     observer.set_task_id(m_task_id);
     observer.set_retry_times(0);
-    observer.run();
+    bool blank_formation_frame = false;
+    if (m_loading_grace.formation_pending()) {
+        const auto frame = ctrler()->get_image();
+        blank_formation_frame = is_blank_formation_frame(frame);
+        if (!blank_formation_frame) {
+            observer.observe_frame(frame);
+        }
+    }
+    else {
+        observer.run();
+    }
     const auto& state = observer.last_observation();
     LifecyclePage page;
     page.mode = m_mode;
@@ -189,6 +200,9 @@ bool asst::spa::LifecycleTaskPlugin::_run()
         page.joint_setup_committed = m_mode == "joint" ? joint_setup_wait : formation_ready;
         if (page.joint_setup_committed &&
             (page.setup_stage == "3/3" || (m_mode == "joint" && page.setup_stage == "2/3"))) {
+            if (m_mode != "joint") {
+                m_loading_grace.note_formation_ready();
+            }
             auto receipt = basic_info_with_what(m_mode == "joint" ? "SPAJointSetupWaiting" : "SPASoloSetupWaiting");
             receipt["details"] = json::object { { "stage", page.setup_stage },
                                                 { "own_selection_committed", true },
@@ -229,10 +243,13 @@ bool asst::spa::LifecycleTaskPlugin::_run()
         page.loading_verified = true;
     }
     const bool observed_loading = page.loading_verified;
-    const bool loading_wait = m_loading_grace.should_wait(page);
+    const auto observed_at = LifecycleLoadingGrace::Clock::now();
+    const bool loading_wait = m_loading_grace.should_wait(page, observed_at);
+    const bool blank_formation_timeout =
+        blank_formation_frame && !loading_wait && m_loading_grace.formation_wait_expired(observed_at);
     page.loading_verified = loading_wait;
     auto next = lifecycle_next(page);
-    if (m_fresh_independent_difficulty && different_independent_difficulty) {
+    if (blank_formation_timeout || (m_fresh_independent_difficulty && different_independent_difficulty)) {
         next.clear();
     }
     else if (
@@ -243,21 +260,22 @@ bool asst::spa::LifecycleTaskPlugin::_run()
     if (next.empty()) {
         process->override_next("MiniGame@SPA@LifecycleDispatch", {});
         auto receipt = basic_info_with_what("SPALifecycleRecoveryRequired");
-        receipt["details"] =
-            json::object { { "page", page.page },
-                           { "reason",
-                             different_independent_difficulty
-                                 ? "Observed a different independent difficulty than the verified requested start"
-                             : page.issued_start_required
-                                 ? "An existing game appeared before this execution verified a fresh start"
-                                 : "Observed battle returned to lobby without a verified settlement" },
-                           { "battle_seen", m_battle_seen },
-                           { "result_recorded", page.result_recorded },
-                           { "return_home_verified", false },
-                           { "new_run_started", false },
-                           { "input_issued", false },
-                           { "resumable", true },
-                           { "run_abandoned", false } };
+        receipt["details"] = json::object {
+            { "page", page.page },
+            { "reason",
+              blank_formation_timeout ? "Formation was committed but the client remained blank past the loading window"
+              : different_independent_difficulty
+                  ? "Observed a different independent difficulty than the verified requested start"
+              : page.issued_start_required ? "An existing game appeared before this execution verified a fresh start"
+                                           : "Observed battle returned to lobby without a verified settlement" },
+            { "battle_seen", m_battle_seen },
+            { "result_recorded", page.result_recorded },
+            { "return_home_verified", false },
+            { "new_run_started", false },
+            { "input_issued", false },
+            { "resumable", true },
+            { "run_abandoned", false }
+        };
         callback(AsstMsg::SubTaskExtraInfo, receipt);
         return true;
     }
@@ -288,6 +306,7 @@ bool asst::spa::LifecycleTaskPlugin::_run()
                                         { "next", next },
                                         { "loading_observed", observed_loading },
                                         { "loading_grace_wait", loading_wait && !observed_loading },
+                                        { "blank_formation_frame", blank_formation_frame },
                                         { "run_abandoned", false } };
     callback(AsstMsg::SubTaskExtraInfo, receipt);
     return true;
@@ -314,6 +333,11 @@ void asst::spa::LifecycleTaskPlugin::note_solo_result(const json::object& result
 void asst::spa::LifecycleTaskPlugin::observe_event(const json::value& details)
 {
     const auto what = details.get("what", std::string());
+    if (what == "SPAFormationSelected" && m_mode != "joint" &&
+        details.get("details", "formation_page_verified", false) &&
+        details.get("details", "readiness_committed", false)) {
+        m_loading_grace.note_formation_ready();
+    }
     if (what == "SPASimulationStartIssued" && details.get("details", "mode", std::string()) == "joint") {
         m_joint_search_started = std::chrono::steady_clock::now();
     }

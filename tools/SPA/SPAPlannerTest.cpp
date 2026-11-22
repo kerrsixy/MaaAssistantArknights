@@ -14,6 +14,7 @@
 #include "Task/MiniGame/SPA/SPAGrowth.h"
 #include "Task/MiniGame/SPA/SPAGuideRoutes.h"
 #include "Task/MiniGame/SPA/SPALifecycle.h"
+#include "Task/MiniGame/SPA/SPALifecycleFrame.h"
 #include "Task/MiniGame/SPA/SPAModePolicy.h"
 #include "Task/MiniGame/SPA/SPAOpeningControls.h"
 #include "Task/MiniGame/SPA/SPAPlacementPolicy.h"
@@ -3041,6 +3042,33 @@ int main()
     assert(loading_grace.should_wait(loading_page, loading_time));
     assert(!loading_grace.should_wait({ "preparation" }, loading_time + std::chrono::seconds(1)));
     assert(!loading_grace.should_wait({ "unknown" }, loading_time + std::chrono::seconds(2)));
+    {
+        using namespace std::chrono_literals;
+        // The stopped D5 host captured a 1280x720 image of all-zero RGB bytes.
+        const cv::Mat replayed_black(720, 1280, CV_8UC3, cv::Scalar::all(0));
+        assert(is_blank_formation_frame(replayed_black));
+        auto lit_ui = replayed_black.clone();
+        lit_ui(cv::Rect(400, 0, 80, 20)).setTo(cv::Scalar::all(200));
+        assert(!is_blank_formation_frame(lit_ui));
+        assert(!is_blank_formation_frame({}));
+
+        LifecycleLoadingGrace formation_handoff;
+        LifecyclePage blank_page { "unknown" };
+        assert(!formation_handoff.should_wait(blank_page, loading_time));
+        formation_handoff.note_formation_ready(loading_time);
+        assert(!formation_handoff.should_wait({ "unknown", "3/3" }, loading_time + 2s));
+        assert(formation_handoff.formation_pending());
+        blank_page.loading_verified = formation_handoff.should_wait(blank_page, loading_time + 10s);
+        assert(lifecycle_next(blank_page) == "MiniGame@SPA@LifecycleWait");
+        blank_page.loading_verified = false;
+        formation_handoff.note_formation_ready(loading_time + 30s);
+        assert(formation_handoff.should_wait(blank_page, loading_time + 44s));
+        assert(!formation_handoff.should_wait(blank_page, loading_time + 45s));
+        assert(formation_handoff.formation_wait_expired(loading_time + 45s));
+        assert(!formation_handoff.should_wait({ "preparation" }, loading_time + 46s));
+        assert(!formation_handoff.formation_pending());
+        assert(!formation_handoff.should_wait(blank_page, loading_time + 47s));
+    }
     LifecycleNavigationGuard navigation;
     for (int loading_frame = 0; loading_frame < 10; ++loading_frame) {
         assert(navigation.allow(loading_page, lifecycle_next(loading_page)));
