@@ -265,6 +265,33 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
         });
         strategy_report_identity_verified =
             selected != identities.end() && strategy_report_identity_text_verified(texts, *selected);
+        if (selected != identities.end() && !strategy_report_identity_verified && selected->leader.size() == 3 &&
+            (static_cast<unsigned char>(selected->leader.front()) & 0xf0) == 0xe0) {
+            // Full-frame detection can find the correct glyph but give one-character
+            // names a low score. Re-read only that glyph, using its detected bounds.
+            const auto candidate = std::find_if(recognized->begin(), recognized->end(), [&](const auto& token) {
+                return token.text == selected->leader && token.score >= .70 && token.score < .90 &&
+                       token.rect.x >= 120 && token.rect.x < 390 && token.rect.y >= 350 && token.rect.y < 418 &&
+                       token.rect.width <= 48 && token.rect.height <= 48 && !token.rect.empty();
+            });
+            if (candidate != recognized->end()) {
+                OCRer glyph(image, candidate->rect);
+                glyph.set_without_det(true);
+                if (const auto reread = glyph.analyze(); reread && reread->size() == 1) {
+                    const auto& token = reread->front();
+                    raw.emplace_back(
+                        json::object { { "text", token.text },
+                                       { "score", token.score },
+                                       { "x", token.rect.x },
+                                       { "y", token.rect.y },
+                                       { "source", "strategy_report_leader_roi" } });
+                    if (token.text == selected->leader && token.score >= .90) {
+                        texts.push_back({ token.text, token.score, token.rect.x, token.rect.y });
+                        strategy_report_identity_verified = strategy_report_identity_text_verified(texts, *selected);
+                    }
+                }
+            }
+        }
         strategy_progress_text_verified = strategy_report_identity_verified && observed.wins &&
                                           strategy_report_progress_text_verified(texts, *selected, *observed.wins);
         badge_text_verified = strategy_progress_text_verified && *observed.wins >= 3;
