@@ -4,6 +4,7 @@
 #include "Task/MiniGame/SPA/SPAPreparationEvidence.h"
 #include "Task/MiniGame/SPA/SPAStrategyEligibility.h"
 #include "Task/MiniGame/SPA/SPAStrategyReportScroll.h"
+#include <array>
 #include <cassert>
 #include <iostream>
 #include <opencv2/imgcodecs.hpp>
@@ -48,7 +49,18 @@ int main()
     assert(strategy_report_selection_shifted_viewport(std::nullopt, middle_thumb, unselected_rows, shifted_rows));
     assert(!strategy_report_selection_shifted_viewport(std::nullopt, middle_thumb, unselected_rows, {}));
     assert(strategy_report_scroll_destination(*top_thumb, false) - top_thumb->center() < 93);
-    const auto bottom_thumb = strategy_report_scrollbar(report_with_thumb(503));
+    auto final_report = report_with_thumb(503);
+    const auto bottom_thumb = strategy_report_scrollbar(final_report);
+    const std::vector<int> final_report_rows { 161, 298, 435 };
+    const std::array<int, 2> leading_report_columns { 578, 710 };
+    assert(!strategy_report_trailing_row(final_report, final_report_rows, leading_report_columns, bottom_thumb));
+    final_report(cv::Rect(599, 610, 20, 30)).setTo(cv::Scalar(139, 170, 78));
+    assert(!strategy_report_trailing_row(final_report, final_report_rows, leading_report_columns, bottom_thumb));
+    final_report(cv::Rect(731, 610, 14, 18)).setTo(cv::Scalar(99, 100, 60));
+    assert(strategy_report_trailing_row(final_report, final_report_rows, leading_report_columns, bottom_thumb) == 572);
+    assert(!strategy_report_trailing_row(final_report, final_report_rows, leading_report_columns, middle_thumb));
+    const std::vector<int> row_already_visible { 161, 298, 435, 572 };
+    assert(!strategy_report_trailing_row(final_report, row_already_visible, leading_report_columns, bottom_thumb));
     assert(bottom_thumb && bottom_thumb->at_bottom() && strategy_report_scroll_moved(*bottom_thumb, *top_thumb, true));
     assert(!strategy_report_scrollbar(cv::Mat(720, 1280, CV_8UC3, cv::Scalar(74, 67, 51))));
     auto ambiguous_report = report_with_thumb(109);

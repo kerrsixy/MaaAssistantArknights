@@ -204,15 +204,22 @@ bool StrategyReportTaskPlugin::_run()
     bool bottom_verified = false;
     constexpr int max_viewports = 18;
     while (visited_viewports < max_viewports && !need_exit()) {
-        const auto rows = strategy_report_rows(image, edge);
+        auto rows = strategy_report_rows(image, edge);
         if (rows.empty() || !strategy_report_tab_visible(image)) {
             break;
         }
         ++visited_viewports;
         const auto viewport_scrollbar = strategy_report_scrollbar(image);
+        const std::span<const int> columns = StrategyReportColumns;
+        const auto trailing_columns = columns.first<2>();
+        const auto trailing_row = strategy_report_trailing_row(image, rows, trailing_columns, viewport_scrollbar);
+        if (trailing_row) {
+            rows.push_back(*trailing_row);
+        }
         bool viewport_changed = false;
         for (const int row : rows) {
-            for (const int column : StrategyReportColumns) {
+            const auto row_columns = trailing_row == row ? std::span<const int>(trailing_columns) : columns;
+            for (const int column : row_columns) {
                 if (need_exit()) {
                     return false;
                 }

@@ -60,6 +60,42 @@ inline std::optional<StrategyReportScrollbar> strategy_report_scrollbar(const cv
     return first < 0 ? thumb : std::nullopt;
 }
 
+inline std::optional<int> strategy_report_trailing_row(
+    const cv::Mat& image,
+    std::span<const int> rows,
+    std::span<const int, 2> leading_columns,
+    const std::optional<StrategyReportScrollbar>& scrollbar)
+{
+    if (!scrollbar || !scrollbar->at_bottom() || rows.size() < 3 || image.size() != cv::Size(1280, 720) ||
+        image.type() != CV_8UC3) {
+        return std::nullopt;
+    }
+    const int last_spacing = rows.back() - rows[rows.size() - 2];
+    const int previous_spacing = rows[rows.size() - 2] - rows[rows.size() - 3];
+    if (std::abs(last_spacing - 137) > 2 || std::abs(previous_spacing - 137) > 2) {
+        return std::nullopt;
+    }
+    const int next_row = rows.back() + (last_spacing + previous_spacing + 1) / 2;
+    if (next_row < 550 || next_row > 594) {
+        return std::nullopt;
+    }
+    // In the last viewport, the page gradient can erase the dark tile edges.
+    // Require both portraits at the predicted row before trying either card.
+    const bool portraits_present = std::ranges::all_of(leading_columns, [&](int column) {
+        const cv::Rect portrait(column + 18, next_row + 24, 84, 90);
+        if ((portrait & cv::Rect(0, 0, image.cols, image.rows)) != portrait) {
+            return false;
+        }
+        int colored_pixels = 0;
+        for (const auto& pixel : cv::Mat_<cv::Vec3b>(image(portrait))) {
+            const int red = pixel[2];
+            colored_pixels += pixel[1] >= 80 && pixel[1] - red > 28 && pixel[0] - red > 20;
+        }
+        return colored_pixels >= portrait.area() / 50;
+    });
+    return portraits_present ? std::optional(next_row) : std::nullopt;
+}
+
 inline bool same_strategy_report_scrollbar(const StrategyReportScrollbar& left, const StrategyReportScrollbar& right)
 {
     return std::abs(left.top - right.top) <= 2 && std::abs(left.bottom - right.bottom) <= 2;
