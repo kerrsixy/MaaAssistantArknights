@@ -1504,9 +1504,23 @@ std::optional<cv::Point>
     // diamond's estimated foot is outside it. On the lower row B-server
     // captures show a 25-27 px offset to the held cell center; the adjacent
     // targets in those frames are more than 60 px from the estimated foot.
-    const auto projected_receiver = registered_field_points(held, placement, { expected_target }, FieldView::Held);
+    const auto fit = estimate_camera_projection(held, placement, true);
+    const auto projected_receiver = registered_field_points(fit, { expected_target }, FieldView::Held);
     if (projected_receiver) {
         return cv::norm(projected_receiver->front() - placement_foot) <= 28 ? center : std::nullopt;
+    }
+    // The direction overlay can cover the left end of the last row while
+    // leaving the camera stationary. Only use a nearby unsupported receiver
+    // when the measured shift is small and its diamond agrees more closely.
+    if (valid_field_camera_projection(fit) && fit.inliers >= 60 && fit.median_error <= 1 &&
+        cv::pointPolygonTest(fit.source_hull, cv::Point2f(expected_target), true) >= -24) {
+        std::vector<cv::Point2f> projected;
+        const cv::Point2f receiver(expected_target);
+        cv::perspectiveTransform(std::vector<cv::Point2f> { receiver }, projected, fit.matrix);
+        if (cv::norm(projected.front() - receiver) <= 8 &&
+            cv::norm(projected.front() - cv::Point2f(placement_foot)) <= 18) {
+            return center;
+        }
     }
     const auto foot = registered_deployment_pose(placement, held, placement_foot);
     return foot && cv::norm(*foot - expected_target) <= 22 ? center : std::nullopt;
@@ -1909,7 +1923,9 @@ std::optional<cv::Point> asst::spa::direction_selection_center(const cv::Mat& im
     cv::cvtColor(image, hsv, cv::COLOR_BGR2HSV);
     cv::inRange(hsv, cv::Scalar(0, 0, 180), cv::Scalar(180, 65, 255), mask);
     mask(cv::Rect(0, 0, 1280, 60)).setTo(0);
-    mask(cv::Rect(0, 0, 400, 720)).setTo(0);
+    // A lower-left placement can have its left vertex near x=320 even when
+    // its center is on the board. Keep the entire outline for the diagonal fit.
+    mask(cv::Rect(0, 0, 280, 720)).setTo(0);
     std::vector<std::vector<cv::Point>> contours;
     cv::findContours(mask, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
     std::vector<std::pair<cv::Point2f, double>> diamond_candidates;
@@ -1976,8 +1992,7 @@ std::optional<cv::Point> asst::spa::direction_selection_center(const cv::Mat& im
         // useful center estimate for the subsequent arrow click; direction
         // and post-release verification remain mandatory.
         // The upper vertex can be above y=180 when the target is on the
-        // upper half of an ice/snow map.  Rebuild a wider fallback mask rather
-        // than reusing the main mask (which intentionally removes x<400 UI).
+        // upper half of an ice/snow map. Use a separate, lower-contrast mask.
         // Closing the broken white edges joins the four sides into one stable
         // envelope; the geometry and post-release checks remain authoritative.
         const cv::Rect roi(280, 50, 720, 570);
