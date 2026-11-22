@@ -1,0 +1,54 @@
+{
+    "schema_version": 1,
+    "theme": "BlackFlow",
+    "types": [
+        {
+            "id": "trap_321_shnbox",
+            "name": "恶笼草",
+            "kind": "stationary_reward_device",
+            "source": "https://wiki.biligame.com/arknights/恶笼草",
+            "reward_originium": 2,
+            "reflect_fraction": 0.0,
+            "requires_mobile_followup": false
+        },
+        {
+            "id": "trap_322_shrbox",
+            "name": "畸变恶笼草",
+            "kind": "reflecting_reward_device",
+            "source": "https://wiki.biligame.com/arknights/畸变恶笼草",
+            "mechanics_source": "https://prts.wiki/w/畸变恶笼草",
+            "reward_originium": 5,
+            "reflect_fraction": 0.4,
+            "reflected_damage_type": "true",
+            "requires_mobile_followup": false
+        },
+        {
+            "id": "trap_323_shsbox",
+            "name": "箱型恶笼草",
+            "kind": "hit_triggered_enemy_spawner",
+            "source": "https://wiki.biligame.com/arknights/箱型恶笼草",
+            "mechanics_source": "https://m.prts.wiki/w/箱型恶笼草",
+            "reward_originium": 10,
+            "requires_mobile_followup": true,
+            "trigger_hit_damage_carries_to_spawn": false,
+            "spawned_entity_id": "enemy_2152_shezlc",
+            "spawned_entity_name": "恶笼草",
+            "device_retirement_proves_spawn_killed": false
+        }
+    ],
+    "capabilities": {
+        "visual_recognition_complete": false,
+        "live_planner_connected": false
+    },
+    "identity_policy": {
+        "random_per_battle": true,
+        "tile_coordinate_is_not_type": true,
+        "unknown_is_normal": false,
+        "stationary_disappearance_proves_reward": false
+    },
+    "source_data": {
+        "sha256": "ab3aa4cda8293c8eb7563fd2a7fe8aee2940ef0e90e1f6bf8a2df20d67876423",
+        "label_is_not_current_game_version_proof": true,
+        "name": "character_table_20261101.json"
+    }
+}
