@@ -6,12 +6,12 @@
     "spawn_models": [
         {
             "present": ["spawn0_present.png"],
-            "absent": ["spawn0_absent.png"],
+            "absent": ["spawn0_absent.png", "spawn0_empty_run31_f13.png"],
             "roi": [384, 174, 115, 103]
         },
         {
             "present": ["spawn1_present.png"],
-            "absent": ["spawn1_absent.png"],
+            "absent": ["spawn1_absent.png", "spawn1_empty_run31_f10.png"],
             "roi": [546, 174, 115, 103]
         }
     ],
@@ -41,7 +41,9 @@
         "spawn1_present.png": "fc8a5eed190f3258f64adf70500e213628e717487871beccc70d4128e6da1457",
         "upper_blue_mask.png": "05f7191db0dfea869ddbf078778bd042064374a2a91b6b432c082251acec989c",
         "upper_blue_masked.png": "1c4d97bbad86a4281e47a9d326e89c32990d5699b6250512c88fa129119e0073",
-        "upper_full_guide.png": "00df3788f5a422797eb36607eaf3ea8610fc75f2924843caec3f853bc2132e85"
+        "upper_full_guide.png": "00df3788f5a422797eb36607eaf3ea8610fc75f2924843caec3f853bc2132e85",
+        "spawn0_empty_run31_f13.png": "9586d229364e9bcc5b52803ca9c60fcfd86ff905bc413593720e1fd239cff40a",
+        "spawn1_empty_run31_f10.png": "fd730ddb5615c148f92a0b5a0c7ef13f8521a02c6ef04d3000b2abe75eb150c3"
     },
     "head_present_threshold": 0.68,
     "head_absent_threshold": 0.5,
@@ -65,7 +67,51 @@
             "no late hunter spawns allowed",
             "head envelope geometry is not an absence or posture-coverage certificate"
         ],
-        "live_positive": "run20 debug/roguelike/2026.11.21-11.18.05.197_raw.png; blue-gate hunter must be Present/blocked"
+        "live_positive": "run20 debug/roguelike/2026.11.21-11.18.05.197_raw.png; blue-gate hunter must be Present/blocked",
+        "live_empty_backgrounds": [
+            {
+                "spawn_index": 0,
+                "run": 31,
+                "sequence": 13,
+                "observed_ms": 30913387,
+                "source_sha256": "52353a811368442119001f0db215f47f93e1ee22494892517d5a4a2c5876172c",
+                "roi": [384, 174, 115, 103],
+                "asset": "spawn0_empty_run31_f13.png",
+                "asset_sha256": "9586d229364e9bcc5b52803ca9c60fcfd86ff905bc413593720e1fd239cff40a",
+                "construction": "exact unedited BGR crop; no compositing/mask/inpainting"
+            },
+            {
+                "spawn_index": 1,
+                "run": 31,
+                "sequence": 10,
+                "observed_ms": 30906207,
+                "source_sha256": "de0c89c1e5dc37af9f8c83faac54fea0a7813fec81fef43aeea94cea4a81e64c",
+                "roi": [546, 174, 115, 103],
+                "asset": "spawn1_empty_run31_f10.png",
+                "asset_sha256": "fd730ddb5615c148f92a0b5a0c7ef13f8521a02c6ef04d3000b2abe75eb150c3",
+                "construction": "exact unedited BGR crop; no compositing/mask/inpainting"
+            }
+        ],
+        "live_empty_background_validation": {
+            "native_controller_replay": {
+                "frames": 24,
+                "checks": 131,
+                "baseline_failures": 3,
+                "candidate_failures": 0,
+                "full_sequence_release": 15,
+                "exclude_sequences": [13, 14],
+                "excluded_sequence_release": 20,
+                "qualification": "Sequence 13 left is calibration; sequence 14 was explored earlier. Both excluded from the second replay. Sequence 10 right calibration remains an earlier input with a real lower hunter, so this is not a wholly blind sequence."
+            },
+            "legacy_residual_hunter_regression": {
+                "run": 25,
+                "frames": 19,
+                "checks": 48,
+                "failures": 0
+            },
+            "live_stage_clear_proven": false,
+            "scope": "Append two clean empty backgrounds; original thresholds, assets, geometry, positive profiles and temporal/visibility/actor guards unchanged."
+        }
     },
     "resource_relative_path": "template/Roguelike/BlackFlow/HunterPrelude/manifest.json",
     "runtime_contract": {
