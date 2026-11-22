@@ -4502,6 +4502,35 @@ int main()
     d4_victoria.round = 7;
     assert(should_upgrade_dynamic_shop(d4_victoria, 11, 9, d4_round6, catalog));
 
+    // Regulation 4, third trial, round 7. After the book-IV fee, two
+    // gold covers a refresh and Istina, but not a book-III conversion source.
+    auto d4_ursus = d4_victoria;
+    d4_ursus.primary_pact = "乌萨斯";
+    d4_ursus.disabled_pacts.clear();
+    d4_ursus.shop_discount_wait_level = 0;
+    d4_ursus.shop_discount_wait_round = -1;
+    d4_ursus.bench_occupied = 1;
+    d4_ursus.minimum_recruit_price = 1;
+    d4_ursus.owned = { { "折桠", { 1, true, true } },  { "烈夏", { 1, false, true } }, { "灰喉", { 1, false, true } },
+                       { "夏栎", { 1, false, true } }, { "寒檀", { 1, false, true } }, { "空弦", { 1, false, true } },
+                       { "褐果", { 1, false, true } }, { "角峰", { 1, false, true } } };
+    const std::vector<ShopOffer> d4_ursus_round7 { { "风丸", 3, 3 },
+                                                   { "雪猎", 3, 2 },
+                                                   { "摆渡人", 2, 1 },
+                                                   { "宴", 3, 0 } };
+    assert(!should_upgrade_dynamic_shop(d4_ursus, 11, 9, d4_ursus_round7, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->next_round_upgrade_price == 8);
+    assert(should_upgrade_dynamic_shop(d4_ursus, 13, 9, d4_ursus_round7, catalog));
+    auto without_conversion_source = catalog;
+    without_conversion_source.erase("乌啾");
+    assert(should_upgrade_dynamic_shop(d4_ursus, 11, 9, d4_ursus_round7, without_conversion_source));
+    assert(!should_upgrade_dynamic_shop(d4_ursus, 3, 2, d4_ursus_round7, catalog));
+    d4_ursus.free_refreshes = 1;
+    assert(should_upgrade_dynamic_shop(d4_ursus, 12, 9, d4_ursus_round7, catalog));
+    d4_ursus.shop_discount_wait_level = 3;
+    d4_ursus.shop_discount_wait_round = 6;
+    assert(should_upgrade_dynamic_shop(d4_ursus, 11, 9, d4_ursus_round7, catalog));
+
     // Recorded regulation-3 round-7 shop and roster. The positive and zero
     // outcomes isolate the live replacement review input to the policy.
     auto kjerag_market = discount_window;

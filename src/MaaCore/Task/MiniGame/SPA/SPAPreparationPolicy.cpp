@@ -1276,14 +1276,25 @@ static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
                 // Catalogue access is a possibility, not a forecast draw.
                 int available_names = 0;
                 int recruit_cost = funds + 1;
+                std::optional<int> growth_recruit_cost;
                 for (const auto& card : OperatorCatalogue) {
                     const std::string name(card.name);
                     if (card.tier <= policy.shop_level && card.price > 0 && belongs_to_primary(name) && !owns(name)) {
                         ++available_names;
                         recruit_cost = std::min(recruit_cost, card.price);
+                        if (is_primary_growth_engine(name, policy.primary_pact)) {
+                            growth_recruit_cost = std::min(growth_recruit_cost.value_or(card.price), card.price);
+                        }
                     }
                 }
-                const int search_budget = refresh_cost + std::max(recruit_cost, policy.minimum_recruit_price);
+                // When only one member is missing, look for a card that both
+                // activates the pact and contributes to growth. If that card
+                // cannot be funded this round, keep the cheapest viable route.
+                const int growth_budget =
+                    refresh_cost + std::max(growth_recruit_cost.value_or(recruit_cost), policy.minimum_recruit_price);
+                const int search_budget = missing == 1 && funds >= growth_budget
+                                              ? growth_budget
+                                              : refresh_cost + std::max(recruit_cost, policy.minimum_recruit_price);
                 if (available_names >= missing && funds >= search_budget && funds - upgrade_price < search_budget) {
                     return ShopUpgradeHold {
                         "Reserve a refresh and recruit at the current tier for primary-pact activation",
