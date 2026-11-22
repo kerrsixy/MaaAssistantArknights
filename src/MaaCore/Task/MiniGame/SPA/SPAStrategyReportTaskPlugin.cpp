@@ -238,7 +238,10 @@ bool StrategyReportTaskPlugin::_run()
                         continue;
                     }
                 }
-                if (!observer.observe_frame(image)) {
+                // The outline above confirms the selected tile in this
+                // exact frame. Confirm its detail identity before crediting
+                // a mark from this one corner, never from a nearby card.
+                if (!observer.observe_strategy_report_card(image, Rect(column + 80, row + 5, 42, 40))) {
                     continue;
                 }
                 const auto& observation = observer.last_observation();

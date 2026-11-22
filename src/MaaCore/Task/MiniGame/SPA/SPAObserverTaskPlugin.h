@@ -17,6 +17,7 @@ public:
     const json::object& last_observation() const { return m_last_observation; }
 
     bool observe_frame(const cv::Mat& image);
+    bool observe_strategy_report_card(const cv::Mat& image, const Rect& selected_badge_roi);
 
     void enable_joint_countdown() { m_joint_countdown_enabled = true; }
 
@@ -28,7 +29,7 @@ protected:
     bool _run() override;
 
 private:
-    bool observe_frame(const cv::Mat& image, int expected_preparation_round);
+    bool observe_frame(const cv::Mat& image, int expected_preparation_round, const Rect* selected_badge_roi = nullptr);
     bool m_joint_countdown_enabled = false;
     int m_expected_preparation_round = -1;
     json::object m_last_observation;

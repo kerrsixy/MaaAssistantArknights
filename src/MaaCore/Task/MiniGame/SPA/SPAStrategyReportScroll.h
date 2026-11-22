@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <optional>
 #include <span>
+#include <opencv2/imgproc.hpp>
 
 namespace asst::spa
 {
@@ -90,6 +91,31 @@ inline bool strategy_report_selection_shifted_viewport(
     return before_rows.size() >= 2 && after_rows.size() >= 2 && std::ranges::none_of(before_rows, [&](int row) {
                return std::ranges::any_of(after_rows, [&](int current) { return std::abs(row - current) <= 4; });
            });
+}
+
+inline bool strategy_report_card_badge_matches(
+    const cv::Mat& card_corner,
+    const cv::Mat& expected_mark,
+    const cv::Mat& other_mark)
+{
+    if (card_corner.type() != CV_8UC3 || expected_mark.empty() || other_mark.empty()) {
+        return false;
+    }
+    const auto confidence = [&](const cv::Mat& mark) {
+        if (mark.type() != card_corner.type() || mark.rows > card_corner.rows || mark.cols > card_corner.cols) {
+            return -1.0;
+        }
+        cv::Mat scores;
+        cv::matchTemplate(card_corner, mark, scores, cv::TM_CCOEFF_NORMED);
+        double best = 0;
+        cv::minMaxLoc(scores, nullptr, &best);
+        return best;
+    };
+    const double expected = confidence(expected_mark);
+    const double other = confidence(other_mark);
+    // The tile portrait and selection border change the background. Require
+    // both a strong match and a separation from the other badge colour.
+    return expected >= .80 && other >= 0 && expected - other >= .18;
 }
 
 inline int strategy_report_scroll_destination(const StrategyReportScrollbar& thumb, bool toward_top)

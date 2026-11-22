@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "Config/TemplResource.h"
 #include "Controller/Controller.h"
 #include "SPAFormation.h"
 #include "SPAImageEvidence.h"
@@ -9,6 +10,7 @@
 #include "SPAObservation.h"
 #include "SPAProjection.h"
 #include "SPAStrategyCatalogue.h"
+#include "SPAStrategyReportScroll.h"
 #include "Vision/Matcher.h"
 #include "Vision/OCRer.h"
 
@@ -41,7 +43,15 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image)
     return observe_frame(image, -1);
 }
 
-bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expected_preparation_round)
+bool asst::spa::ObserverTaskPlugin::observe_strategy_report_card(const cv::Mat& image, const Rect& selected_badge_roi)
+{
+    return observe_frame(image, -1, &selected_badge_roi);
+}
+
+bool asst::spa::ObserverTaskPlugin::observe_frame(
+    const cv::Mat& image,
+    int expected_preparation_round,
+    const Rect* selected_badge_roi)
 {
     m_last_observation = json::object {};
     if (image.empty() || image.cols != 1280 || image.rows != 720) {
@@ -261,6 +271,7 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
     bool strategy_progress_text_verified = false;
     bool strategy_report_evidence_saved = false;
     std::string strategy_badge_tier;
+    std::string strategy_badge_source;
     if (observed.page == Page::StrategyReport && !observed.contradictory && observed.band_id) {
         const auto selected = std::find_if(identities.begin(), identities.end(), [&](const auto& strategy) {
             return strategy.band_id == *observed.band_id;
@@ -311,6 +322,24 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
             Matcher marker(image);
             marker.set_task_info(silver ? "MiniGame@SPA@StrategySilverMark" : "MiniGame@SPA@StrategyCompletedMark");
             badge_verified = marker.analyze().has_value();
+            if (badge_verified) {
+                strategy_badge_source = "strategy_report_details";
+            }
+            else if (selected_badge_roi) {
+                const auto& region = *selected_badge_roi;
+                const cv::Rect roi(region.x, region.y, region.width, region.height);
+                if (!roi.empty() && (roi & cv::Rect(0, 0, image.cols, image.rows)) == roi) {
+                    auto& templates = TemplResource::get_instance();
+                    const auto& orange = templates.get_templ("MiniGame@SPA@StrategyCompletedMark.png");
+                    const auto& silver_mark = templates.get_templ("MiniGame@SPA@StrategySilverMark.png");
+                    badge_verified =
+                        strategy_report_card_badge_matches(image(roi), silver ? silver_mark : orange,
+                                                          silver ? orange : silver_mark);
+                    if (badge_verified) {
+                        strategy_badge_source = "selected_report_card";
+                    }
+                }
+            }
             if (badge_verified) {
                 strategy_badge_tier = silver ? "silver" : "orange";
                 strategy_report_evidence_saved =
@@ -475,6 +504,7 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
                        { "selected_difficulty", observed.selected_difficulty.value_or(0) },
                        { "badge_verified", badge_verified },
                        { "strategy_badge_tier", strategy_badge_tier },
+                       { "strategy_badge_source", strategy_badge_source },
                        { "badge_text_verified", badge_text_verified },
                        { "strategy_report_identity_verified", strategy_report_identity_verified },
                        { "strategy_report_unlock_verified", strategy_report_unlock_verified },
