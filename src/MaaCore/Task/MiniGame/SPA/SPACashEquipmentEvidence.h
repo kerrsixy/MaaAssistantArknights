@@ -9,6 +9,14 @@
 
 namespace asst::spa
 {
+// A previous title read is a search priority. Always verify identity again.
+inline int equipment_source_distance(cv::Point candidate, cv::Point hint)
+{
+    const int dx = candidate.x - hint.x;
+    const int dy = hint.y < 0 ? 0 : candidate.y - hint.y;
+    return dx * dx + dy * dy;
+}
+
 // A global inventory index is not an identity: unrelated animated operator
 // badges can appear or disappear while the same equipment stays in place.
 inline std::optional<size_t>

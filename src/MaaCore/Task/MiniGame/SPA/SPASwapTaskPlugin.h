@@ -204,9 +204,9 @@ public:
 
     const std::string& equipment_stage() const { return m_equipment_stage; }
 
-    std::optional<int> equipment_source_x() const
+    std::optional<Point> equipment_source() const
     {
-        return m_equipment_source_index ? std::optional<int>(m_source.x) : std::nullopt;
+        return m_equipment_source_index ? std::optional(m_source) : std::nullopt;
     }
 
     bool set_reconciliation_context(int round, int funds);
@@ -370,7 +370,7 @@ private:
     bool m_field_pose_verified = false;
     bool m_direction_committed = false;
     bool m_spatial_direction_attempted = false;
-    int m_preferred_equipment_x = -1;
+    cv::Point m_preferred_equipment { -1, -1 };
     bool m_inspect_only = false;
     bool m_terrain_probe_only = false;
     int m_probe_drag_pixels = 0;

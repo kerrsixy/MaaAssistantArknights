@@ -14,6 +14,11 @@ int main()
     const auto new_points = equipment_inventory_candidates(after);
     assert(old_points.size() == 5 && new_points.size() == 6);
     const cv::Point coin(873, 394);
+    // The lower bench row can have exactly the same X as the item above it.
+    const cv::Point upper_item { 601, 393 }, same_column_operator { 601, 465 }, shifted_item { 605, 394 };
+    assert(equipment_source_distance(shifted_item, upper_item) <
+           equipment_source_distance(same_column_operator, upper_item));
+    assert(equipment_source_distance(same_column_operator, { upper_item.x, -1 }) == 0);
     const auto old_match = stable_equipment_source(coin, old_points);
     const auto new_match = stable_equipment_source(coin, new_points);
     assert(old_match && new_match);

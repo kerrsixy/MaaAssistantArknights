@@ -204,7 +204,8 @@ private:
         equipment_assignment_inputs() const;
     std::set<std::string> m_equipment_candidates;
     std::map<std::string, std::vector<std::string>> m_equipped_items;
-    std::map<std::string, int> m_equipment_source_hints;
+    std::map<std::string, Point> m_equipment_source_hints;
+    Point equipment_source_hint(const std::string& name) const;
     spa::PersistentEquipmentPreparation m_persistent_equipment_preparation;
     std::set<int> m_cash_equipment_attempted_rounds;
     std::optional<json::object> m_pending_cash_equipment;

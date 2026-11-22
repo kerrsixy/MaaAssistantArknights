@@ -6854,7 +6854,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             const auto before_slots = spa::equipment_inventory_candidates(image);
             const auto after_slots = spa::equipment_inventory_candidates(ctrler()->get_image());
             if (const auto source = spa::added_equipment_contact_hint(before_slots, after_slots)) {
-                m_equipment_source_hints[decision.name] = source->x;
+                m_equipment_source_hints[decision.name] = Point(source->x, source->y);
                 auto hint = basic_info_with_what("SPAPurchasedEquipmentContactHint");
                 hint["details"] = json::object { { "name", decision.name },
                                                  { "round", round },

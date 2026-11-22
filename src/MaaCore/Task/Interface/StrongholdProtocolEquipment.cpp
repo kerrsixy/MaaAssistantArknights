@@ -231,6 +231,12 @@ void asst::StrongholdProtocolTask::record_acquired_equipment_hints(const std::st
     callback(AsstMsg::SubTaskExtraInfo, evidence);
 }
 
+asst::Point asst::StrongholdProtocolTask::equipment_source_hint(const std::string& name) const
+{
+    const auto hint = m_equipment_source_hints.find(name);
+    return hint == m_equipment_source_hints.end() ? Point(-1, -1) : hint->second;
+}
+
 bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value& state)
 {
     const int round = state.get("round", -1);
@@ -281,7 +287,7 @@ bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value
         may_start_probe);
     for (const auto& [name, point] : inspect.inspected_equipment()) {
         m_equipment_candidates.insert(name);
-        m_equipment_source_hints[name] = point.x;
+        m_equipment_source_hints[name] = Point(point.x, point.y);
         if (name == "盟约之币") {
             // This list contains titles actually read during this scan, not
             // cached candidates or the operator visual hints skipped above.
@@ -694,14 +700,15 @@ bool asst::StrongholdProtocolTask::handle_pact_recruitment_equipment(const json:
     use.set_retry_times(0);
     use.set_task_id(m_task_id);
     use.set_task_ptr(this);
+    const auto source_hint = equipment_source_hint("寻呼模块");
     const json::object options {
         { "name", "寻呼模块" },
         { "replaced", recipient->name },
         { "equip_only", true },
         { "find_equipment_source", true },
         { "fast_mode", true },
-        { "preferred_equipment_x",
-          m_equipment_source_hints.contains("寻呼模块") ? m_equipment_source_hints.at("寻呼模块") : -1 },
+        { "preferred_equipment_x", source_hint.x },
+        { "preferred_equipment_y", source_hint.y },
         { "target_equipment_known", true },
         { "expected_equipment", recipient->equipped },
         { "pact_recruitment_pact", m_policy.primary_pact },
@@ -878,6 +885,7 @@ bool asst::StrongholdProtocolTask::handle_direct_promotion_equipment(const json:
                            { "y", location.second },
                            { "field_pose_verified", m_verified_field_pose_points.contains(location) } });
     }
+    const auto source_hint = equipment_source_hint("博士投影");
     const json::object options {
         { "name", "博士投影" },
         { "replaced", *recipient },
@@ -886,8 +894,8 @@ bool asst::StrongholdProtocolTask::handle_direct_promotion_equipment(const json:
         { "direct_projection", true },
         { "allow_delayed_projection",
           m_expected_boss_round > round && !state.get("preparation_boss_bar_visible", false) },
-        { "preferred_equipment_x",
-          m_equipment_source_hints.contains("博士投影") ? m_equipment_source_hints.at("博士投影") : -1 },
+        { "preferred_equipment_x", source_hint.x },
+        { "preferred_equipment_y", source_hint.y },
         { "fast_mode", true },
         { "target_equipment_known", true },
         { "target_elite", false },
@@ -1055,14 +1063,13 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
     equip.set_retry_times(0);
     equip.set_task_id(m_task_id);
     equip.set_task_ptr(this);
+    const auto source_hint = equipment_source_hint(assignment.equipment);
     const json::object options { { "name", assignment.equipment },
                                  { "replaced", assignment.recipient },
                                  { "equip_only", true },
                                  { "find_equipment_source", true },
-                                 { "preferred_equipment_x",
-                                   m_equipment_source_hints.contains(assignment.equipment)
-                                       ? m_equipment_source_hints.at(assignment.equipment)
-                                       : -1 },
+                                 { "preferred_equipment_x", source_hint.x },
+                                 { "preferred_equipment_y", source_hint.y },
                                  { "fast_mode", true },
                                  { "target_equipment_known", true },
                                  { "target_elite", m_policy.owned.at(assignment.recipient).elite },
@@ -1082,9 +1089,9 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
         verified,
         equip.equipment_committed() || (identity_tag && equip.equipment_contact_attempted()),
         solo_boss_finalization);
-    if (const auto source_x = equip.equipment_source_x()) {
+    if (const auto source = equip.equipment_source()) {
         // A priority hint only: every later use still checks the live name.
-        m_equipment_source_hints[assignment.equipment] = *source_x;
+        m_equipment_source_hints[assignment.equipment] = *source;
     }
     if (verified) {
         if (!identity_tag) {
@@ -1236,14 +1243,14 @@ bool asst::StrongholdProtocolTask::handle_delayed_cash_equipment(const json::val
     use.set_retry_times(0);
     use.set_task_id(m_task_id);
     use.set_task_ptr(this);
+    const auto source_hint = equipment_source_hint(equipment);
     const json::object options { { "name", equipment },
                                  { "replaced", recipient->name },
                                  { "equip_only", true },
                                  { "find_equipment_source", true },
                                  { "fast_mode", true },
-                                 { "preferred_equipment_x",
-                                   m_equipment_source_hints.contains(equipment) ? m_equipment_source_hints.at(equipment)
-                                                                                : -1 },
+                                 { "preferred_equipment_x", source_hint.x },
+                                 { "preferred_equipment_y", source_hint.y },
                                  { "target_equipment_known", true },
                                  { "target_elite", recipient->elite },
                                  { "expected_equipment", recipient->equipped },

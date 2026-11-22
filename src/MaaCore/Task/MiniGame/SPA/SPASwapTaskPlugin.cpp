@@ -165,8 +165,9 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
     m_minimum_sale_credit = options.get("minimum_sale_credit", 1);
     m_equip_only = options.get("equip_only", false);
     m_find_equipment_source = options.get("find_equipment_source", false);
-    m_preferred_equipment_x = options.get("preferred_equipment_x", -1);
-    if (m_preferred_equipment_x < -1 || m_preferred_equipment_x >= 1000) {
+    m_preferred_equipment = { options.get("preferred_equipment_x", -1), options.get("preferred_equipment_y", -1) };
+    if (m_preferred_equipment.x < -1 || m_preferred_equipment.x >= 1000 || m_preferred_equipment.y < -1 ||
+        m_preferred_equipment.y >= 720 || (m_preferred_equipment.x == -1 && m_preferred_equipment.y >= 0)) {
         return false;
     }
     m_face_only = options.get("face_only", false);
@@ -4278,16 +4279,17 @@ bool asst::spa::SwapTaskPlugin::_run()
         for (size_t index = 0; index < candidates.size(); ++index) {
             order.push_back(index);
         }
-        if (m_preferred_equipment_x >= 0) {
+        if (m_preferred_equipment.x >= 0) {
             std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
-                return std::abs(candidates[a].x - m_preferred_equipment_x) <
-                       std::abs(candidates[b].x - m_preferred_equipment_x);
+                return equipment_source_distance(candidates[a], m_preferred_equipment) <
+                       equipment_source_distance(candidates[b], m_preferred_equipment);
             });
         }
         if (m_bench_identity_hints) {
             std::stable_partition(order.begin(), order.end(), [&](size_t index) {
                 const auto& source = candidates[index];
-                return (m_preferred_equipment_x >= 0 && std::abs(source.x - m_preferred_equipment_x) <= 12) ||
+                return (m_preferred_equipment.x >= 0 &&
+                        equipment_source_distance(source, m_preferred_equipment) <= 12 * 12) ||
                        !inventory_operator_visual_hint(*m_bench_identity_hints, inventory_image, source);
             });
         }
