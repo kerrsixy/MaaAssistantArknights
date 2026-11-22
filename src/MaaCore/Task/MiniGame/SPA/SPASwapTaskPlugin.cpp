@@ -2812,6 +2812,24 @@ bool asst::spa::SwapTaskPlugin::select_direction(const Point& center)
     return true;
 }
 
+bool asst::spa::SwapTaskPlugin::cancel_direction_modal(const cv::Mat& image)
+{
+    const auto center = direction_selection_center(image);
+    const auto cancel = center ? direction_cancel_target(image, *center) : std::nullopt;
+    if (!cancel || !ctrler()->click(Point(cancel->x, cancel->y)) || !sleep(350)) {
+        return false;
+    }
+
+    const auto settled = ctrler()->get_image();
+    const bool cleared = !settled.empty() && !direction_modal_visible(settled);
+    auto evidence = basic_info_with_what("SPADirectionModalCancellationObserved");
+    evidence["details"] =
+        json::object { { "round", m_round }, { "name", m_name },           { "x", cancel->x },
+                       { "y", cancel->y },   { "modal_cleared", cleared }, { "field_outcome_verified", false } };
+    callback(AsstMsg::SubTaskExtraInfo, evidence);
+    return cleared;
+}
+
 // The B-server direction diamond is confirmed by a short held drag from its
 // centre toward the desired facing.  A simple tap on the apparent arrow does
 // nothing (the arrows are visual guidance, not independent buttons).
@@ -2841,6 +2859,9 @@ bool asst::spa::SwapTaskPlugin::drag_direction_only(const Point& center)
     const bool released = send(InputEvent::Type::TOUCH_UP);
     const bool committed = send(InputEvent::Type::COMMIT);
     if (!ok || !released || !committed || !sleep(m_fast_mode ? 500 : 900)) {
+        if (!need_exit()) {
+            cancel_direction_modal(ctrler()->get_image());
+        }
         return false;
     }
 
@@ -2937,14 +2958,9 @@ bool asst::spa::SwapTaskPlugin::drag_direction_only(const Point& center)
         }
         if (!direction_committed) {
             LogError << "SPA direction arrow fallback failed" << primary_arrow.x << primary_arrow.y;
-            save_evidence(ctrler()->get_image(), utils::path("debug/SPA/direction_after_failed_arrows"), false);
-            // Leave the placement state clean for the round driver.  A
-            // failed facing selection otherwise leaves the red cancel modal
-            // over the map and every subsequent identity probe is wasted.
-            if (direction_modal_visible(ctrler()->get_image())) {
-                ctrler()->click(Point(570, 220));
-                sleep(300);
-            }
+            const auto unsettled = ctrler()->get_image();
+            save_evidence(unsettled, utils::path("debug/SPA/direction_after_failed_arrows"), false);
+            cancel_direction_modal(unsettled);
             return false;
         }
     }
@@ -3542,12 +3558,7 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
         m_spatial_receiver_failed = true;
         m_spatial_drop_returned_without_direction =
             !modal_visible && m_relocate_field && occupant == grid->end() && preparation_matches();
-        if (center) {
-            if (const auto cancel = direction_cancel_target(placement, *center)) {
-                ctrler()->click(Point(cancel->x, cancel->y));
-                sleep(350);
-            }
-        }
+        cancel_direction_modal(placement);
         reconcile_in_place_orientation();
         return false;
     }
@@ -3563,13 +3574,10 @@ bool asst::spa::SwapTaskPlugin::reconcile_in_place_orientation()
     }
     const auto image = ctrler()->get_image();
     if (direction_modal_visible(image)) {
-        const auto center = direction_selection_center(image);
-        if (const auto cancel = center ? direction_cancel_target(image, *center) : std::nullopt) {
-            if (!ctrler()->click(Point(cancel->x, cancel->y)) || !sleep(350)) {
-                return false;
-            }
-            m_direction_committed = false;
+        if (!cancel_direction_modal(image)) {
+            return false;
         }
+        m_direction_committed = false;
     }
     return m_reorientation_reconcile();
 }
@@ -4756,10 +4764,6 @@ bool asst::spa::SwapTaskPlugin::_run()
         save_evidence(placement_image, utils::path("debug/SPA/deploy_direction_diamond"), false);
         if (!drag_direction_only(Point(center->x, center->y))) {
             LogError << "SPA deployment direction drag failed" << center->x << center->y;
-            if (direction_modal_visible(ctrler()->get_image())) {
-                ctrler()->click(Point(570, 220));
-                sleep(300);
-            }
             return false;
         }
         // The placement animation can take several seconds on the B-server;
@@ -4866,11 +4870,9 @@ bool asst::spa::SwapTaskPlugin::_run()
             return true;
         }
         if (!reconcile_deployed_target() || !close_selection()) {
-            if (direction_modal_visible(ctrler()->get_image())) {
-                ctrler()->click(Point(570, 220));
-                sleep(300);
-            }
-            save_evidence(ctrler()->get_image(), utils::path("debug/SPA/deployment_reconciliation"), false);
+            const auto unsettled = ctrler()->get_image();
+            save_evidence(unsettled, utils::path("debug/SPA/deployment_reconciliation"), false);
+            cancel_direction_modal(unsettled);
             return false;
         }
         const auto facing = deployed_facing(ctrler()->get_image(), cv::Point(m_target.x, m_target.y));

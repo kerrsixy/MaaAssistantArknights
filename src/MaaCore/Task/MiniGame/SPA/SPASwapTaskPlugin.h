@@ -245,6 +245,7 @@ private:
     std::optional<int> read_selected_cash_equipment_credit(const cv::Mat& frame) const;
     bool held_drag();
     bool select_direction(const Point& center);
+    bool cancel_direction_modal(const cv::Mat& image);
     bool drag_direction_only(const Point& center);
     bool reorient_in_place();
     int m_reorient_col = -1;
