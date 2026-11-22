@@ -51,6 +51,24 @@ int main()
     no_life_digits(cv::Rect(826, 23, 25, 22)).setTo(cv::Scalar());
     assert(!defence_life_number_roi(no_life_digits));
     assert(!defence_life_number_roi(cv::Mat()));
+    const auto battle_boss_hud = cv::imread("spa-boss-battle-hud-live.png");
+    assert(battle_boss_hud.size() == cv::Size(332, 240));
+    const auto boss_hud_frame = [&](int row) {
+        cv::Mat frame = cv::Mat::zeros(720, 1280, CV_8UC3);
+        battle_boss_hud(cv::Rect(0, row * 60, 332, 60)).copyTo(frame(cv::Rect(448, 0, 332, 60)));
+        return frame;
+    };
+    assert(battle_boss_hp_bar_fill_percent(boss_hud_frame(0)) == 100);
+    assert(battle_boss_hp_bar_fill_percent(boss_hud_frame(1)) == 67);
+    assert(battle_boss_hp_bar_fill_percent(boss_hud_frame(2)) == 9);
+    assert(!battle_boss_hp_bar_fill_percent(boss_hud_frame(3)));
+    auto obscured_boss_hud = boss_hud_frame(1);
+    obscured_boss_hud(cv::Rect(597, 30, 170, 4)).setTo(cv::Scalar());
+    assert(!battle_boss_hp_bar_fill_percent(obscured_boss_hud));
+    auto detached_fill = boss_hud_frame(0);
+    detached_fill(cv::Rect(640, 30, 45, 4)).setTo(cv::Scalar());
+    assert(!battle_boss_hp_bar_fill_percent(detached_fill));
+    assert(!battle_boss_hp_bar_fill_percent(cv::Mat()));
     const auto blue_gate_clean = cv::imread("spa-ghost-blue-gate-empty-clean.png");
     const auto blue_gate_held = cv::imread("spa-ghost-blue-gate-empty-held.png");
     assert(!blue_gate_clean.empty() && !blue_gate_held.empty());

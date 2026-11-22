@@ -667,6 +667,57 @@ static int occupied_preview_votes(const cv::Mat& integral, cv::Point center)
 }
 }
 
+std::optional<int> asst::spa::battle_boss_hp_bar_fill_percent(const cv::Mat& image)
+{
+    if (image.type() != CV_8UC3 || image.size() != cv::Size(1280, 720)) {
+        return std::nullopt;
+    }
+    const auto pink = [](const cv::Vec3b& pixel, int min_red) {
+        const auto [blue, green, red] = std::array { pixel[0], pixel[1], pixel[2] };
+        return red >= min_red && red - green >= 58 && blue - green >= 18 && red - blue >= 40;
+    };
+    // The battle HUD has a pink right edge and footer. The ordinary
+    // enemy counter is gold and the preparation bar is on the battlefield.
+    int right_edge = 0, footer = 0;
+    for (int y = 13; y < 52; ++y) {
+        right_edge += pink(image.at<cv::Vec3b>(y, 776), 105);
+    }
+    for (int x = 598; x < 769; ++x) {
+        footer += pink(image.at<cv::Vec3b>(56, x), 105);
+    }
+    if (right_edge < 28 || footer < 135) {
+        return std::nullopt;
+    }
+    constexpr int left = 597, width = 170;
+    std::array<bool, width> dark {};
+    int pink_columns = 0;
+    for (int i = 0; i < width; ++i) {
+        int dim_pixels = 0, pink_pixels = 0;
+        for (int y = 30; y < 34; ++y) {
+            const auto& pixel = image.at<cv::Vec3b>(y, left + i);
+            dim_pixels += pixel[2] < 75 && pixel[1] < 45 && pixel[0] < 55;
+            pink_pixels += pink(pixel, 145);
+        }
+        dark[i] = dim_pixels >= 3;
+        pink_columns += pink_pixels >= 2;
+    }
+    // Fit one filled prefix followed by the empty dark track. This keeps
+    // the cyan endpoint and allows small gaps from animated highlights.
+    int errors = static_cast<int>(std::ranges::count(dark, false));
+    int best_errors = errors, filled = 0;
+    for (int i = 0; i < width; ++i) {
+        errors += dark[i] ? 1 : -1;
+        if (errors < best_errors) {
+            best_errors = errors;
+            filled = i + 1;
+        }
+    }
+    if (filled < 8 || best_errors > std::min(4, filled / 5) || pink_columns < std::max(3, filled / 5)) {
+        return std::nullopt;
+    }
+    return (filled * 100 + width / 2) / width;
+}
+
 std::optional<cv::Rect> asst::spa::preparation_boss_health_bar(const cv::Mat& image)
 {
     if (image.empty() || image.size() != cv::Size(1280, 720) || image.type() != CV_8UC3) {

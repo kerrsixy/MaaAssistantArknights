@@ -5,6 +5,7 @@
 #include "SPANumberOcr.h"
 #include "SPAObservation.h"
 #include "SPAPlanner.h"
+#include "SPAProjection.h"
 
 #include <chrono>
 #include <cmath>
@@ -258,6 +259,10 @@ bool asst::spa::RoundTaskPlugin::_run()
                                    { "enemies_resolved_known", page.enemies_resolved.has_value() },
                                    { "enemies_resolved", page.enemies_resolved.value_or(0) },
                                    { "unit_survival_verified", false } };
+                if (!m_joint_mode && battle_frame_saved) {
+                    const auto boss_fill = battle_boss_hp_bar_fill_percent(image);
+                    info["details"]["boss_hp_bar_fill_percent"] = boss_fill ? json::value(*boss_fill) : json::value(nullptr);
+                }
                 if (battle_frame_saved) {
                     // Require an exact pact label and a same-frame counter.
                     // The result page does not expose this battlefield HUD.

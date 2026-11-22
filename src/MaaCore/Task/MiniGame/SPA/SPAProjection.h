@@ -131,6 +131,9 @@ std::optional<cv::Point> direction_cancel_target(const cv::Mat& image, cv::Point
 std::optional<cv::Point>
     replacement_direction_center(const cv::Mat& placement, const cv::Mat& held, cv::Point expected_target);
 std::optional<char> deployed_facing(const cv::Mat& image, cv::Point foot);
+// Estimate the visible fill of the top battle HUD. No readable fill is
+// unknown, including during a defeat animation or when the HUD disappears.
+std::optional<int> battle_boss_hp_bar_fill_percent(const cv::Mat& image);
 // A single long boss HP bar in the enemy preparation area. This supplies a
 // visible phase marker, not a boss identity or a guessed ground coordinate.
 std::optional<cv::Rect> preparation_boss_health_bar(const cv::Mat& image);
