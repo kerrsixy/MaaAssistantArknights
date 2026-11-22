@@ -223,8 +223,29 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
         observed.upgrade_price = upgrade_price;
     }
     const bool result_text_verified = settlement_text_verified(observed);
-    const auto preparation_seconds =
-        observed.page == Page::Preparation && !observed.contradictory ? preparation_countdown(texts) : std::nullopt;
+    std::optional<int> preparation_seconds;
+    if (observed.page == Page::Preparation && !observed.contradictory) {
+        preparation_seconds = preparation_countdown(texts);
+        if (!preparation_seconds && m_joint_countdown_enabled) {
+            // Full-frame OCR sometimes drops digits from the small CRT clock.
+            OCRer clock(image, Rect(1124, 18, 93, 76));
+            if (const auto digits = clock.analyze()) {
+                std::vector<TextObservation> clock_text;
+                for (const auto& item : *digits) {
+                    clock_text.push_back({ item.text, item.score, item.rect.x, item.rect.y });
+                }
+                preparation_seconds = preparation_countdown(clock_text);
+                for (const auto& item : clock_text) {
+                    raw.emplace_back(
+                        json::object { { "text", item.text },
+                                       { "score", item.score },
+                                       { "x", item.x },
+                                       { "y", item.y },
+                                       { "source", "preparation_clock_roi" } });
+                }
+            }
+        }
+    }
     // The result page alone cannot prove that the return-home transition occurred or identify a hidden boss.
     const bool return_home_verified = false;
     const bool hidden_boss_marker = false;
@@ -359,6 +380,9 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(const cv::Mat& image, int expe
         break;
     case Page::DataUpdated:
         page = "data_updated";
+        break;
+    case Page::JointIdleRemoval:
+        page = "joint_idle_removal";
         break;
     case Page::ReadyConfirmation:
         page = "ready_confirmation";

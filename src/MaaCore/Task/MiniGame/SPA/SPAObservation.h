@@ -163,7 +163,8 @@ enum class Page
     ReadyConfirmation,
     ResultSummary,
     Spectating,
-    ReadyWaiting
+    ReadyWaiting,
+    JointIdleRemoval
 };
 
 struct PageObservation

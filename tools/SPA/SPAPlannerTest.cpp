@@ -3026,6 +3026,23 @@ int main()
     assert(!preparation_countdown({ { "准备就绪", .999, 1166, 103 }, { "999", .999, 1144, 37 } }));
     assert(lifecycle_next({ "tactical_decision" }) == "MiniGame@SPA@LifecycleExecute");
     assert(lifecycle_next({ "data_updated" }) == "MiniGame@SPA@LifecycleAckSync");
+    const std::vector<TextObservation> idle_removal {
+        { "当前多回合无操作，即将离开模拟", .999842, 446, 308 }, { "确认", .999, 620, 476 }
+    };
+    assert(observe_page(idle_removal, {}).page == Page::JointIdleRemoval);
+    assert(observe_page({ { "当前多回合无操作,即将离开模拟", .99, 446, 308 } }, {}).page ==
+           Page::JointIdleRemoval);
+    assert(observe_page({ { "当前多回合无操作，即将离开模拟", .94, 446, 308 } }, {}).page !=
+           Page::JointIdleRemoval);
+    assert(observe_page({ { "当前多回合无操作，即将离开模拟", .99, 446, 150 } }, {}).page !=
+           Page::JointIdleRemoval);
+    assert(observe_page({ { "确认", .999, 620, 476 } }, {}).page != Page::JointIdleRemoval);
+    assert(lifecycle_next({ "joint_idle_removal" }).empty());
+    assert(preparation_countdown({ { "13", .997045, 1140, 37 } }) == 13);
+    assert(preparation_countdown({ { "12", .999263, 1138, 35 } }) == 12);
+    assert(preparation_countdown({ { "08", .990717, 1136, 35 } }) == 8);
+    assert(!preparation_countdown({ { "37", .736222, 1131, 31 } }));
+    assert(!preparation_countdown({ { "O", .319564, 1124, 18 } }));
     assert(lifecycle_next({ "ready_confirmation" }) == "MiniGame@SPA@LifecycleExecute");
     assert(lifecycle_next({ "battle" }) == "MiniGame@SPA@LifecycleExecute");
     assert(lifecycle_next({ "authentication_expired" }) == "MiniGame@SPA@LifecycleLogin");

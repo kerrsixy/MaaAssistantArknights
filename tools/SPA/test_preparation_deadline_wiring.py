@@ -37,7 +37,7 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
 
     def test_expired_branch_reconciles_existing_pending_without_new_actions(self):
         boundary = self.session.split(
-            'state.get("preparation_seconds_remaining", 0) <= 8) {', 1
+            "if (joint_seconds && *joint_seconds <= 8 && !prioritize_joint_ready) {", 1
         )[1].split("if (m_bench_recount_pending", 1)[0]
         self.assertIn(
             "if (m_pending_spatial_orientation) {\n"
@@ -81,11 +81,11 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
         self.assertIn("!m_bench_recount_pending", scheduling)
         self.assertIn("prioritize_bench_space || resume_funded_purchase", scheduling)
         self.assertIn(
-            "!defer_ordinary_equipment && refresh_equipment_inventory(state)",
+            "!defer_ordinary_equipment && !prioritize_joint_ready && refresh_equipment_inventory(state)",
             scheduling,
         )
         self.assertIn(
-            "!defer_ordinary_equipment && handle_persistent_equipment(state)",
+            "!defer_ordinary_equipment && !prioritize_joint_ready && handle_persistent_equipment(state)",
             scheduling,
         )
         pending = quote_review.split("const int bench_before_funding", 1)[0]
@@ -108,7 +108,7 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
             "handle_full_field_replacement(state))", 1
         )[1]
         equipment_and_cash, reopening = after_replacement.split(
-            "if (m_shop_review_after_replacements)", 1
+            "if (m_shop_review_after_replacements && !prioritize_joint_ready)", 1
         )
         self.assertIn("refresh_equipment_inventory(state)", equipment_and_cash)
         self.assertIn("handle_cash_equipment(state, boss_preparation)", equipment_and_cash)

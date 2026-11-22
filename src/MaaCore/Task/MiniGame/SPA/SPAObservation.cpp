@@ -841,6 +841,14 @@ asst::spa::PageObservation
         result.page = Page::DataUpdated;
         return result;
     }
+    if (std::ranges::any_of(texts, [](const auto& text) {
+            return std::isfinite(text.score) && text.score >= .95 && text.x >= 400 && text.x < 570 &&
+                   text.y >= 280 && text.y < 345 &&
+                   (text.text == "当前多回合无操作，即将离开模拟" || text.text == "当前多回合无操作,即将离开模拟");
+        })) {
+        result.page = Page::JointIdleRemoval;
+        return result;
+    }
     if (has("登录认证已失效") || has("请重新登录")) {
         // Account/session expiry is an external blocker, never a game result.
         result.page = Page::AuthenticationExpired;

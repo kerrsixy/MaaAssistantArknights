@@ -3185,6 +3185,9 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
     spa::ObserverTaskPlugin observer(m_callback, m_inst, TaskType);
     observer.set_retry_times(0);
     observer.set_task_id(m_task_id);
+    if (m_mode == "joint") {
+        observer.enable_joint_countdown();
+    }
     const auto catalog = spa::operator_pacts();
     int observation_failures = 0;
     for (int action = 0; action < m_max_actions && !need_exit(); ++action) {
@@ -3692,7 +3695,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         // state.
         const auto page_name = state.get("page", std::string());
         m_lifecycle_battle_seen = m_lifecycle_battle_seen || page_name == "battle";
-        if (page_name == "authentication_expired" || page_name == "data_updated") {
+        if (page_name == "authentication_expired" || page_name == "data_updated" || page_name == "joint_idle_removal") {
             m_policy.ordinary_refreshes_this_round.reset();
             m_last_observed_automated_battle_round = -1;
             auto recovery = basic_info_with_what("SPASessionRecoveryRequired");
@@ -4032,7 +4035,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             handle_full_field_replacement(state)) {
             continue;
         }
-        if (field_work_due && !defer_ordinary_equipment && refresh_equipment_inventory(state)) {
+        if (field_work_due && !defer_ordinary_equipment && !prioritize_joint_ready && refresh_equipment_inventory(state)) {
             continue;
         }
         if (m_auto_run && !resume_funded_purchase && !prioritize_joint_ready &&
@@ -4727,8 +4730,9 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             }
             continue;
         }
-        const bool layout_due = !m_auto_run || m_shopping_complete || state.get("funds", -1) == 0 || m_movement_only ||
-                                m_verify_layout_identities;
+        const bool layout_due = !prioritize_joint_ready &&
+                                (!m_auto_run || m_shopping_complete || state.get("funds", -1) == 0 || m_movement_only ||
+                                 m_verify_layout_identities);
         if (!layout_due) {
             m_dynamic_layout_observed = false;
         }
@@ -5286,8 +5290,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 m_last_ursus_battle_with_layer_growth = fought_round;
             }
             if (round.session_interrupted()) {
-                // Emit the actual authentication page so the host reattaches
-                // this checkpoint after login, without calling it a battle loss.
+                // Observe the interrupted page again for lifecycle dispatch without recording a battle loss.
                 observer.run();
                 return true;
             }

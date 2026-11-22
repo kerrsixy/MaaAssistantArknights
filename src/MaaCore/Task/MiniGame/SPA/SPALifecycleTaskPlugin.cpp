@@ -264,7 +264,8 @@ bool asst::spa::LifecycleTaskPlugin::_run()
         receipt["details"] = json::object {
             { "page", page.page },
             { "reason",
-              blank_formation_timeout ? "Formation was committed but the client remained blank past the loading window"
+              page.page == "joint_idle_removal" ? "Game displayed the idle removal prompt. No confirmation was issued."
+              : blank_formation_timeout ? "Formation was committed but the client remained blank past the loading window"
               : different_independent_difficulty
                   ? "Observed a different independent difficulty than the verified requested start"
               : page.issued_start_required ? "An existing game appeared before this execution verified a fresh start"

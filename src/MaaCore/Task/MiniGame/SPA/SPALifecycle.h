@@ -109,6 +109,9 @@ private:
 // An empty name requests recovery without input; it must not start a new run.
 inline std::string lifecycle_next(const LifecyclePage& state)
 {
+    if (state.page == "joint_idle_removal") {
+        return {};
+    }
     if (state.loading_verified) {
         return "MiniGame@SPA@LifecycleWait";
     }

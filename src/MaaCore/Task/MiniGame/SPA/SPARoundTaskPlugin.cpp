@@ -284,12 +284,14 @@ bool asst::spa::RoundTaskPlugin::_run()
             last_recognized = std::chrono::steady_clock::now();
             continue;
         }
-        if (page.page == Page::AuthenticationExpired) {
+        if (page.page == Page::AuthenticationExpired || page.page == Page::JointIdleRemoval) {
             m_session_interrupted = true;
             auto info = basic_info_with_what("SPASessionRecoveryRequired");
             info["details"] = json::object { { "round", m_round },
                                              { "battle_seen", battle_seen },
-                                             { "phase", "authentication_expired" },
+                                             { "phase", page.page == Page::JointIdleRemoval
+                                                            ? "joint_idle_removal"
+                                                            : "authentication_expired" },
                                              { "combat_result", "unverified" },
                                              { "resumable", true },
                                              { "run_victory_verified", false } };
