@@ -5289,6 +5289,39 @@ int main()
     assert(!should_upgrade_dynamic_shop(upgrade_window, 3, 4, {}, catalog));
     upgrade_window.last_round_life_loss = 6;
     assert(!should_upgrade_dynamic_shop(upgrade_window, 5, 4, {}, catalog));
+    // D5 R9: a verified 10-point loss left 15 life and 11 funds, equal to
+    // the book-V quote. An improvement could still be found in the live shop.
+    auto damaged_ursus_board = dynamic_decision;
+    damaged_ursus_board.selected_strategy_id = "band_weakness";
+    damaged_ursus_board.primary_pact = "乌萨斯";
+    damaged_ursus_board.primary_locked_after_activation = true;
+    damaged_ursus_board.round = 9;
+    damaged_ursus_board.shop_level = 4;
+    damaged_ursus_board.current_life = 15;
+    damaged_ursus_board.last_round_life_loss = 10;
+    damaged_ursus_board.deployed_population = 8;
+    damaged_ursus_board.bench_occupied = 5;
+    damaged_ursus_board.early_board_ready = true;
+    damaged_ursus_board.allow_refresh = true;
+    damaged_ursus_board.minimum_recruit_price = 1;
+    damaged_ursus_board.owned = { { "折桠", { 1, false, true } },   { "野鬃", { 1, false, true } },
+                                  { "真理", { 1, false, true } },   { "奥尔佳", { 1, false, true } },
+                                  { "锡人", { 1, false, true } },   { "卡达", { 1, false, true } },
+                                  { "哈洛德", { 1, false, true } }, { "Miss.Christine", { 1, false, true } } };
+    const std::vector<ShopOffer> recovery_quotes { { "至简", 1, 4 },
+                                                   { "历阵锐枪芬", 3, 3 },
+                                                   { "远牙", 3, 2 },
+                                                   { "瑕光", 3, 1 },
+                                                   { "波登可", 3, 0 } };
+    assert(dynamic_target_shop_level(damaged_ursus_board, catalog) > damaged_ursus_board.shop_level);
+    assert(!should_upgrade_dynamic_shop(damaged_ursus_board, 11, 11, recovery_quotes, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->reason.find("recent durability loss") != std::string::npos);
+    assert(should_upgrade_dynamic_shop(damaged_ursus_board, 11, 0, recovery_quotes, catalog, &upgrade_hold));
+    assert(!upgrade_hold);
+    damaged_ursus_board.allow_refresh = false;
+    assert(should_upgrade_dynamic_shop(damaged_ursus_board, 11, 11, {}, catalog, &upgrade_hold));
+    assert(!upgrade_hold);
+
     auto same_shop_window = dynamic_decision;
     same_shop_window.primary_pact = "乌萨斯";
     same_shop_window.shop_level = 2;

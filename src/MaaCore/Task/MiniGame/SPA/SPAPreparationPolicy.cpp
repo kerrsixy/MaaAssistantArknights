@@ -1599,6 +1599,23 @@ bool asst::spa::should_upgrade_dynamic_shop(
     if (promotion_offered) {
         return false;
     }
+    // A paid book upgrade cannot repair the current board on its own. After a
+    // heavy loss, preserve an actionable purchase or a refresh plus recruitment
+    // budget when two comparable losses would consume the remaining life.
+    if (!policy.boss_preparation && upgrade_price > 0 && policy.last_round_life_loss >= 6 && policy.current_life > 0 &&
+        policy.current_life <= 2 * policy.last_round_life_loss) {
+        const auto recovery = choose_preparation(policy, funds, offers, pacts);
+        const int budget = recovery.action == PreparationAction::Buy && !recovery.banked_value_purchase ? recovery.price
+                           : recovery.action == PreparationAction::Refresh
+                               ? recovery.price + policy.minimum_recruit_price
+                               : 0;
+        if (budget > 0 && budget <= funds && budget > funds - upgrade_price) {
+            if (hold) {
+                *hold = ShopUpgradeHold { "Reserve a current-round reinforcement budget after recent durability loss" };
+            }
+            return false;
+        }
+    }
     if (const auto package = affordable_same_shop_promotion(policy, funds, offers, pacts);
         package && funds - upgrade_price < package->total_cost) {
         if (hold) {
