@@ -4369,7 +4369,14 @@ bool asst::spa::SwapTaskPlugin::_run()
             }
         }
     }
+    cv::Mat verified_equipment_source_panel;
     if (m_find_equipment_source) {
+        const bool persistent_equipment = m_fast_mode && !is_immediate_cash_equipment(m_name) &&
+                                          !is_deferred_cash_equipment(m_name) && !m_promotion_consumable &&
+                                          m_pact_recruitment_pact.empty() &&
+                                          std::ranges::any_of(equipment_profiles(), [&](const auto& profile) {
+                                              return profile.name == m_name && !profile.consumable;
+                                          });
         m_equipment_stage = "source_identity";
         cv::Mat inventory_image;
         if (!ensure_expanded_shop(&inventory_image)) {
@@ -4415,8 +4422,18 @@ bool asst::spa::SwapTaskPlugin::_run()
             if (need_exit() || !ensure_expanded_shop()) {
                 return false;
             }
-            const auto identity = bench_identity(Point(candidates[index].x, candidates[index].y));
+            const Point candidate(candidates[index].x, candidates[index].y);
+            cv::Mat source_panel;
+            const auto identity = bench_identity(candidate, false, {}, nullptr, &source_panel);
             if (identity && equipment_title_matches(m_name, *identity)) {
+                if (persistent_equipment && !source_panel.empty()) {
+                    // Keep the verified source selected until recipient inspection.
+                    // Rebind the original source anchor after returning to the shop.
+                    m_source = candidate;
+                    m_equipment_source_index = index;
+                    verified_equipment_source_panel = std::move(source_panel);
+                    break;
+                }
                 if (is_immediate_cash_equipment(m_name)) {
                     const auto credit = read_selected_cash_equipment_credit(ctrler()->get_image());
                     if (!credit || *credit < m_minimum_cash_credit || m_funds > 999 - *credit) {
@@ -4738,7 +4755,8 @@ bool asst::spa::SwapTaskPlugin::_run()
     const auto preparation_image = m_inspect_only ? ctrler()->get_image() : cv::Mat();
     // A bench slot rotates as the hand is consumed, so the hand is identified by the placement card
     // rather than by a side panel that only shop cards open.
-    if (!m_deploy_only && !(sale_source_panel_open ? current_identity(m_name) : selected_identity(m_source, m_name))) {
+    if (!m_deploy_only && verified_equipment_source_panel.empty() &&
+        !(sale_source_panel_open ? current_identity(m_name) : selected_identity(m_source, m_name))) {
         return false;
     }
     if (m_terrain_probe_only) {
@@ -5367,11 +5385,16 @@ bool asst::spa::SwapTaskPlugin::_run()
     if (m_find_equipment_source) {
         m_equipment_stage = "recipient_identity";
     }
-    if (!close_selection() || (m_find_equipment_source && !ensure_collapsed_shop())) {
+    cv::Mat clean_equipment_frame;
+    cv::Mat collapsed_equipment_frame;
+    if (!close_selection(&clean_equipment_frame, verified_equipment_source_panel) ||
+        (m_find_equipment_source &&
+         !ensure_shop_visibility(false, &collapsed_equipment_frame, clean_equipment_frame))) {
         return false;
     }
     if (m_find_equipment_source) {
-        m_equipment_reference = ctrler()->get_image().clone();
+        m_equipment_reference =
+            (collapsed_equipment_frame.empty() ? ctrler()->get_image() : collapsed_equipment_frame).clone();
         save_evidence(m_equipment_reference, utils::path("debug/SPA/equipment_reference"), false);
     }
     if (!selected_identity(m_target, m_replaced)) {
@@ -5859,10 +5882,12 @@ bool asst::spa::SwapTaskPlugin::_run()
         save_evidence(ctrler()->get_image(), utils::path("debug/SPA/equipment_after"), false);
         m_equipment_stage = "verified";
         auto info = basic_info_with_what("SPAGearEquippedVerified");
-        info["details"] = json::object { { "equipment", m_name },
-                                         { "operator", m_replaced },
-                                         { "round", m_round },
-                                         { "equipped_verified", true } };
+        info["details"] =
+            json::object { { "equipment", m_name },
+                           { "operator", m_replaced },
+                           { "round", m_round },
+                           { "equipped_verified", true },
+                           { "source_panel_reused_before_recipient", !verified_equipment_source_panel.empty() } };
         callback(AsstMsg::SubTaskExtraInfo, info);
         return close_selection();
     }
