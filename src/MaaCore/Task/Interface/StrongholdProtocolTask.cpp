@@ -288,6 +288,18 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_full_bench_refresh_attempts.clear();
     m_strategy_refresh_blocked_rounds.clear();
     m_pending_promotion = params.get("promotion_pending", std::string());
+    m_pending_tactical_recruitment = params.get("tactical_recruitment_pending", std::string());
+    m_pending_tactical_recruitment_round = params.get("tactical_recruitment_round", 0);
+    m_tactical_recruitment_probes = 0;
+    if (!m_pending_tactical_recruitment.empty()) {
+        const auto pacts = spa::pact_requirements();
+        if (m_pending_tactical_recruitment_round < 1 || m_pending_tactical_recruitment_round > 20 ||
+            !std::ranges::any_of(pacts, [&](const auto& rule) {
+                return rule.name == m_pending_tactical_recruitment;
+            })) {
+            return false;
+        }
+    }
     if ((params.contains("bench_recount_pending") && !params.find<bool>("bench_recount_pending")) ||
         (params.contains("tactical_elite_purchase_pending") && !params.find<bool>("tactical_elite_purchase_pending"))) {
         return false;
@@ -984,8 +996,11 @@ bool asst::StrongholdProtocolTask::handle_reward_page(int after_round)
             }
             // Do not confirm an incomplete quote whose effect changes the
             // next purchase's form. Other readable cards remain usable.
-            const auto alternative = std::find_if(offers.begin(), offers.end(), [](const auto& offer) {
-                return offer.title != "升华" || spa::tactical_elite_purchase(offer);
+            const auto alternative = std::find_if(offers.begin(), offers.end(), [&](const auto& offer) {
+                return (offer.title != "升华" || spa::tactical_elite_purchase(offer)) &&
+                       (!offer.title.ends_with("驰援") ||
+                        (m_policy.bench_occupied >= 0 && m_policy.bench_occupied < 10 &&
+                         spa::tactical_recruitment_pact(offer).has_value()));
             });
             if (alternative == offers.end()) {
                 return false;
@@ -999,6 +1014,7 @@ bool asst::StrongholdProtocolTask::handle_reward_page(int after_round)
             callback(AsstMsg::SubTaskExtraInfo, fallback);
         }
         const auto& choice = offers[selected];
+        const auto recruitment_pact = spa::tactical_recruitment_pact(choice);
         for (bool confirm : { false, true }) {
             spa::ShopTaskPlugin action(m_callback, m_inst, TaskType);
             action.set_fast_mode(true);
@@ -1012,6 +1028,11 @@ bool asst::StrongholdProtocolTask::handle_reward_page(int after_round)
         if (spa::tactical_elite_purchase(choice)) {
             m_policy.tactical_elite_purchase_pending = true;
         }
+        if (recruitment_pact) {
+            m_pending_tactical_recruitment = *recruitment_pact;
+            m_pending_tactical_recruitment_round = after_round + 1;
+            m_tactical_recruitment_probes = 0;
+        }
         auto receipt = basic_info_with_what("SPAAutomationRewardSelected");
         receipt["details"] =
             json::object { { "after_round", after_round },
@@ -1023,6 +1044,8 @@ bool asst::StrongholdProtocolTask::handle_reward_page(int after_round)
                            { "run_id", m_run_id },
                            { "roster", roster_snapshot() },
                            { "tactical_elite_purchase_pending", m_policy.tactical_elite_purchase_pending },
+                           { "tactical_recruitment_pending", m_pending_tactical_recruitment },
+                           { "tactical_recruitment_round", m_pending_tactical_recruitment_round },
                            { "effect_amount_verified", false },
                            { "run_victory_verified", false } };
         callback(AsstMsg::SubTaskExtraInfo, receipt);
@@ -3439,6 +3462,35 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                                      { "run_victory_verified", false } };
                 callback(AsstMsg::SubTaskExtraInfo, detected);
             }
+        }
+        if (!m_pending_tactical_recruitment.empty() && state.get("page", std::string()) == "preparation") {
+            if (reconcile_tactical_recruitment(state)) {
+                continue;
+            }
+            if (++m_tactical_recruitment_probes >= 2) {
+                auto deferred = basic_info_with_what("SPATacticalRecruitmentDeferred");
+                deferred["details"] =
+                    json::object { { "run_id", m_run_id },
+                                   { "round", state.get("round", -1) },
+                                   { "tactical_recruitment_pending", m_pending_tactical_recruitment },
+                                   { "tactical_recruitment_round", m_pending_tactical_recruitment_round },
+                                   { "resume_after_round", m_pending_tactical_recruitment_round },
+                                   { "bench_occupied", m_policy.bench_occupied },
+                                   { "roster", roster_snapshot() },
+                                   { "field_positions", field_position_snapshot() },
+                                   { "used_deploy_points", deployment_point_snapshot() },
+                                   { "requires_roster_resync", true },
+                                   { "run_victory_verified", false } };
+                callback(AsstMsg::SubTaskExtraInfo, deferred);
+                if (lifecycle) {
+                    lifecycle->note_input_reconciliation("SPATacticalRecruitmentDeferred");
+                }
+                return false;
+            }
+            if (!sleep(400)) {
+                return false;
+            }
+            continue;
         }
         if (!m_pending_promotion.empty() || !m_pending_pact_recruitment.empty() || m_pending_promotion_reward ||
             inferred_promotion_window) {

@@ -7,10 +7,190 @@
 #include "Task/MiniGame/SPA/SPADirectPromotionPolicy.h"
 #include "Task/MiniGame/SPA/SPAFormation.h"
 #include "Task/MiniGame/SPA/SPAGrowth.h"
+#include "Task/MiniGame/SPA/SPAOperatorCatalogue.h"
+#include "Task/MiniGame/SPA/SPAPlanner.h"
 #include "Task/MiniGame/SPA/SPASummonPolicy.h"
 #include "Task/MiniGame/SPA/SPASwapTaskPlugin.h"
 #include "Task/MiniGame/SPA/SPATerrainModel.h"
 #include <algorithm>
+#include <iterator>
+#include <utility>
+
+bool asst::StrongholdProtocolTask::reconcile_tactical_recruitment(const json::value& state)
+{
+    const int round = state.get("round", -1);
+    const int funds = state.get("funds", -1);
+    const int remaining = state.get("remaining_deployment", -1);
+    if (round != m_pending_tactical_recruitment_round || funds < 0 || remaining < 0 || remaining > 8 ||
+        !state.get("round_known", false) || !state.get("funds_known", false) ||
+        !state.get("remaining_deployment_known", false) || state.get("remaining_deployment_inferred", false) ||
+        m_pending_field_replacement || m_pending_spatial_orientation || m_bench_recount_pending ||
+        !m_pending_promotion.empty() || !m_pending_pact_recruitment.empty()) {
+        return false;
+    }
+
+    // The confirmed tactic is the only allowed roster-changing input between
+    // the prior field/bench ledger and this observation.
+    const auto catalogue = spa::operator_pacts();
+    spa::ObservedOperatorInventory before;
+    std::map<std::string, bool> unchanged_forms;
+    int old_bench_count = 0;
+    for (const auto& [name, unit] : m_policy.owned) {
+        const auto forms = spa::owned_form_counts(unit);
+        const auto field_count = static_cast<int>(m_auto_deploy_positions.count(name));
+        if (!forms || !catalogue.contains(name) || field_count > forms->initial + forms->elite ||
+            unit.deployed != (field_count > 0)) {
+            return false;
+        }
+        before.members.emplace(name, *forms);
+        const auto& pacts = catalogue.at(name);
+        if ((forms->initial == 0 || forms->elite == 0) &&
+            std::ranges::find(pacts, m_pending_tactical_recruitment) == pacts.end()) {
+            // This grant cannot affect a different pact's known single form.
+            // Its name and physical quantity are still checked in the new scan.
+            unchanged_forms.emplace(name, forms->elite > 0);
+        }
+        old_bench_count += forms->initial + forms->elite - field_count;
+    }
+    const int observed_field_count = 8 - remaining;
+    if (old_bench_count != m_policy.bench_occupied ||
+        observed_field_count > static_cast<int>(m_auto_deploy_positions.size()) ||
+        !std::ranges::all_of(m_auto_deploy_positions, [&](const auto& entry) {
+            return before.members.contains(entry.first) && m_verified_field_pose_points.contains(entry.second);
+        })) {
+        return false;
+    }
+    before.complete = true;
+
+    spa::SwapTaskPlugin probe(m_callback, m_inst, TaskType);
+    probe.set_retry_times(0);
+    probe.set_task_id(m_task_id);
+    probe.set_task_ptr(this);
+    const auto bench = probe.inspect_bench_operator_forms(round, funds, remaining, unchanged_forms);
+    if (!bench) {
+        return false;
+    }
+    spa::ObservedOperatorInventory observed_bench;
+    for (const auto& [name, elite] : *bench) {
+        auto& forms = observed_bench.members[name];
+        ++(elite ? forms.elite : forms.initial);
+    }
+
+    auto after = observed_bench;
+    decltype(m_auto_deploy_positions) surviving_field;
+    const auto compare = [&](bool check_possible_promotions) {
+        after = observed_bench;
+        surviving_field.clear();
+        for (const auto& [name, forms] : before.members) {
+            const auto [begin, end] = m_auto_deploy_positions.equal_range(name);
+            const auto field_count = static_cast<int>(std::distance(begin, end));
+            if (field_count == 0) {
+                continue;
+            }
+            const bool ambiguous_field_forms =
+                forms.initial > 0 && forms.elite > 0 && field_count != forms.initial + forms.elite;
+            const bool could_merge =
+                forms.initial + 1 == spa::promotion_copies_required(name) &&
+                std::ranges::find(catalogue.at(name), m_pending_tactical_recruitment) != catalogue.at(name).end();
+            auto& count = after.members[name];
+            if (m_field_checkpoint_loaded || ambiguous_field_forms || (check_possible_promotions && could_merge)) {
+                for (auto it = begin; it != end; ++it) {
+                    const auto& [x, y] = it->second;
+                    if (const auto card =
+                            probe.inspect_field_operator_card(name, Point(x, y), round, funds, remaining)) {
+                        ++(card->elite ? count.elite : count.initial);
+                        surviving_field.emplace(*it);
+                    }
+                }
+            }
+            else {
+                const int on_field_initial = forms.elite == 0 ? field_count : forms.initial == 0 ? 0 : forms.initial;
+                count.initial += on_field_initial;
+                count.elite += field_count - on_field_initial;
+                surviving_field.insert(begin, end);
+            }
+        }
+        after.complete = surviving_field.size() == static_cast<std::size_t>(observed_field_count);
+        return spa::verify_pact_recruitment_delta(before, after, m_pending_tactical_recruitment, 1);
+    };
+    auto delta = compare(m_field_checkpoint_loaded);
+    if (!delta.verified && !m_field_checkpoint_loaded) {
+        delta = compare(true);
+    }
+    if (!delta.verified || delta.gained_initial_operators.size() != 1) {
+        LogWarn << "SPA tactical recruitment roster delta is unverified" << round << m_pending_tactical_recruitment
+                << delta.reason;
+        return false;
+    }
+    const auto& name = delta.gained_initial_operators.front();
+    const auto facts =
+        std::ranges::find_if(spa::OperatorCatalogue, [&](const auto& entry) { return entry.name == name; });
+    if (m_policy.shop_level < 1 || facts == spa::OperatorCatalogue.end() || facts->tier > m_policy.shop_level) {
+        return false;
+    }
+    auto reconciled = m_policy.owned;
+    if (!spa::set_owned_form_counts(reconciled[name], after.members.at(name))) {
+        return false;
+    }
+    reconciled[name].deployed = surviving_field.contains(name);
+    const bool promoted = !delta.promoted_operators.empty();
+    m_policy.owned = std::move(reconciled);
+    m_policy.round = round;
+    m_policy.bench_occupied = static_cast<int>(bench->size());
+    m_auto_deploy_positions = std::move(surviving_field);
+    m_auto_deploy_used_cells.clear();
+    for (const auto& [member, point] : m_auto_deploy_positions) {
+        m_auto_deploy_used_cells.insert(point);
+        if (promoted && member == name) {
+            m_committed_facings.erase(point);
+        }
+    }
+    std::erase_if(m_verified_field_pose_points, [&](const auto& point) {
+        return !m_auto_deploy_used_cells.contains(point);
+    });
+    std::erase_if(m_committed_facings, [&](const auto& entry) {
+        return !m_auto_deploy_used_cells.contains(entry.first);
+    });
+    m_growth_population_poses.clear();
+    m_population_grid_members.clear();
+    m_row_growth_populations.clear();
+    if (promoted) {
+        if (const auto equipped = m_equipped_items.find(name); equipped != m_equipped_items.end()) {
+            m_equipment_candidates.insert(equipped->second.begin(), equipped->second.end());
+            m_equipped_items.erase(equipped);
+            m_equipment_inventory_dirty = true;
+            m_equipment_inventory_scan_rounds.erase(round);
+        }
+    }
+    else if (!before.members.contains(name)) {
+        m_equipped_items[name] = {};
+    }
+    record_acquired_equipment_hints(name, promoted, round);
+    m_recent_bench_acquisition = name;
+    m_unavailable_replacement_sources.erase(name);
+    const auto pact = std::exchange(m_pending_tactical_recruitment, {});
+    m_pending_tactical_recruitment_round = 0;
+    auto receipt = basic_info_with_what("SPATacticalRecruitmentReconciled");
+    receipt["details"] = json::object { { "run_id", m_run_id },
+                                        { "round", round },
+                                        { "pact", pact },
+                                        { "name", name },
+                                        { "automatic_synthesis_observed", promoted },
+                                        { "tactical_recruitment_pending", std::string() },
+                                        { "tactical_recruitment_round", 0 },
+                                        { "bench_population_verified", true },
+                                        { "bench_occupied", m_policy.bench_occupied },
+                                        { "bench_recount_pending", false },
+                                        { "field_population_verified", true },
+                                        { "field_positions", field_position_snapshot() },
+                                        { "used_deploy_points", deployment_point_snapshot() },
+                                        { "roster", roster_snapshot() },
+                                        { "equipment_slots", equipment_slots_snapshot() },
+                                        { "equipment_candidates", equipment_candidates_snapshot() },
+                                        { "run_victory_verified", false } };
+    callback(AsstMsg::SubTaskExtraInfo, receipt);
+    return true;
+}
 
 void asst::StrongholdProtocolTask::record_acquired_equipment_hints(const std::string& name, bool elite, int round)
 {

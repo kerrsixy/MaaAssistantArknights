@@ -199,6 +199,10 @@ private:
     std::optional<json::object> m_pending_delayed_cash_equipment;
     std::set<int> m_pact_recruitment_attempted_rounds;
     std::string m_pending_pact_recruitment;
+    std::string m_pending_tactical_recruitment;
+    int m_pending_tactical_recruitment_round = 0;
+    int m_tactical_recruitment_probes = 0;
+    bool reconcile_tactical_recruitment(const json::value& state);
     int m_cash_equipment_acquired_round = -1;
     json::array equipment_candidates_snapshot() const;
     json::array equipment_slots_snapshot() const;

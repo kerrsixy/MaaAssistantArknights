@@ -3786,6 +3786,26 @@ int main()
     assert(choose_tactical_adjustment(tactical_offers, "阿戈尔", { "阿戈尔" }, 4) == 1);
     assert(choose_tactical_adjustment(tactical_offers, "谢拉格", { "谢拉格" }, 8) == 0);
     assert(choose_tactical_adjustment({ { "补给", "unknown text", 2 } }, "阿戈尔", {}, 8) == -1);
+    const TacticalOffer iberia_recruitment { "伊比利亚驰援",
+                                             "你获得1名随机【伊比利亚】干员棋子(不超过当前调度中心等级)",
+                                             0 };
+    assert(tactical_recruitment_pact(iberia_recruitment) == "伊比利亚");
+    assert(!tactical_recruitment_pact({ "阿戈尔驰援", iberia_recruitment.description, 0 }));
+    assert(
+        !tactical_recruitment_pact({ "伊比利亚驰援", "你获得2名随机【伊比利亚】干员棋子(不超过当前调度中心等级)", 0 }));
+    assert(choose_tactical_adjustment({ iberia_recruitment }, "伊比利亚", {}, 8) == 0);
+    assert(choose_tactical_adjustment({ iberia_recruitment }, "伊比利亚", {}, 10) == -1);
+    const ObservedOperatorInventory before_reinforcement { true, { { "深靛", { 2, 0 } } } };
+    const ObservedOperatorInventory after_reinforcement { true, { { "深靛", { 0, 1 } } } };
+    const auto reinforcement = verify_pact_recruitment_delta(
+        before_reinforcement,
+        after_reinforcement,
+        *tactical_recruitment_pact(iberia_recruitment),
+        1);
+    assert(reinforcement.verified && reinforcement.promoted_operators == std::vector<std::string> { "深靛" });
+    const ObservedOperatorInventory after_later_purchase { true, { { "深靛", { 1, 1 } } } };
+    assert(!verify_pact_recruitment_delta(before_reinforcement, after_later_purchase, "伊比利亚", 1).verified);
+    assert(verify_pact_recruitment_delta(after_reinforcement, after_later_purchase, "伊比利亚", 1).verified);
     // Real round-9 tactical OCR for the stalled difficulty-2 purchase.
     const auto elite_offer = observe_tactical_offers(
         { { "升华", .99, 281, 285 }, { "你接下来购买的1名干员变为精锐状", .99, 184, 358 }, { "态", .99, 182, 381 } });

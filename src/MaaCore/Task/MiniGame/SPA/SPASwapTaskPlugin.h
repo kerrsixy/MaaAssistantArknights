@@ -4,6 +4,7 @@
 #include "SPABoardGeometry.h"
 #include "SPAConsumablePolicy.h"
 #include "SPAControlEvidence.h"
+#include "SPAObservation.h"
 #include "SPAPlacementPolicy.h"
 #include "SPAPreparationEvidence.h"
 #include "SPAProjection.h"
@@ -63,6 +64,13 @@ public:
     bool set_registered_grid_context(const cv::Mat& reference, const cv::Mat& projection, const std::string& map_id);
 
     bool inspect_equipment_inventory(int round, int funds, int remaining, std::vector<InventoryOperatorHint>& hints);
+    std::optional<std::vector<std::pair<std::string, bool>>> inspect_bench_operator_forms(
+        int round,
+        int funds,
+        int remaining,
+        const std::map<std::string, bool>& unchanged_forms);
+    std::optional<OperatorCardObservation>
+        inspect_field_operator_card(const std::string& name, const Point& point, int round, int funds, int remaining);
 
     // Empty means a source/target preview failed, false means a drop was
     // issued but not yet confirmed, true means the field title was read.
@@ -229,7 +237,8 @@ private:
         const Point& point,
         bool allow_sale_head_retry = false,
         const std::string& replacement_bench_name = {},
-        Point* verified_contact = nullptr);
+        Point* verified_contact = nullptr,
+        cv::Mat* verified_panel = nullptr);
     bool reconcile_deployed_target();
     bool observe_deployed_pose();
     bool close_selection(cv::Mat* clean_frame = nullptr, const cv::Mat& initial_frame = {});

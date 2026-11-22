@@ -440,6 +440,8 @@ def main():
             "SPAAutomationEquipmentReconciled",
             "SPACashEquipmentDeferred",
             "SPAAutomationRewardSelected",
+            "SPATacticalRecruitmentDeferred",
+            "SPATacticalRecruitmentReconciled",
             "SPASupplySelectionPending",
             "SPAEquipmentAssignmentDeferred",
             "SPAReplacementDeferred",

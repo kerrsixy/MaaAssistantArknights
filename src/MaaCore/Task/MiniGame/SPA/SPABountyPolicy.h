@@ -22,6 +22,26 @@ inline bool tactical_elite_purchase(const TacticalOffer& offer)
     return offer.title == "升华" && offer.description == "你接下来购买的1名干员变为精锐状态";
 }
 
+inline std::optional<std::string> tactical_recruitment_pact(const TacticalOffer& offer)
+{
+    const std::string prefix = "你获得1名随机【";
+    const std::string separator = "】干员棋子";
+    if (!offer.title.ends_with("驰援") || !offer.description.starts_with(prefix)) {
+        return std::nullopt;
+    }
+    const auto end = offer.description.find(separator, prefix.size());
+    if (end == std::string::npos || end == prefix.size()) {
+        return std::nullopt;
+    }
+    const auto pact = offer.description.substr(prefix.size(), end - prefix.size());
+    const auto limit = offer.description.substr(end + separator.size());
+    if ((offer.title != pact + "驰援" && offer.title != pact + "盟约驰援") ||
+        (limit != "(不超过当前调度中心等级)" && limit != "（不超过当前调度中心等级）")) {
+        return std::nullopt;
+    }
+    return pact;
+}
+
 inline std::optional<int> tactical_layer_gain(const std::string& description)
 {
     const std::string marker = "层数+";
@@ -155,9 +175,11 @@ inline int choose_tactical_adjustment(
         else if (offer.title == "财富" && has("获得1资金")) {
             score = 45;
         }
-        else if (offer.title.ends_with("驰援") && has("获得1名随机") && has("不超过当前调度中心等级")) {
-            const bool main = !primary.empty() && offer.title.find(primary) != std::string::npos;
-            score = main ? (bench_occupied < 8 ? 110 : 55) : 15;
+        else if (const auto recruitment_pact = tactical_recruitment_pact(offer)) {
+            const bool main = *recruitment_pact == primary;
+            if (bench_occupied >= 0 && bench_occupied < 10) {
+                score = main ? (bench_occupied < 8 ? 110 : 55) : 15;
+            }
         }
         else if (const auto gain = tactical_layer_gain(offer.description); offer.title.ends_with("盟誓") && gain) {
             score = 0;

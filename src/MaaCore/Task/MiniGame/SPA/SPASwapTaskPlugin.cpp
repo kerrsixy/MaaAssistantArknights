@@ -736,9 +736,13 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(
     const Point& point,
     bool allow_sale_head_retry,
     const std::string& replacement_bench_name,
-    Point* verified_contact)
+    Point* verified_contact,
+    cv::Mat* verified_panel)
 {
     m_selected_panel_evidence.clear();
+    if (verified_panel) {
+        verified_panel->release();
+    }
     Point target = point;
     cv::Mat retry_reference;
     bool probe_shoulder_on_miss = false;
@@ -817,6 +821,9 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::bench_identity(
                     }
                     if (*identity == m_name && verified_contact) {
                         *verified_contact = target;
+                    }
+                    if (verified_panel) {
+                        *verified_panel = image;
                     }
                     LogInfo << "SPA bench identity" << *identity << target.x << target.y;
                     if (frame == 2) {
@@ -1760,6 +1767,90 @@ asst::spa::BoardRegistration asst::spa::SwapTaskPlugin::preserve_registered_boar
     projected.score = board.score;
     projected.alternative_score = board.alternative_score;
     return projected;
+}
+
+std::optional<std::vector<std::pair<std::string, bool>>> asst::spa::SwapTaskPlugin::inspect_bench_operator_forms(
+    int round,
+    int funds,
+    int remaining,
+    const std::map<std::string, bool>& unchanged_forms)
+{
+    m_round = round;
+    m_funds = funds;
+    m_remaining = remaining;
+    m_fast_mode = true;
+    m_best_effort_deployment = true;
+    cv::Mat frame;
+    if (!close_selection() || !ensure_expanded_shop(&frame)) {
+        return std::nullopt;
+    }
+    if (frame.empty()) {
+        frame = ctrler()->get_image();
+    }
+    if (!preparation_matches(frame)) {
+        return std::nullopt;
+    }
+    const auto centres = detect_bench_centres(frame, true);
+    std::vector<std::pair<std::string, bool>> operators;
+    const auto catalogue = operator_pacts();
+    for (const auto& centre : centres) {
+        if (need_exit()) {
+            return std::nullopt;
+        }
+        cv::Mat panel;
+        const auto name = bench_identity(Point(centre.x, centre.y + 30), false, {}, nullptr, &panel);
+        std::optional<bool> elite;
+        if (name && catalogue.contains(*name)) {
+            const auto unchanged = unchanged_forms.find(*name);
+            if (unchanged != unchanged_forms.end()) {
+                elite = unchanged->second;
+            }
+            else if (const auto card = selected_operator_card(panel, *name)) {
+                elite = card->elite;
+            }
+        }
+        if (!close_selection(&frame, panel) || !preparation_matches(frame)) {
+            return std::nullopt;
+        }
+        if (elite) {
+            operators.emplace_back(*name, *elite);
+            continue;
+        }
+        const bool non_operator =
+            name && !catalogue.contains(*name) &&
+            (summon_rule(*name) || std::ranges::any_of(equipment_profiles(), [&](const auto& profile) {
+                 return equipment_title_matches(profile.name, *name);
+             }));
+        if (!non_operator) {
+            LogWarn << "SPA initial/elite form unverified during bench reconciliation" << round << centre.x << centre.y
+                    << name.value_or("");
+            return std::nullopt;
+        }
+    }
+    if (detect_bench_centres(frame, true) != centres || operators.size() > 10) {
+        return std::nullopt;
+    }
+    return operators;
+}
+
+std::optional<asst::spa::OperatorCardObservation> asst::spa::SwapTaskPlugin::inspect_field_operator_card(
+    const std::string& name,
+    const Point& point,
+    int round,
+    int funds,
+    int remaining)
+{
+    m_round = round;
+    m_funds = funds;
+    m_remaining = remaining;
+    m_fast_mode = true;
+    m_best_effort_deployment = true;
+    cv::Mat field, panel;
+    if (!capture_collapsed_preparation(field)) {
+        return std::nullopt;
+    }
+    const auto card = selected_field_identity(point, name, panel) ? selected_operator_card(panel, name) : std::nullopt;
+    return capture_collapsed_preparation(field, panel) ? card : std::nullopt;
 }
 
 bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
