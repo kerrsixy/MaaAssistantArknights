@@ -413,6 +413,15 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
         }
         const Point center { candidate.rect.x + candidate.rect.width / 2,
                              candidate.rect.y + candidate.rect.height / 2 };
+        // A high-confidence foreground head can remain recognizable when overlapping
+        // hunters change the full spawn patch. Require the complete positive rectangle
+        // inside a projected spawn region; this adds presence evidence only.
+        for (auto& spawn : result.spawns) {
+            if (contains(spawn.roi, candidate.rect)) {
+                spawn.presence = HunterPresence::Present;
+                spawn.present_score = std::max(spawn.present_score, candidate.score);
+            }
+        }
         if (std::ranges::none_of(result.battlefield_head_candidates, [&](const Rect& known) {
                 return std::hypot(center.x - known.x - known.width / 2, center.y - known.y - known.height / 2) < 35;
             })) {
