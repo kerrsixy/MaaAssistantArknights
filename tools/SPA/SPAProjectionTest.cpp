@@ -397,6 +397,11 @@ int main()
     const auto truth_pose =
         registered_deployment_cell_pose(truth_held, truth_collapsed, truth_grid.grid_to_screen, *truth_receiver);
     assert(truth_pose && cv::norm(*truth_pose - cv::Point(475, 230)) < 8);
+    const auto truth_fit = estimate_camera_projection(truth_held, truth_collapsed, true);
+    const auto reused_truth_pose = registered_deployment_cell_pose(truth_fit, truth_grid.grid_to_screen, *truth_receiver);
+    assert(reused_truth_pose && cv::norm(*reused_truth_pose - *truth_pose) <= 1);
+    assert(registered_grid_projection(truth_fit, truth_grid.grid_to_screen));
+    assert(!registered_deployment_cell_pose(CameraProjection {}, truth_grid.grid_to_screen, *truth_receiver));
     assert(!registered_deployment_cell_pose(bison_direction, bison_held, truth_grid.grid_to_screen, { 549, 449 }));
     assert(!registered_deployment_cell_pose(truth_held, truth_collapsed, cv::Mat(), *truth_receiver));
     std::vector<cv::Point2f> truth_between_cells;

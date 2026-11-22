@@ -261,7 +261,7 @@ private:
         Point* verified_contact = nullptr,
         cv::Mat* verified_panel = nullptr);
     bool reconcile_deployed_target();
-    bool observe_deployed_pose();
+    bool observe_deployed_pose(const cv::Mat& preparation_frame = {});
     bool close_selection(cv::Mat* clean_frame = nullptr, const cv::Mat& initial_frame = {});
     bool ensure_expanded_shop(cv::Mat* already_visible_frame = nullptr);
     bool ensure_collapsed_shop(cv::Mat* already_visible_frame = nullptr);

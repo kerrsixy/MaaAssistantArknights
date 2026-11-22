@@ -1215,7 +1215,13 @@ std::optional<cv::Point2f> asst::spa::project_supported_point(const CameraProjec
 std::optional<cv::Point>
     asst::spa::registered_deployment_pose(const cv::Mat& held, const cv::Mat& collapsed, cv::Point held_target)
 {
-    const auto points = registered_field_points(held, collapsed, { held_target });
+    return registered_deployment_pose(estimate_camera_projection(held, collapsed, true), held_target);
+}
+
+std::optional<cv::Point>
+    asst::spa::registered_deployment_pose(const CameraProjection& fit, cv::Point held_target)
+{
+    const auto points = registered_field_points(fit, { held_target });
     return points ? std::optional(points->front()) : std::nullopt;
 }
 
@@ -1225,11 +1231,18 @@ std::optional<cv::Point> asst::spa::registered_deployment_cell_pose(
     const cv::Mat& grid_to_held,
     cv::Point receiver_hint)
 {
+    return registered_deployment_cell_pose(estimate_camera_projection(held, collapsed, true), grid_to_held, receiver_hint);
+}
+
+std::optional<cv::Point> asst::spa::registered_deployment_cell_pose(
+    const CameraProjection& projection,
+    const cv::Mat& grid_to_held,
+    cv::Point receiver_hint)
+{
     if (grid_to_held.type() != CV_64FC1 || grid_to_held.rows != 3 || grid_to_held.cols != 3 ||
         !cv::checkRange(grid_to_held) || std::abs(cv::determinant(grid_to_held)) < 1e-8) {
         return std::nullopt;
     }
-    const auto projection = estimate_camera_projection(held, collapsed, true);
     if (!registered_field_points(projection, { receiver_hint })) {
         return std::nullopt;
     }

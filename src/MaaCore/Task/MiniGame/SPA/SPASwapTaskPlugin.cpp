@@ -990,22 +990,33 @@ std::optional<std::string> asst::spa::SwapTaskPlugin::selected_identity_any(cons
     return std::nullopt;
 }
 
-bool asst::spa::SwapTaskPlugin::observe_deployed_pose()
+bool asst::spa::SwapTaskPlugin::observe_deployed_pose(const cv::Mat& preparation_frame)
 {
     m_field_pose_verified = false;
+    if (m_held_board.empty() || m_name.empty() || m_name == "*") {
+        return false;
+    }
     cv::Mat collapsed;
-    if (m_held_board.empty() || m_name.empty() || m_name == "*" || !capture_collapsed_preparation(collapsed)) {
+    if (!capture_collapsed_preparation(collapsed, preparation_frame) &&
+        (preparation_frame.empty() || !capture_collapsed_preparation(collapsed))) {
         return false;
     }
     const auto held_target = m_settled_held_target.value_or(m_drag_target);
-    const auto projected =
-        m_deployment_grid_to_screen.empty()
-            ? registered_deployment_pose(m_held_board, collapsed, cv::Point(held_target.x, held_target.y))
-            : registered_deployment_cell_pose(
-                  m_held_board,
-                  collapsed,
-                  m_deployment_grid_to_screen,
-                  cv::Point(held_target.x, held_target.y));
+    const cv::Point receiver(held_target.x, held_target.y);
+    // The new unit's confirmed screen pose and retained grid must use the
+    // same camera fit. No registration is shared across different frames.
+    auto camera_fit = estimate_camera_projection(m_held_board, collapsed, true);
+    const auto project_target = [&] {
+        return m_deployment_grid_to_screen.empty()
+                   ? registered_deployment_pose(camera_fit, receiver)
+                   : registered_deployment_cell_pose(camera_fit, m_deployment_grid_to_screen, receiver);
+    };
+    auto projected = project_target();
+    const bool used_post_drop_frame = !preparation_frame.empty() && collapsed.data == preparation_frame.data;
+    if (!projected && used_post_drop_frame && capture_collapsed_preparation(collapsed)) {
+        camera_fit = estimate_camera_projection(m_held_board, collapsed, true);
+        projected = project_target();
+    }
     if (!projected) {
         LogWarn << "SPA deployed pose camera registration is unknown" << m_name;
         return false;
@@ -1045,8 +1056,10 @@ bool asst::spa::SwapTaskPlugin::observe_deployed_pose()
                                      { "pose_from_registered_cell_center", !m_deployment_grid_to_screen.empty() },
                                      { "target_identity_verified", m_field_pose_verified } };
     pose["details"]["grid_member_coordinates_verified"] = !m_observed_grid_members.empty();
+    pose["details"]["post_drop_preparation_frame_reused"] =
+        used_post_drop_frame && collapsed.data == preparation_frame.data;
     if (!m_observed_grid_members.empty()) {
-        if (const auto projection = registered_grid_projection(m_held_board, collapsed, m_growth_grid_to_screen)) {
+        if (const auto projection = registered_grid_projection(camera_fit, m_growth_grid_to_screen)) {
             m_observed_grid_projection = projection->clone();
             m_observed_grid_reference = collapsed.clone();
         }
@@ -5172,8 +5185,8 @@ bool asst::spa::SwapTaskPlugin::_run()
             return count == remaining_before - 1 || (!joint_new_unit && count == remaining_before);
         };
         std::optional<int> observed_remaining;
-        bool preparation_restored = false;
-        for (int attempt = 0; attempt < (joint_new_unit ? 4 : 12) && !preparation_restored; ++attempt) {
+        cv::Mat settled_preparation;
+        for (int attempt = 0; attempt < (joint_new_unit ? 4 : 12) && settled_preparation.empty(); ++attempt) {
             if (attempt > 0 && !sleep(m_fast_mode ? 160 : 450)) {
                 return false;
             }
@@ -5198,7 +5211,7 @@ bool asst::spa::SwapTaskPlugin::_run()
                 if (ready && badge && expected_post_drop_count(*badge) &&
                     (!joint_new_unit || preparation_round_number(reconciliation_image, m_round) == m_round)) {
                     observed_remaining = *badge;
-                    preparation_restored = true;
+                    settled_preparation = reconciliation_image;
                     break;
                 }
             }
@@ -5217,16 +5230,16 @@ bool asst::spa::SwapTaskPlugin::_run()
             if (page.page == Page::Preparation && count && expected_post_drop_count(*count) &&
                 (!joint_new_unit || preparation_round_number(reconciliation_image, m_round) == m_round)) {
                 observed_remaining = *count;
-                preparation_restored = true;
+                settled_preparation = reconciliation_image;
             }
         }
-        if (!preparation_restored || !observed_remaining) {
+        if (settled_preparation.empty() || !observed_remaining) {
             save_evidence(ctrler()->get_image(), utils::path("debug/SPA/deployment_reconciliation"), false);
             return false;
         }
         m_population_consumed = *observed_remaining == remaining_before - 1;
         m_remaining = *observed_remaining;
-        observe_deployed_pose();
+        observe_deployed_pose(settled_preparation);
         if (m_replace_only) {
             m_replacement_committed = true;
             if (m_population_consumed || m_remaining != remaining_before) {

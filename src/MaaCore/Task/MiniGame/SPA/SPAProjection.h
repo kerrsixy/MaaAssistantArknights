@@ -187,11 +187,16 @@ std::optional<cv::Point2f> project_supported_point(const CameraProjection& proje
 // frames. This only registers the point; the executor must still read its name.
 std::optional<cv::Point>
     registered_deployment_pose(const cv::Mat& held, const cv::Mat& collapsed, cv::Point held_target);
+std::optional<cv::Point> registered_deployment_pose(const CameraProjection& fit, cv::Point held_target);
 // The direction diamond supplies an approximate receiver hint. Record the
 // registered tile center rather than treating that UI hint as a ground point.
 std::optional<cv::Point> registered_deployment_cell_pose(
     const cv::Mat& held,
     const cv::Mat& collapsed,
+    const cv::Mat& grid_to_held,
+    cv::Point receiver_hint);
+std::optional<cv::Point> registered_deployment_cell_pose(
+    const CameraProjection& fit,
     const cv::Mat& grid_to_held,
     cv::Point receiver_hint);
 // A verified grid and the actual green tile provide independent location
