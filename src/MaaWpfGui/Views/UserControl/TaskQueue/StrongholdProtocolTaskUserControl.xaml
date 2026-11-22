@@ -64,6 +64,15 @@
                 Margin="0,10,0,0"
                 Text="{DynamicResource TaskQueue.StrongholdProtocol.RunCount.Tip}"
                 TextWrapping="Wrap" />
+            <StackPanel Margin="0,10,0,0" Visibility="{c:Binding IsJointSimulation}">
+                <CheckBox
+                    Margin="0,0,0,8"
+                    Content="{DynamicResource TaskQueue.StrongholdProtocol.JointEmotes}"
+                    IsChecked="{Binding SendJointEmotes, UpdateSourceTrigger=PropertyChanged}" />
+                <CheckBox
+                    Content="{DynamicResource TaskQueue.StrongholdProtocol.JointCommendation}"
+                    IsChecked="{Binding CommendJointTeammates, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
         </StackPanel>
     </StackPanel>
 </UserControl>

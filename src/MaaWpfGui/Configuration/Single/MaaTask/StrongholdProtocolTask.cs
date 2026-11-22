@@ -27,6 +27,10 @@ public class StrongholdProtocolTask : BaseTask
 
     public int RunCount { get; set; } = 99_999;
 
+    public bool SendJointEmotes { get; set; } = true;
+
+    public bool CommendJointTeammates { get; set; } = true;
+
     public string PrimaryPact { get; set; } = "auto";
 
     public string StrategyPolicy { get; set; } = "default";

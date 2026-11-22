@@ -63,6 +63,8 @@ inline json::value fresh_run_parameters(const json::value& initial)
                              "requested_primary_pact",
                              "dynamic_primary_pact",
                              "prefer_unclaimed_strategy",
+                             "joint_emote_probe",
+                             "joint_commend_teammates",
                              "schedule_strategy_badges",
                              "strategy_id",
                              "enabled_core_pacts",

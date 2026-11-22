@@ -52,6 +52,18 @@ public class StrongholdProtocolTaskUserControlModel : TaskSettingsViewModel, Str
         }
     }
 
+    public bool SendJointEmotes
+    {
+        get => GetTaskConfig<StrongholdProtocolTask>().SendJointEmotes;
+        set => SetTaskConfig<StrongholdProtocolTask>(task => task.SendJointEmotes == value, task => task.SendJointEmotes = value);
+    }
+
+    public bool CommendJointTeammates
+    {
+        get => GetTaskConfig<StrongholdProtocolTask>().CommendJointTeammates;
+        set => SetTaskConfig<StrongholdProtocolTask>(task => task.CommendJointTeammates == value, task => task.CommendJointTeammates = value);
+    }
+
     public string SimulationMode
     {
         get => GetTaskConfig<StrongholdProtocolTask>().SimulationMode;
@@ -66,6 +78,9 @@ public class StrongholdProtocolTaskUserControlModel : TaskSettingsViewModel, Str
 
     [PropertyDependsOn(nameof(SimulationMode))]
     public bool HasDifficulty => SimulationMode != "quick";
+
+    [PropertyDependsOn(nameof(SimulationMode))]
+    public bool IsJointSimulation => SimulationMode == "joint";
 
     [PropertyDependsOn(nameof(SimulationMode))]
     public int Difficulty
@@ -120,6 +135,8 @@ public class StrongholdProtocolTaskUserControlModel : TaskSettingsViewModel, Str
             NotifyOfPropertyChange(nameof(PrimaryPact));
             NotifyOfPropertyChange(nameof(SpecifiedStrategy));
             NotifyOfPropertyChange(nameof(RunCount));
+            NotifyOfPropertyChange(nameof(SendJointEmotes));
+            NotifyOfPropertyChange(nameof(CommendJointTeammates));
         }
     }
 
@@ -140,6 +157,8 @@ public class StrongholdProtocolTaskUserControlModel : TaskSettingsViewModel, Str
                 PrimaryPact = spa.PrimaryPact,
                 SpecifiedStrategy = spa.SpecifiedStrategy,
                 RunCount = Math.Clamp(spa.RunCount, 1, 99_999),
+                SendJointEmotes = spa.SendJointEmotes,
+                CommendJointTeammates = spa.CommendJointTeammates,
                 ClientType = SettingsViewModel.GameSettings.ClientType.ToCustomString(),
             };
             return taskId switch {

@@ -37,6 +37,14 @@ int main()
                        { "selected_strategy_id", "band_amiya" } });
     assert(next_badge_run.get("schedule_strategy_badges", false));
     assert(!next_badge_run.contains("selected_strategy_id"));
+    for (const bool send_emotes : { false, true }) {
+        const auto next_joint_run = fresh_run_parameters(
+            json::object { { "mode", "joint" },
+                           { "joint_emote_probe", send_emotes },
+                           { "joint_commend_teammates", !send_emotes } });
+        assert(next_joint_run.find<bool>("joint_emote_probe") == send_emotes);
+        assert(next_joint_run.find<bool>("joint_commend_teammates") == !send_emotes);
+    }
     json::value watched_settlement = json::object { { "page", "result" },
                                                     { "battle_seen", true },
                                                     { "result_text_verified", true },

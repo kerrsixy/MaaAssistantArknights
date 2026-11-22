@@ -509,7 +509,8 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         std::vector<std::vector<int>> viewport_rows;
         json::array card_evidence;
         cv::Mat last_marker;
-        for (int page = 0; page < 4 && !need_exit(); ++page) {
+        const int max_viewports = m_prefer_unclaimed ? 7 : 4;
+        for (int page = 0; page < max_viewports && !need_exit(); ++page) {
             image = ctrler()->get_image();
             const auto marker = viewport_marker(image);
             if (!last_marker.empty() && cv::norm(marker, last_marker, cv::NORM_L1) / (marker.total() * 3) < 3) {
@@ -551,8 +552,10 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                 return std::pair(a.index == initially_selected, m_prefer_unclaimed ? a.badge_priority() : 0) >
                        std::pair(b.index == initially_selected, m_prefer_unclaimed ? b.badge_priority() : 0);
             });
-            // Reserve an inspection budget per viewport so a slow first page does not consume the entire search.
-            const auto page_deadline = std::min(deadline, std::chrono::steady_clock::now() + std::chrono::seconds(7));
+            // A deeper viewport may require a reset to the top and a replay of the scrolls to the chosen card.
+            const auto return_margin = std::chrono::seconds(2 * page + 1);
+            const auto page_deadline =
+                std::min(deadline - return_margin, std::chrono::steady_clock::now() + std::chrono::seconds(7));
             for (auto& candidate : visible) {
                 const bool reuse_highlight = page == 0 && candidate.index == initially_selected;
                 if (need_exit() || (!reuse_highlight && std::chrono::steady_clock::now() >= page_deadline)) {
@@ -621,12 +624,10 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                                    { "support_score", candidate.support_score },
                                    { "reason", assessment.reason } });
             }
-            const bool selectable_in_view = std::ranges::any_of(candidates, [&](const auto& card) {
-                return card.available &&
-                       (!m_prefer_unclaimed || (card.badge_known && !card.completed));
-            });
-            if (page == 3 || (joint_mode && selectable_in_view) ||
-                std::chrono::steady_clock::now() + std::chrono::seconds(5) >= deadline) {
+            const bool selectable_in_view =
+                std::ranges::any_of(candidates, [](const auto& card) { return card.available; });
+            if (page + 1 == max_viewports || (joint_mode && !m_prefer_unclaimed && page > 0 && selectable_in_view) ||
+                std::chrono::steady_clock::now() + return_margin + std::chrono::seconds(5) >= deadline) {
                 break;
             }
             last_marker = viewport_marker(ctrler()->get_image());

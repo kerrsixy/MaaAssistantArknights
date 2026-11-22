@@ -35,6 +35,10 @@ public class AsstStrongholdProtocolTask : AsstBaseTask
 
     public int RunCount { get; set; } = 1;
 
+    public bool SendJointEmotes { get; set; } = true;
+
+    public bool CommendJointTeammates { get; set; } = true;
+
     public override (AsstTaskType TaskType, JObject Params) Serialize() => (TaskType, JObject.FromObject(new {
         run_id = $"gui-spa-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
         run_count = Math.Clamp(RunCount, 1, 99_999),
@@ -45,6 +49,8 @@ public class AsstStrongholdProtocolTask : AsstBaseTask
         dynamic_primary_pact = true,
         manage_lifecycle = true,
         prefer_unclaimed_strategy = StrategyPolicy == "unclaimed",
+        joint_emote_probe = SimulationMode == "joint" && SendJointEmotes,
+        joint_commend_teammates = SimulationMode == "joint" && CommendJointTeammates,
         strategy_id = StrategyPolicy == "specific" ? SpecifiedStrategy : string.Empty,
         expected_boss_round = SimulationMode == "quick" ? 9 : 14,
         client_type = ClientType,
