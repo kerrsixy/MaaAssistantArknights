@@ -698,6 +698,13 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
         return contains(policy.disabled_pacts, pact);
     };
     const std::string preferred = policy.primary_pact == "auto" ? std::string() : policy.primary_pact;
+    const auto& committed = policy.committed_joint_primary_pact;
+    if (!committed.empty() && is_enabled(committed) && !is_disabled(committed)) {
+        result.valid = true;
+        result.primary_pact = committed;
+        result.reason = "Continue developing the committed joint faction";
+        return result;
+    }
     const bool use_requested = !policy.requested_primary_pact.empty() && policy.requested_primary_pact != "auto" &&
                                !is_disabled(policy.requested_primary_pact) && is_enabled(policy.requested_primary_pact);
     const auto guided = guided_primary_choices(policy.selected_strategy_id, policy.disabled_pacts);
@@ -856,17 +863,18 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
         // card, not a two-card activation package. Count its stronger signal
         // once instead of making an established route oscillate to it.
         signal.score -= dual_role_owned * 300 + dual_role_offers * 900;
-        signal.inferred_contention =
-            inferred_route_contention(signal.pact, policy.occupied_strategy_ids, policy.disabled_pacts);
+        signal.inferred_contention = policy.round <= 1
+                                         ? inferred_route_contention(signal.pact, policy.occupied_strategy_ids, policy.disabled_pacts)
+                                         : 0;
         signal.observed_competing_teammates =
             static_cast<int>(std::ranges::count_if(policy.observed_teammate_core_pacts, [&](const auto& entry) {
                 const auto& observed = entry.second;
                 const auto age = policy.round - observed.round;
                 return observed.pact == signal.pact && age >= 1 && age <= 2;
             }));
-        // Use the larger penalty so a teammate's observed lineup and opening
-        // strategy cannot count as two separate sources of pool pressure.
-        signal.score -= std::max(signal.inferred_contention * 6, signal.observed_competing_teammates * 400);
+        // Battle observations explain the shared pool. They do not drive a
+        // mid-run faction switch after teammates begin developing.
+        signal.score -= signal.inferred_contention * 6;
         // A faction can be worth keeping before its named engine/carry is
         // visible when the observed distinct-member density already reaches
         // the activation threshold.  This is the important distinction

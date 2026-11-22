@@ -3,6 +3,7 @@
 #include <charconv>
 
 #include "Controller/Controller.h"
+#include "SPAJointEmote.h"
 #include "SPALifecycle.h"
 #include "SPALifecycleFrame.h"
 #include "SPAObservation.h"
@@ -131,6 +132,11 @@ bool asst::spa::LifecycleTaskPlugin::_run()
                                    state.get("result_difficulty", -1) != *m_fresh_independent_difficulty;
     if (page.page == "result" && page.result_verified && !page.issued_start_required && !mismatched_result) {
         m_result = state;
+        if (m_mode == "joint" && m_battle_seen && m_allow_joint_commendation && !m_joint_commendation_attempted &&
+            state.get("result_joint", false) && state.get("result_completed", false)) {
+            m_joint_commendation_attempted = true;
+            commend_joint_teammates(state);
+        }
         if (m_personal_result && state.get("result_joint", false) &&
             m_personal_result->get("personal_result_difficulty_name", std::string()) ==
                 state.get("result_difficulty_name", std::string())) {
@@ -319,6 +325,46 @@ bool asst::spa::LifecycleTaskPlugin::_run()
                                         { "run_abandoned", false } };
     callback(AsstMsg::SubTaskExtraInfo, receipt);
     return true;
+}
+
+void asst::spa::LifecycleTaskPlugin::commend_joint_teammates(const json::value& state)
+{
+    const auto texts = state.find<json::array>("texts");
+    if (!texts) {
+        return;
+    }
+    auto frame = ctrler()->get_image();
+    json::array attempts;
+    for (int column = 0; column < 4 && !need_exit(); ++column) {
+        const int left = 115 + column * 295;
+        const bool completed = std::ranges::any_of(*texts, [&](const auto& item) {
+            const int x = item.get("x", -1), y = item.get("y", -1);
+            return x >= left && x < left + 65 && y >= 395 && y < 433 && item.get("score", 0.) >= .90 &&
+                   item.get("text", std::string()).starts_with("閫氳繃鍥炲悎");
+        });
+        const auto button = completed ? joint_settlement_like_button(frame, column) : std::nullopt;
+        if (!button) {
+            continue;
+        }
+        const bool issued = ctrler()->click(Point(button->x, button->y));
+        bool control_changed = false;
+        if (issued && sleep(250)) {
+            const auto updated = ctrler()->get_image();
+            if (updated.size() == frame.size() && updated.type() == frame.type()) {
+                const cv::Rect control(button->x - 34, button->y - 16, 68, 32);
+                control_changed = cv::norm(updated(control), frame(control), cv::NORM_L1) >
+                                  static_cast<double>(control.area()) * 8;
+            }
+            frame = updated;
+        }
+        attempts.emplace_back(json::object { { "player_column", column + 1 },
+                                              { "input_issued", issued },
+                                              { "control_visual_change", control_changed } });
+    }
+    auto info = basic_info_with_what("SPAJointSettlementCommendation");
+    info["details"] =
+        json::object { { "completed_team_result_verified", true }, { "attempts", std::move(attempts) } };
+    callback(AsstMsg::SubTaskExtraInfo, info);
 }
 
 void asst::spa::LifecycleTaskPlugin::note_solo_result(const json::object& result)

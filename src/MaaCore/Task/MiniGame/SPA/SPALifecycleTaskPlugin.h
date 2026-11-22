@@ -28,10 +28,14 @@ public:
 
     void note_input_reconciliation(std::string_view event) { m_reconciliation_event = event; }
 
+    void allow_joint_commendation(bool allowed) { m_allow_joint_commendation = allowed; }
+
 protected:
     bool _run() override;
 
 private:
+    void commend_joint_teammates(const json::value& state);
+
     std::function<bool()> m_execute;
     std::string m_client_type;
     std::string m_mode;
@@ -42,6 +46,8 @@ private:
     std::optional<json::object> m_result;
     std::optional<json::object> m_personal_result;
     bool m_battle_seen = false;
+    bool m_allow_joint_commendation = false;
+    bool m_joint_commendation_attempted = false;
     std::string m_reconciliation_event;
     LifecycleNavigationGuard m_navigation_guard;
     LifecycleLoadingGrace m_loading_grace;

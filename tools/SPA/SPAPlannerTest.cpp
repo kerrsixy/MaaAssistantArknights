@@ -3082,6 +3082,13 @@ int main()
     assert(joint_emote_column(2, std::nullopt) == 0);
     assert(joint_emote_column(3, 0) == 2);
     assert(joint_emote_column(6, 0) == 0);
+    cv::Mat team_report(720, 1280, CV_8UC3, cv::Scalar::all(20));
+    team_report(cv::Rect(236, 556, 16, 9)).setTo(cv::Scalar(24, 122, 224));
+    team_report(cv::Rect(211, 550, 8, 12)).setTo(cv::Scalar(24, 122, 224));
+    assert(joint_settlement_like_button(team_report, 0) == cv::Point(244, 561));
+    assert(!joint_settlement_like_button(team_report, 1));
+    team_report(cv::Rect(210, 545, 68, 32)).setTo(cv::Scalar(24, 122, 224));
+    assert(!joint_settlement_like_button(team_report, 0));
     LifecyclePage loading_page { "unknown" };
     loading_page.loading_verified = true;
     assert(lifecycle_next(loading_page) == "MiniGame@SPA@LifecycleWait");
@@ -4447,9 +4454,9 @@ int main()
     assert(guided_primary_choices("band_weakness", { "奥术" }).pacts == std::vector<std::string>({ "乌萨斯" }));
     assert(guided_primary_choices("band_weakness", { "奥术", "乌萨斯" }).pacts.empty());
     assert(guided_support_choices("band_weakness", "精准", { "奥术" }).empty());
-    assert(inferred_route_contention("乌萨斯", { "band_jesica" }, {}) == 33);
-    assert(inferred_route_contention("乌萨斯", { "band_jesica", "band_jesica" }, {}) == 33);
-    assert(inferred_route_contention("乌萨斯", { "band_jesica" }, { "莱塔尼亚" }) == 50);
+    assert(inferred_route_contention("乌萨斯", { "band_jesica" }, {}) == 0);
+    assert(inferred_route_contention("乌萨斯", { "band_ursus", "band_ursus" }, {}) == 100);
+    assert(inferred_route_contention("乌萨斯", { "band_ursus" }, { "乌萨斯" }) == 0);
     assert(inferred_route_contention("精准", { "band_jesica", "unknown-strategy" }, {}) == 0);
     auto competition_policy = dynamic_policy;
     competition_policy.primary_pact = "auto";
@@ -4465,7 +4472,7 @@ int main()
             });
         assert(before != no_competition.ranking.end());
         assert(signal.score == before->score - signal.inferred_contention * 6);
-        assert(signal.inferred_contention == 25);
+        assert(signal.inferred_contention == 0);
     }
     assert(leading_core_pact({ { "阿戈尔", 35 }, { "维多利亚", 20 }, { "迅捷", 99 } }) == "阿戈尔");
     assert(!leading_core_pact({ { "阿戈尔", 20 }, { "维多利亚", 20 } }));
@@ -4483,9 +4490,13 @@ int main()
     const auto uncontrolled_route = std::ranges::find(no_competition.ranking, "阿戈尔", &DynamicPactSignal::pact);
     assert(observed_route != with_observations.ranking.end() && uncontrolled_route != no_competition.ranking.end());
     assert(observed_route->observed_competing_teammates == 2);
-    assert(observed_route->score == uncontrolled_route->score - 800);
+    assert(observed_route->score == uncontrolled_route->score);
     const auto other_route = std::ranges::find(with_observations.ranking, "维多利亚", &DynamicPactSignal::pact);
     assert(other_route != with_observations.ranking.end() && other_route->observed_competing_teammates == 0);
+    competition_policy.committed_joint_primary_pact = "维多利亚";
+    assert(choose_dynamic_primary_pact(competition_policy, faction_shop, catalog).primary_pact == "维多利亚");
+    competition_policy.disabled_pacts = { "维多利亚" };
+    assert(choose_dynamic_primary_pact(competition_policy, faction_shop, catalog).primary_pact != "维多利亚");
     // One already-owned transition card must not pin the route when a live
     // shop offer contains another faction's named stacker/output hand.
     auto transition_pivot_policy = dynamic_policy;

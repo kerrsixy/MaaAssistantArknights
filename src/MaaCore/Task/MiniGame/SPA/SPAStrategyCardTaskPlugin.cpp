@@ -294,15 +294,16 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
             return;
         }
         occupied_reported.push_back(identity->band_id);
-        const auto context = m_context_provider ? m_context_provider() : OpeningStrategyContext {};
-        const auto inferred = guided_primary_choices(identity->band_id, context.disabled_pacts);
+        const auto declared = declared_strategy_pact(identity->band_id);
+        const auto inferred = declared.empty() ? std::vector<std::string> {}
+                                               : std::vector<std::string> { std::string(declared) };
         auto info = basic_info_with_what("SPAStrategyOccupiedObserved");
         info["details"] = json::object { { "strategy_id", identity->band_id },
                                          { "strategy_name", identity->name },
                                          { "occupied_strategy_ids", occupied_reported },
                                          { "occupied_label_verified", true },
-                                         { "inferred_primary_pacts", inferred.pacts },
-                                         { "inference_source", inferred.guide_found ? "strategy_guides" : "unknown" },
+                                         { "inferred_primary_pacts", inferred },
+                                         { "inference_source", declared.empty() ? "general_strategy" : "declared_pact" },
                                          { "teammate_faction_verified", false } };
         callback(AsstMsg::SubTaskExtraInfo, info);
     };

@@ -59,6 +59,20 @@ inline std::optional<int> joint_emote_page(const cv::Mat& before, const cv::Mat&
     return page;
 }
 
+inline std::optional<cv::Point> joint_settlement_like_button(const cv::Mat& frame, int player_column)
+{
+    if (frame.size() != cv::Size(1280, 720) || frame.type() != CV_8UC3 || player_column < 0 || player_column > 3) {
+        return std::nullopt;
+    }
+    const cv::Point button { 244 + player_column * 295, 561 };
+    cv::Mat hsv, orange;
+    cv::cvtColor(frame(cv::Rect(button.x - 34, button.y - 16, 68, 32)), hsv, cv::COLOR_BGR2HSV);
+    cv::inRange(hsv, cv::Scalar(3, 90, 120), cv::Scalar(22, 255, 255), orange);
+    const int core = cv::countNonZero(orange(cv::Rect(21, 4, 26, 24)));
+    const int border = cv::countNonZero(orange) - core;
+    return core >= 105 && core <= 220 && border >= 80 && border <= 250 ? std::optional(button) : std::nullopt;
+}
+
 inline int joint_emote_column(int page, std::optional<int> local_leaks)
 {
     if (page == 2 && local_leaks && *local_leaks > 0) {

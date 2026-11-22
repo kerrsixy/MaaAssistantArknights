@@ -73,6 +73,7 @@ private:
     int m_last_observed_automated_battle_round = -1;
     spa::PreparationDeadline m_joint_preparation_deadline;
     bool m_joint_emote_probe = false;
+    bool m_joint_commend_teammates = false;
     int m_supply_confirmation_after_round = -1;
     std::optional<int> m_previous_round_life;
     std::set<std::pair<int, std::string>> m_blocked_purchases;

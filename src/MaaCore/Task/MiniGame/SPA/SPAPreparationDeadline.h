@@ -25,7 +25,7 @@ class PreparationDeadline
 public:
     using Clock = std::chrono::steady_clock;
 
-    bool shortening_requires_confirmation() const { return m_pending_shortening.has_value(); }
+    bool correction_requires_confirmation() const { return m_pending_shortening || m_pending_hundreds_recovery; }
 
     // The number belongs to the captured frame, not to the later OCR result.
     // A missing frame timestamp denotes a cached observation: its old digits
@@ -51,12 +51,33 @@ public:
             m_round = round;
             m_deadline.reset();
             m_pending_shortening.reset();
+            m_pending_hundreds_recovery.reset();
         }
         if (m_pending_shortening && now >= m_pending_shortening->sampled_at + std::chrono::seconds(7)) {
             m_pending_shortening.reset();
         }
+        if (m_pending_hundreds_recovery && now >= m_pending_hundreds_recovery->sampled_at + std::chrono::seconds(7)) {
+            m_pending_hundreds_recovery.reset();
+        }
         if (seconds && *seconds >= 0 && *seconds <= 180) {
             const auto observed = now + std::chrono::seconds(*seconds);
+            // An initial three-digit display can also lose its leading 1.
+            // Only two consistent full reads can correct that specific seed.
+            if (m_deadline && *seconds >= 100 && observed >= *m_deadline + std::chrono::seconds(95) &&
+                observed <= *m_deadline + std::chrono::seconds(105)) {
+                if (m_pending_hundreds_recovery && now > m_pending_hundreds_recovery->sampled_at &&
+                    observed >= m_pending_hundreds_recovery->deadline - std::chrono::seconds(3) &&
+                    observed <= m_pending_hundreds_recovery->deadline + std::chrono::seconds(3)) {
+                    m_deadline = std::min(m_pending_hundreds_recovery->deadline, observed);
+                    m_pending_hundreds_recovery.reset();
+                    m_pending_shortening.reset();
+                }
+                else {
+                    m_pending_hundreds_recovery = ClockCorrection { observed, now };
+                }
+                return effective_seconds(now);
+            }
+            m_pending_hundreds_recovery.reset();
             // A missing leading digit (86 -> 6) must not permanently consume
             // the rest of preparation. Pause new actions provisionally, then
             // require another consistent read before shortening substantially.
@@ -68,7 +89,7 @@ public:
                     m_pending_shortening.reset();
                 }
                 else {
-                    m_pending_shortening = PendingShortening { observed, now };
+                    m_pending_shortening = ClockCorrection { observed, now };
                 }
             }
             else {
@@ -76,6 +97,12 @@ public:
                 m_pending_shortening.reset();
             }
         }
+        return effective_seconds(now);
+    }
+
+private:
+    std::optional<int> effective_seconds(Clock::time_point now) const
+    {
         if (!m_deadline) {
             return std::nullopt;
         }
@@ -83,14 +110,14 @@ public:
         return std::max(0, static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(effective - now).count()));
     }
 
-private:
     int m_round = -1;
     std::optional<Clock::time_point> m_deadline;
-    struct PendingShortening
+    struct ClockCorrection
     {
         Clock::time_point deadline;
         Clock::time_point sampled_at;
     };
-    std::optional<PendingShortening> m_pending_shortening;
+    std::optional<ClockCorrection> m_pending_shortening;
+    std::optional<ClockCorrection> m_pending_hundreds_recovery;
 };
 }

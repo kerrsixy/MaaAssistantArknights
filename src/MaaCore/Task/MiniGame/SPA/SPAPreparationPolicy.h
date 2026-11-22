@@ -96,6 +96,7 @@ struct PreparationPolicy
     // the caller supplies an explicit preferred faction name.
     bool dynamic_primary_pact = false;
     bool primary_locked_after_activation = false;
+    std::string committed_joint_primary_pact;
     int round = 1;
     int primary_deadline_round = 6;
     int shop_level = 0;

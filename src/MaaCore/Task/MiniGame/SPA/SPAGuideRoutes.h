@@ -1,5 +1,7 @@
 #pragma once
 
+#include "SPAStrategyCatalogue.h"
+
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -131,25 +133,22 @@ inline GuidedPrimaryChoices
     return result;
 }
 
-// A taken strategy suggests competing routes, not a verified teammate faction.
-// Split its weight across alternatives; duplicate observations add no pressure.
+inline std::string_view declared_strategy_pact(std::string_view strategy)
+{
+    const auto facts = std::ranges::find(StrategyCatalogue, strategy, &StrategyCatalogueEntry::id);
+    return facts != StrategyCatalogue.end() ? facts->pact : std::string_view {};
+}
+
+// A teammate's general strategy does not declare a faction. Guide examples
+// can guide our own build without guessing a teammate's pool demand.
 inline int inferred_route_contention(
     const std::string& pact,
     const std::vector<std::string>& occupied_strategies,
     const std::vector<std::string>& disabled)
 {
-    int pressure = 0;
-    std::vector<std::string> seen;
-    for (const auto& strategy : occupied_strategies) {
-        if (std::find(seen.begin(), seen.end(), strategy) != seen.end()) {
-            continue;
-        }
-        seen.push_back(strategy);
-        const auto choices = guided_primary_choices(strategy, disabled);
-        if (std::find(choices.pacts.begin(), choices.pacts.end(), pact) != choices.pacts.end()) {
-            pressure += 100 / static_cast<int>(choices.pacts.size());
-        }
-    }
-    return std::min(100, pressure);
+    return !pact.empty() && std::ranges::find(disabled, pact) == disabled.end() &&
+                   std::ranges::any_of(occupied_strategies, [&](const auto& id) { return declared_strategy_pact(id) == pact; })
+               ? 100
+               : 0;
 }
 }

@@ -71,6 +71,7 @@ void asst::StrongholdProtocolTask::refresh_mode_pact_restrictions()
         const auto previous = m_policy.primary_pact;
         m_policy.primary_pact = "auto";
         m_policy.primary_locked_after_activation = false;
+        m_policy.committed_joint_primary_pact.clear();
         m_policy.carries.clear();
         m_policy.support_pacts.clear();
         auto receipt = basic_info_with_what("SPAPrimaryPactFallback");
@@ -137,6 +138,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_last_ursus_battle_with_layer_growth = -1;
     m_joint_preparation_deadline = {};
     m_joint_emote_probe = m_mode == "joint" && params.get("joint_emote_probe", false);
+    m_joint_commend_teammates = m_mode == "joint" && params.get("joint_commend_teammates", false);
     m_supply_confirmation_after_round = params.get("supply_confirmation_after_round", -1);
     m_previous_round_life.reset();
     m_replacement_round = -1;
@@ -3140,6 +3142,7 @@ bool asst::StrongholdProtocolTask::run_single()
         m_require_fresh_independent && m_mode == "independent" && m_difficulty >= 1 && m_difficulty <= 20
             ? std::optional(m_difficulty)
             : std::nullopt);
+    lifecycle->allow_joint_commendation(m_joint_commend_teammates);
     const bool executed = flow.run();
     const bool full_run = m_auto_run && !m_decision_only && !m_stop_before_battle && !m_stop_after_deployment &&
                           !m_movement_only && !m_round_only;
@@ -3771,7 +3774,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         const auto joint_seconds = m_mode == "joint" && state.get("preparation_seconds_remaining_known", false)
                                        ? std::optional(state.get("preparation_seconds_remaining", 0))
                                        : std::nullopt;
-        const bool joint_clock_recheck = m_mode == "joint" && m_joint_preparation_deadline.shortening_requires_confirmation();
+        const bool joint_clock_recheck = m_mode == "joint" && m_joint_preparation_deadline.correction_requires_confirmation();
         const bool prioritize_joint_ready =
             !joint_clock_recheck && m_auto_run && !m_decision_only && !m_round_only && !m_stop_before_battle && !m_stop_after_deployment &&
             !m_movement_only && !m_verify_layout_identities && !m_pending_spatial_orientation &&
@@ -3790,7 +3793,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             deadline["details"] = json::object { { "round", state.get("round", -1) },
                                                  { "seconds_remaining", state.get("preparation_seconds_remaining", 0) },
                                                  { "funds", state.get("funds", -1) },
-                                                 { "clock_shortening_requires_confirmation", joint_clock_recheck },
+                                                 { "clock_correction_requires_confirmation", joint_clock_recheck },
                                                  { "new_transaction_issued", false },
                                                  { "funds_carryover_assumed", false } };
             callback(AsstMsg::SubTaskExtraInfo, deadline);
@@ -5690,9 +5693,19 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                                    m_policy.primary_pact) != m_strategy_context.active_pacts.end() ||
                                                modeled_primary_is_active);
         m_policy.primary_locked_after_activation = current_primary_is_active;
+        if (m_mode == "joint" && current_primary_is_active && m_policy.committed_joint_primary_pact.empty()) {
+            m_policy.committed_joint_primary_pact = m_policy.primary_pact;
+        }
         if (m_dynamic_primary_pact) {
             m_policy.selected_strategy_id = m_selected_strategy_id;
             const auto dynamic = spa::choose_dynamic_primary_pact(m_policy, offers, catalog, funds);
+            if (m_mode == "joint" && dynamic.valid && m_policy.committed_joint_primary_pact.empty()) {
+                const auto selected = std::ranges::find(dynamic.ranking, dynamic.primary_pact, &spa::DynamicPactSignal::pact);
+                if (selected != dynamic.ranking.end() && selected->growth_engine_owned > 0 &&
+                    selected->distinct_members >= std::max(2, selected->required_members - 1)) {
+                    m_policy.committed_joint_primary_pact = dynamic.primary_pact;
+                }
+            }
             if (dynamic.valid && dynamic.primary_pact != m_policy.primary_pact) {
                 const auto previous = m_policy.primary_pact;
                 m_policy.primary_pact = dynamic.primary_pact;
@@ -6563,6 +6576,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             { "planned_support_pacts", spa::planning_support_pacts(m_policy, offers, catalog) },
             { "dynamic_primary_pact", m_dynamic_primary_pact },
             { "primary_locked_after_activation", m_policy.primary_locked_after_activation },
+            { "committed_joint_primary_pact", m_policy.committed_joint_primary_pact },
             { "primary_activation_required", primary_activation_required },
             { "primary_activation_members",
               modeled_formation.activation_members.contains(m_policy.primary_pact)
