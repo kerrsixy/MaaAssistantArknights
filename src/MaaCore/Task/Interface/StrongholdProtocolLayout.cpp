@@ -20,8 +20,10 @@
 #include <chrono>
 #include <iterator>
 
-void
-    asst::StrongholdProtocolTask::refresh_spatial_grid_snapshot(const json::value& state, bool require_fresh_projection)
+void asst::StrongholdProtocolTask::refresh_spatial_grid_snapshot(
+    const json::value& state,
+    bool require_fresh_projection,
+    bool finalizing_boss_formation)
 {
     const int round = state.get("round", -1);
     const bool has_unverified_pose =
@@ -73,7 +75,10 @@ void
     auto& refresh = m_spatial_grid_refresh_attempts[refresh_context];
     // A clean frame already tried the unknown chevrons for this physical
     // field. A turn-in-place on a different slot should not recheck them.
-    if (refresh.attempts >= (bootstrap ? 1 : 2) ||
+    // Earlier captures may have failed while the roster or shop was changing.
+    // Allow one more attempt when this same board is ready for the boss layout.
+    const int attempt_limit = (bootstrap ? 1 : 2) + static_cast<int>(finalizing_boss_formation && !bootstrap);
+    if (refresh.attempts >= attempt_limit ||
         (!require_fresh_projection && !needs_grid_recovery && refresh.facings_reviewed)) {
         return;
     }
@@ -158,6 +163,7 @@ void
     evidence["details"] = json::object { { "run_id", m_run_id },
                                          { "round", round },
                                          { "field_context_attempt", refresh.attempts },
+                                         { "finalizing_boss_formation", finalizing_boss_formation },
                                          { "roster", roster_snapshot() },
                                          { "field_positions", field_position_snapshot() },
                                          { "failed_spatial_actions", failed_spatial_action_snapshot() },
@@ -993,9 +999,15 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
                 }
             }
         }
+        const bool boss_round = m_spatial_boss_phase && m_spatial_boss_phase_round == round;
+        if (!egir_active && !m_layout_supplied && m_mode == "independent" && boss_round &&
+            m_spatial_snapshot_round != round) {
+            // A retained normal-wave grid cannot establish the boss opening target.
+            return false;
+        }
         std::optional<spa::SpatialReorientation> plan;
         std::optional<spa::DeploymentStep> layout_step;
-        const int layout_action_budget = m_spatial_boss_phase && m_spatial_boss_phase_round == round ? 8 : 3;
+        const int layout_action_budget = boss_round ? 8 : 3;
         if (egir_active) {
             layout_step = egir_layout_step(members, ranges, round, egir_harmony_active);
         }

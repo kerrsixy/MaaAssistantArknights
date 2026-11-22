@@ -170,7 +170,10 @@ private:
         const std::vector<spa::BoardCell>& range,
         bool boss_round) const;
     void review_boss_opening_coverage(const json::value& state);
-    void refresh_spatial_grid_snapshot(const json::value& state, bool require_fresh_projection = false);
+    void refresh_spatial_grid_snapshot(
+        const json::value& state,
+        bool require_fresh_projection,
+        bool finalizing_boss_formation);
     cv::Mat m_spatial_grid_reference;
     cv::Mat m_spatial_grid_projection;
     std::string m_spatial_map_id;

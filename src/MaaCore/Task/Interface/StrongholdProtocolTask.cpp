@@ -4070,7 +4070,10 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 m_spatial_snapshot_round != preparation_round && (boss_preparation || m_pending_direct_promotion);
             const bool needs_visible_boss_region = boss_preparation && m_boss_attackable_round != preparation_round &&
                                                    state.get("preparation_boss_bar_visible", false);
-            refresh_spatial_grid_snapshot(state, needs_round_projection || needs_visible_boss_region);
+            refresh_spatial_grid_snapshot(
+                state,
+                needs_round_projection || needs_visible_boss_region,
+                field_finalization && boss_preparation && needs_round_projection);
         }
         if (m_auto_run && field_work_due && reconcile_direct_promotion_equipment(state)) {
             continue;
