@@ -119,7 +119,7 @@ bool asst::spa::LifecycleTaskPlugin::_run()
     page.page = state.get("page", std::string("unknown"));
     page.issued_start_required = m_fresh_independent_difficulty.has_value() && !m_fresh_independent_start_issued;
     if (page.page == "result_summary" && !state.get("contradictory", false) &&
-        state.get("personal_passed_rounds_known", false) &&
+        (state.get("personal_passed_rounds_known", false) || state.get("personal_result_interrupted", false)) &&
         !state.get("personal_result_identity", std::string()).empty()) {
         m_personal_result = state;
     }
@@ -194,7 +194,7 @@ bool asst::spa::LifecycleTaskPlugin::_run()
             }
         }
         page.quick_start_available = page.quick_start_available && quick_selected;
-        page.loading_verified = verified_loading_page(loading_texts);
+        page.loading_verified = page.page == "joint_team_waiting" || verified_loading_page(loading_texts);
         page.joint_strategy_own_turn_verified = m_mode == "joint" && joint_strategy_own_turn(loading_texts);
         // Solo setup can also retain its 3/3 header after ready. Never replay
         // formation selection while its cancel-ready control is visible.

@@ -3713,7 +3713,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             callback(AsstMsg::SubTaskExtraInfo, recovery);
             return true;
         }
-        if (page_name == "result_summary") {
+        if (page_name == "result_summary" || page_name == "joint_team_waiting") {
             return true; // The lifecycle owns the transition to the team result.
         }
         if (page_name == "result" || page_name == "lobby") {

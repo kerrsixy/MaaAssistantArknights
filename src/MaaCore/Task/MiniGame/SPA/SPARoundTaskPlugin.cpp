@@ -305,8 +305,8 @@ bool asst::spa::RoundTaskPlugin::_run()
         if (page.contradictory) {
             return false;
         }
-        if (page.page == Page::ResultSummary) {
-            return true; // Let lifecycle advance to the verified team result.
+        if (page.page == Page::ResultSummary || page.page == Page::JointTeamWaiting) {
+            return true; // Let lifecycle advance to or wait for the verified team result.
         }
         if (page.page == Page::Result) {
             m_result_seen = true;

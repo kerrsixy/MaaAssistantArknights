@@ -915,17 +915,33 @@ asst::spa::PageObservation
                    text.x < right && text.y >= top && text.y < bottom;
         });
     };
-    if ((summary_anchor("模拟完成", 0, 150, 430, 250) || summary_anchor("模拟中断", 0, 150, 430, 250)) &&
-        summary_anchor("通过回合", 0, 240, 220, 300) && summary_anchor("下一步", 900, 590, 1280, 710)) {
+    const auto joint_difficulty_anchor = [&](int left, int top, int right, int bottom) {
+        return std::ranges::any_of(texts, [&](const auto& text) {
+            return std::isfinite(text.score) && text.score >= .9 && text.x >= left && text.x < right &&
+                   text.y >= top && text.y < bottom && joint_difficulty_from_label(text.text).has_value();
+        });
+    };
+    if (summary_anchor("尚在模拟中", 0, 590, 390, 716) &&
+        joint_difficulty_anchor(0, 590, 215, 650) && summary_anchor("返回主页", 900, 590, 1280, 710)) {
+        result.page = Page::JointTeamWaiting;
+        return result;
+    }
+    const bool personal_completed = summary_anchor("模拟完成", 0, 150, 430, 250);
+    const bool personal_interrupted = summary_anchor("模拟中断", 0, 150, 430, 250);
+    const bool personal_round_label = summary_anchor("通过回合", 0, 240, 220, 300);
+    const bool disconnected_summary = personal_interrupted && summary_anchor("中断连接", 0, 285, 235, 375) &&
+                                      joint_difficulty_anchor(100, 130, 430, 180);
+    if ((personal_completed || personal_interrupted) && (personal_round_label || disconnected_summary) &&
+        summary_anchor("下一步", 900, 590, 1280, 710)) {
         result.page = Page::ResultSummary;
-        result.personal_result_completed = summary_anchor("模拟完成", 0, 150, 430, 250);
-        result.personal_result_interrupted = summary_anchor("模拟中断", 0, 150, 430, 250);
+        result.personal_result_completed = personal_completed;
+        result.personal_result_interrupted = personal_interrupted;
         result.contradictory = result.personal_result_completed == result.personal_result_interrupted;
         for (const auto& item : texts) {
             if (!std::isfinite(item.score) || item.score < .9) {
                 continue;
             }
-            if (item.x < 180 && item.y >= 290 && item.y < 390 &&
+            if (personal_round_label && item.x < 180 && item.y >= 290 && item.y < 390 &&
                 std::regex_match(item.text, std::regex("[0-9]{1,2}"))) {
                 const int rounds = std::stoi(item.text);
                 if (rounds > 20 || (result.personal_passed_rounds && *result.personal_passed_rounds != rounds)) {

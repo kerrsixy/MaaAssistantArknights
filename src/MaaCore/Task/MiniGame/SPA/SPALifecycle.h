@@ -112,7 +112,7 @@ inline std::string lifecycle_next(const LifecyclePage& state)
     if (state.page == "joint_idle_removal") {
         return {};
     }
-    if (state.loading_verified) {
+    if (state.loading_verified || state.page == "joint_team_waiting") {
         return "MiniGame@SPA@LifecycleWait";
     }
     if (state.page == "data_updated") {

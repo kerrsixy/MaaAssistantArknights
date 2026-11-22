@@ -3585,6 +3585,24 @@ int main()
     assert(observe_page(joint_summary_texts, identities).page == Page::ResultSummary);
     joint_summary_texts[4].score = .3;
     assert(observe_page(joint_summary_texts, identities).page != Page::ResultSummary);
+    const std::vector<TextObservation> disconnected_summary {
+        { "标准模拟", .999, 208, 153 }, { "模拟中断", .999, 160, 191 }, { "中断连接", .999, 109, 309 },
+        { "下一步", .999, 1040, 639 }, { "Dr.Test#1234", .999, 182, 465 }, { "57", .999, 188, 546 },
+        { "7", .985, 119, 331 }
+    };
+    const auto disconnected = observe_page(disconnected_summary, identities);
+    assert(disconnected.page == Page::ResultSummary && disconnected.personal_result_interrupted);
+    assert(!disconnected.personal_result_completed && !disconnected.personal_passed_rounds);
+    assert(disconnected.personal_result_difficulty_name == "标准模拟");
+    const std::vector<TextObservation> joint_team_waiting {
+        { "尚在模拟中", .998, 14, 663 }, { "标准模拟", .999, 76, 622 }, { "返回主页", .999, 1110, 653 },
+        { "中断连接", .999, 162, 414 }
+    };
+    const auto waiting_team = observe_page(joint_team_waiting, identities);
+    assert(waiting_team.page == Page::JointTeamWaiting && !settlement_text_verified(waiting_team));
+    assert(lifecycle_next({ "joint_team_waiting" }) == "MiniGame@SPA@LifecycleWait");
+    assert(observe_page({ { "尚在模拟中", .999, 436, 412 }, { "返回主页", .999, 1110, 653 } }, identities).page !=
+           Page::JointTeamWaiting);
     std::vector<TextObservation> joint_result_texts {
         { "模拟完成", .999, 24, 659 },  { "同盟通过回合", .999, 246, 611 },
         { "返回主页", .999, 865, 656 }, { "继续搜寻", .999, 1110, 651 },
