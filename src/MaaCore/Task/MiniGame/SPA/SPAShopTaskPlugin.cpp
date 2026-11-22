@@ -45,6 +45,7 @@ std::optional<OperatorCardObservation>
     }
     // Exclude both the class emblem and the small LV label. Including them
     // made the normal level-one card look like a low-confidence 17.
+    const auto title_size = texts.size();
     OCRer level(image, Rect(103, 210, 62, 34));
     if (const auto recognized = level.analyze()) {
         for (const auto& text : *recognized) {
@@ -52,14 +53,12 @@ std::optional<OperatorCardObservation>
         }
     }
     auto card = observe_operator_card(texts, names, verified_panel_name);
-    if (!card && std::ranges::any_of(texts, [](const auto& text) {
-            return text.score >= .90 && text.x >= 103 && text.x < 113 && text.y >= 210 && text.y <= 245 &&
-                   (text.text.starts_with('v') || text.text.starts_with('V'));
-        })) {
+    if (!card) {
         // In some portraits the anchored LV letters extend inside the first
         // crop. Exclude that strip and keep the same numeric/form checks.
         OCRer digits(image, Rect(113, 210, 52, 34));
         if (const auto recognized = digits.analyze()) {
+            texts.resize(title_size);
             for (const auto& text : *recognized) {
                 texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
             }
