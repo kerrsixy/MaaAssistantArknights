@@ -591,11 +591,17 @@ bool NormalizedMap::accept_preview(NodeId target, const MovePreview& preview, bo
         return true;
     }
     Node node = *current;
+    // Preview OCR returns configured category tokens, while the map can show
+    // a more specific label. Replacing a known same-type name with that token
+    // would make the next map refresh undo it and trigger endless replanning.
+    const bool preserve_map_name = node.type == preview.displayed_type && node.identity_revealed && !node.name.empty();
     if (node.type != preview.displayed_type && node.progress == NodeProgress::Active) {
         node.traversal = default_traversal_for(preview.displayed_type);
     }
     node.type = preview.displayed_type;
-    node.name = preview.displayed_name;
+    if (!preserve_map_name) {
+        node.name = preview.displayed_name;
+    }
     node.identity_state = NodeIdentityState::Classified;
     node.identity_revealed = true;
     node.identity_from_template = false;
