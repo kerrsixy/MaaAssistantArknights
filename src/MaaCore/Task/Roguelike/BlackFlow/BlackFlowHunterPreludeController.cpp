@@ -183,7 +183,8 @@ json::object detector_json(const HunterPreludeObservation& result)
         slots.emplace_back(
             json::object { { "presence", static_cast<int>(slot.presence) },
                            { "present_score", slot.present_score },
-                           { "absent_score", slot.absent_score } });
+                           { "absent_score", slot.absent_score },
+                           { "distinct_empty_frames", slot.distinct_empty_frames } });
     }
     return { { "frame_observable", result.frame_observable },
              { "spawns", std::move(slots) },
@@ -223,13 +224,27 @@ bool asst::blackflow::BlackFlowHunterPreludeController::prepare(
     int bait_attempt_limit,
     std::string* error)
 {
+    HunterOpening opening { .bait_plans = { HunterBaitPlan { .plan_index = bait_plan_index,
+                                                             .location = hunter_control::BaitTile,
+                                                             .required_targets = { { 2, 2 }, { 4, 2 } } } },
+                            .attempt_limit = bait_attempt_limit };
+    return prepare(template_manifest, raw_level_path, current_level, opening, std::move(battle_key), error);
+}
+
+bool asst::blackflow::BlackFlowHunterPreludeController::prepare(
+    const std::filesystem::path& template_manifest,
+    const std::filesystem::path& raw_level_path,
+    const Map::Level& current_level,
+    const HunterOpening& opening,
+    std::string battle_key,
+    std::string* error)
+{
     *this = {};
     if (error) {
         error->clear();
     }
     m_failure_reason = "Hunter prelude is not prepared";
-    if (bait_attempt_limit < 1 || bait_attempt_limit > 4 || bait_plan_index < 0 || battle_key.empty() ||
-        current_level.get_width() != 10 || current_level.get_height() != 7 ||
+    if (!opening.valid() || battle_key.empty() || current_level.get_width() != 10 || current_level.get_height() != 7 ||
         current_level.key.levelId != "obt/roguelike/ro6/level_rogue6_2-5" || current_level.view.size() < 2) {
         return hunter_control::fail(
             error,
@@ -332,6 +347,27 @@ bool asst::blackflow::BlackFlowHunterPreludeController::prepare(
                 m_failure_reason = "Hunter spawn, bait or sink projection is unverified");
         }
     }
+    json::array bait_evidence;
+    for (const auto& plan : opening.bait_plans) {
+        const auto tile = current_level.get_item(plan.location.y, plan.location.x);
+        if (!calibrated.contains(plan.location) || tile.buildableType < 1 || tile.buildableType > 3) {
+            return hunter_control::fail(error, m_failure_reason = "Hunter bait tile is not calibrated and buildable");
+        }
+        m_bait_plans.emplace(plan.plan_index, plan);
+        json::array required, forbidden;
+        for (Point target : plan.required_targets) {
+            required.emplace_back(json::array { target.x, target.y });
+        }
+        for (Point target : plan.forbidden_targets) {
+            forbidden.emplace_back(json::array { target.x, target.y });
+        }
+        bait_evidence.emplace_back(
+            json::object { { "plan_index", plan.plan_index },
+                           { "location", json::array { plan.location.x, plan.location.y } },
+                           { "required_targets", std::move(required) },
+                           { "forbidden_targets", std::move(forbidden) } });
+    }
+    m_preparation_evidence["bait_plans"] = std::move(bait_evidence);
     const auto spawns = manifest->find<json::array>("spawn_models");
     auto approaches = manifest->find<json::array>("approach_head_rois");
     const bool legacy_approaches = !approaches;
@@ -386,12 +422,12 @@ bool asst::blackflow::BlackFlowHunterPreludeController::prepare(
     m_preparation_evidence["projection_pixel_tolerance"] = tolerance;
     m_preparation_evidence["spawn_roi_projected_from_current_level"] = true;
     m_preparation_evidence["spawn_window_source"] = "raw_all_hunter_spawn_actions_zero_time_no_later_waves_or_branches";
-    m_bait_plan_index = bait_plan_index;
+    m_bait_plan_index = opening.bait_plans.front().plan_index;
     m_battle_key = std::move(battle_key);
     m_spawn_window_verified = true;
     m_prepared = true;
     m_failure_reason.clear();
-    m_bait_attempt_limit = bait_attempt_limit;
+    m_bait_attempt_limit = opening.attempt_limit;
     return true;
 }
 
@@ -401,10 +437,43 @@ bool asst::blackflow::BlackFlowHunterPreludeController::allows_plan(int plan_ind
         return false;
     }
     if (m_main_released) {
-        return plan_index != m_bait_plan_index;
+        return !is_bait_plan(plan_index);
     }
-    return plan_index == m_bait_plan_index && m_bait_attempts < m_bait_attempt_limit &&
-           (!m_bait_consumed || m_replacement_bait_allowed);
+    if (!is_bait_plan(plan_index) || m_bait_attempts >= m_bait_attempt_limit) {
+        return false;
+    }
+    if (m_bait_consumed && !m_replacement_bait_allowed) {
+        return false;
+    }
+    return std::ranges::any_of(m_bait_plans.at(plan_index).required_targets, [&](Point tile) {
+        return m_spawn_presence[tile.x == 2 ? 0 : 1] == HunterPresence::Present;
+    });
+}
+
+bool asst::blackflow::BlackFlowHunterPreludeController::attack_range_allowed(
+    int plan_index,
+    const battle::AttackRange& range) const
+{
+    const auto it = m_bait_plans.find(plan_index);
+    if (it == m_bait_plans.end()) {
+        return true;
+    }
+    const auto covered = [&](Point target) {
+        return std::ranges::find(range, target - it->second.location) != range.end();
+    };
+    return std::ranges::all_of(it->second.required_targets, covered) &&
+           std::ranges::none_of(it->second.forbidden_targets, covered);
+}
+
+bool asst::blackflow::BlackFlowHunterPreludeController::bait_skill_allowed(
+    const std::map<battle::OperNameTag, Point>& battlefield) const noexcept
+{
+    if (!m_prepared || m_contract_breached || !m_frame_verified || m_main_released || !m_bait || !m_bait_tile ||
+        battlefield.size() != 1) {
+        return false;
+    }
+    const auto& [unit, tile] = *battlefield.begin();
+    return unit == *m_bait && tile == *m_bait_tile;
 }
 
 void asst::blackflow::BlackFlowHunterPreludeController::deployed(
@@ -415,7 +484,7 @@ void asst::blackflow::BlackFlowHunterPreludeController::deployed(
     if (!m_prepared || m_contract_breached) {
         return;
     }
-    if (plan_index != m_bait_plan_index) {
+    if (!is_bait_plan(plan_index)) {
         if (!m_main_released) {
             m_contract_breached = true;
             m_main_released = false;
@@ -429,7 +498,7 @@ void asst::blackflow::BlackFlowHunterPreludeController::deployed(
         m_failure_reason = "A replacement bait deployed without current residual-hunter evidence";
         return;
     }
-    if (!allows_plan(plan_index) || tile != hunter_control::BaitTile || oper.name.empty() ||
+    if (!allows_plan(plan_index) || tile != m_bait_plans.at(plan_index).location || oper.name.empty() ||
         oper.role == battle::Role::Unknown) {
         m_contract_breached = true;
         m_main_released = false;
@@ -437,6 +506,8 @@ void asst::blackflow::BlackFlowHunterPreludeController::deployed(
         return;
     }
     m_bait = oper;
+    m_bait_plan_index = plan_index;
+    m_bait_tile = tile;
     m_bait_consumed = true;
     ++m_bait_attempts;
     m_bait_removal_verified = false;
@@ -471,7 +542,7 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
             }
             if (m_bait && oper == *m_bait) {
                 bait_present = true;
-                if (tile != hunter_control::BaitTile) {
+                if (!m_bait_tile || tile != *m_bait_tile) {
                     battlefield_valid = false;
                 }
             }
@@ -531,6 +602,9 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
         context.sink_head_rois = m_approach_rois;
         context.lower_unit_occlusion_rois = lower_occlusions;
         visual = m_analyzer.analyze(image, context);
+        for (std::size_t index = 0; index < m_spawn_presence.size(); ++index) {
+            m_spawn_presence[index] = visual.spawns[index].presence;
+        }
         m_frame_verified = visual.frame_observable;
         if (visual.frame_observable && current_removal) {
             m_bait_removal_verified = true;
@@ -554,14 +628,19 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
         // Removing the sole known bait is an observation-recovery action. A
         // skipped lower-lane sample is not proof of clearance, so this branch
         // never changes full-field visibility or the main-deployment gate.
-        withdraw_for_unoccluded_observation =
-            visual.frame_observable && m_spawn_window_verified && m_hunter_positive_verified &&
-            visual.distinct_empty_spawn_frames >= 2 && m_bait_consumed && m_bait && bait_present && !bait_cooling &&
-            battlefield_valid && battlefield.size() == 1 && !visual.bait_retreat_allowed;
+        const bool targeted_spawns_empty =
+            m_bait && m_bait_plans.contains(m_bait_plan_index) &&
+            std::ranges::all_of(m_bait_plans.at(m_bait_plan_index).required_targets, [&](Point tile) {
+                return visual.spawns[tile.x == 2 ? 0 : 1].distinct_empty_frames >= 2;
+            });
+        withdraw_for_unoccluded_observation = visual.frame_observable && m_spawn_window_verified &&
+                                              m_hunter_positive_verified && targeted_spawns_empty && m_bait_consumed &&
+                                              m_bait && bait_present && !bait_cooling && battlefield_valid &&
+                                              battlefield.size() == 1 && !visual.bait_retreat_allowed;
         if (visual.frame_observable && m_bait_consumed && m_bait && bait_present && battlefield_valid &&
             (visual.bait_retreat_allowed || withdraw_for_unoccluded_observation)) {
             m_retreat_requested = true;
-            decision.retreat_bait = hunter_control::BaitTile;
+            decision.retreat_bait = m_bait_tile;
             retreat_reason = withdraw_for_unoccluded_observation ? "withdraw_for_unoccluded_observation"
                                                                  : "detector_bait_retreat_allowed";
         }
@@ -649,6 +728,9 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
                              { "controller_reasons", reasons },
                              { "preparation", m_preparation_evidence },
                              { "bait_plan_index", m_bait_plan_index },
+                             { "bait_location",
+                               m_bait_tile ? json::value(json::array { m_bait_tile->x, m_bait_tile->y })
+                                           : json::value(nullptr) },
                              { "bait_consumed", m_bait_consumed },
                              { "bait_attempts", m_bait_attempts },
                              { "bait_attempt_limit", m_bait_attempt_limit },

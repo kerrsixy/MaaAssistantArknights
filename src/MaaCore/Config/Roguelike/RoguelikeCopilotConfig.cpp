@@ -32,6 +32,13 @@ std::optional<CombatData> asst::RoguelikeCopilotConfig::get_stage_data(const std
     return it->second;
 }
 
+std::optional<asst::blackflow::HunterOpening>
+    asst::RoguelikeCopilotConfig::get_hunter_opening(const std::string& stage_name) const
+{
+    const auto it = m_hunter_openings.find(stage_name);
+    return it == m_hunter_openings.end() ? std::nullopt : std::optional(it->second);
+}
+
 bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
 {
 #ifdef ASST_DEBUG
@@ -257,17 +264,15 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
         }
     }
 
-    if (json.contains("hunter_bait_plan")) {
-        const auto bait = json.find<int>("hunter_bait_plan");
-        const auto plans = json.find<json::array>("deploy_plan");
-        if (!bait || !plans || *bait < 0 || static_cast<size_t>(*bait) >= plans->size() || !data.deploy_plan_only ||
-            !data.reserve_deploy_cost ||
-            (json.contains("retreat_plan") &&
-             (!json.at("retreat_plan").is_array() || !json.at("retreat_plan").as_array().empty()))) {
-            LogError << __FUNCTION__ << "Invalid hunter opening plan" << stage_name;
+    std::optional<blackflow::HunterOpening> hunter_opening;
+    if (json.contains("hunter_bait_plan") || json.contains("hunter_bait_plans")) {
+        std::string error;
+        hunter_opening = blackflow::HunterOpening::parse(json, &error);
+        if (!hunter_opening) {
+            LogError << __FUNCTION__ << "Invalid hunter opening plan" << stage_name << error;
             return false;
         }
-        data.hunter_bait_plan = *bait;
+        data.hunter_bait_plan = hunter_opening->bait_plans.front().plan_index;
     }
 
     if (auto opt = json.find<json::array>("retreat_plan")) {
@@ -282,6 +287,12 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
         }
     }
 
+    if (hunter_opening) {
+        m_hunter_openings.insert_or_assign(stage_name, std::move(*hunter_opening));
+    }
+    else {
+        m_hunter_openings.erase(stage_name);
+    }
     m_stage_data.insert_or_assign(std::move(stage_name), std::move(data));
     return true;
 }

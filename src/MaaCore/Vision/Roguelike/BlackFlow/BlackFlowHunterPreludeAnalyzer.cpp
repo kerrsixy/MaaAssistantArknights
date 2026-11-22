@@ -238,6 +238,7 @@ void asst::blackflow::BlackFlowHunterPreludeAnalyzer::reset() noexcept
     m_has_sequence = false;
     m_last_observable_frame.release();
     m_empty_spawn_frames = 0;
+    m_empty_spawn_frames_by_slot = {};
     m_tracks.clear();
     m_empty_lower_frames = 0;
     m_empty_lower_start_ms = 0;
@@ -264,6 +265,7 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
             static_cast<int>(std::ranges::count_if(m_tracks, [](const Track& t) { return t.last_seen_at_approach; }));
         result.tracks_last_seen_at_sink = result.tracks_last_seen_at_approach;
         m_empty_spawn_frames = 0;
+        m_empty_spawn_frames_by_slot = {};
         m_empty_lower_frames = 0;
         m_empty_lower_start_ms = 0;
         m_last_observable_frame.release();
@@ -497,6 +499,7 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
         context.observed_at_ms > 0 && (m_last_observed_at_ms == 0 || context.observed_at_ms > m_last_observed_at_ms);
     if (m_last_observed_at_ms > 0 && context.observed_at_ms > m_last_observed_at_ms + 2500) {
         m_empty_spawn_frames = 0;
+        m_empty_spawn_frames_by_slot = {};
         m_empty_lower_frames = 0;
         m_empty_lower_start_ms = 0;
     }
@@ -525,6 +528,12 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
         std::ranges::all_of(result.spawns, [](const auto& slot) { return slot.presence == HunterPresence::Absent; });
     const bool distinct = m_last_observable_frame.empty() ||
                           cv::norm(image, m_last_observable_frame, cv::NORM_L1) / (image.total() * 3) > 0.10;
+    for (std::size_t index = 0; index < result.spawns.size(); ++index) {
+        auto& spawn = result.spawns[index];
+        m_empty_spawn_frames_by_slot[index] =
+            spawn.presence == HunterPresence::Absent ? m_empty_spawn_frames_by_slot[index] + (distinct ? 1 : 0) : 0;
+        spawn.distinct_empty_frames = m_empty_spawn_frames_by_slot[index];
+    }
     m_empty_spawn_frames = empty ? m_empty_spawn_frames + (distinct ? 1 : 0) : 0;
     result.distinct_empty_spawn_frames = m_empty_spawn_frames;
     result.upper_spawns_empty_candidate = m_empty_spawn_frames >= 3;
