@@ -485,6 +485,21 @@
         {
             "id": "common_navigation",
             "description": "公共安全、出口时机、商店回避和加工品触发规则",
+            "encounter_rules": [
+                {
+                    "id": "black_birthday_verified_cage_control",
+                    "description": "黑诞标题与当页enabled控制选项同时获证才使用笼控器；无控制项仍保留原事件选择，特殊作战与损血评估另行验证。",
+                    "event_name": "黑诞",
+                    "rank": 0,
+                    "when": {
+                        "fact": "encounter.available_options",
+                        "op": "contains",
+                        "value": "掏出笼控器控制猎狗"
+                    },
+                    "option_text": ["掏出笼控器控制猎狗"],
+                    "allow_fallback": false
+                }
+            ],
             "shopping_rules": [
                 {
                     "id": "floor5_shop_purchase",
