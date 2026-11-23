@@ -288,12 +288,8 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
         if (request.stationary_boss) {
             const auto window = spa::conditional_skill_attack_window(member.name, owned.elite, boss.time_limit_seconds);
             if (window.possible) {
-                for (const auto& cell : window.attack_range) {
-                    if (std::find(unit.local_range.begin(), unit.local_range.end(), cell) == unit.local_range.end()) {
-                        unit.local_range.push_back(cell);
-                    }
-                }
-                unit.range_known = !unit.local_range.empty();
+                unit.boss_skill_attack_range.assign(window.attack_range.begin(), window.attack_range.end());
+                unit.range_known = unit.range_known || !unit.boss_skill_attack_range.empty();
                 conditional_windows.emplace_back(
                     json::object { { "entity", entity.id },
                                    { "first_activation_seconds", window.first_activation_seconds },
@@ -437,6 +433,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
             { "map_id", m_spatial_map_id },
             { "core", proposal.core },
             { "boss_priority_attackers", proposal.boss_priority_attackers },
+            { "boss_opening_surviving_attackers", proposal.boss_opening_surviving_attackers },
             { "boss_chain_attack_priority", proposal.boss_chain_attack_priority },
             { "boss_movement_waypoints_known", request.boss_movement_waypoints.size() },
             { "boss_core_movement_waypoints_covered", proposal.boss_core_movement_waypoints },

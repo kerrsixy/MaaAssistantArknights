@@ -662,6 +662,22 @@ int main()
     const auto boss_support_plan = plan_egir_formation(egir_with_protected_output, opening_egir_boss);
     assert(boss_support_plan.found && boss_support_plan.boss_priority_attackers == 2);
     assert(boss_support_plan.units.back().cell == BoardCell(6, 2) && boss_support_plan.units.back().facing == 'E');
+    // A surviving off-chain attacker without the configured carry flag also
+    // gets an opening pose, and delayed skill range is not an opening hit.
+    auto off_chain_boss_roster = egir_with_protected_output;
+    off_chain_boss_roster.back().preferred_boss_output = false;
+    const auto off_chain_opening = plan_egir_formation(off_chain_boss_roster, opening_egir_boss);
+    assert(off_chain_opening.found && off_chain_opening.boss_priority_attackers == 1);
+    assert((off_chain_opening.units.back().cell == BoardCell { 6, 2 }));
+    assert(off_chain_opening.units.back().facing == 'E');
+    const int opening_with_basic_attack = off_chain_opening.boss_opening_surviving_attackers;
+    assert(opening_with_basic_attack >= 2);
+    off_chain_boss_roster.back().deployment.boss_skill_attack_range = { { 1, 0 } };
+    off_chain_boss_roster.back().deployment.local_range = { { 0, 0 } };
+    const auto off_chain_skill_only = plan_egir_formation(off_chain_boss_roster, opening_egir_boss);
+    assert(off_chain_skill_only.found && off_chain_skill_only.units.back().facing == 'E');
+    assert(off_chain_skill_only.boss_opening_surviving_attackers == opening_with_basic_attack - 1);
+
     // The protected attacker should cover the part of the route missed by the
     // head. A relay about to be consumed does not fill a coverage gap.
     auto route_head = egir_placement.front();

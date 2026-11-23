@@ -1,4 +1,5 @@
 #include "SPAEgirPolicy.h"
+#include "SPAPlacementPolicy.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -265,20 +266,55 @@ bool asst::spa::append_egir_defended_name(
     return true;
 }
 
-static bool
-    egir_boss_pose_reaches(const asst::spa::DeploymentUnit& unit, const asst::spa::EgirFormationContext& context)
+static bool egir_boss_cell_overlaps(const asst::spa::DeploymentUnit& unit, asst::spa::BoardCell cell, bool allow_skill)
 {
-    const auto overlaps = [&](asst::spa::BoardCell cell) {
-        return asst::spa::boss_attack_overlaps_cell(unit, cell);
-    };
+    const auto [col, row] = unit.cell;
+    return asst::spa::boss_attack_overlaps_cell(unit, cell) ||
+           (allow_skill &&
+            asst::spa::grid_range_covers(col, row, unit.facing, cell.first, cell.second, unit.boss_skill_attack_range));
+}
+
+static bool egir_boss_opening_overlaps(
+    const asst::spa::DeploymentUnit& unit,
+    const asst::spa::EgirFormationContext& context,
+    bool allow_skill)
+{
     if (context.boss_cells.empty()) {
         return false;
     }
-    if (context.boss_cells_are_alternatives) {
-        return std::ranges::all_of(context.boss_cells, overlaps);
-    }
-    return std::ranges::any_of(context.boss_cells, overlaps) ||
-           (!context.stationary_boss && std::ranges::any_of(context.boss_movement_waypoints, overlaps));
+    const auto overlaps = [&](asst::spa::BoardCell cell) {
+        return egir_boss_cell_overlaps(unit, cell, allow_skill);
+    };
+    return context.boss_cells_are_alternatives ? std::ranges::all_of(context.boss_cells, overlaps)
+                                               : std::ranges::any_of(context.boss_cells, overlaps);
+}
+
+static bool
+    egir_boss_pose_reaches(const asst::spa::DeploymentUnit& unit, const asst::spa::EgirFormationContext& context)
+{
+    return egir_boss_opening_overlaps(unit, context, true) ||
+           (!context.stationary_boss && !context.boss_cells_are_alternatives &&
+            std::ranges::any_of(context.boss_movement_waypoints, [&](asst::spa::BoardCell cell) {
+                return asst::spa::boss_attack_overlaps_cell(unit, cell);
+            }));
+}
+
+static bool egir_attacker_survives(
+    const asst::spa::DeploymentUnit& unit,
+    const asst::spa::EgirConsumptionProjection& consumption)
+{
+    return unit.damage_output && !unit.healer && unit.range_known &&
+           std::ranges::none_of(consumption.victims, [&](const auto& victim) { return victim.id == unit.id; });
+}
+
+static int egir_surviving_opening_attackers(
+    const std::vector<asst::spa::DeploymentUnit>& units,
+    const asst::spa::EgirConsumptionProjection& consumption,
+    const asst::spa::EgirFormationContext& context)
+{
+    return static_cast<int>(std::ranges::count_if(units, [&](const auto& unit) {
+        return egir_attacker_survives(unit, consumption) && egir_boss_opening_overlaps(unit, context, false);
+    }));
 }
 
 static int egir_surviving_attackers_movement_coverage(
@@ -291,9 +327,7 @@ static int egir_surviving_attackers_movement_coverage(
     }
     return static_cast<int>(std::ranges::count_if(context.boss_movement_waypoints, [&](asst::spa::BoardCell cell) {
         return std::ranges::any_of(units, [&](const auto& unit) {
-            return unit.damage_output && !unit.healer && unit.range_known &&
-                   asst::spa::boss_attack_overlaps_cell(unit, cell) &&
-                   std::ranges::none_of(consumption.victims, [&](const auto& victim) { return victim.id == unit.id; });
+            return egir_attacker_survives(unit, consumption) && asst::spa::boss_attack_overlaps_cell(unit, cell);
         });
     }));
 }
@@ -351,7 +385,7 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
         !aim_at_boss &&
         ((!context.defended_chain_prefix.empty() && result.core == context.defended_chain_prefix.front()) ||
          (!context.defended_chain_names.empty() && units[*core].entity.name == context.defended_chain_names.front()));
-    using Score = std::tuple<int, int, int, int, double, int, int, double, int, int, int, int, int>;
+    using Score = std::tuple<int, int, int, int, double, int, int, int, double, int, int, int, int, int>;
     std::optional<Score> best;
     std::vector<size_t> chain { *core };
     std::vector<BoardCell> chain_cells;
@@ -426,31 +460,15 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
         });
         for (const size_t index : others) {
             auto& target = candidate[index];
-            std::vector<DeploymentUnit> choices;
-            for (const auto& cell : target.placement_cells) {
-                if (taken.contains(cell) || !can_place(index, cell)) {
-                    continue;
-                }
-                for (const char facing : std::string("ENSW")) {
-                    if ((!target.movable && facing != target.facing) ||
-                        (units[index].required_facing && facing != *units[index].required_facing)) {
-                        continue;
-                    }
-                    auto choice = target;
-                    choice.cell = cell;
-                    choice.facing = facing;
-                    choices.push_back(std::move(choice));
-                }
-            }
-            if (choices.empty()) {
-                return;
-            }
             const auto value = [&](const DeploymentUnit& choice) {
                 const bool healing = choice.healer && choice.range_known &&
                                      (candidate[*core].accepts_direct_healing || choice.provides_regeneration) &&
                                      range_covers(choice, root);
-                const bool boss_coverage = aim_at_boss && units[index].preferred_boss_output && choice.damage_output &&
+                // A unit outside the directed chain can still contribute at
+                // the opening even when it is not a designated carry.
+                const bool boss_coverage = aim_at_boss && choice.damage_output && !choice.healer &&
                                            choice.range_known && egir_boss_pose_reaches(choice, context);
+                const bool basic_opening = boss_coverage && egir_boss_opening_overlaps(choice, context, false);
                 const auto additional_waypoints =
                     boss_coverage && !context.stationary_boss && !context.boss_cells_are_alternatives
                         ? std::ranges::count_if(
@@ -464,12 +482,36 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
                     healing,
                     boss_coverage,
                     additional_waypoints,
+                    basic_opening,
                     choice.cell == target.cell,
                     choice.facing == target.facing);
             };
-            target = *std::max_element(choices.begin(), choices.end(), [&](const auto& left, const auto& right) {
-                return value(left) < value(right);
-            });
+            std::optional<std::pair<BoardCell, char>> best_pose;
+            decltype(value(target)) best_pose_value {};
+            auto choice = target;
+            for (const auto& cell : target.placement_cells) {
+                if (taken.contains(cell) || !can_place(index, cell)) {
+                    continue;
+                }
+                choice.cell = cell;
+                for (const char facing : std::string("ENSW")) {
+                    if ((!target.movable && facing != target.facing) ||
+                        (units[index].required_facing && facing != *units[index].required_facing)) {
+                        continue;
+                    }
+                    choice.facing = facing;
+                    const auto rank = value(choice);
+                    if (!best_pose || rank > best_pose_value) {
+                        best_pose.emplace(cell, facing);
+                        best_pose_value = rank;
+                    }
+                }
+            }
+            if (!best_pose) {
+                return;
+            }
+            target.cell = best_pose->first;
+            target.facing = best_pose->second;
             taken.insert(target.cell);
         }
         // Keep the core chain's terminal clear. Off-chain sources may feed
@@ -508,7 +550,7 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
                 if (choice.damage_output && choice.range_known) {
                     if (aim_at_boss) {
                         for (const auto& cell : context.boss_cells) {
-                            coverage += boss_attack_overlaps_cell(choice, cell);
+                            coverage += egir_boss_cell_overlaps(choice, cell, true);
                         }
                     }
                     else {
@@ -602,9 +644,7 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
                     continue;
                 }
                 if (units[index].preferred_boss_output && attacks_boss(index) &&
-                    std::none_of(projection.victims.begin(), projection.victims.end(), [&](const auto& victim) {
-                        return victim.id == candidate[index].id;
-                    })) {
+                    egir_attacker_survives(candidate[index], projection)) {
                     ++priority_attackers;
                 }
             }
@@ -624,12 +664,15 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
         }
         const int surviving_movement_coverage =
             egir_surviving_attackers_movement_coverage(candidate, projection, context);
+        const int opening_attackers =
+            aim_at_boss ? egir_surviving_opening_attackers(candidate, projection, context) : 0;
         const Score score { surviving_movement_coverage,
                             aim_at_boss ? priority_attackers : guarded,
                             movement_coverage,
                             aim_at_boss ? static_cast<int>(boss_covered > 0) : boss_covered,
                             aim_at_boss ? source->inherited_base_attack.value_or(0)
                                         : static_cast<double>(projection.conditional_unique_target_layers.value_or(0)),
+                            opening_attackers,
                             chain_attack_priority,
                             -distance,
                             aim_at_boss ? static_cast<double>(projection.conditional_unique_target_layers.value_or(0))
@@ -646,6 +689,7 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
             best = score;
             result.found = true;
             result.boss_priority_attackers = priority_attackers;
+            result.boss_opening_surviving_attackers = opening_attackers;
             result.boss_chain_attack_priority = chain_attack_priority;
             result.boss_core_movement_waypoints = movement_coverage;
             result.boss_surviving_attackers_movement_waypoints = surviving_movement_coverage;
@@ -853,6 +897,7 @@ asst::spa::EgirFormationPlan
                 plan.boss_priority_attackers,
                 plan.boss_core_movement_waypoints,
                 source == plan.conditional_consumption.sources.end() ? 0.0 : source->inherited_base_attack.value_or(0),
+                plan.boss_opening_surviving_attackers,
                 plan.boss_chain_attack_priority,
                 plan.conditional_consumption.conditional_unique_target_layers.value_or(0),
                 -plan.changed_units);
@@ -938,6 +983,8 @@ asst::spa::EgirFormationPlan
                     growth.core = attacker.entity.id;
                     growth.attacking_core_separate_from_chain = true;
                     growth.boss_priority_attackers = 1;
+                    growth.boss_opening_surviving_attackers =
+                        egir_surviving_opening_attackers(growth.units, growth.conditional_consumption, context);
                     growth.boss_core_movement_waypoints =
                         static_cast<int>(std::ranges::count_if(context.boss_movement_waypoints, [&](BoardCell cell) {
                             return boss_attack_overlaps_cell(pose, cell);
