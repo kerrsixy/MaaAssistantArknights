@@ -156,6 +156,19 @@ int main()
     assert(elite_shadow && elite_shadow->elite);
     assert(!observe_operator_card({ { "斯卡蒂", .99, 2, 185 }, { "17", .99, 111, 213 } }, form_names));
     assert(!observe_operator_card({ { "斯卡蒂", .99, 2, 185 }, { "1", .89, 111, 213 } }, form_names));
+    const std::vector<std::string> wilderness_names { "荒芜拉普兰德" };
+    const std::vector<TextObservation> wilderness_level { { "荒芜拉普兰德", .999860, 18, 185 },
+                                                          { "v1", .933968, 103, 215 },
+                                                          { "1", .813255, 114, 217 } };
+    assert(!observe_operator_card(wilderness_level, wilderness_names));
+    const auto substantiated_wilderness =
+        corroborate_initial_operator_card(wilderness_level, { "1", .93048, 113, 210 }, wilderness_names);
+    assert(substantiated_wilderness && !substantiated_wilderness->elite);
+    assert(!corroborate_initial_operator_card(wilderness_level, { "1", .89, 113, 210 }, wilderness_names));
+    assert(!corroborate_initial_operator_card(wilderness_level, { "17", .96, 113, 210 }, wilderness_names));
+    auto conflicting_level = wilderness_level;
+    conflicting_level.push_back({ "60", .98, 112, 212 });
+    assert(!corroborate_initial_operator_card(conflicting_level, { "1", .96, 113, 210 }, wilderness_names));
     assert(!observe_operator_card({ { "斯卡蒂", .99, 2, 185 }, { "1", .99, 111, 270 } }, form_names));
     assert(!observe_operator_card({ { "斯卡蒂", .99, 2, 185 }, { "LV1", .99, 111, 213 } }, form_names));
     assert(!observe_operator_card({ { "斯卡蒂", .99, 2, 185 }, { "O1", .99, 111, 213 } }, form_names));

@@ -5416,8 +5416,11 @@ bool asst::spa::SwapTaskPlugin::_run()
         return false;
     }
     if (m_promotion_consumable) {
-        const auto card = selected_operator_card(ctrler()->get_image());
+        m_equipment_stage = "promotion_recipient_form";
+        const auto selected = ctrler()->get_image();
+        const auto card = selected_operator_card(selected);
         if (!card || card->name != m_replaced || card->elite) {
+            save_evidence(selected, utils::path("debug/SPA/promotion_recipient_form_unverified"), false);
             close_selection();
             return false;
         }

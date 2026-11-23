@@ -56,13 +56,33 @@ std::optional<OperatorCardObservation>
     if (!card) {
         // In some portraits the anchored LV letters extend inside the first
         // crop. Exclude that strip and keep the same numeric/form checks.
-        OCRer digits(image, Rect(113, 210, 52, 34));
+        const Rect digit_roi(113, 210, 52, 34);
+        OCRer digits(image, digit_roi);
         if (const auto recognized = digits.analyze()) {
-            texts.resize(title_size);
+            auto cropped = texts;
+            cropped.resize(title_size);
+            bool weak_one = false;
             for (const auto& text : *recognized) {
-                texts.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+                cropped.push_back({ text.text, text.score, text.rect.x, text.rect.y });
+                weak_one = weak_one || (text.text == "1" && text.score >= .80);
             }
-            card = observe_operator_card(texts, names, verified_panel_name);
+            card = observe_operator_card(cropped, names, verified_panel_name);
+            if (!card && weak_one) {
+                // This model reads the whole digit strip independently.
+                // Keep the first read so a competing number still rejects the form.
+                cropped.insert(cropped.end(), texts.begin() + title_size, texts.end());
+                OCRer numeral(image, digit_roi);
+                numeral.set_without_det(true);
+                numeral.set_use_char_model(true);
+                if (const auto parsed = numeral.analyze(); parsed && parsed->size() == 1) {
+                    const auto& digit = parsed->front();
+                    card = corroborate_initial_operator_card(
+                        cropped,
+                        { digit.text, digit.score, digit.rect.x, digit.rect.y },
+                        names,
+                        verified_panel_name);
+                }
+            }
             if (card) {
                 LogTrace << "SPA training level recovered from digit crop" << card->name << card->training_level;
             }

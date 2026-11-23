@@ -206,8 +206,25 @@ std::optional<asst::spa::OperatorCardObservation> asst::spa::observe_operator_ca
     return OperatorCardObservation { *name, *level, *level == elite->level };
 }
 
-std::optional<int>
-    asst::spa::preparation_countdown(const std::vector<TextObservation>& texts, bool require_two_digits)
+std::optional<asst::spa::OperatorCardObservation> asst::spa::corroborate_initial_operator_card(
+    const std::vector<TextObservation>& words,
+    const TextObservation& numeral,
+    const std::vector<std::string>& known_names,
+    std::string_view verified_panel_name)
+{
+    if (numeral.text != "1" || !std::ranges::any_of(words, [](const auto& word) {
+            return word.text == "1" && std::isfinite(word.score) && word.score >= .80 && word.x >= 113 &&
+                   word.x <= 165 && word.y >= 210 && word.y <= 245;
+        })) {
+        return std::nullopt;
+    }
+    auto observations = words;
+    observations.push_back(numeral);
+    const auto card = observe_operator_card(observations, known_names, verified_panel_name);
+    return card && !card->elite ? card : std::nullopt;
+}
+
+std::optional<int> asst::spa::preparation_countdown(const std::vector<TextObservation>& texts, bool require_two_digits)
 {
     const size_t minimum_digits = require_two_digits ? 2 : 1;
     std::optional<int> seconds;

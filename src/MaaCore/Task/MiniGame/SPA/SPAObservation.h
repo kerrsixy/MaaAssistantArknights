@@ -70,6 +70,11 @@ std::optional<OperatorCardObservation> observe_operator_card(
     const std::vector<TextObservation>& texts,
     const std::vector<std::string>& known_names,
     std::string_view verified_panel_name = {});
+std::optional<OperatorCardObservation> corroborate_initial_operator_card(
+    const std::vector<TextObservation>& words,
+    const TextObservation& numeral,
+    const std::vector<std::string>& known_names,
+    std::string_view verified_panel_name = {});
 
 std::optional<bool> observe_shop_toggle(const TextObservation& text);
 // Only a live preparation frame for the expected round may expand the shop.
