@@ -5839,6 +5839,52 @@ int main()
         boss_shop_policy.boss_preparation = false;
         assert(choose_preparation(boss_shop_policy, 3, boss_shop, catalog).action != PreparationAction::Buy);
     }
+    {
+        // D5 Boss preparation had five coins and a visible 3-coin third copy
+        // on a blocked purchase slot. Only a positive verified attack gain
+        // makes the off-route promotion a reason to free a bench slot.
+        ReplacementMember gravel { "砾", PlacementRole::Frontline, { "卡西米尔", "不屈" } };
+        gravel.grid_cell = BoardCell { 8, 1 };
+        gravel.route_membership_registered = true;
+        gravel.boss_basic_output_known = true;
+        const auto initial = season_combat_stats("砾", false);
+        const auto elite = season_combat_stats("砾", true);
+        assert(initial && elite);
+        gravel.boss_basic_attack_weight = season_basic_attack_weight(*initial, "band_amedic", false);
+        gravel.boss_basic_range.assign(initial->basic_range.begin(), initial->basic_range.end());
+        auto promoted = gravel;
+        promoted.boss_basic_attack_weight = season_basic_attack_weight(*elite, "band_amedic", true);
+        promoted.boss_basic_range.assign(elite->basic_range.begin(), elite->basic_range.end());
+        const std::vector<BoardCell> adjacent_boss { { 9, 1 } };
+        const std::vector<BoardCell> remote_boss { { 10, 3 } };
+        const int gain = replacement_boss_promotion_attack_gain(gravel, promoted, { adjacent_boss, {} });
+        assert(gain > 0);
+        assert(replacement_boss_promotion_attack_gain(gravel, promoted, { remote_boss, {} }) == 0);
+        gravel.route_membership_registered = false;
+        assert(replacement_boss_promotion_attack_gain(gravel, promoted, { adjacent_boss, {} }) == 0);
+
+        auto policy = siracusa_healing_gap;
+        policy.round = 14;
+        policy.shop_level = 5;
+        policy.boss_preparation = true;
+        policy.owned["砾"] = { 2, false, true };
+        policy.boss_promotion_attack_gains["砾"] = gain;
+        policy.full_field_offer_improvements["砾"] = 0;
+        const std::vector<ShopOffer> boss_shop { { "砾", 3, 3 }, { "铸铁", 3, 4 } };
+        const std::map<std::string, int> placed { { "砾", 1 } };
+        const auto promotion_trade = choose_bench_capacity_trade(policy, 5, boss_shop, placed, {});
+        assert(promotion_trade && promotion_trade->purchase.name == "砾" && promotion_trade->spare_initial == "深巡");
+        assert(!choose_bench_capacity_trade(policy, 5, boss_shop, placed, { "深巡" }));
+        assert(!choose_bench_capacity_trade(policy, 2, boss_shop, placed, {}));
+        policy.bench_occupied = 9;
+        const auto purchase = choose_preparation(policy, 5, boss_shop, catalog);
+        assert(purchase.action == PreparationAction::Buy && purchase.name == "砾");
+        policy.owned["砾"].copies = 1;
+        assert(choose_preparation(policy, 5, boss_shop, catalog).action != PreparationAction::Buy);
+        policy.owned["砾"].copies = 2;
+        policy.boss_preparation = false;
+        assert(choose_preparation(policy, 5, boss_shop, catalog).action != PreparationAction::Buy);
+    }
     assert(!choose_bench_capacity_trade(siracusa_healing_gap, 3, r10_healer_shop, { { "斥罪", 1 } }, { "深巡" }));
     PreparationPolicy helper_line;
     PreparationPolicy awaiting_faction_deployment;

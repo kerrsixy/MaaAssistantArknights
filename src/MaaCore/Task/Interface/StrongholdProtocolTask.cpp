@@ -5943,18 +5943,38 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         m_policy.full_field_offer_improvements.clear();
         m_policy.first_healer_replacement_offers.clear();
         m_policy.boss_damage_replacement_offers.clear();
+        m_policy.boss_promotion_attack_gains.clear();
         if (m_policy.dynamic_decision_mode && m_policy.deployed_population == 8 && !m_pending_field_replacement) {
             const auto [field, bench] = replacement_inputs();
             if (field.size() == 8) {
                 const auto opening = boss_opening_target(round);
                 const spa::ReplacementBossTargets boss { opening.cells, opening.movement_waypoints };
-                const bool healer_available = std::ranges::any_of(field, [](const auto& member) {
-                    return member.role == spa::PlacementRole::Healer || member.role == spa::PlacementRole::Unknown;
-                }) || std::ranges::any_of(bench, [](const auto& member) {
-                    return member.role == spa::PlacementRole::Healer;
-                });
+                const bool healer_available = std::ranges::any_of(
+                                                  field,
+                                                  [](const auto& member) {
+                                                      return member.role == spa::PlacementRole::Healer ||
+                                                             member.role == spa::PlacementRole::Unknown;
+                                                  }) ||
+                                              std::ranges::any_of(bench, [](const auto& member) {
+                                                  return member.role == spa::PlacementRole::Healer;
+                                              });
                 const auto& visible_operators = confirmed_full_bench ? capacity_blocked_offers : offers;
                 for (const auto& offer : visible_operators) {
+                    if (boss_preparation && (!boss.opening.empty() || !boss.waypoints.empty()) &&
+                        m_auto_deploy_positions.count(offer.name) == 1 &&
+                        spa::ordinary_purchase_completes_promotion(m_policy, offer.name) &&
+                        spa::default_skill_holds_position(offer.name, false) &&
+                        spa::default_skill_holds_position(offer.name, true)) {
+                        const auto forms = spa::owned_form_counts(m_policy.owned.at(offer.name));
+                        const auto placed = std::ranges::find(field, offer.name, &spa::ReplacementMember::name);
+                        if (forms && forms->elite == 0 && placed != field.end()) {
+                            const auto promoted = replacement_member(offer.name, spa::OwnedOperator { 1, true, true });
+                            const int gain = spa::replacement_boss_promotion_attack_gain(*placed, promoted, boss);
+                            if (gain > 0) {
+                                m_policy.boss_promotion_attack_gains[offer.name] = gain;
+                            }
+                        }
+                    }
                     const auto incoming = replacement_member(offer.name, spa::OwnedOperator { 1, false, false });
                     const auto exchange =
                         m_failed_replacements.size() < 3
@@ -6465,6 +6485,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                             { "improvements", std::move(improvements) },
                                             { "first_healer_candidates", m_policy.first_healer_replacement_offers },
                                             { "boss_damage_candidates", m_policy.boss_damage_replacement_offers },
+                                            { "boss_promotion_attack_gains", m_policy.boss_promotion_attack_gains },
                                             { "fit_is_planning_only", true },
                                             { "purchase_committed", false } };
             callback(AsstMsg::SubTaskExtraInfo, fit);

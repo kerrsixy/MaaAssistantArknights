@@ -269,6 +269,7 @@ inline std::optional<BenchCapacityTrade> choose_bench_capacity_trade(
         if (offer.price <= 0 || offer.price > funds ||
             (!policy.first_healer_replacement_offers.contains(offer.name) &&
              !(policy.boss_preparation && policy.boss_damage_replacement_offers.contains(offer.name)) &&
+             boss_promotion_attack_gain(policy, offer.name) <= 0 &&
              !belongs_to_planned_lineup(offer.name, policy, pacts))) {
             continue;
         }

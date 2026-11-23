@@ -240,6 +240,21 @@ inline int
     return member.boss_basic_attack_weight * best / static_cast<int>(samples);
 }
 
+inline int replacement_boss_promotion_attack_gain(
+    const ReplacementMember& current,
+    const ReplacementMember& promoted,
+    const ReplacementBossTargets& boss)
+{
+    if (current.name != promoted.name || !current.grid_cell || !current.route_membership_registered ||
+        !current.boss_basic_output_known || !promoted.boss_basic_output_known) {
+        return 0;
+    }
+    return std::max(
+        0,
+        replacement_boss_attack_weight(promoted, *current.grid_cell, boss) -
+            replacement_boss_attack_weight(current, *current.grid_cell, boss));
+}
+
 using ReplacementLineup = std::vector<std::string>;
 using ReplacementExchange = std::tuple<std::string, std::string, bool, std::string, bool>;
 using ReplacementHistory = std::map<ReplacementExchange, int>;

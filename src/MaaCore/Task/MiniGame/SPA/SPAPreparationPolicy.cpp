@@ -135,6 +135,19 @@ bool asst::spa::ordinary_purchase_completes_promotion(const PreparationPolicy& p
     return forms && forms->initial > 0 && forms->initial + 1 == required;
 }
 
+int asst::spa::boss_promotion_attack_gain(const PreparationPolicy& policy, const std::string& name)
+{
+    if (!policy.boss_preparation || !ordinary_purchase_completes_promotion(policy, name)) {
+        return 0;
+    }
+    const auto owned = policy.owned.find(name);
+    const auto forms = owned_form_counts(owned->second);
+    const auto gain = policy.boss_promotion_attack_gains.find(name);
+    return owned->second.deployed && forms && forms->elite == 0 && gain != policy.boss_promotion_attack_gains.end()
+               ? std::max(0, gain->second)
+               : 0;
+}
+
 bool asst::spa::promote_initial_copies(OwnedOperator& owned, int required)
 {
     auto counts = owned_form_counts(owned);
@@ -2451,7 +2464,9 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
                                       resolved.deployed_population == 8 && copies == 0 &&
                                       resolved.boss_damage_replacement_offers.contains(offer.name) &&
                                       exchange != resolved.full_field_offer_improvements.end() && exchange->second > 0;
-        if (!primary && !completes_support && growth_support == 0 && !adds_first_healer && !adds_boss_output) {
+        const int boss_promotion_gain = boss_promotion_attack_gain(resolved, offer.name);
+        if (!primary && !completes_support && growth_support == 0 && !adds_first_healer && !adds_boss_output &&
+            boss_promotion_gain <= 0) {
             continue;
         }
         if (!primary && resolved.deployed_population == 8 && copies + 1 < required &&
@@ -2512,8 +2527,8 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
         const int growth_score = growth_weight * growth_relevance / 100;
         const int score =
             growth_score + promotion_bonus + std::min(acquisition_layers * 100, 1000) + first_growth_recruit_bonus +
-            (adds_boss_output ? exchange->second : 0) + (enables_sale_growth ? 1250 : 0) +
-            (completes_freeze_pair ? 1800 : 0) +
+            (adds_boss_output ? exchange->second : 0) + 2 * std::min(boss_promotion_gain, 3000) +
+            (enables_sale_growth ? 1250 : 0) + (completes_freeze_pair ? 1800 : 0) +
             (primary
                  ? (carry ? (copies == 0 && (current_roles.output_owned == 0 || missing_terminal) ? 4000 : 500) : 0) +
                        (engine ? (copies == 0 && current_roles.growth_engine_owned == 0 ? 3000 : 1000) : 0) +
@@ -2541,6 +2556,8 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
                      ? "Recruit the first healer for a screened position covering a route blocker"
                  : resolved.boss_preparation && resolved.boss_damage_replacement_offers.contains(budgeted.offer->name)
                      ? "Recruit a safe replacement with higher modeled basic attack coverage on the boss"
+                 : boss_promotion_attack_gain(resolved, budgeted.offer->name) > 0
+                     ? "Complete a deployed promotion with higher modeled basic attack coverage on the boss"
                  : budgeted.support
                      ? "Recruit a useful growth helper or a distinct configured support-pact member"
                      : "Prioritize primary-pact activation, a verified growth formula and the configured carry",

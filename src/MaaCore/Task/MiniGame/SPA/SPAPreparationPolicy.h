@@ -134,6 +134,8 @@ struct PreparationPolicy
     std::set<std::string> first_healer_replacement_offers;
     // Visible Boss-round offers with positive attack coverage in a safe exchange.
     std::set<std::string> boss_damage_replacement_offers;
+    // Basic attack gain at a verified Boss cell after an offered final copy.
+    std::map<std::string, int> boss_promotion_attack_gains;
     // Same-frame HUD readings only. Missing pacts remain unknown, never zero.
     std::map<std::string, int> observed_pact_layers;
     // Verified equipment on an individually located operator. A virtual
@@ -162,6 +164,7 @@ std::vector<std::string> planning_support_pacts(
     const std::map<std::string, std::vector<std::string>>& pacts);
 
 bool ordinary_purchase_completes_promotion(const PreparationPolicy& policy, const std::string& name);
+int boss_promotion_attack_gain(const PreparationPolicy& policy, const std::string& name);
 
 // The original operator becomes elite; the separate free higher-tier reward
 // is an initial operator. An unknown source must not erase the current roster.
