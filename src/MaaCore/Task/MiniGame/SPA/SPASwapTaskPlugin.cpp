@@ -4367,23 +4367,19 @@ bool asst::spa::SwapTaskPlugin::_run()
                 m_registered_grid_reference,
                 m_equipment_reference,
                 m_registered_grid_projection);
-            const std::vector<PlacementMember> target {
-                { m_target.x, m_target.y, operator_placement_role(m_replaced), m_replaced },
-            };
-            const auto cells = grid ? registered_grid_members(*grid, target) : std::nullopt;
-            if (cells) {
-                const auto& cell = cells->front();
+            const auto cell = grid ? registered_replacement_cell(*grid, { m_target.x, m_target.y }) : std::nullopt;
+            if (cell) {
                 const bool boss_phase = preparation_boss_health_bar(m_equipment_reference).has_value();
                 m_replacement_above_blocking_device =
-                    terrain_has_blocking_device_below(m_registered_grid_map_id, { cell.col, cell.row }, boss_phase);
+                    terrain_has_blocking_device_below(m_registered_grid_map_id, { cell->x, cell->y }, boss_phase);
                 const auto role = BattleData.get_first_role(m_name);
                 const auto location = season_location_type(m_name, BattleData.get_location_type(role, m_name));
                 if (terrain_allows_deployment(
                         m_registered_grid_map_id,
-                        { cell.col, cell.row },
+                        { cell->x, cell->y },
                         location == battle::LocationType::Melee,
                         boss_phase)) {
-                    m_registered_replacement_receiver = RegisteredReplacementReceiver { { cell.col, cell.row }, *grid };
+                    m_registered_replacement_receiver = RegisteredReplacementReceiver { *cell, *grid };
                 }
             }
         }

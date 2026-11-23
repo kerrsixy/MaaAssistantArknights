@@ -1568,7 +1568,27 @@ std::optional<cv::Point>
     return foot && cv::norm(*foot - expected_target) <= 22 ? center : std::nullopt;
 }
 
-static bool registered_replacement_preview(
+std::optional<cv::Point> asst::spa::registered_replacement_cell(const cv::Mat& grid_to_screen, cv::Point recipient)
+{
+    if (grid_to_screen.type() != CV_64FC1 || grid_to_screen.rows != 3 || grid_to_screen.cols != 3 ||
+        !cv::checkRange(grid_to_screen) || std::abs(cv::determinant(grid_to_screen)) < 1e-8) {
+        return std::nullopt;
+    }
+    constexpr float foot_tolerance = .35F;
+    std::vector<cv::Point2f> logical;
+    cv::perspectiveTransform(std::vector<cv::Point2f> { cv::Point2f(recipient) }, logical, grid_to_screen.inv());
+    const auto foot = logical.front();
+    if (!std::isfinite(foot.x) || !std::isfinite(foot.y) || foot.x < -foot_tolerance || foot.x > 10 + foot_tolerance ||
+        foot.y < -foot_tolerance || foot.y > 4 + foot_tolerance) {
+        return std::nullopt;
+    }
+    const cv::Point cell(cvRound(foot.x), cvRound(foot.y));
+    return std::abs(foot.x - cell.x) <= foot_tolerance && std::abs(foot.y - cell.y) <= foot_tolerance
+               ? std::optional(cell)
+               : std::nullopt;
+}
+
+static std::optional<cv::Point> registered_replacement_preview(
     const cv::Mat& before,
     const cv::Mat& held,
     cv::Point recipient,
@@ -1576,20 +1596,14 @@ static bool registered_replacement_preview(
     const asst::spa::RegisteredReplacementReceiver& receiver)
 {
     const auto& [cell, grid_to_before] = receiver;
-    if (cell.x < 0 || cell.x > 10 || cell.y < 0 || cell.y > 4) {
-        return false;
+    if (asst::spa::registered_replacement_cell(grid_to_before, recipient) != cell) {
+        return std::nullopt;
     }
     const auto grid_to_held = asst::spa::registered_grid_projection(projection, grid_to_before);
     if (!grid_to_held) {
-        return false;
+        return std::nullopt;
     }
     const cv::Mat before_to_grid = grid_to_before.inv();
-    std::vector<cv::Point2f> logical;
-    cv::perspectiveTransform(std::vector<cv::Point2f> { cv::Point2f(recipient) }, logical, before_to_grid);
-    if (logical.size() != 1 || !std::isfinite(logical.front().x) || !std::isfinite(logical.front().y) ||
-        std::abs(logical.front().x - cell.x) > .23 || std::abs(logical.front().y - cell.y) > .23) {
-        return false;
-    }
     // Normalize only the inner 86 percent of this logical tile. Compare a
     // clean reference with the held overlay so an adjacent green cell and
     // the recipient's own green costume cannot supply the missing evidence.
@@ -1616,8 +1630,19 @@ static bool registered_replacement_preview(
         }
         return cv::countNonZero(side) >= 80 && rows >= 6;
     };
-    return cv::countNonZero(added) >= 400 && side_supported(added.colRange(0, 32)) &&
-           side_supported(added.colRange(48, sample_size));
+    if (cv::countNonZero(added) < 400 || !side_supported(added.colRange(0, 32)) ||
+        !side_supported(added.colRange(48, sample_size))) {
+        return std::nullopt;
+    }
+    // The green evidence was registered to the logical tile. Return that
+    // same tile's projected centre, rather than the shifted portrait foot.
+    std::vector<cv::Point2f> centers;
+    cv::perspectiveTransform(std::vector<cv::Point2f> { cv::Point2f(cell) }, centers, grid_to_before);
+    const auto center = asst::spa::project_supported_point(projection, centers.front());
+    if (!center || !cv::Rect2f(340, 170, 660, 320).contains(*center)) {
+        return std::nullopt;
+    }
+    return cv::Point(cvRound(center->x), cvRound(center->y));
 }
 
 asst::spa::EquipmentPreviewEvidence asst::spa::equipment_target_preview(
@@ -1709,9 +1734,12 @@ asst::spa::EquipmentPreviewEvidence asst::spa::equipment_target_preview(
         result.verified = result.blocking_device_assisted;
     }
     if (!result.verified && registered_receiver) {
-        result.registered_cell_assisted =
-            registered_replacement_preview(before, held, recipient, projection, *registered_receiver);
-        result.verified = result.registered_cell_assisted;
+        const auto center = registered_replacement_preview(before, held, recipient, projection, *registered_receiver);
+        if (center) {
+            result.target = *center;
+            result.registered_cell_assisted = true;
+            result.verified = true;
+        }
     }
     return result;
 }

@@ -417,6 +417,15 @@ int main()
     const auto same_cell =
         equipment_target_preview(neutral_board, narrow_receiver_overlay, lappland_target, {}, false, registered);
     assert(same_cell.verified && same_cell.registered_cell_assisted);
+    const cv::Point offset_receiver = lappland_target - cv::Point(24, 0);
+    assert(registered_replacement_cell(registered.grid_to_before, offset_receiver) == registered.cell);
+    assert(!registered_replacement_cell(registered.grid_to_before, lappland_target - cv::Point(40, 0)));
+    const auto offset_cell =
+        equipment_target_preview(neutral_board, narrow_receiver_overlay, offset_receiver, {}, false, registered);
+    assert(offset_cell.verified && offset_cell.registered_cell_assisted);
+    assert(cv::norm(offset_cell.target - lappland_target) < 3);
+    assert(!equipment_target_preview(neutral_board, neighbouring_overlay, offset_receiver, {}, false, registered)
+                .verified);
     const RegisteredReplacementReceiver wrong_cell { { 7, 1 }, registered.grid_to_before };
     assert(!equipment_target_preview(neutral_board, narrow_receiver_overlay, lappland_target, {}, false, wrong_cell)
                 .verified);
