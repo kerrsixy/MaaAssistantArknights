@@ -54,6 +54,24 @@ bool
     const std::optional<DeployDirection> diagnostic_direction = direction == m_observed_deploy_directions.end()
                                                                     ? std::nullopt
                                                                     : std::optional<DeployDirection>(direction->second);
+    std::optional<SummonRetreatAuthorization> diagnostic_authorization;
+    const auto authority_json = [&] {
+        if (!diagnostic_authorization) {
+            return json::value(json::object {});
+        }
+        const auto& evidence = *diagnostic_authorization;
+        return json::value(
+            json::object {
+                { "allowed", evidence.allowed },
+                { "basis", static_cast<int>(evidence.basis) },
+                { "checked_ms", evidence.checked_ms },
+                { "observation_valid_through_ms", evidence.observation_valid_through_ms },
+                { "transaction_valid_before_ms", evidence.transaction_valid_before_ms },
+                { "initial_alive_sequence", evidence.initial_alive_sequence },
+                { "initial_alive_observed_ms", evidence.initial_alive_observed_ms },
+                { "initial_alive_received_ms", evidence.initial_alive_received_ms },
+            });
+    };
     std::optional<BossBodyEvidence> diagnostic_boss;
     std::uint64_t diagnostic_boss_sequence = 0;
     std::size_t diagnostic_speculative_soul_count = 0;
@@ -94,6 +112,7 @@ bool
         };
         json::value details = json::object {
             { "reason", reason },
+            { "input_authorization", authority_json() },
             { "boss_execution_policy", "one const task, async or deferred; joined before permission" },
             { "speculative_soul_count", diagnostic_speculative_soul_count },
             { "speculative_souls_discarded", diagnostic_speculative_souls_discarded },
@@ -206,6 +225,7 @@ bool
                 { "stage", m_stage_name },
                 { "intent", reclaim ? "reclaim_deployment_tile" : "protect_owner_from_boss" },
                 { "event", event },
+                { "input_authorization", authority_json() },
                 { "sequence", observation.sequence },
                 { "observed_ms", observation.observed_ms },
                 { "received_ms", observation.received_ms },
@@ -397,7 +417,15 @@ bool
         }
         // Direct selection records the controller receipt; the older helper
         // ignores this receipt. No pause toggle is part of this transaction.
-        const bool accepted = ctrler()->click(m_normal_tile_info.at(*decision.tile).pos);
+        const auto input_position = m_normal_tile_info.at(*decision.tile).pos;
+        diagnostic_authorization =
+            m_soul_retreat
+                ->authorize_input(decision.action, observation, timestamp(), diagnostic_owner_tile, decision.tile);
+        if (!diagnostic_authorization->allowed) {
+            diagnose("select_input_deadline_or_context_rejected", observation, decision, frame);
+            return false;
+        }
+        const bool accepted = ctrler()->click(input_position);
         m_soul_retreat->input_result(decision.action, accepted);
         m_soul_selection_owned = accepted;
         record("select", observation, accepted, frame);
@@ -460,12 +488,26 @@ bool
     if (decision.action == SummonRetreatAction::RetreatSelection) {
         // The current exact-name selection is already verified. Selecting the
         // tile again or using click_retreat() would introduce extra toggles.
+        diagnostic_authorization =
+            m_soul_retreat
+                ->authorize_input(decision.action, observation, timestamp(), diagnostic_owner_tile, decision.tile);
+        if (!diagnostic_authorization->allowed) {
+            diagnose("retreat_input_deadline_or_context_rejected", observation, decision, evidence_frame);
+            return true;
+        }
         const bool accepted = ctrler()->click(m_retreat_button_pos);
         m_soul_retreat->input_result(decision.action, accepted);
         record("retreat_current_selection", observation, accepted, evidence_frame);
         diagnose("retreat_input_receipt", observation, decision, evidence_frame, accepted);
     }
     else if (decision.action == SummonRetreatAction::CancelSelection) {
+        diagnostic_authorization =
+            m_soul_retreat
+                ->authorize_input(decision.action, observation, timestamp(), diagnostic_owner_tile, decision.tile);
+        if (!diagnostic_authorization->allowed) {
+            diagnose("cancel_input_freshness_or_context_rejected", observation, decision, evidence_frame);
+            return true;
+        }
         const bool accepted = cancel_oper_selection();
         m_soul_retreat->input_result(decision.action, accepted);
         record("cancel_owned_selection", observation, accepted, evidence_frame);

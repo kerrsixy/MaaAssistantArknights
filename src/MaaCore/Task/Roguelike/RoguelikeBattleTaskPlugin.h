@@ -114,6 +114,12 @@ protected:
     bool do_best_deploy(bool allow_soul_inspection = true);
     static bool deployment_cost_wait_required(const battle::DeploymentOper& oper, int observed_cost);
     std::unordered_set<std::string> reconcile_returned_blackflow_operators();
+    bool deployment_plan_exhausted(const battle::roguelike::DeployInfoWithRank& plan) const;
+    bool starting_core_reserves_site(
+        const battle::DeploymentOper& core,
+        const battle::roguelike::DeployInfoWithRank& candidate,
+        int current_kills,
+        const std::string& stage_name) const;
     bool deployment_requirements_met(
         const battle::DeploymentOper& oper,
         const battle::roguelike::DeployInfoWithRank& plan) const;

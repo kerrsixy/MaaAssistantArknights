@@ -50,6 +50,31 @@ struct SummonRetreatObservation
     bool retreat_button_present = false;
 };
 
+enum class SummonRetreatEvidenceBasis
+{
+    None,
+    FreshNormalAlive,
+    FreshSelectedAlive,
+    InitialNormalAliveLease,
+    RequestedTileInspection,
+    SelectedExactIdentity,
+    OwnedSelectionCleanup,
+};
+
+// This is an input-time authorization snapshot, not a new observation. In
+// particular InitialNormalAliveLease never rewrites selected Boss Unknown.
+struct SummonRetreatAuthorization
+{
+    bool allowed = false;
+    SummonRetreatEvidenceBasis basis = SummonRetreatEvidenceBasis::None;
+    std::uint64_t checked_ms = 0;
+    std::uint64_t observation_valid_through_ms = 0;
+    std::uint64_t transaction_valid_before_ms = 0;
+    std::uint64_t initial_alive_sequence = 0;
+    std::uint64_t initial_alive_observed_ms = 0;
+    std::uint64_t initial_alive_received_ms = 0;
+};
+
 struct SummonRetreatDecision
 {
     SummonRetreatAction action = SummonRetreatAction::None;
@@ -76,7 +101,16 @@ public:
     bool acknowledge_normal(const SummonRetreatObservation& observation);
     bool complete_handoff();
     void input_result(SummonRetreatAction action, bool succeeded);
+    // State-only query for diagnostics/tests. Real input additionally requires
+    // authorize_input immediately before the controller call, with no evidence
+    // IO.
     bool authorized(SummonRetreatAction action) const noexcept;
+    SummonRetreatAuthorization authorize_input(
+        SummonRetreatAction action,
+        const SummonRetreatObservation& observation,
+        std::uint64_t now_ms,
+        std::optional<Point> current_owner_tile,
+        std::optional<Point> requested_tile);
 
     bool boss_dead() const noexcept { return m_boss_dead; }
 
@@ -106,6 +140,15 @@ private:
         HandingOff,
     };
 
+    struct InitialAliveCredential
+    {
+        std::uint64_t sequence;
+        std::uint64_t observed_ms;
+        std::uint64_t received_ms;
+        bool select_accepted = false;
+    };
+
+    bool initial_alive_usable(const SummonRetreatObservation& observation) const noexcept;
     SummonRetreatDecision cancel();
     void reset_transaction();
     bool accept(const SummonRetreatObservation& observation);
@@ -122,6 +165,8 @@ private:
     std::optional<Point> m_pending_tile;
     std::uint64_t m_sequence = 0;
     std::uint64_t m_observed_ms = 0;
+    std::uint64_t m_received_ms = 0;
+    std::optional<InitialAliveCredential> m_initial_alive;
     std::uint64_t m_started_ms = 0;
     bool m_boss_dead = false;
     SummonRetreatAction m_authorized_action = SummonRetreatAction::None;

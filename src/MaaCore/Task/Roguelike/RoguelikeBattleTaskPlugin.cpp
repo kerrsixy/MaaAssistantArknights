@@ -518,6 +518,64 @@ bool asst::RoguelikeBattleTaskPlugin::get_position_full(const battle::Deployment
     return get_position_full(BattleData.get_location_type(oper.role, oper.name));
 }
 
+bool asst::RoguelikeBattleTaskPlugin::deployment_plan_exhausted(const battle::roguelike::DeployInfoWithRank& plan) const
+{
+    const auto count = m_plan_deployment_counts.find(plan.plan_index);
+    return (count != m_plan_deployment_counts.end() && count->second >= plan.max_deployments) ||
+           (m_hunter_prelude && !m_hunter_prelude->allows_plan(plan.plan_index));
+}
+
+bool asst::RoguelikeBattleTaskPlugin::starting_core_reserves_site(
+    const battle::DeploymentOper& core,
+    const battle::roguelike::DeployInfoWithRank& candidate,
+    int current_kills,
+    const std::string& stage_name) const
+{
+    if (m_config->get_theme() != "BlackFlow" || core.name.empty() || core.name != m_config->get_core_char() ||
+        core.role == battle::Role::Unknown || core.role == battle::Role::Drone) {
+        return false;
+    }
+    const auto& reserved = RoguelikeCopilot.reserved_core_groups(stage_name);
+    if (reserved.empty()) {
+        return false;
+    }
+    const auto& names = RoguelikeRecruit.get_group_names(m_config->get_theme());
+    const auto groups = RoguelikeRecruit.get_group_ids_of_oper(m_config->get_theme(), { core.role, core.name });
+    const battle::roguelike::DeployInfoWithRank* first = nullptr;
+    for (const int group : groups) {
+        if (std::ranges::find(reserved, names.at(group)) == reserved.end()) {
+            continue;
+        }
+        const auto plans = m_deploy_plan.find(names.at(group));
+        if (plans == m_deploy_plan.end()) {
+            continue;
+        }
+        for (const auto& primary : plans->second) {
+            const auto elite = m_oper_elite.find(core.name);
+            if (deployment_plan_exhausted(primary) || current_kills > primary.kill_upper_bound ||
+                (primary.minimum_elite > 0 && (elite == m_oper_elite.end() || elite->second < primary.minimum_elite)) ||
+                (!primary.operator_names.empty() &&
+                 std::ranges::find(primary.operator_names, core.name) == primary.operator_names.end())) {
+                continue;
+            }
+            // Temporary occupancy does not release a declared return site.
+            // Actual deployment still checks the original exclusive locations.
+            auto qualification = primary;
+            qualification.exclusive_locations.clear();
+            if (!deployment_requirements_met(core, qualification)) {
+                continue;
+            }
+            if (!first || primary.plan_index < first->plan_index) {
+                first = &primary;
+            }
+        }
+    }
+    return first &&
+           (first->location == candidate.location ||
+            std::ranges::find(first->exclusive_locations, candidate.location) != first->exclusive_locations.end() ||
+            std::ranges::find(candidate.exclusive_locations, first->location) != candidate.exclusive_locations.end());
+}
+
 bool asst::RoguelikeBattleTaskPlugin::deployment_requirements_met(
     const battle::DeploymentOper& oper,
     const battle::roguelike::DeployInfoWithRank& plan) const
@@ -530,6 +588,14 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_requirements_met(
     if ((plan.exclude_starting_core && oper.name == m_config->get_core_char()) ||
         std::ranges::find(plan.excluded_operator_names, oper.name) != plan.excluded_operator_names.end()) {
         return false;
+    }
+    if (oper.name != m_config->get_core_char() && !RoguelikeCopilot.reserved_core_groups(m_stage_name).empty()) {
+        const auto core = std::ranges::find_if(m_cur_deployment_opers, [&](const auto& current) {
+            return current.name == m_config->get_core_char();
+        });
+        if (core != m_cur_deployment_opers.end() && starting_core_reserves_site(*core, plan, m_kills, m_stage_name)) {
+            return false;
+        }
     }
     if (plan.require_persistent_blocking && !persistent_blocking_available({ oper.role, oper.name })) {
         return false;
@@ -678,11 +744,6 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
     Log.debug("No operator needs to be retreated.");
     // 构造当前地图的部署指令列表
     std::vector<DeployPlanInfo> deploy_plan_list;
-    const auto limit_reached = [&](const auto& info) {
-        const auto count = m_plan_deployment_counts.find(info.plan_index);
-        return (count != m_plan_deployment_counts.end() && count->second >= info.max_deployments) ||
-               (m_hunter_prelude && !m_hunter_prelude->allows_plan(info.plan_index));
-    };
     // 获取当前肉鸽的分组信息[干员组1名称,干员组2名称,...]
     const auto& groups = RoguelikeRecruit.get_group_names(m_config->get_theme());
     // 获取当前肉鸽的分组内排名信息
@@ -720,8 +781,8 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
                 continue;
             }
             for (const auto& info : plan_iter->second) {
-                if (limit_reached(info) || m_kills < info.kill_lower_bound || m_kills > info.kill_upper_bound ||
-                    !deployment_requirements_met(oper, info)) {
+                if (deployment_plan_exhausted(info) || m_kills < info.kill_lower_bound ||
+                    m_kills > info.kill_upper_bound || !deployment_requirements_met(oper, info)) {
                     continue;
                 }
                 DeployPlanInfo deploy_plan;
@@ -759,7 +820,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
             if (m_deploy_plan.contains(group_name)) {
                 is_in_group = true;
                 for (const auto& info : m_deploy_plan[group_name]) {
-                    if (limit_reached(info)) {
+                    if (deployment_plan_exhausted(info)) {
                         continue;
                     }
                     const auto elite = m_oper_elite.find(oper.name);
