@@ -747,7 +747,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_dynamic_layout_expected_cells.clear();
     m_dynamic_layout_context.clear();
     m_failed_spatial_actions.clear();
-    m_boss_vacant_drop_rejections = {};
+    m_boss_vacant_target_rejections = {};
     if (const auto failed = params.find<json::array>("failed_spatial_actions")) {
         if (failed->size() > 512) {
             return false;

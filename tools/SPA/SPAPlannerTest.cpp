@@ -2877,7 +2877,7 @@ int main()
     assert(spatial_vacant_drop_failure_key("m01#normal", rejected_drop, false) != drop_key);
     rejected_drop.kind = DeploymentStepKind::Swap;
     assert(!spatial_vacant_drop_failure_key("m01#normal", rejected_drop, false));
-    BossVacantDropRejections boss_drops;
+    BossVacantTargetRejections boss_drops;
     const BoardCell observed_receiver { 7, 1 };
     constexpr auto ranged = asst::battle::LocationType::Ranged;
     assert(!boss_drops.record(14, "m01", observed_receiver, ranged, "折光"));
@@ -2889,6 +2889,15 @@ int main()
     assert(!boss_drops.rejected(14, "m01", observed_receiver, asst::battle::LocationType::Melee));
     assert(!boss_drops.rejected(14, "m09", observed_receiver, ranged));
     assert(!boss_drops.rejected(15, "m01", observed_receiver, ranged));
+    // The m12 boss replay alternates between two vacant cells before
+    // spending the remaining input budget on the same rejected area.
+    assert(!boss_drops.record(14, "m12", { 4, 1 }, ranged, "复奏"));
+    assert(!boss_drops.record(14, "m12", { 3, 1 }, ranged, "复奏"));
+    assert(boss_drops.record(14, "m12", { 3, 1 }, ranged, "地灵"));
+    assert(boss_drops.record(14, "m12", { 4, 1 }, ranged, "地灵"));
+    assert(boss_drops.rejected(14, "m12", { 3, 1 }, ranged));
+    assert(boss_drops.rejected(14, "m12", { 4, 1 }, ranged));
+    assert(!boss_drops.rejected(14, "m12", { 4, 2 }, ranged));
     const std::vector<ReplacementMember> transition_board {
         { "艾丝黛尔", PlacementRole::Frontline, { "萨尔贡" }, 500, 800, 235, true },
         { "泡泡", PlacementRole::Frontline, { "萨尔贡" }, 500, 880, 437, true },

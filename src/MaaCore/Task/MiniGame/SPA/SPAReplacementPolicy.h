@@ -461,7 +461,7 @@ inline std::optional<std::string>
 
 // A same-cell rejection from two different operators is evidence about the tile
 // for that placement type in this round. It does not alter the terrain model.
-class BossVacantDropRejections
+class BossVacantTargetRejections
 {
 public:
     bool empty() const { return m_sources.empty(); }

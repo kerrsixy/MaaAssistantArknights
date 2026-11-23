@@ -467,10 +467,10 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         }
         const auto owned = m_policy.owned.find(unit.id);
         const spa::DeploymentStep move { spa::DeploymentStepKind::Move, unit.id, {}, unit.cell, cell, unit.facing };
-        if (review_vacant_previews && !m_boss_vacant_drop_rejections.empty()) {
+        if (review_vacant_previews && !m_boss_vacant_target_rejections.empty()) {
             const auto role = BattleData.get_first_role(unit.id);
             const auto type = spa::season_location_type(unit.id, BattleData.get_location_type(role, unit.id));
-            if (m_boss_vacant_drop_rejections.rejected(round, m_spatial_map_id, cell, type)) {
+            if (m_boss_vacant_target_rejections.rejected(round, m_spatial_map_id, cell, type)) {
                 return true;
             }
         }
@@ -1522,23 +1522,23 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
         if (m_pending_spatial_orientation->get("dynamic_layout", false)) {
             const auto drop = m_pending_spatial_orientation->get("drop_fingerprint", std::string());
             const auto preview = m_pending_spatial_orientation->get("preview_fingerprint", std::string());
-            replan_after_vacant_rejection = m_mode == "independent" && m_spatial_boss_phase &&
-                                            m_spatial_boss_phase_round == round && m_spatial_snapshot_round == round &&
-                                            relocation && displaced.empty() && vacant_target_rejected &&
-                                            !executor->committed_facing() && !preview.empty();
-            if (executor->spatial_drop_returned_without_direction() && !drop.empty()) {
+            const bool drop_returned = executor->spatial_drop_returned_without_direction() && !drop.empty();
+            const bool same_solo_boss_board = m_mode == "independent" && m_spatial_boss_phase &&
+                                              m_spatial_boss_phase_round == round && m_spatial_snapshot_round == round;
+            const bool verified_vacant_rejection =
+                same_solo_boss_board && relocation && displaced.empty() && !executor->committed_facing();
+            replan_after_vacant_rejection = verified_vacant_rejection && vacant_target_rejected && !preview.empty();
+            if (verified_vacant_rejection && (drop_returned || replan_after_vacant_rejection)) {
+                const auto role = BattleData.get_first_role(name);
+                const auto type = spa::season_location_type(name, BattleData.get_location_type(role, name));
+                const spa::BoardCell cell { m_pending_spatial_orientation->get("target_col", -1),
+                                            m_pending_spatial_orientation->get("target_row", -1) };
+                boss_vacant_tile_rejected =
+                    type > battle::LocationType::None &&
+                    m_boss_vacant_target_rejections.record(round, m_spatial_map_id, cell, type, name);
+            }
+            if (drop_returned) {
                 m_failed_spatial_actions.insert(drop);
-                if (m_mode == "independent" && m_spatial_boss_phase && m_spatial_boss_phase_round == round &&
-                    m_spatial_snapshot_round == round && relocation && displaced.empty() &&
-                    !executor->committed_facing()) {
-                    const auto role = BattleData.get_first_role(name);
-                    const auto type = spa::season_location_type(name, BattleData.get_location_type(role, name));
-                    const spa::BoardCell cell { m_pending_spatial_orientation->get("target_col", -1),
-                                                m_pending_spatial_orientation->get("target_row", -1) };
-                    boss_vacant_tile_rejected =
-                        type > battle::LocationType::None &&
-                        m_boss_vacant_drop_rejections.record(round, m_spatial_map_id, cell, type, name);
-                }
             }
             else if (!replan_after_vacant_rejection) {
                 // After one cancelled Boss drag with a verified restored field, keep that

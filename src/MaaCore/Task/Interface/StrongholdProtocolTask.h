@@ -198,7 +198,7 @@ private:
     std::string m_failed_layout_context;
     std::map<int, std::string> m_boss_layout_fixed_unit;
     std::set<std::string> m_failed_spatial_actions;
-    spa::BossVacantDropRejections m_boss_vacant_drop_rejections;
+    spa::BossVacantTargetRejections m_boss_vacant_target_rejections;
     std::map<int, int> m_dynamic_layout_attempts;
     std::map<int, int> m_spatial_reconciliation_attempts;
     bool m_dynamic_layout_observed = false;
