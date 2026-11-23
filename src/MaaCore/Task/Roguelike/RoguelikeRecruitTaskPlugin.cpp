@@ -684,7 +684,8 @@ bool asst::RoguelikeRecruitTaskPlugin::finish_without_recruitment()
         return true;
     }
 
-    const auto before = blackflow::BlackFlowVoucherStash(ctrler()->get_image()).observe();
+    const auto before_image = ctrler()->get_image();
+    const auto before = blackflow::BlackFlowVoucherStash(before_image).observe();
     if (!before.can_store()) {
         auto info = basic_info_with_what("BlackFlowVoucherStashDecision");
         info["details"] = json::object {
@@ -705,7 +706,10 @@ bool asst::RoguelikeRecruitTaskPlugin::finish_without_recruitment()
     // The resource chain owns the one button click and optional confirmation.
     // Completion is established below, never from ProcessTask returning true.
     ProcessTask request(*this, { "BlackFlow@Roguelike@ReserveRecruitmentVoucher" });
-    request.set_retry_times(0);
+    // Reuse the page whose enabled button and capacity were verified together.
+    // The pulsing button can fail matching on the very next animation frame.
+    request.set_reusable_image(before_image);
+    request.set_retry_times(2);
     const bool action_completed = request.run();
     LogInfo << __FUNCTION__ << "Voucher storage action finished" << action_completed;
     return verify_voucher_stash();
