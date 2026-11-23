@@ -18,7 +18,7 @@ import sys
 import time
 from pathlib import Path
 
-from spa_checkpoint import checkpoint_roster
+from spa_checkpoint import checkpoint_roster, verified_boss_context
 
 
 def invoke(args: argparse.Namespace, task: str, output: Path, extra: list[str] | None = None) -> tuple[int, dict]:
@@ -233,6 +233,7 @@ def main() -> int:
         "run_id": f"phase1-{int(time.time())}",
         "mode": "independent",
         "difficulty": args.difficulty,
+        **verified_boss_context(receipt),
         "primary_pact": "auto",
         "dynamic_primary_pact": True,
         "enabled_core_pacts": [],
@@ -276,23 +277,6 @@ def main() -> int:
         native_args,
     )
 
-    # A process restart or a cached account-expiry screen must not turn into
-    # a non-combat failure.  Reattach to the same live run after a bounded
-    # startup/reconnect cycle; the policy and setup receipt are intentionally
-    # reused, so no new simulation is opened.
-    for recovery_index in range(args.max_recovery):
-        if not is_auth_expired(native_observation):
-            break
-        recovery_root = args.output / f"recovery-{recovery_index:02d}"
-        if not recover_session(args, recovery_root, recovery_index):
-            continue
-        native_code, native_observation = invoke(
-            args,
-            "auto-preparation",
-            recovery_root / "native-resume",
-            native_args,
-        )
-
     # Native automation may deliberately return a resumable checkpoint after
     # a promotion window, an interrupted process, or a transient page.  A
     # preparation/battle observation is therefore not a terminal failure:
@@ -309,7 +293,11 @@ def main() -> int:
                     state = loaded
             except (OSError, json.JSONDecodeError):
                 state = {}
-        changed = False
+        if state.get("run_id") != policy["run_id"]:
+            state = {}
+        boss_context = verified_boss_context(state)
+        policy.update(boss_context)
+        changed = bool(boss_context)
         if isinstance(state.get("roster"), list):
             roster, pending_promotion = checkpoint_roster(state, policy.get("promotion_pending", ""))
             policy["roster"] = roster
@@ -367,6 +355,18 @@ def main() -> int:
 
     current = native_observation
     last_native_root = native_dir
+    for recovery_index in range(args.max_recovery):
+        if not is_auth_expired(current):
+            break
+        recovery_root = args.output / f"recovery-{recovery_index:02d}"
+        if not recover_session(args, recovery_root, recovery_index):
+            continue
+        merge_checkpoint(last_native_root)
+        last_native_root = recovery_root / "native-resume"
+        native_code, current = invoke(
+            args, "auto-preparation", last_native_root, native_args
+        )
+
     for index in range(args.max_recovery + 4):
         if current.get("page") in ("result", "lobby"):
             break

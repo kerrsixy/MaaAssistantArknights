@@ -13,6 +13,7 @@ from spa_checkpoint import (
     merge_receipt,
     setup_context_receipt,
     setup_pact_receipt,
+    verified_boss_context,
     verified_lifecycle_receipt,
 )
 from spa_deployment_audit import audit_deployment_ledger
@@ -830,6 +831,10 @@ def main():
                     raise RuntimeError(
                         "setup receipt does not prove a confirmed formation and battle HUD"
                     )
+                boss_context = verified_boss_context(receipt)
+                if boss_context and not policy.get("boss_advertisement_verified"):
+                    policy.update(boss_context)
+                    checkpoint_context.update(boss_context)
                 roster = policy.setdefault("roster", [])
                 if not isinstance(roster, list):
                     raise RuntimeError("policy roster must be a list")

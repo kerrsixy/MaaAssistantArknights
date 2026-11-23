@@ -37,6 +37,17 @@ def merge_receipt(previous: dict, receipt: dict) -> dict:
     return merged
 
 
+def verified_boss_context(receipt: dict) -> dict:
+    family = receipt.get("boss_family_name")
+    if (
+        receipt.get("boss_advertisement_verified") is not True
+        or not isinstance(family, str)
+        or not family.strip()
+    ):
+        return {}
+    return {"boss_family_name": family, "boss_advertisement_verified": True}
+
+
 def setup_context_receipt(event_name: str, details: dict) -> dict:
     """Retain verified bans/strategy independently of physical unit receipts."""
     if (

@@ -1,9 +1,31 @@
 import unittest
 
-from spa_checkpoint import committed_shop_level, merge_receipt, setup_context_receipt, setup_pact_receipt
+from spa_checkpoint import (
+    committed_shop_level,
+    merge_receipt,
+    setup_context_receipt,
+    setup_pact_receipt,
+    verified_boss_context,
+)
 
 
 class SetupPactEvidenceTests(unittest.TestCase):
+    def test_only_verified_boss_advertisement_survives_setup_handoff(self):
+        boss = {
+            "boss_family_name": "阿利斯泰尔，帝国余晖",
+            "boss_advertisement_verified": True,
+        }
+        self.assertEqual(
+            verified_boss_context({**boss, "boss_variant_verified": False}), boss
+        )
+        self.assertEqual(
+            verified_boss_context({"boss_family_name": boss["boss_family_name"]}), {}
+        )
+        self.assertEqual(
+            verified_boss_context({**boss, "boss_advertisement_verified": 1}), {}
+        )
+        self.assertEqual(verified_boss_context({**boss, "boss_family_name": " "}), {})
+
     def test_only_reconciled_upgrade_with_valid_level_updates_book(self):
         signed = {"shop_level_before": 3, "shop_level_after": 4}
         self.assertEqual(committed_shop_level("SPAShopUpgradeReconciled", signed), 4)
