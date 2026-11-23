@@ -1599,6 +1599,23 @@ std::optional<cv::Point> asst::spa::registered_replacement_cell(const cv::Mat& g
                : std::nullopt;
 }
 
+std::optional<cv::Point> asst::spa::registered_relocation_anchor(
+    const cv::Mat& grid_to_screen,
+    cv::Point verified_point,
+    cv::Point destination)
+{
+    if (registered_replacement_cell(grid_to_screen, verified_point) != destination) {
+        return std::nullopt;
+    }
+    std::vector<cv::Point2f> projected;
+    cv::perspectiveTransform(std::vector<cv::Point2f> { cv::Point2f(destination) }, projected, grid_to_screen);
+    const auto anchor = projected.front();
+    if (!std::isfinite(anchor.x) || !std::isfinite(anchor.y) || !cv::Rect2f(180, 140, 820, 370).contains(anchor)) {
+        return std::nullopt;
+    }
+    return cv::Point(cvRound(anchor.x), cvRound(anchor.y));
+}
+
 static std::optional<cv::Point> registered_replacement_preview(
     const cv::Mat& before,
     const cv::Mat& held,

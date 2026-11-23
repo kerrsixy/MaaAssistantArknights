@@ -647,6 +647,37 @@ int main()
     auto between_cells = snapshot_members;
     between_cells.front().x += 30;
     assert(!registered_grid_members(snapshot_grid, between_cells));
+    // D6 R6, m10. The green interior input for Wild Mane was 20 pixels
+    // east of the registered destination before the verified relocation.
+    const cv::Mat egir_grid =
+        (cv::Mat_<double>(3, 3) << 78.0152129,
+         -12.6147546,
+         245.5631216,
+         -.0677316,
+         58.1285158,
+         172.0775579,
+         -.0003518,
+         -.0197507,
+         1.0);
+    const cv::Point egir_drop(577, 239), egir_cell(4, 1);
+    std::vector<PlacementMember> egir_field { { 637, 301, PlacementRole::Ranged, "吉星", 'S' },
+                                              { 552, 440, PlacementRole::Ranged, "安哲拉", 'E' },
+                                              { 467, 440, PlacementRole::Frontline, "幽灵鲨", 'E' },
+                                              { 555, 301, PlacementRole::Ranged, "承曦格雷伊", 'E' },
+                                              { 637, 440, PlacementRole::Frontline, "深巡", 'E' },
+                                              { 637, 235, PlacementRole::Frontline, "烈夏", 'E' },
+                                              { 470, 369, PlacementRole::Healer, "褐果", 'E' },
+                                              { egir_drop.x, egir_drop.y, PlacementRole::Frontline, "野鬃", 'E' } };
+    assert(!registered_grid_members(egir_grid, egir_field));
+    const auto egir_anchor = registered_relocation_anchor(egir_grid, egir_drop, egir_cell);
+    assert(egir_anchor == cv::Point(557, 235));
+    assert(!registered_relocation_anchor(egir_grid, egir_drop, { 5, 1 }));
+    assert(!registered_relocation_anchor(egir_grid, { 598, 239 }, egir_cell));
+    egir_field.back().x = egir_anchor->x;
+    egir_field.back().y = egir_anchor->y;
+    const auto egir_registered = registered_grid_members(egir_grid, egir_field);
+    assert(egir_registered && egir_registered->size() == 8);
+    assert(egir_registered->back().col == egir_cell.x && egir_registered->back().row == egir_cell.y);
     assert(!registered_grid_members(snapshot_grid, {}));
     assert(!registered_grid_members(cv::Mat::zeros(3, 3, CV_64F), snapshot_members));
     assert(!registered_grid_members(snapshot_grid, { { 100, 290, PlacementRole::Ranged, "罗比菈塔", 'E' } }));

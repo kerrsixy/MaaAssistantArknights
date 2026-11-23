@@ -3440,9 +3440,22 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
             // prior value before looking for its new chevron.
             m_reoriented_field_members[*displaced_index].facing = '\0';
         }
-        m_target = Point(points->at(source_index).x, points->at(source_index).y);
+        bool relocation_anchor_normalized = false;
         if (!m_held_board.empty() && !m_growth_grid_to_screen.empty()) {
             const auto projection = registered_grid_projection(m_held_board, field, m_growth_grid_to_screen);
+            if (projection && m_relocation_applied && m_direction_committed) {
+                auto& relocated = m_reoriented_field_members[source_index];
+                // The green interior input can be off-center. Keep the
+                // verified identity but record the actual tile anchor.
+                if (const auto anchor = registered_relocation_anchor(
+                        *projection,
+                        { relocated.x, relocated.y },
+                        { m_reorient_col, m_reorient_row })) {
+                    relocation_anchor_normalized = relocated.x != anchor->x || relocated.y != anchor->y;
+                    relocated.x = anchor->x;
+                    relocated.y = anchor->y;
+                }
+            }
             auto grid = projection ? registered_grid_members(*projection, m_reoriented_field_members) : std::nullopt;
             if (grid) {
                 // This clean frame already verified the relocated identities
@@ -3456,6 +3469,8 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
         }
         // A verified field move can be reconciled before the logical grid
         // is readable. The controller rebuilds that grid separately.
+        const auto& reconciled_source = m_reoriented_field_members[source_index];
+        m_target = Point(reconciled_source.x, reconciled_source.y);
         m_field_pose_verified = true;
         auto verified = basic_info_with_what(
             m_grid_probe_only       ? "SPAFieldGridProbeVerified"
@@ -3476,6 +3491,7 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
                                              { "hud_fields_reused", m_preparation_hud_fields_reused },
                                              { "hud_ocr_checks", m_preparation_hud_ocr_checks },
                                              { "relocation_applied", m_relocation_applied },
+                                             { "relocation_anchor_normalized", relocation_anchor_normalized },
                                              { "displaced", m_relocation_displaced },
                                              { "direction_input_committed", m_direction_committed },
                                              { "facing_pixel_verified", false },

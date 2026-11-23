@@ -102,6 +102,8 @@ struct RegisteredReplacementReceiver
 // Recover the logical tile of an already identified field recipient. This
 // uses the anchored grid and does not identify the recipient from pixels.
 std::optional<cv::Point> registered_replacement_cell(const cv::Mat& grid_to_screen, cv::Point recipient);
+std::optional<cv::Point>
+    registered_relocation_anchor(const cv::Mat& grid_to_screen, cv::Point verified_point, cv::Point destination);
 
 // The caller must separately establish the recipient's identity in `before`.
 // A supported feature projection and newly green pixels on both sides of that
