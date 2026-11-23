@@ -416,11 +416,18 @@ class StagedAcceptanceTests(unittest.TestCase):
         policy = {
             "run_id": "scheduled-band",
             "mode": "independent",
-            "difficulty": 5,
+            "difficulty": 1,
             "schedule_strategy_badges": True,
         }
+        quick_wins = [
+            self.reviewed(
+                policy={**self.policy, "run_id": f"badge-quick-{attempt}"},
+                execution=f"badge-quick-{attempt}",
+            )
+            for attempt in range(3)
+        ]
         for wins, tier in ((3, "orange"), (6, "silver"), (14, "silver")):
-            raw = solo_run("independent", 5)
+            raw = solo_run("independent", 1)
             raw[-2]["details"]["taskchain"] = "StrongholdProtocol"
             badge = event(
                 "SPAObservation",
@@ -470,6 +477,12 @@ class StagedAcceptanceTests(unittest.TestCase):
             self.assertEqual(
                 result["strategy_badge_evidence"]["report_wins_after"], wins
             )
+            progress = replay_progress([*quick_wins, result])
+            self.assertFalse(progress["all_strategy_badges_verified"])
+            earned = progress["verified_strategy_badges"]
+            self.assertEqual(set(earned), {"band_weakness"})
+            self.assertEqual(earned["band_weakness"]["wins"], wins)
+            self.assertEqual(earned["band_weakness"]["badge_tier"], tier)
             for field, value in (
                 ("band_id", "band_amiya"),
                 ("strategy_report_evidence_saved", False),
@@ -1029,6 +1042,7 @@ class StagedAcceptanceTests(unittest.TestCase):
         battle = self.reviewed()
         state = replay_progress([battle, report])
         self.assertTrue(state["all_strategy_badges_verified"])
+        self.assertEqual(set(state["verified_strategy_badges"]), set(verified))
         self.assertEqual(state["stage_index"], 0)
         self.assertEqual(state["stages"][0]["consecutive_wins"], 1)
 
@@ -1050,6 +1064,62 @@ class StagedAcceptanceTests(unittest.TestCase):
                 )
         unreviewed = audit_run(scope_run(raw, policy), policy, {})
         self.assertFalse(replay_progress([unreviewed])["all_strategy_badges_verified"])
+
+        targeted_prefix = [
+            received("", {}, scanner, 20001),
+            received(
+                "SPAStrategyReportScan",
+                {"target_band_id": rows[0]["band_id"]},
+                scanner,
+            ),
+            received("", {}, scanner, 20002),
+            received("SPAObservation", {"page": "lobby", "contradictory": False}, observer),
+        ]
+        recovered = self.reviewed([*targeted_prefix, *raw], policy)
+        self.assertEqual(
+            set(recovered["strategy_catalogue_badge_evidence"]["badges"]), set(verified)
+        )
+        failed_prefix = [
+            received("", {}, scanner, 20001),
+            received("", {}, scanner, 20000),
+        ]
+        failed_target = self.reviewed([*failed_prefix, *raw], policy)
+        self.assertEqual(
+            set(failed_target["strategy_catalogue_badge_evidence"]["badges"]), set(verified)
+        )
+        no_completed_fallback = self.reviewed(targeted_prefix + [raw[-2]], policy)
+        self.assertIsNone(no_completed_fallback["strategy_catalogue_badge_evidence"])
+
+        # Existing marks seen before a real game count individually. One
+        # missing mark cannot turn this opening report into a full audit.
+        partial = copy.deepcopy(raw[:-1])
+        partial[1]["details"]["details"]["strategy_report_evidence_saved"] = False
+        partial[-4]["details"]["details"]["all_strategy_badges_verified"] = False
+        partial[-1]["details"]["details"].update(
+            all_strategy_badges_verified=False, requested_strategy="band_weakness"
+        )
+        partial_policy = {**policy, "difficulty": 1, "run_id": "partial-verified"}
+        initial_lobby = received(
+            "SPAObservation", {"page": "lobby", "contradictory": False}, observer
+        )
+        partial_run = self.reviewed(
+            [initial_lobby, *partial, *solo_run("independent", 1)],
+            partial_policy,
+            "partial-execution",
+        )
+        self.assertTrue(partial_run["qualified_win"], partial_run["checks"])
+        visible = partial_run["opening_strategy_badge_evidence"]["badges"]
+        self.assertEqual(set(visible), set(verified) - {rows[0]["band_id"]})
+        quick = [
+            self.reviewed(
+                policy={**self.policy, "run_id": f"partial-quick-{attempt}"},
+                execution=f"partial-quick-{attempt}",
+            )
+            for attempt in range(3)
+        ]
+        progress = replay_progress([*quick, partial_run])
+        self.assertEqual(set(progress["verified_strategy_badges"]), set(visible))
+        self.assertFalse(progress["all_strategy_badges_verified"])
 
         # The final batch child opens only the report. None of its receipts
         # counts as a game, but the fully verified catalogue ends the batch.

@@ -494,6 +494,9 @@ def strategy_badge_completion_evidence(events, strategy_indices):
     if len(selected_ids) != 1:
         return None
     strategy = next(iter(selected_ids))
+    requirements = strategy_badge_requirements().get(strategy)
+    if not requirements:
+        return None
     settled = False
     saved_reports = {}
     for index, event in enumerate(events):
@@ -517,7 +520,7 @@ def strategy_badge_completion_evidence(events, strategy_indices):
             and source == STRATEGY_OBSERVER
             and detail.get("band_id") == strategy
         ):
-            if badge := verified_strategy_badge(detail):
+            if badge := verified_strategy_badge(detail, *requirements):
                 saved_reports[badge[0]] = (index, badge[1])
         if (
             name != "SPAStrategyBadgeScheduleSettled"
@@ -553,9 +556,9 @@ def strategy_badge_completion_evidence(events, strategy_indices):
     return None
 
 
-def strategy_catalogue_badge_evidence(events):
-    """Check a report-only scheduler execution against all in-game card receipts."""
-    scan_start, scan_report, scan_completed, lobby_resumed = None, None, False, False
+def strategy_report_at_schedule(events):
+    """Bind the scheduler to the last completed report and subsequent lobby read."""
+    active, scan_report, completed, lobby_resumed = False, None, None, False
     observed = {}
     for index, event in enumerate(events):
         envelope = event.get("details", {})
@@ -568,36 +571,35 @@ def strategy_catalogue_badge_evidence(events):
         )
         detail = envelope.get("details", {})
         if source == STRATEGY_REPORT_PLUGIN and message == 20001:
-            if scan_start is not None:
+            if active:
                 return None
-            scan_start = index
+            active, scan_report, completed, lobby_resumed = True, None, None, False
+            observed = {}
         elif (
             source == STRATEGY_REPORT_PLUGIN
             and message == 20003
             and name == "SPAStrategyReportScan"
         ):
-            if scan_start is None or scan_report is not None or scan_completed:
+            if not active or scan_report is not None:
                 return None
             scan_report = (index, detail)
         elif source == STRATEGY_REPORT_PLUGIN and message == 20002:
-            if scan_report is None or scan_completed:
+            if not active or scan_report is None:
                 return None
-            scan_completed = True
+            active, completed = False, (*scan_report, observed)
+        elif source == STRATEGY_REPORT_PLUGIN and message == 20000:
+            active, scan_report, completed, lobby_resumed = False, None, None, False
         elif (
             source == STRATEGY_OBSERVER
             and message == 20003
             and name == "SPAObservation"
         ):
-            if (
-                scan_start is not None
-                and scan_report is None
-                and detail.get("page") == "strategy_report"
-            ):
+            if active and scan_report is None and detail.get("page") == "strategy_report":
                 identity = detail.get("band_id")
                 if isinstance(identity, str) and identity:
                     observed.setdefault(identity, []).append((index, detail))
             if (
-                scan_completed
+                completed is not None
                 and detail.get("page") == "lobby"
                 and detail.get("contradictory") is False
             ):
@@ -610,67 +612,82 @@ def strategy_catalogue_badge_evidence(events):
             if (
                 lobby_resumed
                 and detail.get("report_and_lobby_verified") is True
-                and detail.get("all_strategy_badges_verified") is True
                 and detail.get("simulation_start_issued") is False
-                and detail.get("requested_strategy") == ""
             ):
-                report_index, report = scan_report
-                return verify_strategy_catalogue_report(
-                    report, observed, report_index, index
-                )
+                return (*completed, index, detail)
+            return None
     return None
 
 
-def verify_strategy_catalogue_report(
-    report, observations, report_index, schedule_index
-):
+def verify_strategy_report_badges(report, observations, report_index, schedule_index):
     required = strategy_badge_requirements()
     rows = report.get("strategies")
     if (
         report.get("target_band_id") != ""
         or report.get("all_strategy_identities_observed") is not True
-        or report.get("all_strategy_badges_verified") is not True
         or report.get("identified_strategies") != len(required)
         or report.get("expected_strategies") != len(required)
         or not isinstance(rows, list)
-        or len(rows) != len(required)
+        or len(rows) > len(required)
     ):
         return None
-    badges = {}
+    badges, seen = {}, set()
     for row in rows:
         if not isinstance(row, dict):
             return None
         identity = row.get("band_id")
+        if not isinstance(identity, str) or identity not in required or identity in seen:
+            return None
+        seen.add(identity)
         if (
-            not isinstance(identity, str)
-            or identity not in required
-            or identity in badges
-            or any(
+            any(
                 row.get(flag) is not True
                 for flag in ("wins_known", "unlocked_verified", "badge_verified")
             )
             or type(row.get("wins")) is not int
         ):
-            return None
+            continue
         matches = [
             (index, badge)
             for index, detail in observations.get(identity, ())
             if (badge := verified_strategy_badge(detail, *required[identity]))
             and badge[0] == row["wins"]
         ]
-        if not matches:
-            return None
-        index, (wins, tier) = matches[-1]
-        badges[identity] = {
-            "wins": wins,
-            "badge_tier": tier,
-            "observation_event_index": index,
-        }
+        if matches:
+            index, (wins, tier) = matches[-1]
+            badges[identity] = {
+                "wins": wins,
+                "badge_tier": tier,
+                "observation_event_index": index,
+            }
     return {
         "report_event_index": report_index,
         "schedule_event_index": schedule_index,
         "badges": badges,
     }
+
+
+def strategy_report_badge_evidence(events):
+    scan = strategy_report_at_schedule(events)
+    if not scan:
+        return None, None
+    report_index, native_report, observations, schedule_index, schedule = scan
+    opening = verify_strategy_report_badges(
+        native_report, observations, report_index, schedule_index
+    )
+    complete = (
+        opening
+        and native_report.get("all_strategy_badges_verified") is True
+        and schedule.get("all_strategy_badges_verified") is True
+        and schedule.get("requested_strategy") == ""
+        and opening["badges"].keys() == strategy_badge_requirements().keys()
+    )
+    return opening, opening if complete else None
+
+
+def strategy_catalogue_badge_evidence(events):
+    """Keep native batch acceptance bound to a complete game catalogue report."""
+    return strategy_report_badge_evidence(events)[1]
 
 
 def terminal_pact_sample(events, run_id):
@@ -981,20 +998,22 @@ def audit_run(events, policy, provenance):
         and policy.get("schedule_strategy_badges") is True
         else None
     )
-    catalogue_badges = (
-        strategy_catalogue_badge_evidence(events)
-        if mode == "independent"
-        and policy.get("schedule_strategy_badges") is True
-        and not strategy_indices
+    report_only = (
+        not strategy_indices
         and not formation_indices
         and not combat_samples
         and lifecycle_count == 0
         and scope["boundaries_verified"]
-        and all(
-            checks[key] for key in COMMON_CHECKS - {"execution_boundaries_verified"}
-        )
-        else None
+        and all(checks[key] for key in COMMON_CHECKS - {"execution_boundaries_verified"})
     )
+    opening_badges, complete_report = (
+        strategy_report_badge_evidence(events)
+        if mode == "independent"
+        and policy.get("schedule_strategy_badges") is True
+        and (qualified or report_only)
+        else (None, None)
+    )
+    catalogue_badges = complete_report if report_only else None
     terminal = bool(receipt)
     verified_failure = (
         scope["complete"]
@@ -1049,6 +1068,7 @@ def audit_run(events, policy, provenance):
         "hidden_boss_verified": False,
         "strategy_badge_verified": strategy_badge is not None,
         "strategy_badge_evidence": strategy_badge,
+        "opening_strategy_badge_evidence": opening_badges,
         "strategy_catalogue_badge_evidence": catalogue_badges,
         "limitations": [
             "A candidate and a hash-bound review do not detect unrecorded external inputs.",
@@ -1074,6 +1094,30 @@ def replay_progress(reports):
         [],
     )
     verified_catalogue = None
+    badges = {}
+    badge_requirements = strategy_badge_requirements()
+
+    def remember_badge(identity, record, report):
+        if not isinstance(identity, str) or not isinstance(record, dict):
+            return
+        wins = record.get("wins")
+        requirement = badge_requirements.get(identity)
+        if (
+            not requirement
+            or type(wins) is not int
+            or wins < requirement[0]
+            or record.get("badge_tier") != ("silver" if wins >= requirement[1] else "orange")
+            or type(record.get("observation_event_index")) is not int
+            or record["observation_event_index"] < 0
+        ):
+            return
+        if identity not in badges or wins >= badges[identity]["wins"]:
+            badges[identity] = {
+                **record,
+                "run_id": report["run_id"],
+                "run_execution_id": report["run_execution_id"],
+            }
+
     for report in reports:
         run_id, evidence = report.get("run_id"), report.get("events_sha256")
         execution = report.get("run_execution_id")
@@ -1117,6 +1161,8 @@ def replay_progress(reports):
                 "run_execution_id": execution,
                 **catalogue,
             }
+            for identity, record in catalogue["badges"].items():
+                remember_badge(identity, record, report)
             continue  # A report-only execution makes no attempt at the current battle stage.
         if current == len(stages):
             ignored.append(
@@ -1144,6 +1190,21 @@ def replay_progress(reports):
             and bool(checks)
             and all(v is True for v in checks.values())
         )
+        if passed and report.get("mode") == "independent":
+            opening = report.get("opening_strategy_badge_evidence") or {}
+            for identity, record in opening.get("badges", {}).items():
+                remember_badge(identity, record, report)
+            earned = report.get("strategy_badge_evidence")
+            if earned:
+                remember_badge(
+                    earned["strategy_id"],
+                    {
+                        "wins": earned["report_wins_after"],
+                        "badge_tier": earned["badge_tier"],
+                        "observation_event_index": earned["report_event_index"],
+                    },
+                    report,
+                )
         stages[current]["consecutive_wins"] = (
             stages[current]["consecutive_wins"] + 1 if passed else 0
         )
@@ -1173,6 +1234,7 @@ def replay_progress(reports):
         "progression_complete": current == len(stages),
         "runs": accepted_runs,
         "ignored": ignored,
+        "verified_strategy_badges": badges,
         "all_strategy_badges_verified": verified_catalogue is not None,
         "strategy_catalogue_badge_evidence": verified_catalogue,
         "hidden_core_victory_verified": any(
@@ -1238,6 +1300,9 @@ def reload_report(path):
             "no_known_intervention_candidate": False,
             "hidden_core_victory_verified": False,
             "hidden_core_evidence": None,
+            "opening_strategy_badge_evidence": None,
+            "strategy_badge_verified": False,
+            "strategy_badge_evidence": None,
             "strategy_catalogue_badge_evidence": None,
             "terminal_primary_pact_sample": None,
             "ending_growth_review": None,
