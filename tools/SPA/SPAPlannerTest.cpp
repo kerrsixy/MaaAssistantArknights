@@ -4038,6 +4038,8 @@ int main()
     targeted_report["strategies"] = json::array { smith_unknown };
     const auto unknown_baseline = find_strategy_report_progress(targeted_report, "band_smith");
     assert(unknown_baseline && !unknown_baseline->wins);
+    assert(ProgressLedger::can_schedule_solo(*unknown_baseline));
+    assert(!ProgressLedger::next_report_confirms_win(*unknown_baseline, *verified_priority, "band_smith", true));
     auto smith_locked = smith_two_wins;
     smith_locked["unlocked_verified"] = false;
     targeted_report["strategies"] = json::array { smith_locked };

@@ -3059,7 +3059,7 @@ bool asst::StrongholdProtocolTask::run_single()
             report = scan_strategy_progress(priority);
             if (report && report->get("target_band_id", std::string()) == priority) {
                 auto record = spa::find_strategy_report_progress(*report, priority);
-                if (record && record->wins.has_value() && spa::ProgressLedger::can_schedule_solo(*record)) {
+                if (record && spa::ProgressLedger::can_schedule_solo(*record)) {
                     scheduled = std::move(record);
                 }
             }
