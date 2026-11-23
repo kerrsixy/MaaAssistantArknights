@@ -5439,6 +5439,40 @@ int main()
     kjerag_market.growth_primary_active_verified = false;
     assert(should_upgrade_dynamic_shop(kjerag_market, 10, 8, kjerag_quotes, catalog, &upgrade_hold));
 
+    auto kjerag_first_stacker = kjerag_market;
+    kjerag_first_stacker.selected_strategy_id = "band_lmlee";
+    kjerag_first_stacker.allow_refresh = true;
+    kjerag_first_stacker.growth_primary_active_verified = true;
+    kjerag_first_stacker.shop_level = 4;
+    kjerag_first_stacker.round = 10;
+    kjerag_first_stacker.current_life = 16;
+    kjerag_first_stacker.economy_scenario_horizon_round = 14;
+    kjerag_first_stacker.growth_scenario_horizon_round = 14;
+    kjerag_first_stacker.shop_discount_wait_level = 0;
+    kjerag_first_stacker.shop_discount_wait_round = 0;
+    kjerag_first_stacker.owned.erase("初雪");
+    kjerag_first_stacker.owned["灵知"] = { 1, false, true };
+    kjerag_first_stacker.full_field_offer_improvements.clear();
+    const std::vector<ShopOffer> d6_kjerag_book_four {
+        { "维伊", 3, 4 }, { "烈夏", 2, 3 }, { "山", 3, 2 }, { "维伊", 3, 1 }, { "淬羽赫默", 3, 0 },
+    };
+    assert(!should_upgrade_dynamic_shop(kjerag_first_stacker, 12, 9, d6_kjerag_book_four, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->reason.find("first Kjerag freeze stacker") != std::string::npos);
+    assert(upgrade_hold->next_round_upgrade_price == 8);
+    assert(should_upgrade_dynamic_shop(kjerag_first_stacker, 13, 9, {}, catalog));
+    assert(should_upgrade_dynamic_shop(kjerag_first_stacker, 12, 0, {}, catalog));
+    kjerag_first_stacker.shop_discount_wait_level = 4;
+    kjerag_first_stacker.shop_discount_wait_round = 10;
+    assert(choose_preparation(kjerag_first_stacker, 4, {}, catalog).action == PreparationAction::Refresh);
+    assert(choose_preparation(kjerag_first_stacker, 3, {}, catalog).action != PreparationAction::Refresh);
+    ++kjerag_first_stacker.round;
+    assert(should_upgrade_dynamic_shop(kjerag_first_stacker, 12, 8, {}, catalog));
+    kjerag_first_stacker.shop_level = 5;
+    assert(!should_upgrade_dynamic_shop(kjerag_first_stacker, 12, 12, {}, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->next_round_upgrade_price == 11);
+    kjerag_first_stacker.owned["初雪"] = { 1, false, false };
+    assert(should_upgrade_dynamic_shop(kjerag_first_stacker, 12, 12, {}, catalog));
+
     auto ordinary_budget = dynamic_decision;
     ordinary_budget.selected_strategy_id = "band_siracusa";
     ordinary_budget.deployed_population = 3;

@@ -1281,6 +1281,21 @@ static int preparation_growth_weight(const PreparationPolicy& policy)
     return 800 * opportunities * layer_need / 1000 * (100 - pressure) / 100;
 }
 
+static int first_kjerag_freeze_stacker_price(const PreparationPolicy& policy)
+{
+    if (!kjerag_has_growth_window(policy) || !kjerag_freeze_roles(policy, true).second ||
+        kjerag_freeze_roles(policy, false).first) {
+        return 0;
+    }
+    int price = 0;
+    for (const auto& card : OperatorCatalogue) {
+        if (is_kjerag_freeze_stacker(card.name) && card.tier <= policy.shop_level && card.price > 0) {
+            price = price > 0 ? std::min(price, card.price) : card.price;
+        }
+    }
+    return price;
+}
+
 static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
     const PreparationPolicy& policy,
     int funds,
@@ -1484,6 +1499,17 @@ static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
     const bool upgrade_grants_faction_refresh =
         policy.selected_strategy_id == "band_pepe" && policy.primary_pact == "萨尔贡" && policy.shop_level % 2 == 1;
     const int post_upgrade_budget = funds - upgrade_price;
+    if (!inactive_route && stable_board && next_preparation && accepts_recruits && can_refresh &&
+        discount_wait_available && upgrade_price > 0) {
+        const int stacker_price = first_kjerag_freeze_stacker_price(policy);
+        const int search_budget = stacker_price + refresh_cost;
+        if (stacker_price > 0 && funds >= search_budget && post_upgrade_budget < search_budget) {
+            return ShopUpgradeHold { "Reserve one preparation to find and recruit the first Kjerag freeze stacker",
+                                     {},
+                                     0,
+                                     std::max(0, upgrade_price - 1) };
+        }
+    }
     if (next_preparation && accepts_recruits && can_refresh && policy.free_refreshes > 0 && upgrade_price > 0 &&
         !upgrade_grants_faction_refresh && current_pool_recruit_price > post_upgrade_budget &&
         current_pool_recruit_price <= funds &&
@@ -1966,7 +1992,10 @@ static bool can_recruit_after_paid_refresh(
     const std::map<std::string, std::vector<std::string>>& pacts)
 {
     const int after_refresh = funds - 1;
-    if (after_refresh < policy.minimum_recruit_price) {
+    const bool waiting_this_preparation =
+        policy.shop_discount_wait_level == policy.shop_level && policy.shop_discount_wait_round == policy.round;
+    const int reserved_stacker_price = waiting_this_preparation ? first_kjerag_freeze_stacker_price(policy) : 0;
+    if (after_refresh < std::max(policy.minimum_recruit_price, reserved_stacker_price)) {
         return false;
     }
     const bool planning_growth =
