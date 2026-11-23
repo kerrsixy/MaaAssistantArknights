@@ -102,8 +102,9 @@ int main()
     policy = selected_soul();
     frame.boss = BossVitalState::Unknown;
     expect(
-        observe(policy).action == SummonRetreatAction::CancelSelection,
-        "occlusion cancels the transaction without declaring death");
+        observe(policy).action == SummonRetreatAction::RetreatSelection,
+        "selected occlusion may use the accepted initial normal evidence "
+        "within this transaction");
     expect(!policy.boss_dead(), "absence is not death");
     policy = selected_soul();
     frame.user_paused = true;
@@ -191,7 +192,8 @@ int main()
     result = observe(policy);
     expect(
         result.action == SummonRetreatAction::Select && result.tile == Point(7, 5),
-        "reclamation selects only the requested tile without invented Boss evidence");
+        "reclamation selects only the requested tile without invented Boss "
+        "evidence");
     expect(
         policy.intent() == SummonRetreatIntent::ReclaimDeploymentTile &&
             policy.allowed_tiles() == std::vector<Point> { { 7, 5 } },
@@ -204,7 +206,8 @@ int main()
     frame.retreat_button_present = true;
     expect(
         observe(policy).action == SummonRetreatAction::RetreatSelection,
-        "same verified Soul identity and retreat glyph are mandatory outside Boss fights");
+        "same verified Soul identity and retreat glyph are mandatory outside "
+        "Boss fights");
     policy.input_result(SummonRetreatAction::RetreatSelection, true);
     expect(policy.awaiting_normal_ack(), "retreat receipt keeps the UI transaction pending");
     frame.normal_view = true;
@@ -249,7 +252,8 @@ int main()
         "a failed card refresh may retain the handoff without another selection");
     expect(
         policy.complete_handoff() && !policy.handoff_pending(),
-        "only the ordinary actor may finish a pending handoff after refreshing cards");
+        "only the ordinary actor may finish a pending handoff after "
+        "refreshing cards");
     policy = reclaim();
     frame.user_paused = true;
     expect(observe(policy).action == SummonRetreatAction::None, "user pause blocks reclamation too");
@@ -263,7 +267,8 @@ int main()
     advance();
     expect(
         policy.abandon(frame).action == SummonRetreatAction::CancelSelection,
-        "explicit abandonment cancels only an acknowledged own selection on fresh evidence");
+        "explicit abandonment cancels only an acknowledged own selection on "
+        "fresh evidence");
     policy.input_result(SummonRetreatAction::CancelSelection, true);
     frame.user_paused = true;
     advance();

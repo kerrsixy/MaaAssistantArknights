@@ -1,0 +1,23 @@
+{
+    "battle_key": "recorded:run57:devotion",
+    "sequence": 1,
+    "observed_ms": 151531701,
+    "received_ms": 151532081,
+    "boss_state": 1,
+    "owner_present": true,
+    "normal_view": true,
+    "selection_view": false,
+    "user_paused": false,
+    "selected_name": "",
+    "selected_id": "",
+    "retreat_button_present": false,
+    "candidates": [[7, 5]],
+    "_provenance": {
+        "source_file": "151532272-1-select_input_receipt.json",
+        "source_sha256": "0b0997527b875ef4f773262245e36d0c5c77288f4183b723568e72f34b3539d5",
+        "normalized_fields": ["battle_key"],
+        "omitted_fields": "non-policy diagnostics",
+        "retreat_was_executed_in_recorded_run": false
+    },
+    "input_accepted": true
+}

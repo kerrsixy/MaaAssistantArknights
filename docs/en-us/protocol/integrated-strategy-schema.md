@@ -1026,6 +1026,7 @@ Useful for operators who have ammo skills
 | --- | --- |
 | `deploy_plan_only` | Stage-level; `false` by default. Execute only the custom plan and disable generic fallback. |
 | `reserve_deploy_cost` | Stage-level; `false` by default. Reserve costs for higher-priority pending entries; a missing medic may still deploy early. |
+| `reserve_starting_core_groups` | Stage-level string array, empty by default; BlackFlow only. Declared groups may reserve the known starting core’s earliest eligible plan site and mutually exclusive alternatives, including during cooldown. Identity, elite, range and deployment limits still apply. Other sites permit substitutes. A missing core is not inferred, and generic DP reservation is unchanged. |
 | `deploy_plan[].operator_names` | Entry-level; empty by default. A nonempty list restricts eligible operator names. |
 | `deploy_plan[].minimum_elite` | Entry-level; `0` by default, range `0..2`. Requires observed elite-stage evidence. |
 | `deploy_plan[].max_deployments` | Entry-level; unlimited by default, otherwise a positive integer. Group aliases share confirmed deployments for this entry; reset each battle. |

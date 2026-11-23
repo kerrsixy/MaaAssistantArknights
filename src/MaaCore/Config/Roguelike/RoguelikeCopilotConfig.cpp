@@ -32,6 +32,13 @@ std::optional<CombatData> asst::RoguelikeCopilotConfig::get_stage_data(const std
     return it->second;
 }
 
+const std::vector<std::string>& asst::RoguelikeCopilotConfig::reserved_core_groups(const std::string& stage_name) const
+{
+    static const std::vector<std::string> empty;
+    const auto it = m_reserved_core_groups.find(stage_name);
+    return it == m_reserved_core_groups.end() ? empty : it->second;
+}
+
 std::optional<asst::blackflow::HunterOpening>
     asst::RoguelikeCopilotConfig::get_hunter_opening(const std::string& stage_name) const
 {
@@ -87,6 +94,21 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
     data.use_dice_stage = !json.get("not_use_dice", false);
     data.deploy_plan_only = json.get("deploy_plan_only", false);
     data.reserve_deploy_cost = json.get("reserve_deploy_cost", false);
+    std::vector<std::string> reserved_core_groups;
+    if (json.contains("reserve_starting_core_groups")) {
+        const auto& groups = json.at("reserve_starting_core_groups");
+        if (!groups.is_array()) {
+            LogError << __FUNCTION__ << "Core reservation groups must be an array";
+            return false;
+        }
+        for (const auto& group : groups.as_array()) {
+            if (!group.is_string() || group.as_string().empty()) {
+                LogError << __FUNCTION__ << "Core reservation group must be a nonempty string";
+                return false;
+            }
+            reserved_core_groups.push_back(group.as_string());
+        }
+    }
 
     if (auto opt = json.find<json::value>("force_air_defense_when_deploy_blocking_num")) {
         data.stop_deploy_blocking_num = opt.value().get("melee_num", INT_MAX);
@@ -299,6 +321,12 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
     }
     else {
         m_hunter_openings.erase(stage_name);
+    }
+    if (reserved_core_groups.empty()) {
+        m_reserved_core_groups.erase(stage_name);
+    }
+    else {
+        m_reserved_core_groups.insert_or_assign(stage_name, std::move(reserved_core_groups));
     }
     m_stage_data.insert_or_assign(std::move(stage_name), std::move(data));
     return true;

@@ -1,0 +1,23 @@
+{
+    "battle_key": "recorded:run57:devotion",
+    "sequence": 2,
+    "observed_ms": 151532786,
+    "received_ms": 151533078,
+    "boss_state": 0,
+    "owner_present": true,
+    "normal_view": false,
+    "selection_view": true,
+    "user_paused": false,
+    "selected_name": "魂灵之影",
+    "selected_id": "token_10035_wisdel_wward",
+    "retreat_button_present": true,
+    "candidates": [],
+    "_provenance": {
+        "source_file": "151533803-2-cancel_input_receipt.json",
+        "source_sha256": "7ba237bf9f2524d824510bae971b5407e75f0d1da3a573d9fc895853d44ee5c8",
+        "normalized_fields": ["battle_key"],
+        "omitted_fields": "non-policy diagnostics",
+        "retreat_was_executed_in_recorded_run": false
+    },
+    "input_accepted": true
+}
