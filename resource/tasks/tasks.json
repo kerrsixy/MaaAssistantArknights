@@ -5224,12 +5224,7 @@
         "doc": "干员列表横向翻页（向右，读后面的干员）；慢拖 1200ms、末端不含惯性，避免松手后甩过头漏读",
         "baseTask": "SlowlySwipeToTheRight",
         "postDelay": 700,
-        "specialParams": [
-            1500,
-            0,
-            10,
-            10
-        ],
+        "specialParams": [1500, 0, 10, 10],
         "specificRect": [1090, 350, 20, 20],
         "rectMove": [190, 350, 20, 20]
     },
@@ -5237,24 +5232,9 @@
         "doc": "干员列表横向翻页（回到列表顶端）；当前版本列表为横向滚动，需慢速拖拽才能翻页",
         "baseTask": "SlowlySwipeToTheRight",
         "postDelay": 700,
-        "specialParams": [
-            2000,
-            0,
-            10,
-            10
-        ],
-        "specificRect": [
-            190,
-            350,
-            20,
-            20
-        ],
-        "rectMove": [
-            1090,
-            350,
-            20,
-            20
-        ]
+        "specialParams": [2000, 0, 10, 10],
+        "specificRect": [190, 350, 20, 20],
+        "rectMove": [1090, 350, 20, 20]
     },
     "OperBoxFlagRoleTopROI": {
         "template": "empty.png",
@@ -7012,5 +6992,15 @@
         "action": "ClickRect",
         "specificRect": [169, 473, 88, 104],
         "postDelay": 1000
+    },
+    "BattleSkillActivateOnClick-TopView": {
+        "baseTask": "BattleSkillReadyOnClick-TopView",
+        "template": ["BattleSkillReadyOnClick-TopView.png", "BattleSkillReadyOnClick-TopView2.png"],
+        "templThreshold": [0.8, 0.95]
+    },
+    "BattleSkillActiveOnClick-TopView": {
+        "baseTask": "BattleSkillReadyOnClick-TopView",
+        "template": "BattleSkillStopOnClick-TopView.png",
+        "templThreshold": 0.8
     }
 }

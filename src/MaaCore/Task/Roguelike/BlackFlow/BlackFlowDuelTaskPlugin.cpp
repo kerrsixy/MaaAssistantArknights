@@ -1346,7 +1346,7 @@ bool asst::blackflow::BlackFlowDuelTaskPlugin::run_blackflow_duel_battle()
         }
         else {
             absent_frames = 0;
-            use_all_ready_skill(image);
+            use_all_ready_skill(image, SkillButtonIntent::ActivateOnly);
         }
         if (!sleep(250)) {
             return false;
