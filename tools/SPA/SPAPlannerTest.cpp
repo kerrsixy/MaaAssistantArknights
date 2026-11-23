@@ -2604,21 +2604,31 @@ int main()
           .range_known = true,
           .local_range = { { 1, 0 } } },
     };
-    assert(freeze_growth_coverage(freeze_field, freeze_lanes, cold_sources, stackers) == 3);
+    assert(
+        (freeze_growth_coverage(freeze_field, freeze_lanes, cold_sources, stackers) == FreezeGrowthCoverage { 3, 1 }));
     freeze_field[2].facing = 'W';
-    assert(freeze_growth_coverage(freeze_field, freeze_lanes, cold_sources, stackers) == 1);
-    assert(freeze_growth_coverage(freeze_field, freeze_lanes, { "初雪" }, stackers) == 0);
+    assert(
+        (freeze_growth_coverage(freeze_field, freeze_lanes, cold_sources, stackers) == FreezeGrowthCoverage { 1, 0 }));
+    assert(freeze_growth_coverage(freeze_field, freeze_lanes, { "初雪" }, stackers) == FreezeGrowthCoverage {});
     auto conditional_field = freeze_field;
     conditional_field[1].id = "圣聆初雪";
     conditional_field[1].damage_output = true;
-    assert(
+    assert((
         freeze_growth_coverage(conditional_field, freeze_lanes, {}, { "圣聆初雪" }, { { "圣聆初雪", { { 1, 0 } } } }) ==
-        1);
+        FreezeGrowthCoverage { 1, 0 }));
+    conditional_field[1].local_range = { { 1, 0 } };
+    assert(
+        (freeze_growth_coverage(
+             conditional_field,
+             freeze_lanes,
+             { "圣聆初雪" },
+             { "圣聆初雪" },
+             { { "圣聆初雪", { { 1, 0 } } } }) == FreezeGrowthCoverage { 1, 0 }));
     freeze_field[3].range_known = false;
-    assert(freeze_growth_coverage(freeze_field, freeze_lanes, cold_sources, stackers) == 0);
+    assert(freeze_growth_coverage(freeze_field, freeze_lanes, cold_sources, stackers) == FreezeGrowthCoverage {});
     freeze_field[2].facing = 'E';
     freeze_field[0].holds_position = false;
-    assert(freeze_growth_coverage(freeze_field, freeze_lanes, cold_sources, stackers) == 0);
+    assert(freeze_growth_coverage(freeze_field, freeze_lanes, cold_sources, stackers) == FreezeGrowthCoverage {});
     assert(!has_preparation_adjacency_growth("Mon3tr"));
     assert(!spatial_growth_target("凛御银灰", "角峰", "谢拉格"));
     assert(spatial_growth_target("凛御银灰", "圣聆初雪", "谢拉格"));

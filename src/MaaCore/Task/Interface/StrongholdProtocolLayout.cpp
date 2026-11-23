@@ -755,10 +755,11 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
                 unit.frontline && unit.holds_position);
         }
         const int uncovered = static_cast<int>(spa::uncovered_healable_allies(candidate, field_medical_support).size());
-        const int freeze_coverage =
+        const auto freeze_coverage =
             spa::freeze_growth_coverage(candidate, m_layout_lanes, cold_sources, freeze_stackers, skill_freeze_sources);
         return engagement - uncovered * 550 + spa::spatial_formation_value(grid, active_pacts, m_policy.primary_pact) +
-               freeze_coverage * 900 + placeable_summons(candidate, grid) * 900;
+               freeze_coverage.covered_stacker_cells * 900 + freeze_coverage.cells_with_multiple_sources * 300 +
+               placeable_summons(candidate, grid) * 900;
     };
     std::function<int(const std::vector<spa::DeploymentUnit>&)> preparation_growth;
     if (!boss_round && round < m_expected_boss_round && m_policy.last_round_life_loss == 0 &&
@@ -787,6 +788,14 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     for (const auto& [col, row] : movement_waypoints) {
         movement_targets.emplace_back(json::object { { "col", col }, { "row", row } });
     }
+    const auto freeze_before =
+        spa::freeze_growth_coverage(current, m_layout_lanes, cold_sources, freeze_stackers, skill_freeze_sources);
+    const auto freeze_after = spa::freeze_growth_coverage(
+        proposal.units,
+        m_layout_lanes,
+        cold_sources,
+        freeze_stackers,
+        skill_freeze_sources);
     auto evidence = basic_info_with_what("SPADynamicLayoutPlanned");
     evidence["details"] = json::object {
         { "round", round },
@@ -830,15 +839,10 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         { "spatial_preference_improvement", proposal.preference_improvement },
         { "position_bound_summons_placeable_before", placeable_summons(current, layout_grid(current)) },
         { "position_bound_summons_placeable_after", placeable_summons(proposal.units, layout_grid(proposal.units)) },
-        { "freeze_growth_coverage_before",
-          spa::freeze_growth_coverage(current, m_layout_lanes, cold_sources, freeze_stackers, skill_freeze_sources) },
-        { "freeze_growth_coverage_after",
-          spa::freeze_growth_coverage(
-              proposal.units,
-              m_layout_lanes,
-              cold_sources,
-              freeze_stackers,
-              skill_freeze_sources) },
+        { "freeze_growth_coverage_before", freeze_before.covered_stacker_cells },
+        { "freeze_growth_coverage_after", freeze_after.covered_stacker_cells },
+        { "freeze_growth_multiple_sources_before", freeze_before.cells_with_multiple_sources },
+        { "freeze_growth_multiple_sources_after", freeze_after.cells_with_multiple_sources },
         { "preparation_growth_priority", static_cast<bool>(preparation_growth) },
         { "available_input_steps", available_input_steps },
         { "preparation_growth_preference_improvement", proposal.preparation_growth_preference_improvement },

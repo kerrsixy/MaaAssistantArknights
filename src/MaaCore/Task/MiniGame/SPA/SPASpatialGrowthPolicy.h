@@ -133,10 +133,17 @@ inline int
     return result;
 }
 
-// Count the contact and immediate approach cells monitored by a freeze
-// stacker and covered by a freeze source. Skill coverage is conditional. This is geometry,
-// not a prediction of skill casts, status immunity or actual stack gain.
-inline int freeze_growth_coverage(
+struct FreezeGrowthCoverage
+{
+    int covered_stacker_cells = 0;
+    int cells_with_multiple_sources = 0;
+
+    bool operator==(const FreezeGrowthCoverage&) const = default;
+};
+
+// Count freeze sources on contact and approach cells within each stacker's range.
+// Skill coverage measures reach only. Actual freeze events depend on combat.
+inline FreezeGrowthCoverage freeze_growth_coverage(
     const std::vector<DeploymentUnit>& units,
     const std::vector<DeploymentLane>& lanes,
     const std::set<std::string>& cold_sources,
@@ -144,7 +151,7 @@ inline int freeze_growth_coverage(
     const std::map<std::string, std::vector<BoardCell>>& conditional_sources = {})
 {
     if ((cold_sources.empty() && conditional_sources.empty()) || stackers.empty()) {
-        return 0;
+        return {};
     }
     std::set<BoardCell> engagement;
     for (const auto& lane : lanes) {
@@ -160,29 +167,35 @@ inline int freeze_growth_coverage(
         const auto preceding = std::min<std::ptrdiff_t>(lane.precontact_cells, contact - lane.path.begin());
         engagement.insert(contact - preceding, contact + 1);
     }
-    int coverage = 0;
+    FreezeGrowthCoverage coverage;
     for (const auto& stacker : units) {
         if (!stackers.contains(stacker.id)) {
             continue;
         }
         for (const auto cell : engagement) {
-            if (range_covers(stacker, cell) && std::any_of(units.begin(), units.end(), [&](const auto& source) {
-                    if (!source.damage_output || !source.range_known) {
-                        return false;
-                    }
-                    if (cold_sources.contains(source.id) && range_covers(source, cell)) {
-                        return true;
-                    }
-                    const auto skill = conditional_sources.find(source.id);
-                    return skill != conditional_sources.end() && grid_range_covers(
-                                                                     source.cell.first,
-                                                                     source.cell.second,
-                                                                     source.facing,
-                                                                     cell.first,
-                                                                     cell.second,
-                                                                     skill->second);
-                })) {
-                ++coverage;
+            if (!range_covers(stacker, cell)) {
+                continue;
+            }
+            const auto covers = [&](const DeploymentUnit& source) {
+                if (!source.damage_output || !source.range_known) {
+                    return false;
+                }
+                if (cold_sources.contains(source.id) && range_covers(source, cell)) {
+                    return true;
+                }
+                const auto skill = conditional_sources.find(source.id);
+                return skill != conditional_sources.end() && grid_range_covers(
+                                                                 source.cell.first,
+                                                                 source.cell.second,
+                                                                 source.facing,
+                                                                 cell.first,
+                                                                 cell.second,
+                                                                 skill->second);
+            };
+            const auto first = std::find_if(units.begin(), units.end(), covers);
+            if (first != units.end()) {
+                ++coverage.covered_stacker_cells;
+                coverage.cells_with_multiple_sources += std::any_of(first + 1, units.end(), covers);
             }
         }
     }
