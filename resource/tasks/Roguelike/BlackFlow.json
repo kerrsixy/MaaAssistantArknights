@@ -129,6 +129,7 @@
             "BlackFlow@Roguelike@AccountHome",
             "BlackFlow@Roguelike@AccountFloorIntro",
             "BlackFlow@Roguelike@AccountMapReturn",
+            "BlackFlow@Roguelike@AccountReturn",
             "BlackFlow@Roguelike@AccountHome@QuickSwitch@ToHome#next",
             "BlackFlow@Roguelike@AccountHome@ReturnButtons#next"
         ]
@@ -3734,5 +3735,14 @@
         "roi": [868, 0, 56, 60],
         "templThreshold": 0.9,
         "Doc": "Verified BlackFlow top-right hope widget identity; unrelated battle, lobby and central recruitment headers must not be read as map hope."
+    },
+    "BlackFlow@Roguelike@AccountReturn": {
+        "Doc": "Prefer the recognized return button before the generic quick menu. Re-identify AccountBegin after each return; do not start exploration or bypass the live account gate.",
+        "baseTask": "ReturnButton",
+        "maxTimes": 8,
+        "postDelay": 500,
+        "next": ["BlackFlow@Roguelike@AccountBegin"],
+        "onErrorNext": [],
+        "template": ["Return.png", "Return-White.png"]
     }
 }
