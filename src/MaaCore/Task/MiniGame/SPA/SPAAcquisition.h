@@ -14,6 +14,9 @@ struct OperatorFormCounts
     bool operator==(const OperatorFormCounts&) const = default;
 };
 
+// Subtract independently observed field forms from a reconciled physical total.
+std::optional<OperatorFormCounts> subtract_operator_forms(OperatorFormCounts total, OperatorFormCounts field);
+
 struct ObservedOperatorInventory
 {
     // A candidate scan or a name-only ledger is not a complete observation.

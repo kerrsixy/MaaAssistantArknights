@@ -37,6 +37,7 @@ bool asst::StrongholdProtocolTask::handle_strategy_copy(const json::value& state
 
     spa::ObservedOperatorInventory before;
     std::map<std::string, bool> unchanged_forms;
+    std::vector<std::string> mixed_forms_on_field_and_bench;
     int bench_count = 0;
     std::string target;
     int best_value = -1;
@@ -44,23 +45,25 @@ bool asst::StrongholdProtocolTask::handle_strategy_copy(const json::value& state
     for (const auto& [name, unit] : m_policy.owned) {
         const auto form = spa::owned_form_counts(unit);
         const auto field = static_cast<int>(m_auto_deploy_positions.count(name));
-        if (!form || field > form->initial + form->elite ||
-            (field > 0 && field < form->initial + form->elite && form->initial > 0 && form->elite > 0)) {
+        if (!form || field > form->initial + form->elite) {
             return false;
         }
         if (field < form->initial + form->elite) {
             auto benched = *form;
-            if (form->initial == 0) {
-                benched.elite -= field;
+            bench_count += form->initial + form->elite - field;
+            if (field > 0 && form->initial > 0 && form->elite > 0) {
+                if (m_mode == "joint") {
+                    return false;
+                }
+                mixed_forms_on_field_and_bench.push_back(name);
             }
             else {
-                benched.initial -= field;
+                (form->initial == 0 ? benched.elite : benched.initial) -= field;
+                if (benched.initial == 0 || benched.elite == 0) {
+                    unchanged_forms.emplace(name, benched.elite > 0);
+                }
             }
             before.members.emplace(name, benched);
-            bench_count += benched.initial + benched.elite;
-            if (benched.initial == 0 || benched.elite == 0) {
-                unchanged_forms.emplace(name, benched.elite > 0);
-            }
         }
         if (field != 1 || form->initial + form->elite != 1 || !m_equipped_items.contains(name) ||
             !m_verified_field_pose_points.contains(m_auto_deploy_positions.find(name)->second) ||
@@ -89,7 +92,6 @@ bool asst::StrongholdProtocolTask::handle_strategy_copy(const json::value& state
         !spa::active_strategy_ready(ctrler()->get_image())) {
         return false;
     }
-    before.complete = true;
     const auto point = m_auto_deploy_positions.find(target)->second;
     const bool elite = m_policy.owned.at(target).elite;
     auto expected_items = m_equipped_items.at(target);
@@ -100,6 +102,35 @@ bool asst::StrongholdProtocolTask::handle_strategy_copy(const json::value& state
     action.set_retry_times(0);
     action.set_task_id(m_task_id);
     action.set_task_ptr(this);
+    for (const auto& name : mixed_forms_on_field_and_bench) {
+        spa::OperatorFormCounts observed_field;
+        const auto [begin, end] = m_auto_deploy_positions.equal_range(name);
+        for (auto it = begin; it != end; ++it) {
+            const auto& [x, y] = it->second;
+            if (!m_verified_field_pose_points.contains(it->second)) {
+                return true;
+            }
+            const auto field_form =
+                action.inspect_field_operator_form(name, Point(x, y), round, funds, remaining, std::nullopt);
+            if (!field_form) {
+                return true;
+            }
+            ++(*field_form ? observed_field.elite : observed_field.initial);
+        }
+        auto& benched = before.members.at(name);
+        const auto remaining_forms = spa::subtract_operator_forms(benched, observed_field);
+        if (!remaining_forms) {
+            return true;
+        }
+        benched = *remaining_forms;
+        if (benched.initial == 0 || benched.elite == 0) {
+            unchanged_forms.emplace(name, benched.elite > 0);
+        }
+    }
+    if (!mixed_forms_on_field_and_bench.empty() && !spa::active_strategy_ready(ctrler()->get_image())) {
+        return true;
+    }
+    before.complete = true;
     if (m_mode == "joint") {
         action.set_spatial_hold_guard([&] {
             const auto left =
@@ -183,6 +214,7 @@ bool asst::StrongholdProtocolTask::handle_strategy_copy(const json::value& state
                                         { "target", target },
                                         { "elite", elite },
                                         { "expected_equipment", expected_items },
+                                        { "mixed_forms_verified_before_copy", mixed_forms_on_field_and_bench },
                                         { "strategy_copy_target", m_strategy_copy_target },
                                         { "strategy_copy_retry_after_round", m_strategy_copy_retry_after_round },
                                         { "strategy_copy_unverified", m_strategy_copy_unverified },

@@ -4690,6 +4690,11 @@ int main()
         !tactical_recruitment_pact({ "伊比利亚驰援", "你获得2名随机【伊比利亚】干员棋子(不超过当前调度中心等级)", 0 }));
     assert(choose_tactical_adjustment({ iberia_recruitment }, "伊比利亚", {}, 8) == 0);
     assert(choose_tactical_adjustment({ iberia_recruitment }, "伊比利亚", {}, 10) == -1);
+    // This shape occurred with 真理 in the difficulty-7 run, unrelated to the copy recipient.
+    assert((subtract_operator_forms({ 1, 1 }, { 0, 1 }) == OperatorFormCounts { 1, 0 }));
+    assert((subtract_operator_forms({ 1, 1 }, { 1, 0 }) == OperatorFormCounts { 0, 1 }));
+    assert(!subtract_operator_forms({ 1, 1 }, { 2, 0 }));
+    assert(!subtract_operator_forms({ 1, 1 }, { 0, -1 }));
     const ObservedOperatorInventory before_copy { true, { { "深靛", { 1, 0 } } } };
     const ObservedOperatorInventory after_copy { true, { { "深靛", { 1, 0 } }, { "初雪", { 0, 1 } } } };
     assert(verify_strategy_copy_delta(before_copy, after_copy, "初雪", true));

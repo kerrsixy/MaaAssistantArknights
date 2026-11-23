@@ -6,6 +6,15 @@
 #include <map>
 #include <set>
 
+std::optional<asst::spa::OperatorFormCounts>
+    asst::spa::subtract_operator_forms(OperatorFormCounts total, OperatorFormCounts field)
+{
+    if (field.initial < 0 || field.elite < 0 || total.initial < field.initial || total.elite < field.elite) {
+        return std::nullopt;
+    }
+    return OperatorFormCounts { total.initial - field.initial, total.elite - field.elite };
+}
+
 bool asst::spa::verify_strategy_copy_delta(
     const ObservedOperatorInventory& before,
     const ObservedOperatorInventory& after,
