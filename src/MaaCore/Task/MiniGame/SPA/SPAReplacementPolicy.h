@@ -288,9 +288,8 @@ inline ReplacementLineup replacement_lineup_identity(const std::vector<Replaceme
     return names;
 }
 
-// A missing green preview is a round-local observation failure, not a
-// permanent terrain prohibition. Source movement and facing changes alone
-// do not alter the vacant receiver's neighborhood.
+// Missing preview or destination registration is local to this round.
+// Source movement and facing changes alone do not alter the vacant receiver's neighborhood.
 inline std::optional<std::string> spatial_preview_failure_key(
     const std::string& map_context,
     int round,

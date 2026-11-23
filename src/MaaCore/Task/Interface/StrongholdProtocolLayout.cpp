@@ -1505,20 +1505,22 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
     }
     const auto displaced = m_pending_spatial_orientation->get("displaced", std::string());
     const bool relocation = m_pending_spatial_orientation->get("relocation", false);
+    const bool vacant_target_rejected =
+        executor->spatial_preview_failed() || executor->spatial_vacant_destination_unregistered();
     bool replan_after_held_failure = false;
-    bool replan_after_vacant_preview = false;
+    bool replan_after_vacant_rejection = false;
     if (relocation ? !executor->relocation_applied() : !executor->committed_facing()) {
         if (m_pending_spatial_orientation->get("dynamic_layout", false)) {
             const auto drop = m_pending_spatial_orientation->get("drop_fingerprint", std::string());
             const auto preview = m_pending_spatial_orientation->get("preview_fingerprint", std::string());
-            replan_after_vacant_preview = m_mode == "independent" && m_spatial_boss_phase &&
-                                          m_spatial_boss_phase_round == round && m_spatial_snapshot_round == round &&
-                                          relocation && displaced.empty() && executor->spatial_preview_failed() &&
-                                          !executor->committed_facing() && !preview.empty();
+            replan_after_vacant_rejection = m_mode == "independent" && m_spatial_boss_phase &&
+                                            m_spatial_boss_phase_round == round && m_spatial_snapshot_round == round &&
+                                            relocation && displaced.empty() && vacant_target_rejected &&
+                                            !executor->committed_facing() && !preview.empty();
             if (executor->spatial_drop_returned_without_direction() && !drop.empty()) {
                 m_failed_spatial_actions.insert(drop);
             }
-            else if (!replan_after_vacant_preview) {
+            else if (!replan_after_vacant_rejection) {
                 // After one cancelled Boss drag with a verified restored field, keep that
                 // operator fixed and let another operator improve coverage. A second failed
                 // registration stops the plan for this round.
@@ -1537,7 +1539,7 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
         if (!failed_action.empty()) {
             m_failed_spatial_actions.insert(failed_action);
         }
-        if (executor->spatial_preview_failed()) {
+        if (vacant_target_rejected) {
             const auto preview = m_pending_spatial_orientation->get("preview_fingerprint", std::string());
             if (!preview.empty()) {
                 m_failed_spatial_actions.insert(preview);
@@ -1569,7 +1571,10 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
                        { "vacant_preview_failed", executor->spatial_preview_failed() },
                        { "held_registration_failed", executor->spatial_held_registration_failed() },
                        { "boss_replan_with_fixed_unit", replan_after_held_failure },
-                       { "boss_replan_after_vacant_preview_rejected", replan_after_vacant_preview },
+                       { "boss_replan_after_vacant_preview_rejected",
+                         replan_after_vacant_rejection && executor->spatial_preview_failed() },
+                       { "boss_replan_after_vacant_destination_unregistered",
+                         replan_after_vacant_rejection && executor->spatial_vacant_destination_unregistered() },
                        { "displaced", displaced },
                        { "roster", roster_snapshot() },
                        { "field_positions", field_position_snapshot() },

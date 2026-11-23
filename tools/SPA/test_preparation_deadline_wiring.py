@@ -193,19 +193,30 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
         self.assertIn("!healer_already_adjusted && !fixed_after_held_failure;", layout)
 
 
-    def test_solo_boss_replans_after_rejected_vacant_preview(self):
+    def test_solo_boss_replans_after_restored_vacant_target_rejection(self):
         layout = TASK.with_name("StrongholdProtocolLayout.cpp").read_text(encoding="utf-8")
         self.assertIn('review_vacant_previews = boss_round && m_mode == "independent"', layout)
         candidate_filter = layout.split("const auto rejected_vacant_drop =", 1)[1].split("};", 2)[1]
         self.assertIn("spatial_preview_failure_key(map_context, round, move, members, preview_forms)", candidate_filter)
         self.assertIn("m_failed_spatial_actions.contains(*preview)", candidate_filter)
         reconciled = layout.split("if (!executor->field_pose_verified() ||", 1)[1]
-        recovery = reconciled.split("replan_after_vacant_preview = m_mode", 1)[1].split("m_dynamic_layout_target.clear();", 1)[0]
+        recovery = reconciled.split("replan_after_vacant_rejection = m_mode", 1)[1].split(
+            "m_dynamic_layout_target.clear();", 1
+        )[0]
         self.assertIn("m_spatial_snapshot_round == round", recovery)
-        self.assertIn("relocation && displaced.empty() && executor->spatial_preview_failed()", recovery)
+        self.assertIn("relocation && displaced.empty() && vacant_target_rejected", recovery)
         self.assertIn("!executor->committed_facing()", recovery)
-        self.assertIn("else if (!replan_after_vacant_preview)", recovery)
+        self.assertIn("else if (!replan_after_vacant_rejection)", recovery)
         self.assertIn("m_failed_layout_context =", recovery)
+        self.assertIn(
+            "executor->spatial_preview_failed() || executor->spatial_vacant_destination_unregistered()", reconciled
+        )
+        self.assertIn("if (vacant_target_rejected)", reconciled)
+        self.assertIn("m_failed_spatial_actions.insert(preview)", reconciled)
+        executor = (TASK.parent.parent / "MiniGame" / "SPA" / "SPASwapTaskPlugin.cpp").read_text(encoding="utf-8")
+        unregistered = executor.split('"target_pose_not_registered"', 1)[1].split("m_reorientation_destination =", 1)[0]
+        self.assertIn("m_spatial_vacant_destination_unregistered = occupant == grid->end();", unregistered)
+        self.assertIn("return cancel_held();", unregistered)
 
     def test_same_round_grid_recovery_checks_exactly_one_unknown_pose_before_full_bootstrap(self):
         layout = TASK.with_name("StrongholdProtocolLayout.cpp").read_text(encoding="utf-8")
