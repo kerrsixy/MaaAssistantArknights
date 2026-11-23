@@ -1591,14 +1591,14 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(
         return false;
     }
     const auto recipients = equipment_assignment_inputs().second;
-    const auto recipient = std::find_if(recipients.begin(), recipients.end(), [](const auto& target) {
+    const auto has_free_slot = [](const spa::EquipmentRecipient& target) {
         return target.slots_known &&
                target.equipped.size() < static_cast<size_t>(spa::equipment_capacity(target.name, target.elite));
-    });
+    };
+    auto recipient = std::find_if(recipients.begin(), recipients.end(), has_free_slot);
     if (recipient == recipients.end()) {
         return false;
     }
-    const auto target = m_auto_deploy_positions.find(recipient->name);
     attempted_rounds.insert(round);
     spa::SwapTaskPlugin use(m_callback, m_inst, TaskType);
     use.set_retry_times(0);
@@ -1612,68 +1612,88 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(
                            { "y", point.second },
                            { "field_pose_verified", m_verified_field_pose_points.contains(point) } });
     }
-    const json::object options { { "name", equipment },
-                                 { "minimum_cash_credit", std::max(1, funding_deficit) },
-                                 { "replaced", target->first },
-                                 { "target_equipment_known", true },
-                                 { "target_elite", recipient->elite },
-                                 { "expected_equipment", recipient->equipped },
-                                 { "equip_only", true },
-                                 { "find_equipment_source", true },
-                                 { "fast_mode", true },
-                                 { "target_x", target->second.first },
-                                 { "target_y", target->second.second },
-                                 { "drag_target_x", target->second.first },
-                                 { "drag_target_y", target->second.second },
-                                 { "placement_units", field },
-                                 { "round", round },
-                                 { "funds", state.get("funds", -1) },
-                                 { "remaining_deployment", state.get("remaining_deployment", -1) } };
-    // Persist an unknown contact before execution, so a host interruption
-    // between release and its receipt cannot silently clear the replay guard.
     const auto closed_contact = m_pending_cash_equipment;
-    m_pending_cash_equipment = json::object { { "equipment", equipment },
-                                              { "operator", target->first },
-                                              { "source_round", round },
-                                              { "funds_before", state.get("funds", -1) },
-                                              { "cash_gain_quote", 0 },
-                                              { "contact_status_known", false },
-                                              { "contact_release_attempted", false },
-                                              { "source_and_target_verified", false },
-                                              { "inventory_removal_observed", false } };
-    auto pending_receipt = basic_info_with_what("SPACashEquipmentDeferred");
-    pending_receipt["details"] =
-        json::object { { "run_id", m_run_id },
-                       { "round", round },
-                       { "equipment", equipment },
-                       { "effect_verified", false },
-                       { "verification_stage", "execution_pending" },
-                       { attempt_key, round },
-                       { "cash_equipment_closed_contact",
-                         closed_contact ? json::value(*closed_contact) : json::value(nullptr) },
-                       { "closed_contact_effect_verified", false },
-                       { "cash_equipment_source_verified_round", m_cash_equipment_source_verified_round },
-                       { "cash_equipment_pending", *m_pending_cash_equipment },
-                       { "roster", roster_snapshot() } };
-    callback(AsstMsg::SubTaskExtraInfo, pending_receipt);
-    bool verified = use.configure(options) && use.run();
+    const auto execute = [&](const spa::EquipmentRecipient& selected) {
+        const auto& point = m_auto_deploy_positions.find(selected.name)->second;
+        const json::object options { { "name", equipment },
+                                     { "minimum_cash_credit", std::max(1, funding_deficit) },
+                                     { "replaced", selected.name },
+                                     { "target_equipment_known", true },
+                                     { "target_elite", selected.elite },
+                                     { "expected_equipment", selected.equipped },
+                                     { "equip_only", true },
+                                     { "find_equipment_source", true },
+                                     { "fast_mode", true },
+                                     { "target_x", point.first },
+                                     { "target_y", point.second },
+                                     { "drag_target_x", point.first },
+                                     { "drag_target_y", point.second },
+                                     { "placement_units", field },
+                                     { "round", round },
+                                     { "funds", state.get("funds", -1) },
+                                     { "remaining_deployment", state.get("remaining_deployment", -1) } };
+        // Persist an unknown contact before execution, so a host interruption
+        // between release and its receipt cannot silently clear the replay guard.
+        m_pending_cash_equipment = json::object { { "equipment", equipment },
+                                                  { "operator", selected.name },
+                                                  { "source_round", round },
+                                                  { "funds_before", state.get("funds", -1) },
+                                                  { "cash_gain_quote", 0 },
+                                                  { "contact_status_known", false },
+                                                  { "contact_release_attempted", false },
+                                                  { "source_and_target_verified", false },
+                                                  { "inventory_removal_observed", false } };
+        auto pending_receipt = basic_info_with_what("SPACashEquipmentDeferred");
+        pending_receipt["details"] =
+            json::object { { "run_id", m_run_id },
+                           { "round", round },
+                           { "equipment", equipment },
+                           { "effect_verified", false },
+                           { "verification_stage", "execution_pending" },
+                           { attempt_key, round },
+                           { "cash_equipment_closed_contact",
+                             closed_contact ? json::value(*closed_contact) : json::value(nullptr) },
+                           { "closed_contact_effect_verified", false },
+                           { "cash_equipment_source_verified_round", m_cash_equipment_source_verified_round },
+                           { "cash_equipment_pending", *m_pending_cash_equipment },
+                           { "roster", roster_snapshot() } };
+        callback(AsstMsg::SubTaskExtraInfo, pending_receipt);
+        return use.configure(options) && use.run();
+    };
+    bool verified = execute(*recipient);
     int attempts = 1;
-    if (!verified && !need_exit() &&
-        spa::cash_source_retry_allowed(
-            attempts,
-            use.equipment_contact_attempted(),
-            use.equipment_committed(),
-            use.equipment_stage())) {
-        auto retry = basic_info_with_what("SPACashEquipmentSourceRetry");
+    const auto alternative = std::find_if(std::next(recipient), recipients.end(), has_free_slot);
+    // held_target can fail before a drop. Only a confirmed cancellation
+    // outside all targets permits switching to a different recipient.
+    const bool retry_recipient = boss_preparation && m_mode != "joint" && alternative != recipients.end() &&
+                                 spa::cash_recipient_retry_allowed(
+                                     use.cash_input_chain_verified(),
+                                     use.equipment_contact_attempted(),
+                                     use.equipment_committed(),
+                                     use.equipment_stage());
+    const bool retry_source = spa::cash_source_retry_allowed(
+        attempts,
+        use.equipment_contact_attempted(),
+        use.equipment_committed(),
+        use.equipment_stage());
+    if (!verified && !need_exit() && (retry_source || retry_recipient)) {
+        const auto previous_recipient = recipient;
+        if (retry_recipient) {
+            recipient = alternative;
+        }
+        auto retry =
+            basic_info_with_what(retry_recipient ? "SPACashEquipmentRecipientRetry" : "SPACashEquipmentSourceRetry");
         retry["details"] = json::object { { "round", round },
                                           { "verification_stage", use.equipment_stage() },
                                           { "contact_release_attempted", false },
+                                          { "previous_operator", previous_recipient->name },
+                                          { "operator", recipient->name },
                                           { "next_attempt", 2 } };
         callback(AsstMsg::SubTaskExtraInfo, retry);
-        // configure resets the plugin's cached evidence; run restores and
-        // validates the current round/wallet before searching a fresh frame.
+        // A new pending receipt records this recipient before any input.
+        // The executor rechecks the round, wallet, roles and source.
         ++attempts;
-        verified = use.configure(options) && use.run();
+        verified = execute(*recipient);
     }
     const bool contact_attempted = use.equipment_contact_attempted() || use.equipment_committed();
     if (!verified && contact_attempted) {
@@ -1706,7 +1726,7 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(
         json::object { { "run_id", m_run_id },
                        { "round", round },
                        { "equipment", equipment },
-                       { "operator", target->first },
+                       { "operator", recipient->name },
                        { "input_committed", use.equipment_committed() },
                        { "contact_release_attempted", contact_attempted },
                        { "source_and_target_verified", use.cash_input_chain_verified() },

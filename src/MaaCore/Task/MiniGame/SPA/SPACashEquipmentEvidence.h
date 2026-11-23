@@ -49,6 +49,15 @@ inline bool cash_source_retry_allowed(int attempts, bool contact_attempted, bool
            (stage == "source_identity" || stage == "cash_source_reacquisition" || stage == "cash_source_title_recheck");
 }
 
+inline bool cash_recipient_retry_allowed(
+    bool source_and_target_identity_verified,
+    bool contact_attempted,
+    bool committed,
+    std::string_view stage)
+{
+    return source_and_target_identity_verified && !contact_attempted && !committed && stage == "held_target";
+}
+
 inline bool cash_effect_verified(
     bool contact_attempted,
     bool source_and_target_verified,

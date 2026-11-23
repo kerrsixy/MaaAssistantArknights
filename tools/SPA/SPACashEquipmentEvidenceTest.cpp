@@ -49,6 +49,12 @@ int main()
     assert(!cash_source_retry_allowed(1, false, true, "cash_source_reacquisition"));
     assert(!cash_source_retry_allowed(1, false, false, "held_target"));
     assert(!cash_source_retry_allowed(1, false, false, "effect_verification"));
+    assert(cash_recipient_retry_allowed(true, false, false, "held_target"));
+    assert(!cash_recipient_retry_allowed(false, false, false, "held_target"));
+    assert(!cash_recipient_retry_allowed(true, true, false, "held_target"));
+    assert(!cash_recipient_retry_allowed(true, false, true, "held_target"));
+    assert(!cash_recipient_retry_allowed(true, false, false, "cash_source_title_recheck"));
+    assert(!cash_recipient_retry_allowed(true, false, false, "effect_verification"));
     assert(cash_effect_verified(true, true, 8, 8, 1, 1, 2));
     assert(!cash_effect_verified(false, true, 8, 8, 1, 1, 2));
     assert(!cash_effect_verified(true, false, 8, 8, 1, 1, 2));
