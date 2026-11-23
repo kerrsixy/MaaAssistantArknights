@@ -1,0 +1,66 @@
+{
+    "stage_name": "侵占家园",
+    "doc": "未实测候选；先常驻挡接主路，再EW清右侧和下路，额外地面守左传送上门，再单体射上门，宽域医疗独立。EW5,4RIGHT不含4,4/4,5/4,6，不能冒充堵点直射；参考凛御S3不可等价机械师。上门额外常驻挡不能重复使用机械师；候选有罗小黑等真实招募后才满足。普通MEDIC名单绑定本版本及基础范围，当前技能/费用需实证。",
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true,
+    "deploy_plan": [
+        {
+            "groups": ["机械师", "重装", "奶盾"],
+            "location": [4, 4],
+            "direction": "down",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true,
+            "required_attack_tiles": [[4, 4]],
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["益达"],
+            "operator_names": ["维什戴尔"],
+            "location": [5, 4],
+            "direction": "right",
+            "minimum_elite": 2,
+            "required_attack_tiles": [
+                [6, 4],
+                [6, 6],
+                [7, 6]
+            ]
+        },
+        {
+            "groups": ["地面阻挡", "近卫", "领主", "重装", "奶盾"],
+            "excluded_operator_names": ["机械师"],
+            "location": [3, 1],
+            "direction": "right",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true,
+            "required_attack_tiles": [[3, 1]],
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["术师"],
+            "operator_names": ["卡达", "史都华德"],
+            "location": [3, 2],
+            "direction": "up",
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [2, 1],
+                [3, 1],
+                [4, 1],
+                [4, 2]
+            ]
+        },
+        {
+            "groups": ["元素奶", "单奶", "群奶", "奶"],
+            "operator_names": ["纯烬艾雅法拉", "蜜莓", "桑葚", "哈洛德", "褐果", "流明", "絮雨", "清流", "锡兰"],
+            "location": [5, 3],
+            "direction": "left",
+            "minimum_elite": 1,
+            "required_range_tiles": [
+                [3, 1],
+                [3, 2],
+                [4, 4],
+                [5, 4]
+            ],
+            "prefer_group_order": true
+        }
+    ]
+}
