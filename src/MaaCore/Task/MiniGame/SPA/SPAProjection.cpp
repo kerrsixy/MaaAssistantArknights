@@ -48,6 +48,58 @@ bool inventory_slot_removal_observed(
     return sources == 1 && matched.size() == after.size();
 }
 
+bool pact_hud_single_one_visible(const cv::Mat& image, int center_x)
+{
+    if (image.size() != cv::Size(1280, 720) || image.type() != CV_8UC3 || center_x <= 300 || center_x >= 1050) {
+        return false;
+    }
+    constexpr int HalfWidth = 16;
+    const cv::Rect counter(center_x - HalfWidth, 99, HalfWidth * 2 + 1, 17);
+    cv::Mat white(counter.size(), CV_8U);
+    for (int y = 0; y < counter.height; ++y) {
+        for (int x = 0; x < counter.width; ++x) {
+            const auto pixel = image.at<cv::Vec3b>(counter.y + y, counter.x + x);
+            const int low = std::min({ pixel[0], pixel[1], pixel[2] });
+            const int high = std::max({ pixel[0], pixel[1], pixel[2] });
+            white.at<unsigned char>(y, x) = low >= 160 && high - low <= 45 ? 255 : 0;
+        }
+    }
+    cv::Mat labels, stats, centers;
+    const int count = cv::connectedComponentsWithStats(white, labels, stats, centers);
+    cv::Rect glyph;
+    for (int i = 1; i < count; ++i) {
+        const int area = stats.at<int>(i, cv::CC_STAT_AREA);
+        if (area < 3) {
+            continue;
+        }
+        if (!glyph.empty() || area < 14 || area > 30) {
+            return false;
+        }
+        glyph = cv::Rect(
+            stats.at<int>(i, cv::CC_STAT_LEFT),
+            stats.at<int>(i, cv::CC_STAT_TOP),
+            stats.at<int>(i, cv::CC_STAT_WIDTH),
+            stats.at<int>(i, cv::CC_STAT_HEIGHT));
+    }
+    if (glyph.width < 4 || glyph.width > 6 || glyph.height < 10 || glyph.height > 12 || glyph.y < 2 ||
+        glyph.br().y >= counter.height || std::abs(glyph.x + (glyph.width - 1) / 2.0 - HalfWidth) > 2.5) {
+        return false;
+    }
+    // The HUD's '1' has a left flag and a straight stem, with no bottom bar.
+    const auto numeral = white(glyph);
+    const int stem_start = glyph.width - 2;
+    if (cv::countNonZero(numeral.row(0).colRange(0, stem_start))) {
+        return false;
+    }
+    for (int y = glyph.height / 2; y < glyph.height; ++y) {
+        if (cv::countNonZero(numeral.row(y).colRange(0, stem_start)) ||
+            !cv::countNonZero(numeral.row(y).colRange(stem_start, glyph.width))) {
+            return false;
+        }
+    }
+    return true;
+}
+
 std::optional<cv::Rect> defence_life_number_roi(const cv::Mat& image)
 {
     if (image.size() != cv::Size(1280, 720) || image.type() != CV_8UC3) {

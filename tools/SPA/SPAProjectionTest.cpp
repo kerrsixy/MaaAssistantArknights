@@ -120,6 +120,19 @@ int main()
     no_life_digits(cv::Rect(826, 23, 25, 22)).setTo(cv::Scalar());
     assert(!defence_life_number_roi(no_life_digits));
     assert(!defence_life_number_roi(cv::Mat()));
+    const auto layers_crop = cv::imread("spa-pact-hud-single-digit-live.png");
+    assert(layers_crop.size() == cv::Size(210, 24));
+    cv::Mat layers_frame = cv::Mat::zeros(720, 1280, CV_8UC3);
+    layers_crop.copyTo(layers_frame(cv::Rect(435, 96, 210, 24)));
+    // D6 R10 HUD: 谢拉格 1, adjacent 坚守 18, and no number under 绝技.
+    assert(pact_hud_single_one_visible(layers_frame, 539));
+    assert(pact_hud_single_one_visible(layers_frame, 540));
+    assert(!pact_hud_single_one_visible(layers_frame, 458));
+    assert(!pact_hud_single_one_visible(layers_frame, 619));
+    assert(!pact_hud_single_one_visible(layers_frame, 545));
+    auto extra_stroke = layers_frame.clone();
+    extra_stroke(cv::Rect(549, 102, 1, 10)).setTo(cv::Scalar(220, 220, 220));
+    assert(!pact_hud_single_one_visible(extra_stroke, 539));
     const auto battle_boss_hud = cv::imread("spa-boss-battle-hud-live.png");
     assert(battle_boss_hud.size() == cv::Size(332, 240));
     const auto boss_hud_frame = [&](int row) {

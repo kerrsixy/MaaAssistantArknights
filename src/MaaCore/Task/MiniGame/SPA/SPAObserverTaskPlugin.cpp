@@ -416,7 +416,7 @@ bool asst::spa::ObserverTaskPlugin::observe_frame(
                                { "x", anchor.center_x },
                                { "y", 98 },
                                { "pact", anchor.pact },
-                               { "source", "pact_hud_char_roi" } });
+                               { "source", "pact_hud_number_roi" } });
         }
         for (const auto& [pact, layers] : observe_pact_layer_numbers(anchors, centered_numbers)) {
             pact_numbers.emplace(pact, layers);

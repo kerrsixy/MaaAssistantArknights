@@ -12,6 +12,7 @@ namespace asst::spa
 // Red pending damage and neighboring header ornaments are excluded. This
 // provides an OCR crop only; absent or ambiguous evidence stays unknown.
 std::optional<cv::Rect> defence_life_number_roi(const cv::Mat& image);
+bool pact_hud_single_one_visible(const cv::Mat& image, int center_x);
 // Same expanded inventory frame: exactly the selected slot disappears and
 // every other observed slot remains. Compaction or missing peers is unknown.
 bool inventory_slot_removal_observed(

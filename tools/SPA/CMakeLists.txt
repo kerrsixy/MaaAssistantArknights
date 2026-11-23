@@ -315,6 +315,7 @@ if(SPA_WITH_IMAGE_TESTS)
     configure_file(fixtures/ghost_direction_live.png spa-ghost-direction-live.png COPYONLY)
     configure_file(fixtures/full_focus_ready.png spa-full-focus-ready.png COPYONLY)
     configure_file(fixtures/full_focus_used.png spa-full-focus-used.png COPYONLY)
+    configure_file(fixtures/pact_hud_single_digit_live.png spa-pact-hud-single-digit-live.png COPYONLY)
     find_package(OpenCV REQUIRED)
     add_executable(SPAProjectionTest SPAProjectionTest.cpp
         ../../src/MaaCore/Task/MiniGame/SPA/SPABoardGeometry.cpp

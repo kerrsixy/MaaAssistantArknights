@@ -197,6 +197,9 @@ std::optional<std::pair<int, double>> pact_hud_number(const cv::Mat& image, int 
     // threshold and require agreement from two narrower same-frame crops.
     const auto first = read(Rect(center_x - 19, 96, 38, 18));
     const auto second = read(Rect(center_x - 19, 98, 38, 18));
+    if (!primary && !first && !second && pact_hud_single_one_visible(image, center_x)) {
+        return std::pair { 1, .95 };
+    }
     if (!first || !second || first->first != second->first) {
         return std::nullopt;
     }
