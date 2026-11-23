@@ -131,7 +131,8 @@ public:
         const std::vector<PlacementMember>& members,
         int round,
         int funds,
-        int remaining);
+        int remaining,
+        std::optional<std::size_t> unchecked_member = std::nullopt);
 
     // Observe a held field operator, then cancel the hold. No deployment,
     // sale or direction is committed, including after a cold resume.

@@ -1137,14 +1137,16 @@ bool asst::spa::SwapTaskPlugin::observe_grid_snapshot(
     const std::vector<PlacementMember>& members,
     int round,
     int funds,
-    int remaining)
+    int remaining,
+    std::optional<std::size_t> unchecked_member)
 {
     m_observed_grid_members.clear();
     m_observed_grid_reference.release();
     m_observed_grid_projection.release();
     m_observed_field_members.clear();
     if (reference.empty() || grid_to_reference.empty() || round < 1 || round > 20 || funds < 0 || funds > 999 ||
-        remaining < 0 || remaining > 7 || members.size() != static_cast<std::size_t>(8 - remaining)) {
+        remaining < 0 || remaining > 7 || members.size() != static_cast<std::size_t>(8 - remaining) ||
+        (unchecked_member && *unchecked_member >= members.size())) {
         return false;
     }
     m_round = round;
@@ -1153,7 +1155,18 @@ bool asst::spa::SwapTaskPlugin::observe_grid_snapshot(
     m_fast_mode = true;
     m_best_effort_deployment = true;
     cv::Mat current;
-    if (!capture_collapsed_preparation(current)) {
+    if (unchecked_member) {
+        // One just-deployed member has a position hint from its verified
+        // drop. Check its actual title and field control, then register all
+        // poses against the same-round camera when the panel is closed.
+        const auto& member = members[*unchecked_member];
+        cv::Mat selected;
+        const bool identity = selected_field_identity(Point(member.x, member.y), member.name, selected);
+        if (!capture_collapsed_preparation(current, selected) || !identity) {
+            return false;
+        }
+    }
+    else if (!capture_collapsed_preparation(current)) {
         return false;
     }
     std::vector<cv::Point> points;
@@ -1194,7 +1207,8 @@ bool asst::spa::SwapTaskPlugin::observe_grid_snapshot(
                                          { "remaining_deployment", remaining },
                                          { "grid_coordinates_verified", true },
                                          { "identities_from_prior_field_ledger", true },
-                                         { "fresh_identity_probes", false },
+                                         { "fresh_identity_probes", unchecked_member.has_value() },
+                                         { "single_member_identity_rechecked", unchecked_member.has_value() },
                                          { "board_changed", false } };
     callback(AsstMsg::SubTaskExtraInfo, evidence);
     return true;

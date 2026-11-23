@@ -176,5 +176,30 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
         self.assertIn("!healer_already_adjusted && !fixed_after_held_failure;", layout)
 
 
+    def test_same_round_grid_recovery_checks_exactly_one_unknown_pose_before_full_bootstrap(self):
+        layout = TASK.with_name("StrongholdProtocolLayout.cpp").read_text(encoding="utf-8")
+        recovery = layout.split("const bool single_member_recovered =", 1)[1].split(
+            "if (bootstrap && probe.field_pose_verified()", 1
+        )[0]
+        self.assertIn("!m_field_checkpoint_loaded", recovery)
+        self.assertIn("unverified_poses == 1", recovery)
+        self.assertIn("m_spatial_snapshot_round == round", recovery)
+        self.assertIn("unchecked_member && observe_grid(unchecked_member)", " ".join(recovery.split()))
+        self.assertIn("single_member_recovered || probe.probe_registered_grid(", recovery)
+        executor = (
+            TASK.parent.parent / "MiniGame" / "SPA" / "SPASwapTaskPlugin.cpp"
+        ).read_text(encoding="utf-8").split("::observe_grid_snapshot(", 1)[1].split(
+            "::revalidate_promoted_pose(", 1
+        )[0]
+        source_probe = executor.index("selected_field_identity(Point(member.x, member.y), member.name, selected)")
+        closed = executor.index("capture_collapsed_preparation(current, selected)")
+        registered = executor.index("registered_field_points(camera_fit, points)")
+        self.assertLess(source_probe, closed)
+        self.assertLess(closed, registered)
+        self.assertIn("cv::norm(projected->at(index) - points[index]) > 12", executor)
+        self.assertIn("registered_grid_members(*projection, aligned)", executor)
+        self.assertNotIn("reorient_in_place()", executor)
+
+
 if __name__ == "__main__":
     unittest.main()

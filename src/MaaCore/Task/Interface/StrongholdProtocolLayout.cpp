@@ -26,10 +26,11 @@ void asst::StrongholdProtocolTask::refresh_spatial_grid_snapshot(
     bool finalizing_boss_formation)
 {
     const int round = state.get("round", -1);
-    const bool has_unverified_pose =
-        std::any_of(m_auto_deploy_positions.begin(), m_auto_deploy_positions.end(), [&](const auto& item) {
+    const auto unverified_poses =
+        std::count_if(m_auto_deploy_positions.begin(), m_auto_deploy_positions.end(), [&](const auto& item) {
             return !m_verified_field_pose_points.contains(item.second);
         });
+    const bool has_unverified_pose = unverified_poses != 0;
     const bool bootstrap = m_field_checkpoint_loaded || m_spatial_grid_reference.empty() ||
                            m_spatial_grid_projection.empty() || has_unverified_pose;
     const bool has_unknown_facing =
@@ -47,11 +48,12 @@ void asst::StrongholdProtocolTask::refresh_spatial_grid_snapshot(
         return;
     }
     std::vector<spa::PlacementMember> members;
+    std::optional<std::size_t> unchecked_member;
     std::string bootstrap_failure_key =
         "grid-bootstrap:" + m_spatial_map_id + (m_spatial_boss_phase ? "#boss" : "#normal");
     for (const auto& [name, point] : m_auto_deploy_positions) {
-        if (!bootstrap && !m_verified_field_pose_points.contains(point)) {
-            return;
+        if (!m_verified_field_pose_points.contains(point)) {
+            unchecked_member = members.size();
         }
         const auto facing = m_committed_facings.find(point);
         members.push_back(
@@ -93,19 +95,27 @@ void asst::StrongholdProtocolTask::refresh_spatial_grid_snapshot(
             return;
         }
     }
-    const bool observed = bootstrap ? probe.probe_registered_grid(
-                                          members,
-                                          round,
-                                          state.get("funds", -1),
-                                          state.get("remaining_deployment", -1),
-                                          recheck_identities)
-                                    : probe.observe_grid_snapshot(
-                                          m_spatial_grid_reference,
-                                          m_spatial_grid_projection,
-                                          members,
-                                          round,
-                                          state.get("funds", -1),
-                                          state.get("remaining_deployment", -1));
+    const auto observe_grid = [&](std::optional<std::size_t> unchecked = std::nullopt) {
+        return probe.observe_grid_snapshot(
+            m_spatial_grid_reference,
+            m_spatial_grid_projection,
+            members,
+            round,
+            state.get("funds", -1),
+            state.get("remaining_deployment", -1),
+            unchecked);
+    };
+    const bool single_member_recovered = !m_field_checkpoint_loaded && unverified_poses == 1 &&
+                                         m_spatial_snapshot_round == round && !m_spatial_grid_reference.empty() &&
+                                         !m_spatial_grid_projection.empty() && unchecked_member &&
+                                         observe_grid(unchecked_member);
+    const bool observed = bootstrap ? single_member_recovered || probe.probe_registered_grid(
+                                                                     members,
+                                                                     round,
+                                                                     state.get("funds", -1),
+                                                                     state.get("remaining_deployment", -1),
+                                                                     recheck_identities)
+                                    : observe_grid();
     if (bootstrap && probe.field_pose_verified() && probe.reoriented_field_members().size() == members.size()) {
         m_field_checkpoint_loaded = false;
         m_auto_deploy_positions.clear();
@@ -126,7 +136,7 @@ void asst::StrongholdProtocolTask::refresh_spatial_grid_snapshot(
     const auto populations = observed ? spa::same_row_growth_populations(grid) : std::nullopt;
     if (populations && grid.size() == m_auto_deploy_positions.size() &&
         probe.observed_field_members().size() == m_auto_deploy_positions.size()) {
-        refresh.facings_reviewed = !bootstrap;
+        refresh.facings_reviewed = !bootstrap || single_member_recovered;
         m_auto_deploy_positions.clear();
         m_verified_field_pose_points.clear();
         m_auto_deploy_used_cells.clear();
@@ -171,6 +181,7 @@ void asst::StrongholdProtocolTask::refresh_spatial_grid_snapshot(
                                          { "complete", complete },
                                          { "had_unverified_pose", has_unverified_pose },
                                          { "fresh_identity_probes", bootstrap && recheck_identities },
+                                         { "single_member_identity_rechecked", single_member_recovered },
                                          { "bootstrap", bootstrap },
                                          { "board_changed", false },
                                          { "battle_blocked", false } };
