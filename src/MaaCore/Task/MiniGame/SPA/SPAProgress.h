@@ -8,6 +8,8 @@
 
 namespace asst::spa
 {
+std::optional<StrategyProgress> find_strategy_report_progress(const json::object& report, const std::string& id);
+
 class ProgressStore
 {
 public:

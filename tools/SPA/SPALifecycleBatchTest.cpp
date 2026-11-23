@@ -34,8 +34,10 @@ int main()
     const auto next_badge_run = fresh_run_parameters(
         json::object { { "mode", "independent" },
                        { "schedule_strategy_badges", true },
+                       { "strategy_id", "band_smith" },
                        { "selected_strategy_id", "band_amiya" } });
     assert(next_badge_run.get("schedule_strategy_badges", false));
+    assert(next_badge_run.get("strategy_id", std::string()) == "band_smith");
     assert(!next_badge_run.contains("selected_strategy_id"));
     for (const bool send_emotes : { false, true }) {
         const auto next_joint_run = fresh_run_parameters(

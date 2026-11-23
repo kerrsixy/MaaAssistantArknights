@@ -3886,6 +3886,41 @@ int main()
     settlement.strategy_credit_verified = false;
     assert(!ledger.apply(settlement, partial));
 
+    const json::object smith_two_wins { { "band_id", "band_smith" },
+                                        { "wins_known", true },
+                                        { "wins", 2 },
+                                        { "unlocked_verified", true },
+                                        { "badge_verified", false } };
+    json::object targeted_report { { "target_band_id", "band_smith" },
+                                   { "target_progress_verified", true },
+                                   { "strategies", json::array { smith_two_wins } } };
+    const auto verified_priority = find_strategy_report_progress(targeted_report, "band_smith");
+    assert(verified_priority && verified_priority->wins == 2 && ProgressLedger::can_schedule_solo(*verified_priority));
+    assert(!find_strategy_report_progress(targeted_report, "band_gain"));
+    targeted_report["target_progress_verified"] = false;
+    assert(!find_strategy_report_progress(targeted_report, "band_smith"));
+    targeted_report["target_progress_verified"] = true;
+    targeted_report["strategies"] = json::array { smith_two_wins, smith_two_wins };
+    assert(!find_strategy_report_progress(targeted_report, "band_smith"));
+    auto smith_unknown = smith_two_wins;
+    smith_unknown["wins_known"] = false;
+    targeted_report["strategies"] = json::array { smith_unknown };
+    const auto unknown_baseline = find_strategy_report_progress(targeted_report, "band_smith");
+    assert(unknown_baseline && !unknown_baseline->wins);
+    auto smith_locked = smith_two_wins;
+    smith_locked["unlocked_verified"] = false;
+    targeted_report["strategies"] = json::array { smith_locked };
+    assert(!find_strategy_report_progress(targeted_report, "band_smith"));
+    auto smith_badge = smith_two_wins;
+    smith_badge["wins"] = 3;
+    smith_badge["badge_verified"] = true;
+    targeted_report["strategies"] = json::array { smith_badge };
+    const auto already_complete = find_strategy_report_progress(targeted_report, "band_smith");
+    assert(already_complete && !ProgressLedger::can_schedule_solo(*already_complete));
+    targeted_report["target_band_id"] = "";
+    targeted_report["target_progress_verified"] = false;
+    assert(find_strategy_report_progress(targeted_report, "band_smith")->wins == 3);
+
     ProgressStore store("bilibili-account-A", "act3autochess");
     assert(store.reconcile({ "band-4", 1, true, false, true }));
     settlement = { "persistent-run", "band-4", true, true, true };

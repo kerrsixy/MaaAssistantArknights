@@ -1,8 +1,34 @@
 #include "SPAProgress.h"
 
+#include "SPAStrategyEligibility.h"
+
 #include <algorithm>
 #include <fstream>
 #include <limits>
+
+std::optional<asst::spa::StrategyProgress>
+    asst::spa::find_strategy_report_progress(const json::object& report, const std::string& id)
+{
+    const auto entries = report.find<json::array>("strategies");
+    const auto target = report.get("target_band_id", std::string());
+    const auto rule = strategy_unlock_rule(id);
+    if (!entries || !rule || (!target.empty() && (target != id || !report.get("target_progress_verified", false)))) {
+        return std::nullopt;
+    }
+    std::optional<StrategyProgress> result;
+    for (const auto& entry : *entries) {
+        if (entry.get("band_id", std::string()) != id) {
+            continue;
+        }
+        const bool wins_known = entry.get("wins_known", false);
+        const auto wins = wins_known ? entry.find<int>("wins") : std::nullopt;
+        if (result || (wins_known && (!wins || *wins < 0)) || !entry.get("unlocked_verified", false)) {
+            return std::nullopt;
+        }
+        result = StrategyProgress { id, wins, true, entry.get("badge_verified", false), rule->independent_available };
+    }
+    return result;
+}
 
 asst::spa::ProgressStore::ProgressStore(std::string account, std::string season) :
     m_account(std::move(account)),
@@ -12,8 +38,7 @@ asst::spa::ProgressStore::ProgressStore(std::string account, std::string season)
 
 bool asst::spa::ProgressStore::reconcile(const StrategyProgress& observed)
 {
-    if (m_account.empty() || m_season.empty() || observed.band_id.empty() ||
-        (observed.wins && *observed.wins < 0) ||
+    if (m_account.empty() || m_season.empty() || observed.band_id.empty() || (observed.wins && *observed.wins < 0) ||
         (observed.badge_verified && (!observed.unlocked || !observed.wins || *observed.wins < 3))) {
         return false;
     }

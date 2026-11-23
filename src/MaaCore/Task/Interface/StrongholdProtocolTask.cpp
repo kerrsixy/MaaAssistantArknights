@@ -26,6 +26,7 @@
 #include "Task/MiniGame/SPA/SPAObserverTaskPlugin.h"
 #include "Task/MiniGame/SPA/SPAOperatorCatalogue.h"
 #include "Task/MiniGame/SPA/SPAPlanner.h"
+#include "Task/MiniGame/SPA/SPAProgress.h"
 #include "Task/MiniGame/SPA/SPAProjection.h"
 #include "Task/MiniGame/SPA/SPAPromotionPosePolicy.h"
 #include "Task/MiniGame/SPA/SPAReplacementPolicy.h"
@@ -176,7 +177,9 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_schedule_strategy_badges = schedule_badges.value_or(false);
     if (m_schedule_strategy_badges &&
         (m_mode != "independent" || !m_auto_run || !m_manage_lifecycle || !m_require_fresh_independent ||
-         m_resume_after_round != 1 || m_difficulty < 1 || m_difficulty > 20 || !m_requested_strategy_id.empty() ||
+         m_resume_after_round != 1 || m_difficulty < 1 || m_difficulty > 20 ||
+         (!m_requested_strategy_id.empty() &&
+          !spa::strategy_available_in_mode(m_requested_strategy_id, "independent")) ||
          params.get("assisted_run", false) || params.get("decision_only", false) || m_stop_before_battle ||
          params.get("stop_after_deployment", false) || params.get("movement_only", false) ||
          params.get("round_only", false))) {
@@ -2674,6 +2677,7 @@ bool asst::StrongholdProtocolTask::run()
     const bool single_game = m_run_count == 1;
     m_run_victory_verified = false;
     m_strategy_catalogue_complete = false;
+    m_next_strategy_badge_hint.clear();
     static const std::string host_session_id = MaaNS::make_uuid();
     const std::string execution_id = single_game ? MaaNS::make_uuid() : std::string();
     if (single_game) {
@@ -2770,6 +2774,9 @@ bool asst::StrongholdProtocolTask::_run()
                                              { "return_home_verified", true } };
         callback(AsstMsg::SubTaskExtraInfo, progress);
         parameters = spa::fresh_run_parameters(m_initial_parameters);
+        if (m_schedule_strategy_badges) {
+            parameters["strategy_id"] = game.m_next_strategy_badge_hint;
+        }
     }
     return !need_exit();
 }
@@ -2970,43 +2977,38 @@ bool asst::StrongholdProtocolTask::run_single()
     if (!m_manage_lifecycle) {
         return run_session();
     }
-    const auto progress_record = [](const json::object& report,
-                                    const std::string& id) -> std::optional<spa::StrategyProgress> {
-        const auto entries = report.find<json::array>("strategies");
-        if (id.empty() || !entries || !spa::strategy_unlock_rule(id)) {
-            return std::nullopt;
-        }
-        std::optional<spa::StrategyProgress> result;
-        for (const auto& entry : *entries) {
-            if (entry.get("band_id", std::string()) != id) {
-                continue;
-            }
-            const bool wins_known = entry.get("wins_known", false);
-            const auto wins = wins_known ? entry.find<int>("wins") : std::nullopt;
-            if (result || (wins_known && (!wins || *wins < 0)) || !entry.get("unlocked_verified", false)) {
-                return std::nullopt;
-            }
-            result = spa::StrategyProgress { id,
-                                             wins,
-                                             true,
-                                             entry.get("badge_verified", false),
-                                             spa::strategy_available_in_mode(id, "independent") };
-        }
-        return result;
-    };
     std::optional<spa::StrategyProgress> scheduled;
     if (m_schedule_strategy_badges) {
-        const auto report = scan_strategy_progress();
-        if (report) {
-            scheduled = progress_record(*report, report->get("next_independent_strategy", std::string()));
+        const std::string priority = m_requested_strategy_id;
+        std::optional<json::object> report;
+        if (!priority.empty()) {
+            report = scan_strategy_progress(priority);
+            if (report && report->get("target_band_id", std::string()) == priority) {
+                auto record = spa::find_strategy_report_progress(*report, priority);
+                if (record && record->wins.has_value() && spa::ProgressLedger::can_schedule_solo(*record)) {
+                    scheduled = std::move(record);
+                }
+            }
+        }
+        const bool priority_verified = scheduled.has_value();
+        if (!priority_verified && !need_exit()) {
+            report = scan_strategy_progress();
+            if (report) {
+                scheduled = spa::find_strategy_report_progress(
+                    *report,
+                    report->get("next_independent_strategy", std::string()));
+            }
         }
         const bool selected = scheduled && spa::ProgressLedger::can_schedule_solo(*scheduled);
-        m_strategy_catalogue_complete = !selected && report && report->get("all_strategy_badges_verified", false);
+        m_strategy_catalogue_complete = !selected && report && report->get("target_band_id", std::string()).empty() &&
+                                        report->get("all_strategy_badges_verified", false);
         auto receipt = basic_info_with_what("SPAStrategyBadgeSchedule");
         receipt["details"] =
             json::object { { "report_and_lobby_verified", report.has_value() },
                            { "identified_strategies", report ? report->get("identified_strategies", 0) : 0 },
                            { "all_strategy_badges_verified", m_strategy_catalogue_complete },
+                           { "priority_strategy", priority },
+                           { "priority_strategy_verified", priority_verified },
                            { "requested_strategy", selected ? scheduled->band_id : "" },
                            { "report_wins_before", selected ? scheduled->wins.value_or(-1) : -1 },
                            { "simulation_start_issued", false } };
@@ -3194,12 +3196,16 @@ bool asst::StrongholdProtocolTask::run_single()
         const bool matching_strategy = m_selected_strategy_id == scheduled->band_id;
         const auto report =
             matching_strategy && m_run_victory_verified ? scan_strategy_progress(scheduled->band_id) : std::nullopt;
-        const auto after = report ? progress_record(*report, scheduled->band_id) : std::nullopt;
+        const auto after = report ? spa::find_strategy_report_progress(*report, scheduled->band_id) : std::nullopt;
         const bool credited = after && spa::ProgressLedger::next_report_confirms_win(
                                            *scheduled,
                                            *after,
                                            m_selected_strategy_id,
                                            m_run_victory_verified);
+        if (credited && spa::ProgressLedger::can_schedule_solo(*after)) {
+            // The next batch child verifies the current report again before using this hint.
+            m_next_strategy_badge_hint = after->band_id;
+        }
         auto receipt = basic_info_with_what("SPAStrategyBadgeScheduleSettled");
         receipt["details"] =
             json::object { { "requested_strategy", scheduled->band_id },

@@ -49,6 +49,7 @@ private:
     bool m_prefer_unclaimed = true;
     bool m_schedule_strategy_badges = false;
     bool m_strategy_catalogue_complete = false;
+    std::string m_next_strategy_badge_hint;
     std::string m_client_type;
     std::string m_mode = "independent";
     std::string m_requested_strategy_id;
