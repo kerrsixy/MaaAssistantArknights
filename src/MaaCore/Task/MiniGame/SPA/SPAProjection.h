@@ -185,7 +185,8 @@ bool registered_added_green_preview(
     const cv::Mat& before,
     const cv::Mat& held,
     cv::Point held_target,
-    const std::vector<cv::Point>& verified_field_feet = {});
+    const std::vector<cv::Point>& verified_field_feet = {},
+    const cv::Mat& grid_to_held = {});
 bool occupied_deployment_cell(const cv::Mat& image, cv::Point center);
 std::vector<DeploymentCellCandidate> detect_deployment_cells(const cv::Mat& image);
 // Interior points measured from the current held-card legal overlay. They

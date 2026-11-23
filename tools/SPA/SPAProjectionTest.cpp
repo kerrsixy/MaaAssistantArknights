@@ -605,6 +605,43 @@ int main()
     assert(registered_added_green_preview(meteor_clean, meteor_held, meteor_target, { { 472, 371 }, { 558, 236 } }));
     assert(!registered_added_green_preview(meteor_clean, meteor_held, meteor_target, { { 558, 236 } }));
     assert(!registered_added_green_preview(meteor_held, meteor_held, meteor_target, { { 472, 371 } }));
+    // D7 R14 m12. Both vacant cells light up above the actors one row below,
+    // but their bodies obscure the center and the upper health labels break up the top.
+    const auto occluded_vacant_clean = cv::imread("spa-boss-occluded-vacant-clean-live.jpg");
+    const auto occluded_vacant_held = cv::imread("spa-boss-occluded-vacant-held-live.jpg");
+    const std::vector<cv::Point> occluding_feet {
+        { 552, 441 }, { 556, 304 }, { 637, 239 }, { 475, 304 }, { 468, 441 }, { 803, 371 }, { 472, 371 }, { 637, 304 },
+    };
+    const auto occluded_vacant_grid = cv::findHomography(
+        std::vector<cv::Point2f> { { 4, 4 }, { 4, 2 }, { 5, 1 }, { 3, 2 }, { 3, 4 }, { 7, 3 }, { 3, 3 }, { 5, 2 } },
+        std::vector<cv::Point2f>(occluding_feet.begin(), occluding_feet.end()));
+    for (const cv::Point vacant : { cv::Point(478, 239), cv::Point(558, 239) }) {
+        assert(!registered_added_green_preview(occluded_vacant_clean, occluded_vacant_held, vacant, occluding_feet));
+        assert(registered_added_green_preview(
+            occluded_vacant_clean,
+            occluded_vacant_held,
+            vacant,
+            occluding_feet,
+            occluded_vacant_grid));
+        assert(!registered_added_green_preview(
+            occluded_vacant_clean,
+            occluded_vacant_held,
+            vacant,
+            {},
+            occluded_vacant_grid));
+        assert(!registered_added_green_preview(
+            occluded_vacant_held,
+            occluded_vacant_held,
+            vacant,
+            occluding_feet,
+            occluded_vacant_grid));
+    }
+    assert(!registered_added_green_preview(
+        occluded_vacant_clean,
+        occluded_vacant_held,
+        { 959, 305 },
+        { { 960, 371 } },
+        occluded_vacant_grid));
     assert(!industrial_shadow.empty());
     const auto industrial_board = register_preparation_board(industrial_shadow, false);
     std::cerr << "Industrial shadow board: " << industrial_board.map_id << " score=" << industrial_board.score

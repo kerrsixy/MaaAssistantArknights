@@ -1902,7 +1902,8 @@ bool asst::spa::registered_added_green_preview(
     const cv::Mat& before,
     const cv::Mat& held,
     cv::Point held_target,
-    const std::vector<cv::Point>& verified_field_feet)
+    const std::vector<cv::Point>& verified_field_feet,
+    const cv::Mat& grid_to_held)
 {
     const cv::Rect roi(held_target.x - 18, held_target.y - 18, 37, 37);
     if (before.size() != cv::Size(1280, 720) || held.size() != before.size() || before.type() != CV_8UC3 ||
@@ -1949,14 +1950,49 @@ bool asst::spa::registered_added_green_preview(
     if (!lower_body) {
         return false;
     }
+    int upper_votes = 0;
     for (const int x : { 0, 12, 24 }) {
         const cv::Rect sample(x, 0, 13, 13);
-        if (cv::countNonZero(held_green(sample)) < .75 * sample.area() ||
-            cv::countNonZero(added(sample)) < .50 * sample.area()) {
-            return false;
-        }
+        upper_votes += cv::countNonZero(held_green(sample)) >= .75 * sample.area() &&
+                       cv::countNonZero(added(sample)) >= .50 * sample.area();
     }
-    return true;
+    if (upper_votes == 3) {
+        return true;
+    }
+
+    // The lower operator and its health label can break up the upper band
+    // too. Look for new green on both the top and a side of the same cell.
+    if (grid_to_held.size() != cv::Size(3, 3) || grid_to_held.type() != CV_64FC1 || !cv::checkRange(grid_to_held) ||
+        std::abs(cv::determinant(grid_to_held)) < 1e-8) {
+        return false;
+    }
+    std::vector<cv::Point2f> logical;
+    cv::perspectiveTransform(std::vector<cv::Point2f> { cv::Point2f(held_target) }, logical, grid_to_held.inv());
+    const auto point = logical.front();
+    if (!cv::Rect2f(-.05F, -.05F, 10.1F, 4.1F).contains(point)) {
+        return false;
+    }
+    const cv::Point2f cell(std::round(point.x), std::round(point.y));
+    if (cv::norm(point - cell) > .05) {
+        return false;
+    }
+    constexpr int width = 80, height = 64;
+    const cv::Mat patch_to_grid =
+        (cv::Mat_<double>(3, 3) << 1.0 / width, 0, cell.x - .5, 0, 1.0 / height, cell.y - .5, 0, 0, 1);
+    const cv::Mat patch_to_held = grid_to_held * patch_to_grid;
+    const auto sample_patch = [&](const cv::Mat& frame) {
+        cv::Mat patch, hsv, green;
+        cv::warpPerspective(frame, patch, patch_to_held, { width, height }, cv::INTER_LINEAR | cv::WARP_INVERSE_MAP);
+        cv::cvtColor(patch, hsv, cv::COLOR_BGR2HSV);
+        cv::inRange(hsv, cv::Scalar(35, 80, 55), cv::Scalar(85, 255, 255), green);
+        return green;
+    };
+    const cv::Mat new_green = sample_patch(held) & ~sample_patch(warped);
+    const cv::Rect top(25, 5, 30, 15);
+    const cv::Rect left(6, 10, 16, 18);
+    const cv::Rect right(58, 10, 16, 18);
+    return cv::countNonZero(new_green(top)) >= 55 &&
+           (cv::countNonZero(new_green(left)) >= 85 || cv::countNonZero(new_green(right)) >= 85);
 }
 
 std::vector<asst::spa::DeploymentCellCandidate> asst::spa::detect_held_deployment_cells(const cv::Mat& image)

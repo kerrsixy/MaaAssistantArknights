@@ -3847,7 +3847,8 @@ bool asst::spa::SwapTaskPlugin::reorient_in_place()
             }
         }
         if (board.verified &&
-            (mire_preview_verified || registered_added_green_preview(clean, map, target_cell, *held_points))) {
+            (mire_preview_verified ||
+             registered_added_green_preview(clean, map, target_cell, *held_points, board.grid_to_screen))) {
             auto preview = basic_info_with_what("SPASpatialShadowPreviewVerified");
             preview["details"] = json::object { { "round", m_round },
                                                 { "name", m_name },
