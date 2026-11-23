@@ -2094,9 +2094,14 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
     exchange->set_task_id(m_task_id);
     exchange->set_task_ptr(this);
     const bool configured = exchange->configure(options);
-    if (configured && !target_failure_key.empty() && m_auto_deploy_positions.count(choice.outgoing) == 1) {
+    // Whole-field geometry is needed for the failure fingerprint, while
+    // replacing one operator can independently verify its receiver tile
+    // against the registered camera and the live held preview.
+    const bool receiver_grid_available =
+        configured && m_auto_deploy_positions.count(choice.outgoing) == 1 &&
+        m_verified_field_pose_points.contains({ choice.x, choice.y }) &&
+        (!m_spatial_boss_phase || m_spatial_snapshot_round == round) &&
         exchange->set_registered_grid_context(m_spatial_grid_reference, m_spatial_grid_projection, m_spatial_map_id);
-    }
     if (!configured || !exchange->run()) {
         const bool drop_issued = exchange->replacement_committed();
         if (!drop_issued && exchange->replacement_target_unavailable() && !target_failure_key.empty()) {
@@ -2139,6 +2144,7 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
                            { "field_positions", field_position_snapshot() },
                            { "pending_replacement", pending_replacement_snapshot() },
                            { "failed_spatial_actions", failed_spatial_action_snapshot() },
+                           { "receiver_grid_available", receiver_grid_available },
                            { "target_preview_unavailable", exchange->replacement_target_unavailable() },
                            { "continue_current_run", true } };
         callback(AsstMsg::SubTaskExtraInfo, recovery);
