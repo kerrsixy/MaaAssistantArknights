@@ -121,7 +121,10 @@ class PersistentEquipmentPreparation
 {
 public:
     void begin_round(int round);
-    bool within_attempt_budget(bool solo_boss_finalization) const;
+    bool within_attempt_budget(bool solo_boss_finalization, bool solo_shop_follow_up = false) const;
+
+    bool has_verified_assignment(int round) const { return m_round == round && m_verified_assignments > 0; }
+
     bool may_try(const std::string& name) const;
     void record_purchase(const std::string& name);
     void observe_field(const std::string& map, const std::multimap<std::string, std::pair<int, int>>& poses);
@@ -137,6 +140,7 @@ public:
 private:
     int m_round = -1;
     int m_attempts = 0;
+    int m_verified_assignments = 0;
     int m_boss_finalization_failures = 0;
     std::set<std::string> m_failed_names;
     std::map<std::string, int> m_unassigned_purchases;

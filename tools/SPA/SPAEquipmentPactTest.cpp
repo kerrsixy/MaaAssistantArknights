@@ -111,6 +111,22 @@ int main()
         asst::spa::choose_equipment_assignment({}, { "伊比利亚骨刺刀" }, { wearer, second_wearer });
     assert(knife_assignment.found && knife_assignment.recipient == "荒芜拉普兰德");
 
+    asst::spa::PersistentEquipmentPreparation solo_shop;
+    solo_shop.begin_round(13);
+    assert(!solo_shop.has_verified_assignment(13));
+    solo_shop.record_assignment("不退者之盾", true, false, false);
+    solo_shop.record_assignment("佣兵名牌", true, false, false);
+    assert(solo_shop.has_verified_assignment(13) && !solo_shop.has_verified_assignment(14));
+    assert(!solo_shop.within_attempt_budget(false));
+    assert(solo_shop.within_attempt_budget(false, true));
+    solo_shop.record_assignment("护盾无人机", false, false, false);
+    assert(!solo_shop.within_attempt_budget(false, true));
+    solo_shop.begin_round(14);
+    assert(!solo_shop.has_verified_assignment(14) && solo_shop.within_attempt_budget(false));
+    solo_shop.record_assignment("不退者之盾", false, true, false);
+    solo_shop.record_assignment("佣兵名牌", true, false, false);
+    assert(!solo_shop.within_attempt_budget(false, true));
+
     asst::spa::PersistentEquipmentPreparation blocked_gear;
     const asst::spa::EquipmentRecipient cat { .name = "Miss.Christine", .slots_known = true, .attacks = true,
                                                .carry = true };

@@ -1248,7 +1248,11 @@ bool asst::StrongholdProtocolTask::handle_persistent_equipment(const json::value
                                        m_spatial_boss_phase_round == round &&
                                        (m_shopping_complete || state.get("funds", -1) == 0);
     m_persistent_equipment_preparation.begin_round(round);
-    if (!m_persistent_equipment_preparation.within_attempt_budget(solo_boss_finalization)) {
+    const auto shop_probes = m_full_bench_refresh_attempts.find(round);
+    const bool solo_shop_follow_up = m_mode != "joint" &&
+                                     (!m_spatial_boss_phase || m_spatial_boss_phase_round != round) &&
+                                     shop_probes != m_full_bench_refresh_attempts.end() && shop_probes->second > 1;
+    if (!m_persistent_equipment_preparation.within_attempt_budget(solo_boss_finalization, solo_shop_follow_up)) {
         return false;
     }
     auto [context, recipients] = equipment_assignment_inputs();

@@ -61,12 +61,19 @@ struct RoundBalanceRetention
 std::optional<RoundBalanceRetention> round_balance_retention(std::string_view strategy, int funds);
 std::string round_balance_review_reason(std::string_view strategy, int funds);
 bool strategy_defers_opening_income(std::string_view strategy, int round);
+enum class FullBenchShopSearch
+{
+    InitialProbe,
+    VerifiedEquipmentOpportunity,
+    BossPurchase
+};
+
 bool can_search_full_bench_shop(
     int funds,
     int refresh_price,
     bool free_refresh,
     int minimum_recruit_price,
     int attempts,
-    bool boss_has_purchase_capacity);
+    FullBenchShopSearch purpose);
 EconomyDecision choose_economy_action(const EconomyContext& context);
 }

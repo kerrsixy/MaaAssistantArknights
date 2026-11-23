@@ -6056,12 +6056,22 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         }
         std::optional<int> equipped_population;
         bool boss_damage_slot_available = false;
+        bool ordinary_equipment_follow_up = false;
         if (field_poses_complete) {
             const auto [equipment_context, recipients] = equipment_assignment_inputs();
             boss_damage_slot_available =
                 boss_preparation && !equipment_capacity_blocked &&
                 std::any_of(recipients.begin(), recipients.end(), [](const auto& target) {
                     return target.attacks && target.slots_known &&
+                           target.equipped.size() <
+                               static_cast<size_t>(spa::equipment_capacity(target.name, target.elite));
+                });
+            ordinary_equipment_follow_up =
+                !boss_preparation && m_mode != "joint" && m_auto_run && !equipment_capacity_blocked &&
+                m_persistent_equipment_preparation.has_verified_assignment(round) &&
+                m_persistent_equipment_preparation.within_attempt_budget(false, true) &&
+                std::any_of(recipients.begin(), recipients.end(), [](const auto& target) {
+                    return target.slots_known && (target.carry || target.skill_growth_engine || target.frontline) &&
                            target.equipped.size() <
                                static_cast<size_t>(spa::equipment_capacity(target.name, target.elite));
                 });
@@ -6714,13 +6724,17 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 boss_preparation && (m_mode != "joint" || state.get("preparation_seconds_remaining", 0) >= 45) &&
                 (boss_damage_slot_available ||
                  (m_policy.primary_locked_after_activation && spa::choose_full_bench_sale(m_policy).has_value()));
+            const auto search_purpose = boss_has_purchase_capacity ? spa::FullBenchShopSearch::BossPurchase
+                                        : ordinary_equipment_follow_up
+                                            ? spa::FullBenchShopSearch::VerifiedEquipmentOpportunity
+                                            : spa::FullBenchShopSearch::InitialProbe;
             const bool can_search = spa::can_search_full_bench_shop(
                 funds,
                 refresh_price,
                 free_refresh,
                 m_policy.minimum_recruit_price,
                 full_bench_attempts,
-                boss_has_purchase_capacity);
+                search_purpose);
             // The whole-screen OCR misses the small price badge on busy
             // boards. Reuse the same crop that the executor verifies again.
             const bool paid_refresh = !free_refresh && can_search &&
@@ -6737,6 +6751,8 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                     -1,
                     boss_has_purchase_capacity
                         ? "Search for usable boss equipment or a lineup upgrade with expiring funds"
+                    : full_bench_attempts == 1
+                        ? "Recheck the shop after equipping verified gear with a useful slot still open"
                         : "Full bench with funds remaining; inspect one refreshed shop for equipment or trades",
                     m_policy.primary_pact,
                     free_refresh

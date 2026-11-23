@@ -134,16 +134,21 @@ void asst::spa::PersistentEquipmentPreparation::begin_round(int round)
     if (round != m_round) {
         m_round = round;
         m_attempts = 0;
+        m_verified_assignments = 0;
         m_boss_finalization_failures = 0;
         m_failed_names.clear();
     }
 }
 
-bool asst::spa::PersistentEquipmentPreparation::within_attempt_budget(bool solo_boss_finalization) const
+bool asst::spa::PersistentEquipmentPreparation::within_attempt_budget(
+    bool solo_boss_finalization,
+    bool solo_shop_follow_up) const
 {
-    // Shopping and multiplayer retain the usual work limit. After solo
-    // boss shopping, verified attachments consume the recipient's slots.
-    return solo_boss_finalization ? m_boss_finalization_failures < 2 : m_attempts < 2;
+    // The extra solo shop probe must leave room to attach its purchase. Only
+    // two verified assignments permit a third attempt, never two retries.
+    return solo_boss_finalization
+               ? m_boss_finalization_failures < 2
+               : m_attempts < 2 || (solo_shop_follow_up && m_attempts == 2 && m_verified_assignments == 2);
 }
 
 bool asst::spa::PersistentEquipmentPreparation::may_try(const std::string& name) const
@@ -193,6 +198,7 @@ bool asst::spa::PersistentEquipmentPreparation::record_assignment(
         }
         return false;
     }
+    ++m_verified_assignments;
     const auto pending = m_unassigned_purchases.find(name);
     if (pending == m_unassigned_purchases.end()) {
         return false;

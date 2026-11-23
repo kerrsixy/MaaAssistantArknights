@@ -41,10 +41,12 @@ bool asst::spa::can_search_full_bench_shop(
     bool free_refresh,
     int minimum_recruit_price,
     int attempts,
-    bool boss_has_purchase_capacity)
+    FullBenchShopSearch purpose)
 {
-    constexpr int BossSearchPages = 4;
-    if (attempts < 0 || attempts >= (boss_has_purchase_capacity ? BossSearchPages : 1) || funds < 0) {
+    const int max_attempts = purpose == FullBenchShopSearch::BossPurchase                   ? 4
+                             : purpose == FullBenchShopSearch::VerifiedEquipmentOpportunity ? 2
+                                                                                            : 1;
+    if (attempts < 0 || attempts >= max_attempts || funds < 0) {
         return false;
     }
     // Leave enough for a useful late shop card after searching. The ordinary
