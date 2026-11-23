@@ -36,7 +36,8 @@ bool asst::spa::range_covers(const DeploymentUnit& unit, BoardCell target)
 asst::spa::DeploymentReview asst::spa::review_deployment(
     const std::vector<DeploymentUnit>& units,
     const std::vector<DeploymentLane>& lanes,
-    const std::vector<BoardCell>& deployable_cells)
+    const std::vector<BoardCell>& deployable_cells,
+    const std::optional<DeploymentUnit>& fixed_healer)
 {
     DeploymentReview result;
     std::set<std::string> ids;
@@ -155,6 +156,9 @@ asst::spa::DeploymentReview asst::spa::review_deployment(
                     report.healers.emplace_back(unit.id);
                 }
             }
+            if (fixed_healer && blocker->accepts_direct_healing && range_covers(*fixed_healer, blocker->cell)) {
+                report.healers.emplace_back(fixed_healer->id);
+            }
             if (report.healers.empty()) {
                 report.problems.emplace_back(
                     blocker->accepts_direct_healing ? "Frontline blocker has no verified healing-range coverage"
@@ -190,7 +194,9 @@ asst::spa::DeploymentReview asst::spa::review_deployment(
     return result;
 }
 
-std::vector<std::string> asst::spa::uncovered_healable_allies(const std::vector<DeploymentUnit>& units)
+std::vector<std::string> asst::spa::uncovered_healable_allies(
+    const std::vector<DeploymentUnit>& units,
+    const std::optional<DeploymentUnit>& fixed_healer)
 {
     std::vector<std::string> uncovered;
     for (const auto& ally : units) {
@@ -207,6 +213,10 @@ std::vector<std::string> asst::spa::uncovered_healable_allies(const std::vector<
                 break;
             }
         }
+        if (!covered && fixed_healer && ally.accepts_direct_healing) {
+            can_receive_healing = true;
+            covered = range_covers(*fixed_healer, ally.cell);
+        }
         if (can_receive_healing && !covered) {
             uncovered.push_back(ally.id);
         }
@@ -218,7 +228,8 @@ std::optional<asst::spa::DeploymentStep> asst::spa::repair_healing_coverage(
     const DeploymentUnit& healer,
     const std::vector<DeploymentUnit>& units,
     const std::vector<DeploymentLane>& lanes,
-    const std::vector<BoardCell>& legal_cells)
+    const std::vector<BoardCell>& legal_cells,
+    const std::optional<DeploymentUnit>& fixed_healer)
 {
     if (!healer.healer || healer.local_range.empty() || lanes.empty() || legal_cells.empty()) {
         return std::nullopt;
@@ -228,7 +239,8 @@ std::optional<asst::spa::DeploymentStep> asst::spa::repair_healing_coverage(
         if (unit.id == healer.id || (!unit.accepts_direct_healing && !healer.provides_regeneration)) {
             continue;
         }
-        if (std::any_of(units.begin(), units.end(), [&](const auto& other) {
+        if ((fixed_healer && unit.accepts_direct_healing && range_covers(*fixed_healer, unit.cell)) ||
+            std::any_of(units.begin(), units.end(), [&](const auto& other) {
                 return other.healer && other.id != healer.id && other.id != unit.id &&
                        (unit.accepts_direct_healing || other.provides_regeneration) && range_covers(other, unit.cell);
             })) {
@@ -339,7 +351,10 @@ int boss_attack_coverage_weight(const DeploymentUnit& unit, std::span<const Boar
     return unit.boss_basic_attack_weight * (basic * (100 - uptime) + skill * uptime);
 }
 
-std::pair<int, int> boss_attack_weights(const std::vector<DeploymentUnit>& units, std::span<const BoardCell> boss_cells)
+std::pair<int, int> boss_attack_weights(
+    const std::vector<DeploymentUnit>& units,
+    std::span<const BoardCell> boss_cells,
+    const std::optional<DeploymentUnit>& fixed_healer)
 {
     int total_weight = 0;
     int healed_weight = 0;
@@ -359,9 +374,12 @@ std::pair<int, int> boss_attack_weights(const std::vector<DeploymentUnit>& units
             return (support.healer && range_covers(support, attacker.cell)) ||
                    (support.holds_position && !support.boss_skill_healing_range.empty() &&
                     covers_for_known_or_all_facings(
-                        support, std::span(&attacker.cell, 1), support.boss_skill_healing_range));
+                        support,
+                        std::span(&attacker.cell, 1),
+                        support.boss_skill_healing_range));
         });
-        if (covered) {
+        if (covered ||
+            (fixed_healer && attacker.accepts_direct_healing && range_covers(*fixed_healer, attacker.cell))) {
             healed_weight += attack_weight;
         }
     }
@@ -381,14 +399,17 @@ struct BossRouteCoverage
     int uncovered_waypoints = 0;
 };
 
-BossRouteCoverage boss_route_coverage(const std::vector<DeploymentUnit>& units, std::span<const BoardCell> waypoints)
+BossRouteCoverage boss_route_coverage(
+    const std::vector<DeploymentUnit>& units,
+    std::span<const BoardCell> waypoints,
+    const std::optional<DeploymentUnit>& fixed_healer)
 {
     BossRouteCoverage result;
     // These are route checkpoints, with no measured travel time between
     // them. Score local attack access and healing at each known checkpoint.
     for (size_t i = 0; i < waypoints.size(); ++i) {
         const auto& waypoint = waypoints[i];
-        const auto [attack, supported] = boss_attack_weights(units, std::span(&waypoint, 1));
+        const auto [attack, supported] = boss_attack_weights(units, std::span(&waypoint, 1), fixed_healer);
         const int weight = sustained_boss_attack_weight(attack, supported);
         if (i == 0) {
             result.first_weight = weight;
@@ -406,7 +427,7 @@ int asst::spa::boss_movement_attack_weight(
     const std::vector<DeploymentUnit>& units,
     const std::vector<BoardCell>& waypoints)
 {
-    return boss_route_coverage(units, waypoints).total_weight;
+    return boss_route_coverage(units, waypoints, std::nullopt).total_weight;
 }
 
 asst::spa::DeploymentProposal asst::spa::propose_deployment(
@@ -418,10 +439,11 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
     const std::vector<BoardCell>& opening_boss_cells,
     const std::vector<BoardCell>& boss_movement_waypoints,
     const std::function<int(const std::vector<DeploymentUnit>&)>& preparation_growth_preference,
-    std::optional<int> available_input_steps)
+    std::optional<int> available_input_steps,
+    const std::optional<DeploymentUnit>& fixed_healer)
 {
     DeploymentProposal result;
-    const auto initial = review_deployment(units, lanes, deployable_cells);
+    const auto initial = review_deployment(units, lanes, deployable_cells, fixed_healer);
     if (!initial.complete || evaluation_budget < 1 || evaluation_budget > 100'000 ||
         (available_input_steps && *available_input_steps < 0)) {
         result.reason = "Incomplete geometry or invalid search budget";
@@ -477,7 +499,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
     result.units = units;
     const auto score = [&](const std::vector<DeploymentUnit>& candidate) {
         ++result.evaluations;
-        const auto review = review_deployment(candidate, lanes, deployable_cells);
+        const auto review = review_deployment(candidate, lanes, deployable_cells, fixed_healer);
         if (!review.complete) {
             return CandidateScore { .unblocked_lanes = 1'000'000, .exposed_support = 1'000'000 };
         }
@@ -502,12 +524,13 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
             lane_problems += static_cast<int>(lane.problems.size());
             uncovered_approach += lane.required_approach_cells - lane.covered_approach_cells;
         }
-        const auto [boss_opening_weight, boss_supported_weight] = boss_attack_weights(candidate, opening_boss_cells);
+        const auto [boss_opening_weight, boss_supported_weight] =
+            boss_attack_weights(candidate, opening_boss_cells, fixed_healer);
         // Keep some value for burst without coverage, but favour keeping attackers
         // in reach of healing. This is a search priority, not predicted survival.
         const int boss_sustained_attack_weight =
             sustained_boss_attack_weight(boss_opening_weight, boss_supported_weight);
-        const auto route = boss_route_coverage(candidate, boss_movement_waypoints);
+        const auto route = boss_route_coverage(candidate, boss_movement_waypoints, fixed_healer);
         // Preserve firing access at the opening and first contact. Once
         // those are covered, an empty later checkpoint matters more than
         // adding another attacker to the opening cluster.
@@ -660,7 +683,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         best_input_cost = next_input_cost;
         result.units = std::move(best);
     }
-    result.found = review_deployment(result.units, lanes, deployable_cells).static_constraints_met;
+    result.found = review_deployment(result.units, lanes, deployable_cells, fixed_healer).static_constraints_met;
     result.unblocked_lanes_improvement = initial_score.unblocked_lanes - best_score.unblocked_lanes;
     result.score_improvement = (initial_score.exposed_support - best_score.exposed_support) * 10'000 +
                                initial_score.approach_penalty - best_score.approach_penalty;

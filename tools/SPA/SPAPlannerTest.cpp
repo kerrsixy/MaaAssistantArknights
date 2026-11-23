@@ -2072,6 +2072,48 @@ int main()
     missed_ally.id = "矩";
     missed_ally.cell = { 7, 2 };
     assert(uncovered_healable_allies({ strayed_medic, lane_tank, missed_ally }) == std::vector<std::string> { "矩" });
+
+    const auto reserve_support = solo_field_medical_support("band_amedic", 1, 0);
+    const auto touch_support = solo_field_medical_support("band_amedic", 2, 1);
+    const auto uncertain_support = solo_field_medical_support("band_amedic", 1, 1);
+    assert(reserve_support && reserve_support->id == "预备干员-医疗");
+    assert(touch_support && touch_support->id == "Touch");
+    assert(uncertain_support && uncertain_support->id == "外勤医疗");
+    assert(!solo_field_medical_support("band_weakness", 2, 0));
+    assert(!touch_support->movable && touch_support->local_range == reserve_support->local_range);
+    const std::vector<DeploymentLane> medical_support_lane {
+        { "lower", { { 7, 4 }, { 6, 4 }, { 5, 4 }, { 4, 4 }, { 3, 4 }, { 2, 4 } }, 0, 1 }
+    };
+    auto medic_patient = lane_tank;
+    medic_patient.cell = { 5, 4 };
+    medic_patient.placement_cells = { { 5, 4 }, { 6, 4 } };
+    const auto with_touch =
+        review_deployment({ medic_patient }, medical_support_lane, medic_patient.placement_cells, touch_support);
+    assert(with_touch.complete && with_touch.lanes.front().healers == std::vector<std::string> { "Touch" });
+    assert(with_touch.unique_route_block_capacity == medic_patient.block_count);
+    assert(uncovered_healable_allies({ medic_patient }, uncertain_support).empty());
+    medic_patient.cell = { 6, 4 };
+    const auto out_of_range =
+        review_deployment({ medic_patient }, medical_support_lane, medic_patient.placement_cells, reserve_support);
+    assert(out_of_range.complete && out_of_range.lanes.front().healers.empty());
+    const auto move_into_aid = propose_deployment(
+        { medic_patient },
+        medical_support_lane,
+        medic_patient.placement_cells,
+        64,
+        {},
+        {},
+        {},
+        {},
+        1,
+        reserve_support);
+    assert(move_into_aid.improved && move_into_aid.units.size() == 1);
+    assert(move_into_aid.units.front().cell == BoardCell(5, 4));
+    medic_patient.cell = { 5, 4 };
+    medic_patient.accepts_direct_healing = false;
+    const auto immune_to_treatment =
+        review_deployment({ medic_patient }, medical_support_lane, medic_patient.placement_cells, reserve_support);
+    assert(immune_to_treatment.complete && immune_to_treatment.lanes.front().healers.empty());
     missed_ally.cell = { 4, 3 };
     assert(uncovered_healable_allies({ strayed_medic, lane_tank, missed_ally }).empty());
     missed_ally.cell = { 7, 2 };

@@ -369,6 +369,23 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     if (m_layout_supplied || !terrain || m_dynamic_layout_attempts[round] >= layout_action_budget) {
         return std::nullopt;
     }
+    std::optional<spa::DeploymentUnit> field_medical_support;
+    if (m_mode == "independent" && m_selected_strategy_id == "band_amedic") {
+        int confirmed_elites = 0;
+        int unknown_forms = 0;
+        for (const auto& member : members) {
+            const auto owned = m_policy.owned.find(member.name);
+            const auto forms = owned == m_policy.owned.end() ? std::nullopt : spa::owned_form_counts(owned->second);
+            if (!forms || (forms->initial > 0 && forms->elite > 0)) {
+                ++unknown_forms;
+            }
+            else if (forms->elite > 0) {
+                ++confirmed_elites;
+            }
+        }
+        field_medical_support =
+            spa::solo_field_medical_support(m_selected_strategy_id, confirmed_elites, unknown_forms);
+    }
     const int available_input_steps = layout_action_budget - m_dynamic_layout_attempts[round];
     const auto map_context = m_spatial_map_id + (boss_round ? "#boss" : "#normal");
     const auto boss_target = boss_opening_target(round);
@@ -514,7 +531,8 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
             if (std::find(legal.begin(), legal.end(), unit.cell) == legal.end()) {
                 legal.push_back(unit.cell);
             }
-            if (auto action = spa::repair_healing_coverage(unit, current, m_layout_lanes, legal)) {
+            if (auto action =
+                    spa::repair_healing_coverage(unit, current, m_layout_lanes, legal, field_medical_support)) {
                 auto decision = basic_info_with_what("SPAHealingCoverageRepair");
                 decision["details"] = json::object { { "round", round },
                                                      { "name", unit.id },
@@ -663,7 +681,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
                 unit.local_range,
                 unit.frontline && unit.holds_position);
         }
-        const int uncovered = static_cast<int>(spa::uncovered_healable_allies(candidate).size());
+        const int uncovered = static_cast<int>(spa::uncovered_healable_allies(candidate, field_medical_support).size());
         const int freeze_coverage =
             spa::freeze_growth_coverage(candidate, m_layout_lanes, cold_sources, freeze_stackers, skill_freeze_sources);
         return engagement - uncovered * 550 + spa::spatial_formation_value(grid, active_pacts, m_policy.primary_pact) +
@@ -689,7 +707,8 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         boss_cells,
         movement_waypoints,
         preparation_growth,
-        available_input_steps);
+        available_input_steps,
+        field_medical_support);
     json::array movement_targets;
     for (const auto& [col, row] : movement_waypoints) {
         movement_targets.emplace_back(json::object { { "col", col }, { "row", row } });
@@ -699,8 +718,10 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         { "round", round },
         { "map_id", m_spatial_map_id },
         { "registered_members", members.size() },
-        { "healable_allies_outside_range_before", spa::uncovered_healable_allies(current) },
-        { "healable_allies_outside_range_after", spa::uncovered_healable_allies(proposal.units) },
+        { "healable_allies_outside_range_before", spa::uncovered_healable_allies(current, field_medical_support) },
+        { "healable_allies_outside_range_after",
+          spa::uncovered_healable_allies(proposal.units, field_medical_support) },
+        { "predefined_medical_support", field_medical_support ? field_medical_support->id : "" },
         { "input_complete", proposal.input_complete },
         { "all_static_constraints_met", proposal.found },
         { "improved", proposal.improved },

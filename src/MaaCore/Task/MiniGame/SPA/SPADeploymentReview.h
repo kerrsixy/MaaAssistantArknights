@@ -101,7 +101,9 @@ struct DeploymentProposal
 };
 
 // Distinct friendly patients covered by a different healer's measured range.
-std::vector<std::string> uncovered_healable_allies(const std::vector<DeploymentUnit>& units);
+std::vector<std::string> uncovered_healable_allies(
+    const std::vector<DeploymentUnit>& units,
+    const std::optional<DeploymentUnit>& fixed_healer = std::nullopt);
 
 // Geometric basic-attack coverage only, not damage or skill uptime. Multiple
 // attackable cells from the same boss count at most once for each attacker.
@@ -121,7 +123,8 @@ DeploymentProposal propose_deployment(
     const std::vector<BoardCell>& opening_boss_cells = {},
     const std::vector<BoardCell>& boss_movement_waypoints = {},
     const std::function<int(const std::vector<DeploymentUnit>&)>& preparation_growth_preference = {},
-    std::optional<int> available_input_steps = std::nullopt);
+    std::optional<int> available_input_steps = std::nullopt,
+    const std::optional<DeploymentUnit>& fixed_healer = std::nullopt);
 
 enum class DeploymentStepKind
 {
@@ -146,7 +149,8 @@ std::optional<DeploymentStep> repair_healing_coverage(
     const DeploymentUnit& healer,
     const std::vector<DeploymentUnit>& units,
     const std::vector<DeploymentLane>& lanes,
-    const std::vector<BoardCell>& legal_cells);
+    const std::vector<BoardCell>& legal_cells,
+    const std::optional<DeploymentUnit>& fixed_healer = std::nullopt);
 
 struct DeploymentSequence
 {
@@ -180,5 +184,6 @@ inline bool boss_attack_overlaps_cell(const DeploymentUnit& unit, BoardCell cell
 DeploymentReview review_deployment(
     const std::vector<DeploymentUnit>& units,
     const std::vector<DeploymentLane>& lanes,
-    const std::vector<BoardCell>& deployable_cells);
+    const std::vector<BoardCell>& deployable_cells,
+    const std::optional<DeploymentUnit>& fixed_healer = std::nullopt);
 }

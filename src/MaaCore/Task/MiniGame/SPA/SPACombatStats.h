@@ -1,5 +1,6 @@
 #pragma once
 
+#include "SPADeploymentReview.h"
 #include "SPAOperatorCombatData.h"
 #include "SPAOperatorSkillData.h"
 #include <algorithm>
@@ -34,6 +35,28 @@ inline int
                                 ? weakness_elite_attack_multiplier * weakness_elite_speed_multiplier
                                 : 1.0;
     return static_cast<int>(stats.attack * modifier / stats.attack_interval);
+}
+
+// The left solo field in all 30 Sequence I subboards places both
+// aceffect_band_61 forms at (2,3), facing east. Both use basic range 3-3.
+inline std::optional<DeploymentUnit>
+    solo_field_medical_support(std::string_view strategy_id, int confirmed_elites, int unknown_forms)
+{
+    if (strategy_id != "band_amedic") {
+        return std::nullopt;
+    }
+    constexpr int touch_elite_threshold = 2;
+    DeploymentUnit healer;
+    healer.id = confirmed_elites >= touch_elite_threshold                  ? "Touch"
+                : confirmed_elites + unknown_forms < touch_elite_threshold ? "预备干员-医疗"
+                                                                           : "外勤医疗";
+    healer.cell = { 2, 3 };
+    healer.healer = true;
+    healer.range_known = true;
+    healer.movable = false;
+    healer.local_range = { { 0, 1 }, { 1, 1 }, { 2, 1 },  { 3, 1 },  { 0, 0 },  { 1, 0 },
+                           { 2, 0 }, { 3, 0 }, { 0, -1 }, { 1, -1 }, { 2, -1 }, { 3, -1 } };
+    return healer;
 }
 
 inline std::optional<SeasonDefaultSkill> season_default_skill(std::string_view name, bool elite)
