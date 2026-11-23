@@ -675,6 +675,20 @@ inline int replacement_support_pact_value(
     return value;
 }
 
+inline int kjerag_replacement_freeze_value(const PreparationPolicy& lineup_policy)
+{
+    if (!kjerag_freeze_pair_available(lineup_policy, true)) {
+        return 0;
+    }
+    // Keep the native freeze pair. Credit an additional source on a verified
+    // geared body while there are waves left to grow. No trigger count is known.
+    const auto verified_ice_sources = std::ranges::count_if(lineup_policy.kjerag_ice_carriers, [&](const auto& name) {
+        const auto unit = lineup_policy.owned.find(name);
+        return unit != lineup_policy.owned.end() && unit->second.deployed;
+    });
+    return 1800 + 600 * static_cast<int>(verified_ice_sources);
+}
+
 // Compare the resulting lineups, rather than selling a low-tier unit merely
 // because a higher-tier one exists. Keep an activated core and the last known
 // blocker of each lane. Unknown poses may contribute to value but are never

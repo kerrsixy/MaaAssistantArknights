@@ -1697,9 +1697,7 @@ int asst::StrongholdProtocolTask::replacement_lineup_context_value(
         !(m_spatial_boss_phase && context.round == m_spatial_boss_phase_round)) {
         value += spa::replacement_preparation_adjacency_value(scored, context.primary_pact, context.disabled_pacts);
     }
-    if (spa::kjerag_freeze_pair_available(context, true)) {
-        value += 1800;
-    }
+    value += spa::kjerag_replacement_freeze_value(context);
     const int ursus_members = context.primary_pact == "乌萨斯" ? spa::replacement_primary_members(scored, "乌萨斯") : 0;
     if (ursus_members >= 3 && context.round < m_expected_boss_round) {
         const int population = static_cast<int>(std::count_if(scored.begin(), scored.end(), [&](const auto& unit) {

@@ -1846,6 +1846,20 @@ int main()
     kjerag_funding.kjerag_ice_carriers.insert("夏栎");
     assert(kjerag_freeze_pair_available(kjerag_funding, true));
     assert(!kjerag_recruit_completes_freeze_pair(kjerag_funding, "极光", true));
+    // D7 R11. Moving a verified 不融冰 holder to the bench removes a
+    // source even if other deployed operators still form a native pair.
+    auto freeze_swap = kjerag_funding;
+    freeze_swap.round = 11;
+    freeze_swap.kjerag_ice_carriers.clear();
+    freeze_swap.kjerag_ice_carriers.insert("耶拉");
+    const std::vector<ReplacementMember> freeze_lineup { { "初雪" }, { "灵知" }, { "耶拉" } };
+    const auto keep_ice = replacement_lineup_policy(freeze_swap, freeze_lineup);
+    const auto replace_ice = replacement_lineup_policy(freeze_swap, { { "初雪" }, { "灵知" }, { "星源" } });
+    assert(kjerag_replacement_freeze_value(keep_ice) == 2400);
+    assert(kjerag_replacement_freeze_value(replace_ice) == 1800);
+    assert(330 + kjerag_replacement_freeze_value(replace_ice) - kjerag_replacement_freeze_value(keep_ice) < 0);
+    freeze_swap.round = 14;
+    assert(kjerag_replacement_freeze_value(replacement_lineup_policy(freeze_swap, freeze_lineup)) == 0);
     kjerag_funding.owned["夏栎"].deployed = false;
     assert(kjerag_recruit_completes_freeze_pair(kjerag_funding, "极光", true));
     kjerag_funding.round = 14;
