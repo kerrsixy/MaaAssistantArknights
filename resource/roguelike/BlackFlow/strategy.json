@@ -605,7 +605,13 @@
                     "tier": "resource_reserve",
                     "rank": 0,
                     "when": {
-                        "all": [{ "fact": "action_points", "op": "gt", "value": 0 }]
+                        "all": [
+                            {
+                                "fact": "action_points",
+                                "op": "gt",
+                                "value": 0
+                            }
+                        ]
                     },
                     "candidate_if": {
                         "fact": "candidate.boss",
@@ -1929,7 +1935,9 @@
                     "event_name": "线人",
                     "rank": 0,
                     "option_text": ["我受雇于梅兰德"],
-                    "on_selected": { "sandtable_a": true }
+                    "on_selected": {
+                        "sandtable_a": true
+                    }
                 }
             ],
             "reserves": [
@@ -2134,6 +2142,34 @@
                     "completion": "condition"
                 }
             ]
+        },
+        {
+            "id": "ending1_survival_encounters",
+            "description": "常规第一结局的生命预算：同奖励且支付选项当前可用时优先花钱，否则保留生命离开。",
+            "encounter_rules": [
+                {
+                    "id": "ending1_silent_house_preserve_life",
+                    "description": "run48实帧：沉寂之屋5/6生命、16碇，清理耗2生命；交流耗8碇得到同一笼控器。只依据当页enabled选项选择，不固定价格或猜测现金；缺支付能力时离开。",
+                    "event_name": "沉寂之屋",
+                    "rank": 0,
+                    "when": {
+                        "any": [
+                            {
+                                "fact": "encounter.available_options",
+                                "op": "contains",
+                                "value": "试图和人形藤蔓交流"
+                            },
+                            {
+                                "fact": "encounter.available_options",
+                                "op": "contains",
+                                "value": "离开"
+                            }
+                        ]
+                    },
+                    "option_text": ["试图和人形藤蔓交流", "离开"],
+                    "allow_fallback": false
+                }
+            ]
         }
     ],
     "profiles": [
@@ -2261,7 +2297,13 @@
         {
             "id": "ending1",
             "description": "一结局保底",
-            "modules": ["common_navigation", "ending_development", "ending_scrap_trade", "ending1_exit"],
+            "modules": [
+                "common_navigation",
+                "ending_development",
+                "ending_scrap_trade",
+                "ending1_exit",
+                "ending1_survival_encounters"
+            ],
             "failure_action": "restart_current_run"
         },
         {
