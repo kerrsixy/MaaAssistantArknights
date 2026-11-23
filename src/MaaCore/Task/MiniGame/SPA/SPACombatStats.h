@@ -21,20 +21,29 @@ inline std::optional<SeasonCombatStats> season_combat_stats(std::string_view nam
     return elite ? found->elite : found->initial;
 }
 
-// Sequence I bondeffect_ursus and bondeffect_yan display parameters.
-// Layer input comes from the current preparation HUD, excluding future kills.
-inline int season_primary_attack_bonus_basis_points(std::string_view pact, int layers)
+struct PrimaryDamageBonuses
+{
+    int attack_basis_points = 0;
+    int outgoing_damage_basis_points = 0;
+};
+
+// Sequence I bond effects. Layer input comes from the current preparation HUD.
+// Both Kjerag variants give the same unconditional damage factor.
+inline PrimaryDamageBonuses season_primary_damage_bonuses(std::string_view pact, int layers)
 {
     if (layers < 0 || layers > 999) {
-        return 0;
+        return {};
     }
     if (pact == "乌萨斯") {
-        return 3500 + 75 * layers;
+        return { .attack_basis_points = 3500 + 75 * layers };
     }
     if (pact == "炎") {
-        return 2300 + 90 * layers;
+        return { .attack_basis_points = 2300 + 90 * layers };
     }
-    return 0;
+    if (pact == "谢拉格") {
+        return { .outgoing_damage_basis_points = 2500 };
+    }
+    return {};
 }
 
 // Estimate basic attack output before enemy mitigation or conditional effects.
@@ -43,7 +52,7 @@ inline int season_basic_attack_weight(
     const SeasonCombatStats& stats,
     std::string_view strategy_id,
     bool confirmed_elite,
-    int primary_attack_bonus_basis_points = 0)
+    PrimaryDamageBonuses primary = {})
 {
     if (stats.attack_interval <= 0) {
         return 0;
@@ -51,10 +60,12 @@ inline int season_basic_attack_weight(
     const bool weakness = strategy_id == "band_weakness" && confirmed_elite;
     // Each bonus is documented independently. Use the larger known attack
     // bonus until their in-game composition is verified.
-    const int attack_bonus = std::max(weakness ? 1600 : 0, primary_attack_bonus_basis_points);
+    const int attack_bonus = std::max(weakness ? 1600 : 0, primary.attack_basis_points);
     const double speed = weakness ? 1.16 : 1.0;
+    const double outgoing_damage = (10'000 + primary.outgoing_damage_basis_points) / 10'000.0;
     return static_cast<int>(
-        static_cast<double>(stats.attack) * (10'000 + attack_bonus) * speed / (10'000 * stats.attack_interval));
+        static_cast<double>(stats.attack) * (10'000 + attack_bonus) * speed * outgoing_damage /
+        (10'000 * stats.attack_interval));
 }
 
 // The left solo field in all 30 Sequence I subboards places both

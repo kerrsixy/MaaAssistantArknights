@@ -1649,7 +1649,7 @@ asst::spa::ReplacementMember asst::StrongholdProtocolTask::replacement_member(
                     *stats,
                     policy.selected_strategy_id,
                     forms->elite > 0,
-                    observed_primary_attack_bonus(name));
+                    observed_primary_damage_bonuses(name));
                 result.boss_basic_range.assign(stats->basic_range.begin(), stats->basic_range.end());
             }
         }
