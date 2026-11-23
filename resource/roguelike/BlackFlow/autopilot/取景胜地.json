@@ -1,0 +1,83 @@
+{
+    "stage_name": "取景胜地",
+    "doc": [
+        "run52 phase79本图10→7，3个红白箱式对象从上门漏。最小候选仅离线，未实胜。ro6_n_4_8，11x7，raw与TilePack77/77格一致；此前没有专用作业，generic先让Pod抢2,2。",
+        "先正名：红白箱式悬浮外观不能认证飞行。本图设计师/收音师等primary路线均WALK、手册无飞行说明；此候选是上路射程与前后路分工修复，不要求敌人必须空中才开火。",
+        "首手合格远程3,2左覆盖上门0,1/门前1,1和中门0,3/门前1,3；本局提丰E1可满足。原4,4左不含上门两点；晚3,2下有outcome0日志，但末帧支持实际已落地，不能仅凭outcome说没下。朝下仍不覆盖上门且敌已到门，故必须同时修正先后和方向。",
+        "首上路输出→下主挡Mech1,5右→EW2,2下→Carda3,4左→医疗2,4上。不让司霆解放者代替常驻挡，不让Pod抢主核2,2，不让token抢计划格。",
+        "本局前段Mech仍E1L80、真实卡价19，不是后晋升E2后的21或别局5。提丰24/Mech19/EW24/Carda18/Pod10，新前缀24/43/67/85/95；原Pod10+司霆12+Mech19+EW24前缀65，核心只差2资源而上路输出提前。不得换算固定秒。",
+        "医疗名单为实际E1范围合格的常规群奶，再加本局波登可S1条件许可；Pod只有S1技能期间治疗，没有常规持续/元素治疗已满足证明。无合格治疗时此职责仍未满足，不能拿S2或角色组名充数。",
+        "摄影区会令设计师面对摄影机时转向、影响正面减伤；假人在区内停止移动并脆弱，长期停留流血，且不能阻挡。新左向末段火力可能从后侧打左行敌人，但摄影机可改变朝向，不宣称永久绕过正面减伤。摄影机精确控制未纳入本最小候选。",
+        "上路位3,2在EW范围内，先占可减少魂灵抢位；医疗2,4与Carda3,4仍可能被魂灵占用，必须新鲜身份/选中验名后回收，不以卡冷却或固定时间清格。",
+        "仅上/中门由首手覆盖，下门另由EW/Mech/Carda负责；不把一名提丰当覆盖三门。各角色E1真实范围合格不证明N8伤害/神经损伤生存或技能效果，普通主力允许再次部署。",
+        "无对应EW合集分P证据，本次不扩视频。run53在导航阶段失败没有开始探索，不计为本布局游戏回归。"
+    ],
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true,
+    "deploy_plan": [
+        {
+            "groups": ["提丰", "狙击"],
+            "operator_names": ["提丰", "早露", "熔泉", "埃拉托", "铅踝"],
+            "exclude_starting_core": true,
+            "location": [3, 2],
+            "direction": "left",
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [0, 1],
+                [1, 1],
+                [0, 3],
+                [1, 3]
+            ]
+        },
+        {
+            "groups": ["机械师", "重装", "奶盾"],
+            "location": [1, 5],
+            "direction": "right",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true,
+            "required_attack_tiles": [
+                [1, 5],
+                [2, 5]
+            ],
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["益达"],
+            "operator_names": ["维什戴尔"],
+            "location": [2, 2],
+            "direction": "down",
+            "minimum_elite": 2,
+            "required_attack_tiles": [
+                [1, 3],
+                [3, 3],
+                [1, 5]
+            ]
+        },
+        {
+            "groups": ["术师"],
+            "operator_names": ["卡达", "史都华德"],
+            "location": [3, 4],
+            "direction": "left",
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [1, 3],
+                [2, 3],
+                [1, 5],
+                [2, 5]
+            ]
+        },
+        {
+            "groups": ["群奶", "奶"],
+            "operator_names": ["夜莺", "白面鸮", "调香师", "微风", "明椒", "莎草", "波登可"],
+            "location": [2, 4],
+            "direction": "up",
+            "minimum_elite": 1,
+            "required_range_tiles": [
+                [2, 2],
+                [3, 2],
+                [1, 5],
+                [3, 4]
+            ]
+        }
+    ]
+}
