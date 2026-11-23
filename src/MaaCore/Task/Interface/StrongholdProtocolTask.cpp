@@ -6381,6 +6381,50 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             handle_cash_equipment(state, boss_preparation, equipment_funding->deficit)) {
             continue;
         }
+        // Protect the planned operator purchase, but convert a stored coin if it
+        // can also fund a known income item on the same shop and preparation.
+        if (!equipment_funding && !purchase_reserved_after_sale && !m_bench_funding_pair && m_auto_run &&
+            decision.action == spa::PreparationAction::Buy && !decision.is_equipment &&
+            !decision.banked_value_purchase && field_poses_complete && !m_field_checkpoint_loaded &&
+            !m_pending_spatial_orientation && ordinary_balance_rule_known && !boss_preparation &&
+            m_expected_boss_round > round && m_equipment_candidates.contains("盟约之币") &&
+            !m_cash_equipment_attempted_rounds.contains(round) && !m_pending_delayed_cash_equipment &&
+            !m_delayed_cash_equipment_attempted_rounds.contains(round) &&
+            !std::ranges::any_of(m_equipment_candidates, spa::is_deferred_cash_equipment) &&
+            (m_mode != "joint" || state.get("preparation_seconds_remaining", 0) >= 45)) {
+            // Compare quotes before looking up recipient slots. The cash
+            // executor revalidates an actual empty slot before every drop.
+            const spa::EquipmentContext cash_context {
+                .funds = funds,
+                .round = round,
+                .boss_round = m_expected_boss_round,
+                .target_deployed = true,
+                .shop_level = m_policy.shop_level,
+            };
+            std::optional<int> deficit;
+            std::string cash_offer;
+            for (const auto& offer : equipment_offers) {
+                const auto shortage = spa::next_round_cash_funding_deficit(cash_context, offer, decision.price);
+                if (shortage && (!deficit || *shortage < *deficit)) {
+                    deficit = shortage;
+                    cash_offer = offer.name;
+                }
+            }
+            if (deficit) {
+                auto planned = basic_info_with_what("SPACashEquipmentFundingPlan");
+                planned["details"] = json::object { { "round", round },
+                                                    { "funds", funds },
+                                                    { "operator", decision.name },
+                                                    { "operator_price", decision.price },
+                                                    { "income_offer", cash_offer },
+                                                    { "deficit", *deficit },
+                                                    { "funding_verified", false } };
+                callback(AsstMsg::SubTaskExtraInfo, planned);
+                if (handle_cash_equipment(state, false, *deficit)) {
+                    continue;
+                }
+            }
+        }
         const bool exact_funding_quote = funding && spa::unique_funding_quote(offers, funding->offer);
         bool funding_sale_handled = funding && handle_full_bench_sale(
                                                    state,

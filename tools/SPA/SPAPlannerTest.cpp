@@ -6100,6 +6100,19 @@ int main()
     assert(!equipment_next_round_cash_gain("精打细算玩偶", "装备时销毁，下回合额外获得2资金"));
     assert(profitable_next_round_cash_offer(toy_buy, toy_profile));
     assert(choose_equipment(toy_buy, { toy_profile }).buy);
+    // Live D5 R5 retained two funds for Indigo after upgrading. The one-fund
+    // toy could be added from a stored Pact Coin without giving up Indigo.
+    auto dual_purchase = toy_buy;
+    dual_purchase.round = 5;
+    assert(next_round_cash_funding_deficit(dual_purchase, toy_profile, 2) == 1);
+    assert(!next_round_cash_funding_deficit(dual_purchase, toy_profile, 3));
+    assert(!next_round_cash_funding_deficit(dual_purchase, toy_profile, 1));
+    assert(!next_round_cash_funding_deficit(dual_purchase, blade_profile, 2));
+    dual_purchase.target_deployed = false;
+    assert(!next_round_cash_funding_deficit(dual_purchase, toy_profile, 2));
+    dual_purchase.target_deployed = true;
+    dual_purchase.round = dual_purchase.boss_round;
+    assert(!next_round_cash_funding_deficit(dual_purchase, toy_profile, 2));
     auto expensive_toy = toy_profile;
     expensive_toy.price = 2;
     assert(!choose_equipment(toy_buy, { expensive_toy }).buy);

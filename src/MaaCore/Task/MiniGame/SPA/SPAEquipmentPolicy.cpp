@@ -404,6 +404,24 @@ bool asst::spa::profitable_next_round_cash_offer(const EquipmentContext& context
     return offer.price < credits * *gain;
 }
 
+std::optional<int> asst::spa::next_round_cash_funding_deficit(
+    EquipmentContext context,
+    const EquipmentProfile& offer,
+    int reserved_purchase_price)
+{
+    if (reserved_purchase_price <= 0 || reserved_purchase_price > context.funds || context.funds > 999 ||
+        offer.price < 0 || offer.price > 999) {
+        return std::nullopt;
+    }
+    const int funds_after_purchase = context.funds - reserved_purchase_price;
+    const int deficit = offer.price - funds_after_purchase;
+    if (deficit < 1 || deficit > 2 || context.funds > 999 - deficit) {
+        return std::nullopt;
+    }
+    context.funds = funds_after_purchase + deficit;
+    return profitable_next_round_cash_offer(context, offer) ? std::optional(deficit) : std::nullopt;
+}
+
 const std::vector<asst::spa::EquipmentProfile>& asst::spa::equipment_profiles()
 {
     static const std::vector<EquipmentProfile> p = [] {

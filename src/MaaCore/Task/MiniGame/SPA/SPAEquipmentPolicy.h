@@ -88,6 +88,10 @@ bool is_deferred_cash_equipment(std::string_view name);
 bool is_recurring_cash_equipment(std::string_view name);
 std::optional<int> equipment_next_round_cash_gain(const std::string& name, const std::string& description);
 bool profitable_next_round_cash_offer(const EquipmentContext& context, const EquipmentProfile& offer);
+std::optional<int> next_round_cash_funding_deficit(
+    EquipmentContext context,
+    const EquipmentProfile& offer,
+    int reserved_purchase_price);
 bool equipment_title_matches(const std::string& expected, const std::string& observed);
 int equipment_capacity(const std::string& recipient, bool elite);
 // A visible same-frame recipient title is required even for an empty list.
