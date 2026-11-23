@@ -123,5 +123,32 @@ int main()
     absent_sprite(cv::Rect(647, 412, 68, 54)).setTo(cv::Scalar(105, 141, 173));
     assert(bench_source_centres(absent_sprite) == other_slots);
 
+    // D7 round 7: the leftmost tier I badge merges with the adjacent ice
+    // and sprite silhouette. The other three badges still establish the row.
+    const auto bench_strip = cv::imread("bench_leading_badge_merged_live.png");
+    assert(bench_strip.size() == cv::Size(460, 140));
+    cv::Mat leftmost(failed.size(), CV_8UC3, cv::Scalar::all(0));
+    bench_strip.copyTo(leftmost(cv::Rect(510, 360, bench_strip.cols, bench_strip.rows)));
+    auto expected_leading_slots = other_slots;
+    expected_leading_slots.insert(expected_leading_slots.begin(), { 680, 450 });
+    assert(bench_source_centres(leftmost) == expected_leading_slots);
+    auto missing_badge = leftmost.clone();
+    missing_badge(cv::Rect(645, 389, 7, 17)).setTo(cv::Scalar::all(55));
+    assert(bench_source_centres(missing_badge) == other_slots);
+    auto missing_body = leftmost.clone();
+    missing_body(cv::Rect(647, 412, 68, 54)).setTo(cv::Scalar::all(100));
+    assert(bench_source_centres(missing_body) == other_slots);
+
+    // D7 round 9: both outgoing operators are in the first two slots.
+    // The row remains empty further left and a missing numeral stops recovery.
+    const auto two_badges = cv::imread("bench_two_leading_badges_merged_live.png");
+    assert(two_badges.size() == cv::Size(470, 140));
+    cv::Mat two_leftmost(failed.size(), CV_8UC3, cv::Scalar::all(0));
+    two_badges.copyTo(two_leftmost(cv::Rect(500, 360, two_badges.cols, two_badges.rows)));
+    expected_leading_slots.insert(expected_leading_slots.begin(), { 599, 450 });
+    assert(bench_source_centres(two_leftmost) == expected_leading_slots);
+    two_leftmost(cv::Rect(645, 389, 7, 17)).setTo(cv::Scalar::all(55));
+    assert(bench_source_centres(two_leftmost) == other_slots);
+
     std::cout << "bench sale hitbox and compact operator source frames passed; no live input\n";
 }

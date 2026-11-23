@@ -418,21 +418,44 @@ bool bench_christine_sprite_visible(const cv::Mat& image, cv::Point center)
     return cv::countNonZero(eyes) >= 4;
 }
 
-static bool bench_tier_three_glyph(const cv::Mat& inner_hsv)
+static int bench_badge_stroke_count(const cv::Mat& mask)
 {
-    cv::Mat cyan, labels, stats, centroids;
-    cv::inRange(inner_hsv, cv::Scalar(73, 120, 125), cv::Scalar(111, 255, 255), cyan);
-    const int components = cv::connectedComponentsWithStats(cyan, labels, stats, centroids);
+    cv::Mat labels, stats, centroids;
+    const int components = cv::connectedComponentsWithStats(mask, labels, stats, centroids);
     int strokes = 0;
     for (int index = 1; index < components; ++index) {
         const int width = stats.at<int>(index, cv::CC_STAT_WIDTH);
         const int height = stats.at<int>(index, cv::CC_STAT_HEIGHT);
         const int area = stats.at<int>(index, cv::CC_STAT_AREA);
-        if (width >= 2 && width * 3 <= height && height * 5 >= inner_hsv.rows * 3 && area * 2 >= width * height) {
+        if (width >= 2 && width * 3 <= height && height * 5 >= mask.rows * 3 && area * 2 >= width * height) {
             ++strokes;
         }
     }
-    return strokes == 3;
+    return strokes;
+}
+
+static bool bench_tier_three_glyph(const cv::Mat& inner_hsv)
+{
+    cv::Mat cyan;
+    cv::inRange(inner_hsv, cv::Scalar(73, 120, 125), cv::Scalar(111, 255, 255), cyan);
+    return bench_badge_stroke_count(cyan) == 3;
+}
+
+static bool recovered_bench_badge_visible(const cv::Mat& image, const cv::Rect& badge, bool require_stroke)
+{
+    const cv::Rect outer(badge.x - 2, badge.y - 2, badge.width + 4, badge.height + 4);
+    if ((outer & cv::Rect(0, 0, image.cols, image.rows)) != outer) {
+        return false;
+    }
+    cv::Mat gray;
+    cv::cvtColor(image(outer), gray, cv::COLOR_BGR2GRAY);
+    const auto inner = gray(cv::Rect(5, 5, badge.width - 6, badge.height - 6));
+    const cv::Mat glyph = inner > 150;
+    const double inner_dark = static_cast<double>(cv::countNonZero(inner < 110)) / inner.total();
+    const double glyph_bright = static_cast<double>(cv::countNonZero(glyph)) / inner.total();
+    const double outline_bright = static_cast<double>(cv::countNonZero(gray > 125)) / gray.total();
+    return inner_dark >= 0.60 && glyph_bright >= 0.015 && glyph_bright <= 0.35 && outline_bright >= 0.12 &&
+           (!require_stroke || bench_badge_stroke_count(glyph) > 0);
 }
 
 std::vector<cv::Point> bench_source_centres(const cv::Mat& image, bool include_christine)
@@ -570,21 +593,24 @@ std::vector<cv::Point> bench_source_centres(const cv::Mat& image, bool include_c
                     (left.y + right.y) / 2,
                     (left.width + right.width) / 2,
                     (left.height + right.height) / 2);
-                const cv::Rect outer(badge.x - 2, badge.y - 2, badge.width + 4, badge.height + 4);
-                if ((outer & cv::Rect(0, 0, image.cols, image.rows)) != outer) {
-                    continue;
-                }
-                cv::Mat badge_gray, outer_gray;
-                cv::cvtColor(image(badge), badge_gray, cv::COLOR_BGR2GRAY);
-                cv::cvtColor(image(outer), outer_gray, cv::COLOR_BGR2GRAY);
-                const auto inner = badge_gray(cv::Rect(3, 3, badge.width - 6, badge.height - 6));
-                const double inner_dark = static_cast<double>(cv::countNonZero(inner < 110)) / inner.total();
-                const double glyph_bright = static_cast<double>(cv::countNonZero(inner > 150)) / inner.total();
-                const double outline_bright =
-                    static_cast<double>(cv::countNonZero(outer_gray > 125)) / outer_gray.total();
-                if (inner_dark >= 0.60 && glyph_bright >= 0.015 && glyph_bright <= 0.35 && outline_bright >= 0.12) {
+                if (recovered_bench_badge_visible(image, badge, false)) {
                     result.emplace_back(center);
                 }
+            }
+        }
+        // Three intact consecutive badges can also anchor the adjacent
+        // slots to their left. Stop at the first missing badge or sprite.
+        // The rightmost slot still needs a directly detected badge.
+        if (consistent && intervals.size() >= 2 && std::abs(badges[1].x - badges[0].x - pitch) <= 4 &&
+            std::abs(badges[2].x - badges[1].x - pitch) <= 4 && std::abs(badges[0].y - badges[1].y) <= 4 &&
+            std::abs(badges[1].y - badges[2].y) <= 4) {
+            auto badge = badges.front();
+            for (badge.x -= pitch; result.size() < 10; badge.x -= pitch) {
+                const cv::Point center(badge.x + 42, 450);
+                if (!recovered_bench_badge_visible(image, badge, true) || !bench_operator_visible(image, center)) {
+                    break;
+                }
+                result.emplace_back(center);
             }
         }
     }

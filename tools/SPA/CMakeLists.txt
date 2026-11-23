@@ -358,6 +358,8 @@ if(SPA_WITH_IMAGE_TESTS)
     configure_file(fixtures/bench_christine_with_operators_live.png bench_christine_with_operators_live.png COPYONLY)
     configure_file(fixtures/bench_christine_alone_live.png bench_christine_alone_live.png COPYONLY)
     configure_file(fixtures/bench_tier_three_glyph_live.png bench_tier_three_glyph_live.png COPYONLY)
+    configure_file(fixtures/bench_leading_badge_merged_live.png bench_leading_badge_merged_live.png COPYONLY)
+    configure_file(fixtures/bench_two_leading_badges_merged_live.png bench_two_leading_badges_merged_live.png COPYONLY)
     add_test(NAME SPABenchSaleHitbox COMMAND SPABenchHitboxTest)
     set_tests_properties(SPABenchSaleHitbox PROPERTIES
         WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
