@@ -155,6 +155,116 @@ int main()
     expect(
         plan && plan.decision.selected->movement == MovementKind::Walk,
         "a real walk-only route retains the item and uses expiring floor action points");
+
+    // An unconstrained high-reward continuation spends all three teleports.
+    // Rejecting its first move must not discard another continuation from that
+    // same move which collects rewards and still retains a teleport.
+    MapObservationBatch choice_map;
+    choice_map.floor = 2;
+    const std::vector<GridPosition> choice_positions { { 0, 0 }, { 0, 1 }, { 0, 2 }, { 2, 0 }, { 2, 2 } };
+    for (std::size_t index = 0; index < choice_positions.size(); ++index) {
+        ObservedNode node;
+        node.position = choice_positions[index];
+        node.type = index == 2 ? NodeType::Final : NodeType::Incident;
+        node.name = index == 0 ? "start" : index == 2 ? "exit" : "valuable_reward";
+        node.identity_state = NodeIdentityState::Classified;
+        node.identity_revealed = node.identity_from_template = true;
+        choice_map.nodes.push_back(node);
+    }
+    choice_map.edges.push_back({ choice_positions[0], choice_positions[1], EdgeKnowledge::Confirmed, {} });
+    choice_map.edges.push_back({ choice_positions[1], choice_positions[2], EdgeKnowledge::Confirmed, {} });
+    NormalizedMap choices;
+    expect(choices.merge(choice_map, &error), "merge reward alternatives with a conserving walk continuation");
+    RunState choice_run;
+    choice_run.floor = 2;
+    choice_run.current_node = *make_stable_node_id(2, choice_positions[0]);
+    choice_run.resources.action_points = 6;
+    choice_run.resources.movement_charges[MovementKind::M11] = 3;
+    choice_run.resources.movement_pieces[MovementKind::M11] = 1;
+    ResolvedPolicy choice_policy;
+    choice_policy.reserves.push_back(reserve);
+    Milestone valuable;
+    valuable.id = "profitable_reward";
+    valuable.kind = MilestoneKind::Preferred;
+    valuable.floor_begin = valuable.floor_end = 2;
+    valuable.required_count = 99;
+    valuable.weight = 20;
+    valuable.selector.node_names = { "valuable_reward" };
+    choice_policy.milestones.push_back(valuable);
+    BlackFlowPlanRequest choice_request;
+    choice_request.map = &choices.snapshot();
+    choice_request.run = &choice_run;
+    choice_request.policy = &choice_policy;
+    choice_request.facts = &facts;
+    choice_request.mission = &mission;
+    choice_request.route_search.time_budget_ms = 10'000;
+    choice_request.route_search.expansions_per_root = 256;
+    const auto conserving = planner.plan(choice_request);
+    expect(static_cast<bool>(conserving), "reward comparison has an exit witness");
+    expect(
+        conserving && conserving.decision.selected->target != *make_stable_node_id(2, choice_positions[2]),
+        "an unconstrained continuation must not force immediate exit while a conserving reward route exists");
+    const auto progress = conserving.decision.planned_milestone_progress.find(valuable.id);
+    expect(
+        conserving && progress != conserving.decision.planned_milestone_progress.end() && progress->second >= 2,
+        "reserve-aware continuation obtains two rewards before leaving");
+    int full_map_uses = 0;
+    for (const auto& step : conserving.decision.planned_route_steps) {
+        full_map_uses += step.move.movement == MovementKind::M11;
+    }
+    expect(full_map_uses <= 2, "the selected complete route actually retains at least one charge");
+    expect(conserving.decision.released_reserve_ids.empty(), "a feasible reserve is not relaxed");
+
+    choice_request.route_search.time_budget_ms = 1000;
+    const auto default_budget = planner.plan(choice_request);
+    const auto default_progress = default_budget.decision.planned_milestone_progress.find(valuable.id);
+    expect(
+        default_budget && default_progress != default_budget.decision.planned_milestone_progress.end() &&
+            default_progress->second >= 2,
+        "the normal search time budget still finds a profitable conserving continuation");
+    choice_run.resources.movement_charges[MovementKind::M11] = 2;
+    const auto tighter_budget = planner.plan(choice_request);
+    int tighter_uses = 0;
+    for (const auto& step : tighter_budget.decision.planned_route_steps) {
+        tighter_uses += step.move.movement == MovementKind::M11;
+    }
+    expect(
+        tighter_budget && tighter_budget.decision.selected->movement == MovementKind::Walk && tighter_uses == 0,
+        "two-charge stock must not spend a teleport because a conserving walking continuation was overlooked");
+    const auto tighter_progress = tighter_budget.decision.planned_milestone_progress.find(valuable.id);
+    expect(
+        tighter_budget && tighter_progress != tighter_budget.decision.planned_milestone_progress.end() &&
+            tighter_progress->second >= 1,
+        "a tighter stock still collects the reachable reward");
+    choice_run.resources.movement_charges[MovementKind::M11] = 3;
+    choice_request.route_search.time_budget_ms = 10'000;
+
+    choice_policy.reserves.clear();
+    const auto unrestricted = planner.plan(choice_request);
+    const auto all_progress = unrestricted.decision.planned_milestone_progress.find(valuable.id);
+    expect(
+        unrestricted && all_progress != unrestricted.decision.planned_milestone_progress.end() &&
+            all_progress->second == 3,
+        "without a reserve the higher-reward route is still eligible");
+    choice_policy.reserves.push_back(reserve);
+    choice_policy.reserves.front().active_if.constant = false;
+    const auto inactive = planner.plan(choice_request);
+    expect(
+        inactive && inactive.decision.planned_milestone_progress.at(valuable.id) == 3,
+        "an inactive reserve does not suppress a profitable continuation");
+    choice_policy.reserves.front().active_if.constant = true;
+    choice_policy.reserves.front().release_if.constant = true;
+    const auto released = planner.plan(choice_request);
+    expect(
+        released && released.decision.planned_milestone_progress.at(valuable.id) == 3,
+        "a declared release permits spending for the profitable continuation");
+    choice_policy.reserves.front().release_if.constant = false;
+    choice_policy.reserves.front().minimum = 4;
+    const auto unavoidable = planner.plan(choice_request);
+    expect(
+        unavoidable && !unavoidable.decision.released_reserve_ids.empty(),
+        "an impossible reserve still releases instead of blocking the run");
+
     std::cout << "ROUTE_RESERVE checks=" << checks << " failures=" << failures << " device_inputs=0\n";
     return failures ? 1 : 0;
 }
