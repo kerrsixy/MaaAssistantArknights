@@ -2879,6 +2879,30 @@ int main()
     precision_replacement.front().facing = '\0';
     assert(replacement_preparation_adjacency_value(precision_replacement, "精准", {}) == 0);
 
+    auto duplicate_field = precision_replacement;
+    auto duplicate = duplicate_field[1];
+    duplicate.x = 721;
+    duplicate.grid_cell = BoardCell { 6, 4 };
+    duplicate.facing = 'W';
+    duplicate_field.push_back(duplicate);
+    const ReplacementChoice replace_one_copy { true, "空弦", "雪猎", 637, 438 };
+    const auto replacement_geometry = replacement_growth_geometry(duplicate_field, replace_one_copy);
+    assert(replacement_geometry && replacement_geometry->outgoing_index == 1);
+    assert(replacement_geometry->receiver.col == 5 && replacement_geometry->receiver.row == 4);
+    assert(std::ranges::any_of(replacement_geometry->neighbors, [](const auto& neighbor) {
+        return neighbor.name == "雪猎" && neighbor.col == 6 && neighbor.row == 4 && neighbor.facing == 'W';
+    }));
+    assert(
+        replacement_growth_facing(
+            "空弦",
+            replacement_geometry->receiver,
+            replacement_geometry->neighbors,
+            { "精准" },
+            "精准",
+            'N') == 'E');
+    duplicate_field.back().route_membership_registered = false;
+    assert(!replacement_growth_geometry(duplicate_field, replace_one_copy));
+
     auto contradictory_route = route_replacement;
     assert(!register_replacement_routes(contradictory_route, {}, city_route->lanes));
     assert(std::none_of(contradictory_route.begin(), contradictory_route.end(), [](const auto& member) {

@@ -2011,66 +2011,54 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
     char incoming_direction = inherited_direction;
     bool growth_geometry_known = false;
     json::array replacement_growth_bonuses;
-    if (m_growth_population_poses == m_auto_deploy_positions && m_population_grid_members.size() == 8 &&
-        std::all_of(m_auto_deploy_positions.begin(), m_auto_deploy_positions.end(), [&](const auto& placed) {
-            return m_auto_deploy_positions.count(placed.first) == 1 &&
-                   m_verified_field_pose_points.contains(placed.second);
-        })) {
-        std::vector<spa::GridPlacementMember> others;
+    if (const auto geometry = spa::replacement_growth_geometry(field, choice)) {
         std::vector<spa::RosterUnit> prospective;
-        std::optional<spa::GridPlacementCell> target;
-        for (auto member : m_population_grid_members) {
-            if (member.name == choice.outgoing) {
-                target = spa::GridPlacementCell { member.col, member.row, choice.x, choice.y };
-                prospective.push_back({ choice.incoming, true, {}, m_policy.owned.at(choice.incoming).elite });
-                continue;
+        prospective.reserve(field.size());
+        for (std::size_t index = 0; index < field.size(); ++index) {
+            const auto& member = field[index];
+            const bool replaced = index == geometry->outgoing_index;
+            const auto& name = replaced ? choice.incoming : member.name;
+            const auto forms = spa::owned_form_counts(m_policy.owned.at(name));
+            std::optional<bool> elite;
+            if (forms && (forms->initial == 0 || forms->elite == 0)) {
+                elite = forms->elite > 0;
             }
-            const auto placed = m_auto_deploy_positions.find(member.name);
-            if (placed == m_auto_deploy_positions.end()) {
-                others.clear();
-                break;
-            }
-            const auto facing = m_committed_facings.find(placed->second);
-            member.facing = facing == m_committed_facings.end() ? '\0' : facing->second;
             prospective.push_back(
-                { member.name, true, field_added_pacts(member.name), m_policy.owned.at(member.name).elite });
-            others.push_back(std::move(member));
+                { name, true, replaced ? std::vector<std::string>() : field_added_pacts(name), elite });
         }
-        if (target && others.size() == 7) {
-            const auto formation = spa::evaluate_formation(
-                prospective,
-                spa::operator_pacts(),
-                spa::pact_requirements(),
-                spa::enabled_formation_pacts(m_enabled_core_pacts, m_policy.disabled_pacts));
-            if (formation.complete) {
-                incoming_direction = spa::replacement_growth_facing(
-                    choice.incoming,
-                    *target,
-                    others,
-                    formation.active_pacts,
-                    m_policy.primary_pact,
-                    inherited_direction);
-                std::map<char, int> bonuses;
-                for (const auto& preference : spa::spatial_growth_preferences(
-                         choice.incoming,
-                         { *target },
-                         others,
-                         formation.active_pacts,
-                         m_policy.primary_pact)) {
-                    bonuses[preference.facing] += preference.bonus;
-                }
-                const bool directional =
-                    bonuses.size() != 4 || std::any_of(bonuses.begin(), bonuses.end(), [&](const auto& value) {
-                        return value.second != bonuses.begin()->second;
-                    });
-                if (directional) {
-                    for (const auto& [direction, bonus] : bonuses) {
-                        replacement_growth_bonuses.emplace_back(
-                            json::object { { "direction", std::string(1, direction) }, { "bonus", bonus } });
-                    }
-                }
-                growth_geometry_known = true;
+        const auto formation = spa::evaluate_formation(
+            prospective,
+            spa::operator_pacts(),
+            spa::pact_requirements(),
+            spa::enabled_formation_pacts(m_enabled_core_pacts, m_policy.disabled_pacts));
+        if (formation.complete) {
+            incoming_direction = spa::replacement_growth_facing(
+                choice.incoming,
+                geometry->receiver,
+                geometry->neighbors,
+                formation.active_pacts,
+                m_policy.primary_pact,
+                inherited_direction);
+            std::map<char, int> bonuses;
+            for (const auto& preference : spa::spatial_growth_preferences(
+                     choice.incoming,
+                     { geometry->receiver },
+                     geometry->neighbors,
+                     formation.active_pacts,
+                     m_policy.primary_pact)) {
+                bonuses[preference.facing] += preference.bonus;
             }
+            const bool directional =
+                bonuses.size() != 4 || std::any_of(bonuses.begin(), bonuses.end(), [&](const auto& value) {
+                    return value.second != bonuses.begin()->second;
+                });
+            if (directional) {
+                for (const auto& [direction, bonus] : bonuses) {
+                    replacement_growth_bonuses.emplace_back(
+                        json::object { { "direction", std::string(1, direction) }, { "bonus", bonus } });
+                }
+            }
+            growth_geometry_known = true;
         }
     }
     auto facing_plan = basic_info_with_what("SPAReplacementGrowthFacing");

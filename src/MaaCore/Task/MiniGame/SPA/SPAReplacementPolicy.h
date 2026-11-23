@@ -169,6 +169,43 @@ struct ReplacementChoice
     int boss_attack_weight_gain = 0;
 };
 
+struct ReplacementGrowthGeometry
+{
+    GridPlacementCell receiver;
+    std::vector<GridPlacementMember> neighbors;
+    std::size_t outgoing_index;
+};
+
+inline std::optional<ReplacementGrowthGeometry>
+    replacement_growth_geometry(const std::vector<ReplacementMember>& field, const ReplacementChoice& choice)
+{
+    std::vector<GridPlacementMember> neighbors;
+    std::set<BoardCell> occupied;
+    std::optional<std::size_t> outgoing_index;
+    for (std::size_t index = 0; index < field.size(); ++index) {
+        const auto& member = field[index];
+        if (!member.route_membership_registered || !member.grid_cell || !occupied.insert(*member.grid_cell).second) {
+            return std::nullopt;
+        }
+        // Two copies can share a name, but only one body occupies the
+        // registered screen point selected for this replacement.
+        if (member.x == choice.x && member.y == choice.y) {
+            if (member.name != choice.outgoing || outgoing_index) {
+                return std::nullopt;
+            }
+            outgoing_index = index;
+            continue;
+        }
+        const auto [col, row] = *member.grid_cell;
+        neighbors.push_back({ col, row, member.role, member.name, member.facing });
+    }
+    if (!outgoing_index) {
+        return std::nullopt;
+    }
+    const auto [col, row] = *field[*outgoing_index].grid_cell;
+    return ReplacementGrowthGeometry { { col, row, choice.x, choice.y }, std::move(neighbors), *outgoing_index };
+}
+
 struct ReplacementBossTargets
 {
     std::span<const BoardCell> opening;
