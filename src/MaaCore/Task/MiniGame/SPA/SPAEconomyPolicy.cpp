@@ -30,6 +30,11 @@ std::string asst::spa::round_balance_review_reason(std::string_view strategy, in
            " extra next-round gold if play continues";
 }
 
+bool asst::spa::strategy_defers_opening_income(std::string_view strategy, int round)
+{
+    return strategy == "band_lmlee" && (round == 1 || round == 2);
+}
+
 bool asst::spa::can_search_full_bench_shop(
     int funds,
     int refresh_price,

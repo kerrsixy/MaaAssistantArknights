@@ -5229,7 +5229,14 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 callback(AsstMsg::SubTaskExtraInfo, blocked);
                 return false;
             }
-            if (observed_deployed <= 0) {
+            // 得闲饮茶 pays out in round three. If the formation grant was empty,
+            // the first two rounds can have no way to recruit a defender.
+            const bool deferred_income_empty_opening =
+                observed_deployed == 0 && m_auto_run && !m_round_only && m_mode != "joint" &&
+                !state.get("remaining_deployment_inferred", false) && state.get("funds", -1) == 0 &&
+                !m_bench_recount_pending && !bench_capacity_full && m_policy.bench_occupied == 0 &&
+                battle_roster.empty() && spa::strategy_defers_opening_income(m_selected_strategy_id, preparation_round);
+            if (observed_deployed <= 0 && !deferred_income_empty_opening) {
                 auto blocked = basic_info_with_what("SPAAutomationBattleBlocked");
                 blocked["details"] =
                     json::object { { "reason", "No operator is currently deployed; do not authorize an empty battle" },
@@ -5347,6 +5354,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                { "primary_activation_verified", primary_active_for_battle },
                                { "primary_roles_verified", primary_roles.complete() },
                                { "joint_deadline_ready_priority", prioritize_joint_ready },
+                               { "deferred_income_empty_opening", deferred_income_empty_opening },
                                { "combat_strength_verified", false },
                                { "battle_authorized", true } };
             callback(AsstMsg::SubTaskExtraInfo, authorized);

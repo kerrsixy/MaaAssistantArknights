@@ -7389,6 +7389,12 @@ int main()
         ordinary_balance->interest == 0);
     assert(!round_balance_retention("band_random", 5));
     assert(!round_balance_retention("", 5));
+    assert(strategy_defers_opening_income("band_lmlee", 1));
+    assert(strategy_defers_opening_income("band_lmlee", 2));
+    assert(!strategy_defers_opening_income("band_lmlee", 0));
+    assert(!strategy_defers_opening_income("band_lmlee", 3));
+    assert(!strategy_defers_opening_income("band_cannot", 1));
+    assert(!strategy_defers_opening_income("", 1));
     PreparationPolicy reserve;
     reserve.selected_strategy_id = "band_cannot";
     reserve.primary_pact = "炎";
