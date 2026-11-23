@@ -764,6 +764,11 @@ int main()
     assert(kjerag_bonus.outgoing_damage_basis_points == 2500);
     assert(season_primary_damage_bonuses("谢拉格", -1).outgoing_damage_basis_points == 0);
     assert(season_primary_damage_bonuses("谢拉格", 999).outgoing_damage_basis_points == 2500);
+    assert(season_primary_damage_bonuses("卡西米尔", 20).attack_basis_points == 0);
+    assert(season_primary_damage_bonuses("卡西米尔", 20, 3).attack_basis_points == 6000);
+    assert(season_primary_damage_bonuses("卡西米尔", 20, 4).attack_basis_points == 7000);
+    assert(season_primary_damage_bonuses("卡西米尔", 999, 8).attack_basis_points == 16'000);
+    assert(season_primary_damage_bonuses("卡西米尔", 20, 9).attack_basis_points == 0);
     assert(season_basic_attack_weight(basic_weight_fixture, "band_evolve", true, kjerag_bonus) == 625);
     basic_weight_fixture.attack = 400;
     assert(season_basic_attack_weight(basic_weight_fixture, "band_weakness", true, kjerag_bonus) == 336);

@@ -203,7 +203,14 @@ asst::spa::PrimaryDamageBonuses
     if (layers == m_policy.observed_pact_layers.end()) {
         return {};
     }
-    const auto bonus = spa::season_primary_damage_bonuses(m_policy.primary_pact, layers->second);
+    const int verified_opening_deployments =
+        m_policy.primary_pact == "卡西米尔"
+            ? static_cast<int>(std::ranges::count_if(
+                  m_auto_deploy_positions,
+                  [&](const auto& item) { return m_verified_field_pose_points.contains(item.second); }))
+            : 0;
+    const auto bonus =
+        spa::season_primary_damage_bonuses(m_policy.primary_pact, layers->second, verified_opening_deployments);
     if (bonus.attack_basis_points == 0 && bonus.outgoing_damage_basis_points == 0) {
         return {};
     }

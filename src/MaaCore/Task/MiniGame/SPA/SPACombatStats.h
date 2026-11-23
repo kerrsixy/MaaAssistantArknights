@@ -29,7 +29,8 @@ struct PrimaryDamageBonuses
 
 // Sequence I bond effects. Layer input comes from the current preparation HUD.
 // Both Kjerag variants give the same unconditional damage factor.
-inline PrimaryDamageBonuses season_primary_damage_bonuses(std::string_view pact, int layers)
+inline PrimaryDamageBonuses
+    season_primary_damage_bonuses(std::string_view pact, int layers, int verified_opening_deployments = 0)
 {
     if (layers < 0 || layers > 999) {
         return {};
@@ -45,6 +46,11 @@ inline PrimaryDamageBonuses season_primary_damage_bonuses(std::string_view pact,
     }
     if (pact == "谢拉格") {
         return { .outgoing_damage_basis_points = 2500 };
+    }
+    if (pact == "卡西米尔" && verified_opening_deployments > 0 && verified_opening_deployments <= 8) {
+        // Bound the estimate by the planned opening deployments and the
+        // layer cap. Later redeployments and the six-member effect are separate.
+        return { .attack_basis_points = std::min(2000 * verified_opening_deployments, 5000 + 100 * layers) };
     }
     return {};
 }
