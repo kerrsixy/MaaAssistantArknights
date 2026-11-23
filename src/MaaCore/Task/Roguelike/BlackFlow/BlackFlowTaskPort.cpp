@@ -3,8 +3,8 @@
 #include "BlackFlowInventoryCleanup.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cctype>
+#include <chrono>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -281,8 +281,7 @@ bool BlackFlowTaskPort::refresh(
             next.run.movement_slots_used = capacity->first;
             next.run.movement_capacity = capacity->second;
         }
-        if (const auto hope = RoguelikeParameterAnalyzer::read_number(image, "BlackFlow@Roguelike@CurrentHope");
-            hope.has_value() && *hope >= 0) {
+        if (const auto hope = RoguelikeParameterAnalyzer::read_blackflow_hope(image); hope.has_value() && *hope >= 0) {
             next.run.hope = *hope;
         }
         if (const auto movement = recognize_loaded_movement(image); movement.has_value()) {
@@ -377,10 +376,7 @@ bool BlackFlowTaskPort::preview(
     // 理想源只在 Buff 范围内的普通作战节点有规划意义；险路恶敌明确跳过，
     // 避免把其详情页的相似文案误记成可收集目标。
     if (*displayed_type == NodeType::BattleNormal) {
-        const auto ideal_source = recognize_text(
-            image,
-            MovePreviewIdealSourceTask,
-            { "理想源", "希望的沃土" });
+        const auto ideal_source = recognize_text(image, MovePreviewIdealSourceTask, { "理想源", "希望的沃土" });
         if (ideal_source.has_value()) {
             preview.ideal_source_known = true;
             preview.ideal_source = *ideal_source == "理想源" ? *ideal_source : std::string();

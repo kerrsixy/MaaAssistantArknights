@@ -100,7 +100,7 @@ bool BlackFlowStashedRecruitTaskPlugin::decide()
     // Every observation starts with a preserving exit, never a stale prior selection.
     process->override_next(std::string(StashedRecruitDecide), { std::string(StashedRecruitLeave) });
     const auto image = ctrler()->get_image();
-    const auto hope = RoguelikeParameterAnalyzer::read_number(image, "BlackFlow@Roguelike@CurrentHope");
+    const auto hope = RoguelikeParameterAnalyzer::read_blackflow_hope(image);
     const auto& profile = m_config->account_profile();
     const auto budgets = Task.get(StashedRecruitDecide)->special_params;
     const bool supported = budgets.size() == 3 && budgets[0] >= 0 && budgets[1] >= 0 &&
