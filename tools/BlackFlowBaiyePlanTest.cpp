@@ -59,13 +59,13 @@ int wmain(int argc, wchar_t** argv)
     const auto& upper = data->deploy_plan.at("奶盾").back();
     const auto& core = data->deploy_plan.at("益达").front();
     const auto& healer = data->deploy_plan.at("元素奶").front();
-    const auto& burst = data->deploy_plan.at("近卫").front();
+    const auto& burst = data->deploy_plan.at("近卫").back();
     expect(upper.location == Point(8, 1), "upper blocker leaves a separate rear damage tile");
     expect(burst.location == Point(9, 1), "late Liberator has a distinct output tile");
     expect(burst.kill_lower_bound == 6, "actual parsed condition delays burst until the middle wave is processed");
     expect(
-        burst.max_deployments == 1 && !burst.require_persistent_blocking,
-        "optional burst cannot become a permanent blocker");
+        burst.max_deployments == INT_MAX && !burst.require_persistent_blocking,
+        "optional burst can return without becoming a permanent blocker");
     expect(
         burst.operator_names == std::vector<std::string> { "司霆惊蛰" },
         "ground-expanding skill is not attributed to all guards");
@@ -151,6 +151,94 @@ int wmain(int argc, wchar_t** argv)
     auto guard = burst;
     guard.require_persistent_blocking = true;
     expect(!probe.deployment_requirements_met(leizi, guard), "the same Liberator cannot replace the upper guard");
+
+    for (const auto& [name, role] : std::vector<std::pair<std::string, Role>> { { "古米", Role::Tank },
+                                                                                { "机械师", Role::Tank },
+                                                                                { "山", Role::Warrior },
+                                                                                { "清道夫", Role::Pioneer } }) {
+        DeploymentOper blocker;
+        blocker.name = name;
+        blocker.role = role;
+        probe.elite(name, 1);
+        expect(probe.deployment_requirements_met(blocker, lower), "real persistent roles can defend middle gate");
+        expect(probe.deployment_requirements_met(blocker, upper), "same role is eligible for the distinct upper duty");
+    }
+    DeploymentOper flag;
+    flag.name = "桃金娘";
+    flag.role = Role::Pioneer;
+    probe.elite(flag.name, 1);
+    expect(!probe.deployment_requirements_met(flag, upper), "skill-dependent zero block is not persistent defence");
+    const auto north = RoguelikeCopilot.get_stage_data("远北猎场");
+    const auto master = RoguelikeCopilot.get_stage_data("无主地");
+    if (!north || !master) {
+        return 5;
+    }
+    const auto& north_heal = north->deploy_plan.at("元素奶").front();
+    expect(
+        north_heal.location == Point(6, 3) && north_heal.direction == DeployDirection::Left,
+        "north healer faces the actual three friendly sites");
+    expect(
+        north_heal.required_range_tiles.size() == 3,
+        "north range contract includes main blocker and both damage slots");
+    for (const auto& name : { "纯烬艾雅法拉", "蜜莓", "桑葚" }) {
+        DeploymentOper medic;
+        medic.name = name;
+        medic.role = Role::Medic;
+        for (int elite : { 1, 2 }) {
+            probe.elite(name, elite);
+            expect(
+                probe.deployment_requirements_met(medic, north_heal),
+                "actual wide healer reaches the three northern priority sites");
+            auto down = north_heal;
+            down.direction = DeployDirection::Down;
+            expect(
+                !probe.deployment_requirements_met(medic, down),
+                "old downward facing cannot meet northern coverage");
+        }
+    }
+    DeploymentOper chestnut;
+    chestnut.name = "褐果";
+    chestnut.role = Role::Medic;
+    probe.elite(chestnut.name, 1);
+    expect(
+        probe.deployment_requirements_met(chestnut, north_heal),
+        "Chestnut actual E1 range covers these three priority sites");
+    DeploymentOper short_medic;
+    short_medic.name = "芙蓉";
+    short_medic.role = Role::Medic;
+    probe.elite(short_medic.name, 1);
+    expect(
+        !probe.deployment_requirements_met(short_medic, north_heal),
+        "short healing range cannot cover all three northern sites");
+    const OperNameTag angelina { Role::Special, "予愿安洁莉娜" };
+    const auto group_ids = RoguelikeRecruit.get_group_ids_of_oper("BlackFlow", angelina);
+    const auto group_names = RoguelikeRecruit.get_group_names("BlackFlow");
+    expect(
+        group_ids.size() == 1 && group_names.at(group_ids.front()) == "其他地面",
+        "unlisted melee specialist uses the actual canonical fallback");
+    const auto& specialist = master->deploy_plan.at("其他地面").front();
+    expect(
+        specialist.operator_names == std::vector<std::string> { "予愿安洁莉娜" },
+        "fallback group does not admit every melee substitute to this duty");
+
+    auto identity_plan = core;
+    identity_plan.operator_names = { "维什戴尔" };
+    identity_plan.required_attack_tiles.clear();
+    DeploymentOper wrong_name;
+    wrong_name.name = "卡达";
+    wrong_name.role = Role::Caster;
+    probe.elite(wrong_name.name, 2);
+    expect(
+        !probe.deployment_requirements_met(wrong_name, identity_plan),
+        "exact identity filter applies even without range targets");
+    probe.elite(ew.name, 1);
+    expect(!probe.deployment_requirements_met(ew, identity_plan), "minimum elite applies even without range targets");
+    probe.forget_elite(ew.name);
+    expect(
+        !probe.deployment_requirements_met(ew, identity_plan),
+        "unknown elite cannot meet an explicit elite requirement");
+    probe.elite(ew.name, 2);
+    expect(probe.deployment_requirements_met(ew, identity_plan), "actual named E2 core remains eligible");
     std::cout << "BAIYE_PLAN checks=" << checks << " failures=" << failures << " device_inputs=0 timing_qualified=0\n";
     return failures ? 1 : 0;
 }

@@ -73,7 +73,7 @@ int wmain(int argc, wchar_t** argv)
     };
 
     const std::vector<Candidate> candidates {
-        { Role::Tank, "机械师", "机械师", 2, { 7, 4 }, DeployDirection::Down, 1 },
+        { Role::Tank, "机械师", "机械师", 1, { 7, 4 }, DeployDirection::Down, 1 },
         { Role::Sniper, "维什戴尔", "益达", 2, { 9, 4 }, DeployDirection::Left, 2 },
         { Role::Sniper, "提丰", "提丰", 1, { 8, 1 }, DeployDirection::Left, 2 },
         { Role::Pioneer, "凛御银灰", "回费", 1, { 5, 1 }, DeployDirection::Left, 1 },
@@ -133,6 +133,7 @@ int wmain(int argc, wchar_t** argv)
     // An optional inexpensive upper-route alternative must be assessed by its
     // own range. This test does not authorize treating its survivability as Typhon's.
     auto upper = stage->deploy_plan.at("提丰").front();
+    upper.operator_names = { "卡达" };
     upper.location = { 5, 2 };
     upper.direction = DeployDirection::Up;
     const DeploymentOper carda { .role = Role::Caster, .name = "卡达" };
@@ -158,6 +159,23 @@ int wmain(int argc, wchar_t** argv)
     expect(
         !probe.deployment_requirements_met({ .role = Role::Tank, .name = "机械师" }, impossible),
         "Mech does not cover adjacent left lane; EW has that duty");
+
+    const auto& first_blocker = stage->deploy_plan.at("机械师").front();
+    const DeploymentOper mech { .role = Role::Tank, .name = "机械师" };
+    expect(first_blocker.minimum_elite == 1, "observed E1 mechanical defender is not silently skipped");
+    probe.elite(mech.name, 0);
+    expect(
+        !probe.deployment_requirements_met(mech, first_blocker),
+        "E0 still fails the explicit first blocker requirement");
+    probe.elite(mech.name, 1);
+    expect(
+        probe.deployment_requirements_met(mech, first_blocker),
+        "observed E1 defender has actual required range and blocking");
+    auto old_gate = first_blocker;
+    old_gate.minimum_elite = 2;
+    expect(
+        !probe.deployment_requirements_met(mech, old_gate),
+        "same observed E1 fails old E2 gate in the common predicate");
     std::cout << "PLANTATION checks=" << checks << " failures=" << failures
               << " connections=0 inputs=0 live_pass=false\n";
     return failures ? 1 : 0;

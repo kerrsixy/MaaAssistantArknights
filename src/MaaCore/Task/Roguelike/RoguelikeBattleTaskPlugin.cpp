@@ -551,11 +551,7 @@ bool asst::RoguelikeBattleTaskPlugin::starting_core_reserves_site(
             continue;
         }
         for (const auto& primary : plans->second) {
-            const auto elite = m_oper_elite.find(core.name);
-            if (deployment_plan_exhausted(primary) || current_kills > primary.kill_upper_bound ||
-                (primary.minimum_elite > 0 && (elite == m_oper_elite.end() || elite->second < primary.minimum_elite)) ||
-                (!primary.operator_names.empty() &&
-                 std::ranges::find(primary.operator_names, core.name) == primary.operator_names.end())) {
+            if (deployment_plan_exhausted(primary) || current_kills > primary.kill_upper_bound) {
                 continue;
             }
             // Temporary occupancy does not release a declared return site.
@@ -580,6 +576,12 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_requirements_met(
     const battle::DeploymentOper& oper,
     const battle::roguelike::DeployInfoWithRank& plan) const
 {
+    const auto elite_status = m_oper_elite.find(oper.name);
+    if ((plan.minimum_elite > 0 && (elite_status == m_oper_elite.end() || elite_status->second < plan.minimum_elite)) ||
+        (!plan.operator_names.empty() &&
+         std::ranges::find(plan.operator_names, oper.name) == plan.operator_names.end())) {
+        return false;
+    }
     if (std::ranges::any_of(plan.exclusive_locations, [&](const Point& location) {
             return m_used_tiles.contains(location);
         })) {
@@ -821,13 +823,6 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
                 is_in_group = true;
                 for (const auto& info : m_deploy_plan[group_name]) {
                     if (deployment_plan_exhausted(info)) {
-                        continue;
-                    }
-                    const auto elite = m_oper_elite.find(oper.name);
-                    if ((info.minimum_elite > 0 &&
-                         (elite == m_oper_elite.end() || elite->second < info.minimum_elite)) ||
-                        (!info.operator_names.empty() &&
-                         std::ranges::find(info.operator_names, oper.name) == info.operator_names.end())) {
                         continue;
                     }
                     if (!deployment_requirements_met(oper, info)) {
