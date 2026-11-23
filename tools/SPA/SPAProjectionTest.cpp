@@ -1067,6 +1067,22 @@ int main()
     assert(!replacement_direction_center(edge_direction, edge_held, { 893, 438 }));
     assert(!replacement_direction_center(edge_direction, edge_held, { 977, 365 }));
     assert(!replacement_direction_center(edge_direction, blank, { 977, 438 }));
+    // D6 R8: after a verified occupied drop, the actual diamond was at
+    // (1001, 429), just outside the old receiver tolerance at (974, 438).
+    const auto live_edge_held = cv::imread("spa-replacement-right-edge-live-held.png");
+    const auto live_edge_direction = cv::imread("spa-replacement-right-edge-live-direction.png");
+    const cv::Point live_receiver(974, 438);
+    const auto live_center = direction_selection_center(live_edge_direction);
+    assert(live_center && cv::norm(*live_center - cv::Point(1001, 429)) < 3);
+    assert(replacement_direction_center(live_edge_direction, live_edge_held, live_receiver) == live_center);
+    assert(!replacement_direction_center(live_edge_direction, live_edge_held, { 893, 438 }));
+    assert(!replacement_direction_center(live_edge_direction, live_edge_held, { 974, 367 }));
+    assert(!replacement_direction_center(live_edge_direction, blank, live_receiver));
+    cv::Mat shifted_edge_held;
+    const cv::Matx23d shifted_edge_camera(1, 0, 12, 0, 1, 0);
+    cv::warpAffine(live_edge_held, shifted_edge_held, shifted_edge_camera, live_edge_held.size());
+    assert(!replacement_direction_center(live_edge_direction, shifted_edge_held, live_receiver + cv::Point(12, 0)));
+
     const auto interior_direction = draw_replacement_direction(910);
     const auto interior_center = direction_selection_center(interior_direction);
     assert(interior_center && cv::norm(*interior_center - cv::Point(910, 429)) < 3);

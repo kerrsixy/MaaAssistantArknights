@@ -1619,12 +1619,22 @@ std::optional<cv::Point>
     const auto placement_foot = *center + cv::Point(0, 20);
     // The verified receiver can be inside the feature hull even when the
     // diamond's estimated foot is outside it. On the lower row B-server
-    // captures show a 25-27 px offset to the held cell center; the adjacent
+    // captures show a substantial offset to the held cell center; adjacent
     // targets in those frames are more than 60 px from the estimated foot.
     const auto fit = estimate_camera_projection(held, placement, true);
+    const bool strong_fit = fit.inliers >= 120 && fit.inliers * 5 >= fit.matches * 4 && fit.median_error <= .35;
     const auto projected_receiver = registered_field_points(fit, { expected_target }, FieldView::Held);
     if (projected_receiver) {
-        return cv::norm(projected_receiver->front() - placement_foot) <= 28 ? center : std::nullopt;
+        const auto offset = placement_foot - projected_receiver->front();
+        const double foot_error = cv::norm(offset);
+        // The right-side diamond can be slightly east of the confirmed cell.
+        // Allow the observed offset only with the receiver inside the feature
+        // hull and a strong fit that shows the receiver barely moved.
+        const bool stationary_east_offset =
+            strong_fit && foot_error <= 32 && offset.x > 0 && std::abs(offset.y) <= 15 &&
+            cv::norm(projected_receiver->front() - expected_target) <= 2 &&
+            cv::pointPolygonTest(fit.source_hull, cv::Point2f(expected_target), false) >= 0;
+        return foot_error <= 28 || stationary_east_offset ? center : std::nullopt;
     }
     // The direction overlay hides terrain around the already verified receiver.
     // Use the diamond foot when the camera stayed still and the terrain just
@@ -1639,8 +1649,7 @@ std::optional<cv::Point>
             const auto foot_error = cv::norm(projected.front() - cv::Point2f(placement_foot));
             const bool near_registered_terrain = hull_distance >= -24 && camera_shift <= 8 && foot_error <= 18;
             // A tightly registered stationary scene can bridge roughly one tile of occlusion.
-            const bool stationary_camera = fit.inliers >= 120 && fit.inliers * 5 >= fit.matches * 4 &&
-                                           fit.median_error <= .35 && camera_shift <= 2 && foot_error <= 12;
+            const bool stationary_camera = strong_fit && camera_shift <= 2 && foot_error <= 12;
             if (near_registered_terrain || stationary_camera) {
                 return center;
             }
