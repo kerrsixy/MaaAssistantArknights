@@ -888,16 +888,35 @@ asst::spa::DeploymentSequence asst::spa::sequence_deployment(
             visited.insert(next);
             nodes.push_back({ std::move(next), head, std::move(step) });
         };
+        const auto destination_occupant = [&](size_t index) {
+            return static_cast<size_t>(std::find(cells.begin(), cells.end(), goal[index]) - cells.begin());
+        };
+        const auto leads_to_vacancy = [&](size_t index) {
+            for (size_t depth = 0; depth < current.size(); ++depth) {
+                if (index == current.size()) {
+                    return true;
+                }
+                if (!can_move(index)) {
+                    return false;
+                }
+                index = destination_occupant(index);
+            }
+            return false;
+        };
         for (size_t index = 0; index < current.size(); ++index) {
             if (cells[index] == goal[index]) {
                 continue;
             }
-            append(index, goal[index]);
-            const auto occupant = std::find(cells.begin(), cells.end(), goal[index]);
-            if (occupant == cells.end()) {
+            const size_t other = destination_occupant(index);
+            // An open chain can move in reverse dependency order. Swapping
+            // its occupants adds receiver checks and intermediate positions.
+            if (other < current.size() && leads_to_vacancy(other)) {
                 continue;
             }
-            const size_t other = static_cast<size_t>(occupant - cells.begin());
+            append(index, goal[index]);
+            if (other == current.size()) {
+                continue;
+            }
             // If a direct swap violates terrain restrictions, clear its destination through a verified empty cell.
             if (!accepts(other, cells[index])) {
                 for (const auto buffer : current[other].placement_cells) {

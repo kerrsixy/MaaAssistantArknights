@@ -80,6 +80,40 @@ int main()
     assert(short_plan.complete && short_plan.steps.size() == 1);
     assert(short_plan.steps.front().kind == DeploymentStepKind::Face && short_plan.steps.front().facing == 'S');
 
+    // Regulation 6 round 8. The recorded layout used a swap between
+    // Resound and Ebenholz, then moved Ebenholz out of the interim cell.
+    const std::vector<BoardCell> open_chain_cells { { 7, 2 }, { 8, 2 }, { 6, 1 }, { 3, 1 } };
+    std::vector<DeploymentUnit> open_chain { unit("卡涅利安", { 7, 2 }),
+                                             unit("复奏", { 8, 2 }),
+                                             unit("黑键", { 6, 1 }) };
+    for (auto& member : open_chain) {
+        member.placement_cells = open_chain_cells;
+    }
+    auto open_chain_target = open_chain;
+    open_chain_target[0].cell = { 3, 1 };
+    open_chain_target[1].cell = { 6, 1 };
+    open_chain_target[2].cell = { 7, 2 };
+    const auto open_chain_plan = sequence_deployment(open_chain, open_chain_target);
+    assert(open_chain_plan.complete && open_chain_plan.steps.size() == 3);
+    const std::vector<std::string> expected_open_chain { "卡涅利安", "黑键", "复奏" };
+    const std::set<std::string> observed_directions(expected_open_chain.begin(), expected_open_chain.end());
+    for (size_t index = 0; index < expected_open_chain.size(); ++index) {
+        const auto& step = open_chain_plan.steps[index];
+        assert(step.kind == DeploymentStepKind::Move && step.unit == expected_open_chain[index]);
+        const auto observed_cells = deployment_cell_ledger(open_chain);
+        assert(observed_cells);
+        const auto continuation =
+            continue_deployment_plan(open_chain, open_chain_target, observed_directions, *observed_cells, true);
+        assert(
+            continuation.kind == DeploymentPlanContinuationKind::Step && continuation.step &&
+            continuation.step->unit == step.unit && continuation.step->to == step.to &&
+            continuation.step->kind == DeploymentStepKind::Move);
+        const auto changed = std::ranges::find(open_chain, step.unit, &DeploymentUnit::id);
+        assert(changed != open_chain.end() && changed->cell == step.from);
+        changed->cell = step.to;
+    }
+    assert(deployment_cell_ledger(open_chain) == deployment_cell_ledger(open_chain_target));
+
     auto missing_facing = swap_plan;
     missing_facing.steps.pop_back();
     assert(deployment_input_steps_with_facing_repairs(missing_facing) == 2);
@@ -159,8 +193,8 @@ int main()
     assert(decision.step->from == BoardCell(7, 1) && decision.step->to == BoardCell(7, 1));
     assert(decision.step->unit == "慕斯" && decision.step->facing == 'W');
 
-    // Regulation 4, round 14, m01 boss phase. These three live positions
-    // isolate the next two exchanges after the unrelated lane move.
+    // Regulation 4, round 14, m01 boss phase. The cached target provides
+    // a legal position and facing for the operator whose current pose is unknown.
     const std::vector<BoardCell> boss_cells { { 5, 1 }, { 7, 1 }, { 8, 1 }, { 8, 2 } };
     std::vector<DeploymentUnit> boss_board { unit("烈夏", { 5, 1 }, 'E', false),
                                              unit("角峰", { 8, 2 }),
@@ -179,16 +213,15 @@ int main()
     assert(boss_expected);
     decision = continue_deployment_plan(boss_board, boss_target, { "角峰", "塔露拉" }, *boss_expected, true);
     assert(decision.kind == DeploymentPlanContinuationKind::Step && decision.step);
-    assert(decision.step->kind == DeploymentStepKind::Swap && decision.step->unit == "烈夏");
-    assert(decision.step->displaced == "角峰" && decision.step->to == BoardCell(8, 2));
-    const auto boss_after_swap = deployment_cells_after_step(boss_board, *decision.step);
-    assert(boss_after_swap);
-    boss_board[0] = boss_target[0];
-    boss_board[1] = unit("角峰", { 5, 1 }, 'E', false);
-    decision = continue_deployment_plan(boss_board, boss_target, { "烈夏", "塔露拉" }, *boss_after_swap, true);
-    assert(decision.kind == DeploymentPlanContinuationKind::Step && decision.step);
     assert(decision.step->kind == DeploymentStepKind::Move && decision.step->unit == "角峰");
     assert(decision.step->to == BoardCell(7, 1) && decision.step->facing == boss_target[1].facing);
+    const auto boss_after_move = deployment_cells_after_step(boss_board, *decision.step);
+    assert(boss_after_move);
+    boss_board[1] = boss_target[1];
+    decision = continue_deployment_plan(boss_board, boss_target, { "角峰", "塔露拉" }, *boss_after_move, true);
+    assert(decision.kind == DeploymentPlanContinuationKind::Step && decision.step);
+    assert(decision.step->kind == DeploymentStepKind::Move && decision.step->unit == "烈夏");
+    assert(decision.step->to == BoardCell(8, 2) && decision.step->facing == boss_target[0].facing);
 
     auto invalid_target = target;
     invalid_target[2].placement_cells = { { 8, 1 } };
