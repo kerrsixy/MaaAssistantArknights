@@ -400,6 +400,13 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     const auto boss_target = boss_opening_target(round);
     const auto& boss_cells = boss_target.cells;
     const auto& movement_waypoints = boss_target.movement_waypoints;
+    const bool review_vacant_previews = boss_round && m_mode == "independent";
+    std::map<std::string, bool> preview_forms;
+    if (review_vacant_previews) {
+        for (const auto& member : members) {
+            preview_forms.emplace(member.name, m_policy.owned.at(member.name).elite);
+        }
+    }
     const auto rejected_vacant_drop = [&](const spa::DeploymentUnit& unit, const spa::BoardCell& cell) {
         if (unit.cell == cell || m_failed_spatial_actions.empty() ||
             std::any_of(members.begin(), members.end(), [&](const auto& member) {
@@ -408,11 +415,18 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
             return false;
         }
         const auto owned = m_policy.owned.find(unit.id);
+        const spa::DeploymentStep move { spa::DeploymentStepKind::Move, unit.id, {}, unit.cell, cell, unit.facing };
         const auto key = spa::spatial_vacant_drop_failure_key(
             map_context,
-            { spa::DeploymentStepKind::Move, unit.id, {}, unit.cell, cell, unit.facing },
+            move,
             owned != m_policy.owned.end() && owned->second.elite);
-        return key && m_failed_spatial_actions.contains(*key);
+        if (key && m_failed_spatial_actions.contains(*key)) {
+            return true;
+        }
+        const auto preview = review_vacant_previews
+                                 ? spa::spatial_preview_failure_key(map_context, round, move, members, preview_forms)
+                                 : std::nullopt;
+        return preview && m_failed_spatial_actions.contains(*preview);
     };
     std::vector<spa::DeploymentUnit> current;
     std::map<std::string, std::string> names;
@@ -1428,13 +1442,19 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
     const auto displaced = m_pending_spatial_orientation->get("displaced", std::string());
     const bool relocation = m_pending_spatial_orientation->get("relocation", false);
     bool replan_after_held_failure = false;
+    bool replan_after_vacant_preview = false;
     if (relocation ? !executor->relocation_applied() : !executor->committed_facing()) {
         if (m_pending_spatial_orientation->get("dynamic_layout", false)) {
             const auto drop = m_pending_spatial_orientation->get("drop_fingerprint", std::string());
+            const auto preview = m_pending_spatial_orientation->get("preview_fingerprint", std::string());
+            replan_after_vacant_preview = m_mode == "independent" && m_spatial_boss_phase &&
+                                          m_spatial_boss_phase_round == round && m_spatial_snapshot_round == round &&
+                                          relocation && displaced.empty() && executor->spatial_preview_failed() &&
+                                          !executor->committed_facing() && !preview.empty();
             if (executor->spatial_drop_returned_without_direction() && !drop.empty()) {
                 m_failed_spatial_actions.insert(drop);
             }
-            else {
+            else if (!replan_after_vacant_preview) {
                 // After one cancelled Boss drag with a verified restored field, keep that
                 // operator fixed and let another operator improve coverage. A second failed
                 // registration stops the plan for this round.
@@ -1485,6 +1505,7 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
                        { "vacant_preview_failed", executor->spatial_preview_failed() },
                        { "held_registration_failed", executor->spatial_held_registration_failed() },
                        { "boss_replan_with_fixed_unit", replan_after_held_failure },
+                       { "boss_replan_after_vacant_preview_rejected", replan_after_vacant_preview },
                        { "displaced", displaced },
                        { "roster", roster_snapshot() },
                        { "field_positions", field_position_snapshot() },
