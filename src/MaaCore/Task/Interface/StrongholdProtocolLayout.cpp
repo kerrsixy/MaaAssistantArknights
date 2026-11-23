@@ -188,6 +188,40 @@ void asst::StrongholdProtocolTask::refresh_spatial_grid_snapshot(
     callback(AsstMsg::SubTaskExtraInfo, evidence);
 }
 
+int asst::StrongholdProtocolTask::observed_primary_attack_bonus(const std::string& name) const
+{
+    if (m_mode != "independent" || !m_spatial_boss_phase || m_spatial_boss_phase_round != m_policy.round ||
+        m_spatial_snapshot_round != m_policy.round || m_field_checkpoint_loaded ||
+        m_growth_population_poses != m_auto_deploy_positions || m_pending_field_replacement ||
+        m_pending_spatial_orientation ||
+        std::ranges::find(m_policy.disabled_pacts, m_policy.primary_pact) != m_policy.disabled_pacts.end()) {
+        return 0;
+    }
+    const auto layers = m_policy.observed_pact_layers.find(m_policy.primary_pact);
+    const int bonus = layers == m_policy.observed_pact_layers.end()
+                          ? 0
+                          : spa::season_primary_attack_bonus_basis_points(m_policy.primary_pact, layers->second);
+    if (bonus == 0) {
+        return 0;
+    }
+    static const auto catalogue = spa::operator_pacts();
+    const auto is_native_member = [&](const std::string& member) {
+        const auto pacts = catalogue.find(member);
+        return pacts != catalogue.end() &&
+               std::ranges::find(pacts->second, m_policy.primary_pact) != pacts->second.end();
+    };
+    if (!is_native_member(name)) {
+        return 0;
+    }
+    std::set<std::string> members;
+    for (const auto& [unit, point] : m_auto_deploy_positions) {
+        if (m_verified_field_pose_points.contains(point) && is_native_member(unit)) {
+            members.insert(unit);
+        }
+    }
+    return members.size() >= 3 ? bonus : 0;
+}
+
 asst::spa::DeploymentUnit asst::StrongholdProtocolTask::describe_deployed_unit(
     const spa::GridPlacementMember& member,
     const std::vector<spa::BoardCell>& range,
@@ -208,8 +242,13 @@ asst::spa::DeploymentUnit asst::StrongholdProtocolTask::describe_deployed_unit(
     if (baseline && baseline->attack_interval > 0) {
         const auto forms = elite ? spa::owned_form_counts(owned->second) : std::nullopt;
         const bool confirmed_elite = forms && forms->initial == 0 && forms->elite > 0;
-        unit.boss_basic_attack_weight =
-            std::max(1, spa::season_basic_attack_weight(*baseline, m_selected_strategy_id, confirmed_elite));
+        unit.boss_basic_attack_weight = std::max(
+            1,
+            spa::season_basic_attack_weight(
+                *baseline,
+                m_selected_strategy_id,
+                confirmed_elite,
+                boss_round ? observed_primary_attack_bonus(member.name) : 0));
     }
     unit.holds_position = spa::default_skill_holds_position(member.name, elite);
     unit.facing = member.facing ? member.facing : 'E';
@@ -308,6 +347,7 @@ void asst::StrongholdProtocolTask::review_boss_opening_coverage(const json::valu
                              m_growth_population_poses == m_auto_deploy_positions && !m_pending_spatial_orientation &&
                              !m_pending_field_replacement && !m_field_checkpoint_loaded;
     std::vector<spa::DeploymentUnit> units;
+    int primary_attack_bonus = 0;
     if (board_known && !target.cells.empty()) {
         for (auto member : m_population_grid_members) {
             if (m_auto_deploy_positions.count(member.name) == 1) {
@@ -332,6 +372,7 @@ void asst::StrongholdProtocolTask::review_boss_opening_coverage(const json::valu
                 }
             }
             units.push_back(describe_deployed_unit(member, range, true));
+            primary_attack_bonus = std::max(primary_attack_bonus, observed_primary_attack_bonus(member.name));
         }
     }
     const bool coverage_available =
@@ -362,6 +403,7 @@ void asst::StrongholdProtocolTask::review_boss_opening_coverage(const json::valu
                        { "skill_uptime_or_consumption_applied", false },
                        { "boss_defeat_verified", false },
                        { "replacement_reconciliation_pending", m_pending_field_replacement.has_value() } };
+    objective["details"]["primary_attack_bonus_basis_points_in_weight"] = primary_attack_bonus;
     callback(AsstMsg::SubTaskExtraInfo, objective);
 }
 
@@ -474,6 +516,14 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         boss_context += "#boss-waypoint:" + std::to_string(col) + "." + std::to_string(row);
     }
     std::string pact_context;
+    if (boss_round) {
+        const auto bonus_member = std::ranges::find_if(members, [&](const auto& member) {
+            return observed_primary_attack_bonus(member.name) > 0;
+        });
+        if (bonus_member != members.end()) {
+            pact_context += "#attack-bonus:" + std::to_string(observed_primary_attack_bonus(bonus_member->name));
+        }
+    }
     for (const auto& pact : std::set<std::string>(active_pacts.begin(), active_pacts.end())) {
         pact_context += "#" + pact;
     }

@@ -169,6 +169,7 @@ private:
     };
 
     BossOpeningTarget boss_opening_target(int round) const;
+    int observed_primary_attack_bonus(const std::string& name) const;
     spa::DeploymentUnit describe_deployed_unit(
         const spa::GridPlacementMember& member,
         const std::vector<spa::BoardCell>& range,

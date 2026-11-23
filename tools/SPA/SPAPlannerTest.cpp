@@ -730,6 +730,13 @@ int main()
     assert(season_basic_attack_weight(basic_weight_fixture, "band_weakness", false) == 500);
     assert(season_basic_attack_weight(basic_weight_fixture, "", true) == 500);
     assert(season_basic_attack_weight(basic_weight_fixture, "band_evolve", true) == 500);
+    assert(season_primary_attack_bonus_basis_points("乌萨斯", 168) == 16'100);
+    assert(season_primary_attack_bonus_basis_points("炎", 126) == 13'640);
+    assert(season_primary_attack_bonus_basis_points("乌萨斯", -1) == 0);
+    assert(season_primary_attack_bonus_basis_points("乌萨斯", 1000) == 0);
+    assert(season_primary_attack_bonus_basis_points("阿戈尔", 168) == 0);
+    assert(season_basic_attack_weight(basic_weight_fixture, "", false, 16'100) == 1305);
+    assert(season_basic_attack_weight(basic_weight_fixture, "band_weakness", true, 16'100) == 1513);
     basic_weight_fixture.attack_interval = 0;
     assert(season_basic_attack_weight(basic_weight_fixture, "band_weakness", true) == 0);
     // R14 m06: layer count is a health bonus, so a boss attacker must prefer
