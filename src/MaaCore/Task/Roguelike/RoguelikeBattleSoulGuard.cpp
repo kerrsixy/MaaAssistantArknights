@@ -8,6 +8,7 @@
 #include "Config/Miscellaneous/BattleDataConfig.h"
 #include "Controller/Controller.h"
 #include "MaaUtils/ImageIo.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowSoulEvidenceBuffer.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowSummonRetreat.h"
 #include "Utils/Logger.hpp"
 #include "Utils/Platform.hpp"
@@ -184,11 +185,11 @@ bool
                 { "retreat_button_present", diagnostic_verification->retreat_button_present },
             };
         }
-        // Evidence IO is only reached on a rejected path or after its actual input
-        // receipt. The diagnostic clock labels the file; it never replaces an
-        // observation timestamp.
+        // Prepare evidence after input or on a rejected path. A held UI lease
+        // defers IO across calls; this preparation clock never replaces capture
+        // or authorization clocks. Flush records its own actual write time.
         const auto recorded_ms = timestamp();
-        details["evidence_recorded_ms"] = recorded_ms;
+        details["evidence_prepared_ms"] = recorded_ms;
         const auto directory = UserDir.get() / utils::path("BlackFlowEvidence/soul_guard_diagnostics");
         const auto stem = std::to_string(recorded_ms) + "-" + std::to_string(observation.sequence) + "-" + reason;
         const bool write_rejected_frame = !frame.empty() && !input_accepted.has_value();
@@ -207,16 +208,17 @@ bool
                                       : std::string();
         }
         details["additional_png_write_attempted"] = write_rejected_frame;
-        LogInfo << __FUNCTION__ << "Soul guard diagnostic" << details.to_string();
-        std::error_code error;
-        std::filesystem::create_directories(directory, error);
-        if (!error) {
-            std::ofstream(directory / utils::path(stem + ".json"), std::ios::binary) << details.format();
-            // Input paths reuse record()'s same-frame PNG; never encode it twice.
-            if (write_rejected_frame) {
-                MAA_NS::imwrite(directory / utils::path(stem + ".png"), frame);
-            }
+        SoulEvidenceRecord item;
+        item.kind = SoulEvidenceKind::Diagnostic;
+        item.payload = std::move(details);
+        item.json_path = directory / utils::path(stem + ".json");
+        if (write_rejected_frame) {
+            item.png_path = directory / utils::path(stem + ".png");
         }
+        store_soul_evidence(
+            std::move(item),
+            write_rejected_frame ? frame : cv::Mat {},
+            m_soul_selection_owned && !observation.user_paused && !need_exit());
     };
     const auto record =
         [&](const char* event, const SummonRetreatObservation& observation, bool accepted, const cv::Mat& frame) {
@@ -235,16 +237,15 @@ bool
                 { "input_accepted", accepted },
                 { "removal_confirmed", false },
             };
-            callback(AsstMsg::SubTaskExtraInfo, info);
-            LogInfo << __FUNCTION__ << info["details"].to_string();
+            info["details"]["evidence_prepared_ms"] = timestamp();
             const auto directory = UserDir.get() / utils::path("BlackFlowEvidence/soul_retreat");
-            std::error_code error;
-            std::filesystem::create_directories(directory, error);
-            if (!error) {
-                const auto stem = std::to_string(observation.observed_ms) + "-" + std::to_string(observation.sequence);
-                std::ofstream(directory / utils::path(stem + ".json"), std::ios::binary) << info.format();
-                MAA_NS::imwrite(directory / utils::path(stem + ".png"), frame);
-            }
+            const auto stem = std::to_string(observation.observed_ms) + "-" + std::to_string(observation.sequence);
+            SoulEvidenceRecord item;
+            item.kind = SoulEvidenceKind::Action;
+            item.payload = std::move(info);
+            item.json_path = directory / utils::path(stem + ".json");
+            item.png_path = directory / utils::path(stem + ".png");
+            store_soul_evidence(std::move(item), frame, m_soul_selection_owned);
         };
     const auto observe = [&](const cv::Mat& frame,
                              std::uint64_t captured,
@@ -337,7 +338,10 @@ bool
             { "lease_held_until_fresh_deployment_bar", true },
             { "removal_confirmed", false },
         };
-        callback(AsstMsg::SubTaskExtraInfo, info);
+        SoulEvidenceRecord ack_record;
+        ack_record.kind = SoulEvidenceKind::Callback;
+        ack_record.payload = std::move(info);
+        store_soul_evidence(std::move(ack_record), {}, true);
         return true;
     };
     if (!m_soul_selection_owned) {
@@ -457,6 +461,8 @@ bool
     auto decision = m_soul_retreat->awaiting_normal_ack() ? m_soul_retreat->abandon(observation)
                                                           : m_soul_retreat->observe(observation);
     if (observation.user_paused || need_exit()) {
+        m_soul_retreat->invalidate_input_permission();
+        flush_soul_evidence(observation.user_paused ? "selected_user_pause" : "selected_stop");
         // Keep ownership so a later running frame can finish or cancel. Never
         // dismiss the selection or resume a pause introduced by the user.
         diagnose("selected_user_paused_or_exit", observation, decision, frame);
@@ -477,6 +483,8 @@ bool
         }
         decision = m_soul_retreat->abandon(observation);
         if (observation.user_paused || need_exit()) {
+            m_soul_retreat->invalidate_input_permission();
+            flush_soul_evidence(observation.user_paused ? "cleanup_user_pause" : "cleanup_stop");
             diagnose("cleanup_user_paused_or_exit", observation, decision, evidence_frame);
             return true;
         }
@@ -514,4 +522,83 @@ bool
         diagnose("cancel_input_receipt", observation, decision, evidence_frame, accepted);
     }
     return true;
+}
+
+void asst::RoguelikeBattleTaskPlugin::store_soul_evidence(
+    blackflow::SoulEvidenceRecord record,
+    const cv::Mat& frame,
+    bool defer)
+{
+    if (!m_soul_evidence) {
+        m_soul_evidence = std::make_unique<blackflow::BlackFlowSoulEvidenceBuffer>();
+    }
+    if (!m_soul_evidence->try_push(record, frame)) {
+        // Only evidence paths reach here, after input or on a rejection. The
+        // bounded overflow fallback cannot grant input or rebase a deadline.
+        flush_soul_evidence("bounded_capacity_fallback");
+        if (!m_soul_evidence->try_push(std::move(record), frame)) {
+            LogError << __FUNCTION__ << "SoulEvidenceDrop: record exceeds bounded capacity";
+            return;
+        }
+    }
+    if (!defer) {
+        flush_soul_evidence("non_transaction_or_paused");
+    }
+}
+
+void asst::RoguelikeBattleTaskPlugin::flush_soul_evidence(const char* reason) noexcept
+{
+    if (!m_soul_evidence || m_soul_evidence->size() == 0) {
+        return;
+    }
+    using namespace blackflow;
+    const auto result = m_soul_evidence->flush([&](SoulEvidenceRecord& record) {
+        try {
+            const auto written = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                                std::chrono::steady_clock::now().time_since_epoch())
+                                                                .count());
+            auto& details = record.kind == SoulEvidenceKind::Diagnostic ? record.payload : record.payload["details"];
+            details["evidence_recorded_ms"] = written;
+            details["evidence_flush_reason"] = reason;
+            if (record.kind != SoulEvidenceKind::Diagnostic) {
+                callback(AsstMsg::SubTaskExtraInfo, record.payload);
+            }
+            LogInfo << __FUNCTION__
+                    << (record.kind == SoulEvidenceKind::Diagnostic ? "Soul guard diagnostic" : "Soul evidence")
+                    << record.payload.to_string();
+            bool saved = true;
+            std::error_code error;
+            if (!record.json_path.empty()) {
+                std::filesystem::create_directories(record.json_path.parent_path(), error);
+                std::ofstream output(record.json_path, std::ios::binary);
+                if (error || !output) {
+                    saved = false;
+                }
+                else {
+                    output << record.payload.format();
+                    output.flush();
+                    saved = output.good();
+                }
+            }
+            if (!record.png_path.empty()) {
+                error.clear();
+                std::filesystem::create_directories(record.png_path.parent_path(), error);
+                saved = !error && MAA_NS::imwrite(record.png_path, record.frame) && saved;
+            }
+            if (!saved) {
+                LogError << __FUNCTION__ << "SoulEvidenceDrop: evidence write failed"
+                         << utils::path_to_utf8_string(record.json_path) << utils::path_to_utf8_string(record.png_path);
+            }
+            return saved;
+        }
+        catch (...) {
+            LogError << __FUNCTION__ << "SoulEvidenceDrop: evidence sink threw"
+                     << utils::path_to_utf8_string(record.json_path);
+            return false;
+        }
+    });
+    if (result.dropped != 0) {
+        LogError << __FUNCTION__ << "SoulEvidenceDrop summary" << reason << result.dropped << "delivered"
+                 << result.delivered;
+    }
 }

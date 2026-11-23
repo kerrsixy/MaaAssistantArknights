@@ -20,6 +20,7 @@
 #include "RoguelikeSummonPolicy.h"
 #include "Task/ProcessTask.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowHunterPreludeController.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowSoulEvidenceBuffer.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowSummonRetreat.h"
 #include "Utils/Logger.hpp"
 #include "Utils/WorkingDir.hpp"
@@ -42,7 +43,13 @@ asst::RoguelikeBattleTaskPlugin::RoguelikeBattleTaskPlugin(
 {
 }
 
-asst::RoguelikeBattleTaskPlugin::~RoguelikeBattleTaskPlugin() = default;
+asst::RoguelikeBattleTaskPlugin::~RoguelikeBattleTaskPlugin()
+{
+    if (m_soul_retreat) {
+        m_soul_retreat->invalidate_input_permission();
+    }
+    flush_soul_evidence("destructor");
+}
 
 bool asst::RoguelikeBattleTaskPlugin::verify(AsstMsg msg, const json::value& details) const
 {
@@ -78,6 +85,23 @@ bool asst::RoguelikeBattleTaskPlugin::load_params(const json::value& params)
 
 bool asst::RoguelikeBattleTaskPlugin::_run()
 {
+    // This guard spans the entire battle loop, not one Select/observe call.
+    // It handles early returns and exceptions without flushing between frames
+    // of an owned UI transaction.
+    struct EvidenceAtBattleExit
+    {
+        RoguelikeBattleTaskPlugin& owner;
+
+        ~EvidenceAtBattleExit()
+        {
+            if (owner.m_soul_retreat) {
+                owner.m_soul_retreat->invalidate_input_permission();
+            }
+            owner.flush_soul_evidence("battle_invocation_exit");
+        }
+    };
+
+    const EvidenceAtBattleExit evidence_at_exit { *this };
     const bool resuming = !m_resume_stage.empty();
     // 进入战斗前位于地图界面，读取「目标生命值」并记录掉血，供判断关卡风险
     {
@@ -161,6 +185,11 @@ bool asst::RoguelikeBattleTaskPlugin::_run()
     cv::Mat image, image_prev;
     while (!need_exit()) {
         const auto iteration_started = std::chrono::steady_clock::now();
+        // Flush only after UI ownership was released, before capturing a new
+        // ordinary frame. A Select return is not a transaction boundary.
+        if (!m_soul_selection_owned) {
+            flush_soul_evidence("ui_released_before_capture");
+        }
         // 不在战斗场景，且已使用过了干员，说明已经打完了，就结束循环
         image = ctrler()->get_image();
         if (!do_once(image, image_prev) && (!m_first_deploy || m_hunter_prelude != nullptr)) {
@@ -187,6 +216,10 @@ bool asst::RoguelikeBattleTaskPlugin::_run()
             break;
         }
     }
+    if (m_soul_retreat) {
+        m_soul_retreat->invalidate_input_permission();
+    }
+    flush_soul_evidence("battle_loop_exit");
     // 通知战斗结束，无论成功与否
     auto info = basic_info_with_what("RoguelikeCombatEnd");
     callback(AsstMsg::SubTaskExtraInfo, info);
@@ -1055,10 +1088,18 @@ void asst::RoguelikeBattleTaskPlugin::diagnose_battle_progress()
 bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& image_prev)
 {
     if (need_exit()) {
+        if (m_soul_retreat) {
+            m_soul_retreat->invalidate_input_permission();
+        }
+        flush_soul_evidence("stop_requested");
         return false;
     }
     if (m_soul_selection_owned && m_soul_observer) {
         if (const auto terminal = m_soul_observer->battle_end_scene(image)) {
+            if (m_soul_retreat) {
+                m_soul_retreat->invalidate_input_permission();
+            }
+            flush_soul_evidence("positive_battle_end");
             auto info = basic_info_with_what("BlackFlowSoulUiBattleEnded");
             info["details"] = json::object {
                 { "stage", m_stage_name },
@@ -1109,6 +1150,12 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
             paused.set_roi({ 450, 270, 400, 150 });
             paused.set_required({ "PAUSE", "暂停中" });
             if (soul_guard_paused || paused.analyze()) {
+                // A positive pause bypasses the Soul observer below. Revoke its
+                // old permission explicitly; never cancel or resume this panel.
+                if (m_soul_retreat) {
+                    m_soul_retreat->invalidate_input_permission();
+                }
+                flush_soul_evidence("positive_user_pause");
                 if (!m_waiting_for_manual_resume) {
                     LogInfo << __FUNCTION__ << "Observed paused battle; waiting without game input";
                     auto info = basic_info_with_what("BlackFlowBattlePaused");
@@ -1201,7 +1248,10 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
             { "ordinary_deployment_still_required", true },
             { "removal_confirmed", false },
         };
-        callback(AsstMsg::SubTaskExtraInfo, released);
+        blackflow::SoulEvidenceRecord release_record;
+        release_record.kind = blackflow::SoulEvidenceKind::Callback;
+        release_record.payload = std::move(released);
+        store_soul_evidence(std::move(release_record), {}, true);
     }
     // Give a newly acknowledged panel to ordinary deployment first. Skill
     // input here could respawn a Soul or invalidate the fresh card observation.
@@ -1764,6 +1814,10 @@ void asst::RoguelikeBattleTaskPlugin::all_melee_retreat()
 
 void asst::RoguelikeBattleTaskPlugin::clear()
 {
+    if (m_soul_retreat) {
+        m_soul_retreat->invalidate_input_permission();
+    }
+    flush_soul_evidence("clear_or_stage_change");
     BattleHelper::clear();
     m_stage_name.clear();
 

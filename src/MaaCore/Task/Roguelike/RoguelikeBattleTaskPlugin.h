@@ -18,6 +18,8 @@ namespace blackflow
 {
 class BlackFlowHunterPreludeController;
 class BlackFlowSoulObserver;
+class BlackFlowSoulEvidenceBuffer;
+struct SoulEvidenceRecord;
 class BlackFlowSummonRetreat;
 } // namespace blackflow
 
@@ -56,6 +58,8 @@ protected:
 
     virtual void clear() override;
     bool do_once(cv::Mat& image, const cv::Mat& image_prev);
+    void store_soul_evidence(blackflow::SoulEvidenceRecord record, const cv::Mat& frame, bool defer);
+    void flush_soul_evidence(const char* reason) noexcept;
 
     struct DeployPlanInfo
     {
@@ -282,6 +286,7 @@ protected:
     int m_diag_last_heartbeat = -1;                                 // 上次打印心跳的 30 秒刻度，避免刷屏
     bool m_diag_stall_warned = false;                               // 本轮停滞是否已告警，避免重复刷
 
+    std::unique_ptr<blackflow::BlackFlowSoulEvidenceBuffer> m_soul_evidence;
     std::unique_ptr<blackflow::BlackFlowSoulObserver> m_soul_observer;
     std::unique_ptr<blackflow::BlackFlowSummonRetreat> m_soul_retreat;
     std::map<battle::OperNameTag, battle::DeployDirection> m_observed_deploy_directions;
