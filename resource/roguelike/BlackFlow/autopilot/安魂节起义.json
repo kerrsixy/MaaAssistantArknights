@@ -1,0 +1,102 @@
+{
+    "stage_name": "安魂节起义",
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true,
+    "doc": "隔离未实测：普通MEDIC基础范围版本，名单绑定本次BattleData+recruitment；需当前精英/费用/技能不暂停治疗证据。前三手上门阻挡→下EW→上门输出，不把无治疗资格形态塞奶位。",
+    "deploy_plan": [
+        {
+            "groups": ["机械师", "重装", "奶盾"],
+            "location": [5, 1],
+            "direction": "right",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true,
+            "required_attack_tiles": [[5, 1]],
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["益达"],
+            "location": [6, 6],
+            "direction": "right",
+            "minimum_elite": 2,
+            "operator_names": ["维什戴尔"],
+            "required_attack_tiles": [
+                [9, 5],
+                [9, 7]
+            ]
+        },
+        {
+            "groups": ["术师"],
+            "location": [5, 4],
+            "direction": "up",
+            "minimum_elite": 1,
+            "operator_names": ["卡达"],
+            "required_attack_tiles": [
+                [5, 1],
+                [5, 2]
+            ]
+        },
+        {
+            "groups": ["元素奶", "单奶", "群奶", "奶"],
+            "location": [4, 4],
+            "direction": "up",
+            "minimum_elite": 1,
+            "operator_names": [
+                "纯烬艾雅法拉",
+                "蜜莓",
+                "桑葚",
+                "哈洛德",
+                "褐果",
+                "Touch",
+                "流明",
+                "絮雨",
+                "闪灵",
+                "赫默",
+                "华法琳",
+                "苏苏洛",
+                "末药",
+                "嘉维尔",
+                "清流",
+                "锡兰"
+            ],
+            "required_range_tiles": [
+                [5, 1],
+                [5, 4]
+            ],
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["单奶", "群奶", "元素奶", "奶"],
+            "location": [5, 6],
+            "direction": "right",
+            "minimum_elite": 1,
+            "operator_names": [
+                "纯烬艾雅法拉",
+                "蜜莓",
+                "桑葚",
+                "哈洛德",
+                "褐果",
+                "Touch",
+                "流明",
+                "絮雨",
+                "闪灵",
+                "赫默",
+                "华法琳",
+                "苏苏洛",
+                "末药",
+                "嘉维尔",
+                "清流",
+                "安赛尔",
+                "芙蓉",
+                "锡兰",
+                "夜莺",
+                "白面鸮",
+                "调香师",
+                "微风",
+                "明椒",
+                "莎草"
+            ],
+            "required_range_tiles": [[6, 6]],
+            "prefer_group_order": true
+        }
+    ]
+}
