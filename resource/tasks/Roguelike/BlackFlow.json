@@ -3744,5 +3744,30 @@
         "next": ["BlackFlow@Roguelike@AccountBegin"],
         "onErrorNext": [],
         "template": ["Return.png", "Return-White.png"]
+    },
+    "BlackFlowAccount@StrengthDetail": {
+        "baseTask": "OperProgress@OperFiles",
+        "action": "DoNothing",
+        "next": [],
+        "template": "OperInformationMenu.png"
+    },
+    "BlackFlowAccount@StrengthName": {
+        "algorithm": "OcrDetect",
+        "roi": [0, 440, 860, 180],
+        "text": [],
+        "fullMatch": true,
+        "action": "DoNothing"
+    },
+    "BlackFlowAccount@StrengthLevel": {
+        "baseTask": "NumberOcrReplace",
+        "roi": [884, 114, 88, 54],
+        "withoutDet": true,
+        "action": "DoNothing"
+    },
+    "BlackFlowAccount@StrengthMaximum": {
+        "baseTask": "NumberOcrReplace",
+        "roi": [986, 174, 42, 27],
+        "withoutDet": true,
+        "action": "DoNothing"
     }
 }

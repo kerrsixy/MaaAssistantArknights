@@ -19,6 +19,42 @@ import blackflow_state_check as state
 
 
 class RuntimeBindingTests(unittest.TestCase):
+    def test_connection_extras_uses_the_void_c_api_contract(self):
+        driver = object.__new__(live.LiveDriver)
+        driver._lib = Mock()
+        driver._declare_functions()
+        self.assertIsNone(driver._lib.AsstSetConnectionExtras.restype)
+
+    def test_void_connection_extras_does_not_abort_official_device_binding(self):
+        driver = object.__new__(live.LiveDriver)
+        driver._handle = object()
+        driver._lib = Mock()
+        driver._lib.AsstSetConnectionExtras.return_value = None
+        driver._lib.AsstSetInstanceOption.return_value = True
+        driver._lib.AsstConnect.return_value = True
+        self.assertTrue(driver.connect("Official", "127.0.0.1:16416", mumu_extras=True))
+        name, raw = driver._lib.AsstSetConnectionExtras.call_args.args
+        self.assertEqual(name, live.ADB_CONFIG.encode("utf-8"))
+        extras = json.loads(raw)
+        self.assertEqual(extras["client_type"], "Official")
+        self.assertNotIn("index", extras)
+        driver._lib.AsstConnect.assert_called_once_with(
+            driver._handle,
+            live.ADB_PATH.encode("utf-8"),
+            b"127.0.0.1:16416",
+            live.ADB_CONFIG.encode("utf-8"),
+        )
+
+    def test_failed_touch_mode_still_stops_after_void_extras(self):
+        driver = object.__new__(live.LiveDriver)
+        driver._handle = object()
+        driver._lib = Mock()
+        driver._lib.AsstSetConnectionExtras.return_value = None
+        driver._lib.AsstSetInstanceOption.return_value = False
+        with self.assertRaisesRegex(RuntimeError, "touch mode unavailable"):
+            driver.connect("Official", "127.0.0.1:16416", mumu_extras=True)
+        driver._lib.AsstConnect.assert_not_called()
+
     def test_requested_live_stop_exits_wait_without_destroying_driver(self):
         driver = object.__new__(live.LiveDriver)
         driver.out_dir = self.root

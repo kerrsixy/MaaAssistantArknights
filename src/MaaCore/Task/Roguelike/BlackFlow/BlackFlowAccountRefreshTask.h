@@ -9,6 +9,7 @@
 #include "MaaUtils/NoWarningCVMat.hpp"
 #include "Task/AbstractTask.h"
 #include "Vision/Oper/OperBoxImageAnalyzer.h"
+#include "Vision/Roguelike/BlackFlow/BlackFlowDetailStrengthAnalyzer.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowModulePanelAnalyzer.h"
 
 namespace asst::blackflow
@@ -20,12 +21,19 @@ struct FreshAccountModulePanel
     cv::Mat source_image;
 };
 
+struct FreshAccountDetailStrength
+{
+    DetailStrengthObservation observation;
+    cv::Mat source_image;
+};
+
 struct AccountRefreshObservation
 {
     std::string client;
     std::string uid;
     std::map<std::string, OperBoxInfo> strengths;
     std::vector<FreshAccountModulePanel> modules;
+    std::map<std::string, FreshAccountDetailStrength> verified_strengths;
     std::set<std::string> unknown_targets;
     bool roster_complete = false;
     bool stopped_at_repeated_page = false;
@@ -49,7 +57,7 @@ protected:
 private:
     bool visit_page(const std::vector<OperBoxInfo>& page);
     bool visit_target(const AccountModuleScanTarget& target);
-    bool action(const std::string& task);
+    bool action(const std::string& task, const std::shared_ptr<AbstractTaskPlugin>& observer = nullptr);
     std::vector<AccountModuleScanTarget> m_targets;
     std::set<std::string> m_attempted;
     AccountRefreshObservation m_observation;

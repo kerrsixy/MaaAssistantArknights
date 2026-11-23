@@ -20,7 +20,8 @@ std::optional<json::value> BlackFlowAccountSnapshotStore::merge(
     const std::vector<AccountModuleScanTarget>& targets,
     const std::vector<std::filesystem::path>& images,
     const std::string& stamp,
-    std::string* error)
+    std::string* error,
+    const std::map<std::string, std::filesystem::path>& strength_images)
 {
     const auto fail = [&](const std::string& message) -> std::optional<json::value> {
         if (error) {
@@ -92,6 +93,40 @@ std::optional<json::value> BlackFlowAccountSnapshotStore::merge(
         old["rarity"] = oper.rarity;
         old["operator_observed_at"] = stamp;
     }
+    if (strength_images.size() != observed.verified_strengths.size()) {
+        return fail("Verified detail strength images are incomplete");
+    }
+    for (const auto& [name, fresh] : observed.verified_strengths) {
+        const auto& value = fresh.observation;
+        const auto canonical = BattleData.find_oper_by_id(value.operator_id);
+        const auto image = strength_images.find(name);
+        if (!canonical || canonical->role == battle::Role::Drone || !value.operator_id.starts_with("char_") ||
+            canonical->name != name || value.operator_name != name || value.elite < 0 || value.elite > 2 ||
+            value.level < 1 || value.maximum_level < value.level || value.maximum_level > 90 ||
+            (value.recognized_name != name &&
+             (canonical->name_en.empty() || value.recognized_name != canonical->name_en)) ||
+            image == strength_images.end() || image->second.empty() || fresh.source_image.empty() ||
+            fresh.source_image.cols != 1280 || fresh.source_image.rows != 720 || !staged["operators"].contains(name) ||
+            staged["operators"][name].get("id", "") != value.operator_id) {
+            return fail("Verified detail strength identity or range is invalid");
+        }
+        auto& oper = staged["operators"][name];
+        const auto prior_elite = oper.get("elite", 0);
+        const auto prior_level = oper.get("level", 0);
+        oper["own"] = true;
+        oper["elite"] = value.elite;
+        oper["level"] = value.level;
+        oper["operator_observed_at"] = stamp;
+        oper["strength_evidence"] =
+            json::object { { "source_kind", "exact_same_uid_operator_detail" },
+                           { "recognized_name", value.recognized_name },
+                           { "observed_at", stamp },
+                           { "maximum_level", value.maximum_level },
+                           { "previous_elite", prior_elite },
+                           { "previous_level", prior_level },
+                           { "evidence",
+                             json::array { json::object { { "file", utils::path_to_utf8_string(image->second) } } } } };
+    }
     std::set<std::string> known;
     for (std::size_t i = 0; i < observed.modules.size(); ++i) {
         const auto& panel = observed.modules[i];
@@ -146,11 +181,13 @@ std::optional<json::value> BlackFlowAccountSnapshotStore::merge(
     if (!staged.contains("modules")) {
         staged["modules"] = json::object {};
     }
-    staged["modules"]["last_required_scan"] = json::object { { "observed_at", stamp },
-                                                             { "module_refresh_complete", module_complete },
-                                                             { "fresh_roster_complete", false },
-                                                             { "unknown_targets", std::move(unknown) },
-                                                             { "current_battle_equipment_proven", false } };
+    staged["modules"]["last_required_scan"] =
+        json::object { { "observed_at", stamp },
+                       { "module_refresh_complete", module_complete },
+                       { "detail_strength_refresh_count", observed.verified_strengths.size() },
+                       { "fresh_roster_complete", false },
+                       { "unknown_targets", std::move(unknown) },
+                       { "current_battle_equipment_proven", false } };
     if (module_complete) {
         staged["modules"]["required_modules_scanned"] = true;
     }

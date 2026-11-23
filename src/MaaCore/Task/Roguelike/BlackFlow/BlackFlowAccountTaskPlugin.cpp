@@ -54,6 +54,7 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
                                                  : utils::path(m_cache_file);
     std::string cache_error;
     json::array refresh_unknown_targets;
+    std::size_t fresh_strength_count = 0;
     if (m_refresh_requested && !m_refresh_attempted) {
         // Set before any navigation: this startup task must never repeat a partial refresh.
         m_refresh_attempted = true;
@@ -104,13 +105,25 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
             }
             evidence_images.push_back(path);
         }
+        std::map<std::string, std::filesystem::path> strength_images;
+        for (const auto& [name, fresh] : observed.verified_strengths) {
+            const auto path = cache_path.parent_path() / "evidence" / utils::path(client + "_" + account.uid()) /
+                              utils::path(stamp) / utils::path("strength-" + fresh.observation.operator_id + ".png");
+            if (!MAA_NS::imwrite(path, fresh.source_image)) {
+                LogError << __FUNCTION__ << "Could not persist exact detail strength observation";
+                m_task_ptr->set_enable(false);
+                return false;
+            }
+            strength_images.emplace(name, path);
+        }
         const auto staged = BlackFlowAccountSnapshotStore::merge(
             *previous,
             observed,
             catalog->targets(),
             evidence_images,
             stamp,
-            &cache_error);
+            &cache_error,
+            strength_images);
         const auto current = json::open(cache_path);
         if ((cache_exists && (!current || current->to_string() != previous->to_string())) ||
             (!cache_exists && std::filesystem::exists(cache_path, cache_ec)) || cache_ec) {
@@ -124,6 +137,7 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
             return false;
         }
         m_module_refresh_complete = observed.required_modules_complete();
+        fresh_strength_count = observed.verified_strengths.size();
         for (const auto& name : observed.unknown_targets) {
             refresh_unknown_targets.emplace_back(name);
         }
@@ -185,6 +199,7 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
                                      { "cached_roster_complete", cached_roster_complete },
                                      { "fresh_scan_complete", false },
                                      { "fresh_roster_complete", false },
+                                     { "detail_strength_refresh_count", fresh_strength_count },
                                      { "module_scan_complete", m_module_refresh_complete },
                                      { "module_refresh_complete", m_module_refresh_complete },
                                      { "refresh_unknown_targets", std::move(refresh_unknown_targets) },

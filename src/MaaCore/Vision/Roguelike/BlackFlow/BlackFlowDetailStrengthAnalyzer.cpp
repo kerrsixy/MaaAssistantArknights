@@ -1,0 +1,93 @@
+#include "BlackFlowDetailStrengthAnalyzer.h"
+
+#include <charconv>
+
+#include "Config/Miscellaneous/BattleDataConfig.h"
+#include "Config/TaskData.h"
+#include "Vision/Matcher.h"
+#include "Vision/OCRer.h"
+#include "Vision/Oper/OperFilesImageAnalyzer.h"
+
+namespace asst::blackflow
+{
+std::optional<DetailStrengthObservation>
+    BlackFlowDetailStrengthAnalyzer::analyze(const std::string& operator_id, const std::string& operator_name) const
+{
+    const auto canonical = BattleData.find_oper_by_id(operator_id);
+    if (m_image.empty() || m_image.cols != 1280 || m_image.rows != 720 || m_image.type() != CV_8UC3 ||
+        !operator_id.starts_with("char_") || !canonical || canonical->name != operator_name ||
+        canonical->role == battle::Role::Drone) {
+        return std::nullopt;
+    }
+    const auto detail_task = Task.get<MatchTaskInfo>("BlackFlowAccount@StrengthDetail");
+    const auto name_task = Task.get<OcrTaskInfo>("BlackFlowAccount@StrengthName");
+    const auto inside = [&](const Rect& roi) {
+        return roi.x >= 0 && roi.y >= 0 && roi.width > 0 && roi.height > 0 && roi.x + roi.width <= m_image.cols &&
+               roi.y + roi.height <= m_image.rows;
+    };
+    if (!detail_task || !name_task || !inside(detail_task->roi) || !inside(name_task->roi)) {
+        return std::nullopt;
+    }
+    Matcher page(m_image);
+    page.set_task_info(detail_task);
+    if (!page.analyze()) {
+        return std::nullopt;
+    }
+    OCRer name(m_image);
+    name.set_task_info(name_task);
+    name.set_required({ operator_name, canonical->name_en });
+    const auto names = name.analyze();
+    std::optional<OCRer::Result> identity;
+    if (names) {
+        for (const auto& match : *names) {
+            if ((match.text == operator_name || (!canonical->name_en.empty() && match.text == canonical->name_en)) &&
+                match.score >= 0.95 && (!identity || match.score > identity->score)) {
+                identity = match;
+            }
+        }
+    }
+    if (!identity) {
+        return std::nullopt;
+    }
+    const auto elite = OperFilesImageAnalyzer(m_image).elite_level();
+    if (!elite || *elite < 0 || *elite > 2) {
+        return std::nullopt;
+    }
+    const auto read_number = [&](const std::string& task) -> std::optional<std::pair<int, Rect>> {
+        const auto definition = Task.get<OcrTaskInfo>(task);
+        if (!definition || !inside(definition->roi)) {
+            return std::nullopt;
+        }
+        OCRer number(m_image);
+        number.set_task_info(definition);
+        const auto values = number.analyze();
+        if (!values || values->size() != 1 || values->front().score < 0.95) {
+            return std::nullopt;
+        }
+        const auto& value = values->front();
+        if (value.text.empty() || value.text.size() > 2) {
+            return std::nullopt;
+        }
+        int parsed = 0;
+        const auto conversion = std::from_chars(value.text.data(), value.text.data() + value.text.size(), parsed);
+        if (conversion.ec != std::errc {} || conversion.ptr != value.text.data() + value.text.size()) {
+            return std::nullopt;
+        }
+        return std::pair { parsed, value.rect };
+    };
+    const auto level = read_number("BlackFlowAccount@StrengthLevel");
+    const auto maximum = read_number("BlackFlowAccount@StrengthMaximum");
+    if (!level || !maximum || level->first < 1 || maximum->first < level->first || maximum->first > 90) {
+        return std::nullopt;
+    }
+    return DetailStrengthObservation { .operator_id = operator_id,
+                                       .operator_name = operator_name,
+                                       .recognized_name = identity->text,
+                                       .elite = *elite,
+                                       .level = level->first,
+                                       .maximum_level = maximum->first,
+                                       .name_rect = identity->rect,
+                                       .level_rect = level->second,
+                                       .maximum_level_rect = maximum->second };
+}
+}

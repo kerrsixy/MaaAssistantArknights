@@ -17,7 +17,8 @@ public:
         const std::vector<AccountModuleScanTarget>& targets,
         const std::vector<std::filesystem::path>& images,
         const std::string& stamp,
-        std::string* error);
+        std::string* error,
+        const std::map<std::string, std::filesystem::path>& strength_images = {});
     static bool save_atomic(
         const std::filesystem::path& path,
         const json::value& snapshot,

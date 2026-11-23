@@ -110,7 +110,7 @@ class LiveDriver:
         lib.AsstSetInstanceOption.argtypes = [handle, ctypes.c_int, c]
         lib.AsstSetInstanceOption.restype = ctypes.c_bool
         lib.AsstSetConnectionExtras.argtypes = [c, c]
-        lib.AsstSetConnectionExtras.restype = ctypes.c_bool
+        lib.AsstSetConnectionExtras.restype = None
         lib.AsstConnect.argtypes, lib.AsstConnect.restype = (
             [handle, c, c, c],
             ctypes.c_bool,
@@ -170,10 +170,9 @@ class LiveDriver:
             }
             # Omit index: the controller derives it from the actual address.
             # Never carry another emulator's index into a new connection.
-            if not self._lib.AsstSetConnectionExtras(
+            self._lib.AsstSetConnectionExtras(
                 ADB_CONFIG.encode("utf-8"), json.dumps(extras).encode("utf-8")
-            ):
-                raise RuntimeError("AsstSetConnectionExtras failed")
+            )
             if not self._lib.AsstSetInstanceOption(self._handle, 2, b"MumuExtras"):
                 raise RuntimeError("MuMu extras touch mode unavailable")
         if not self._lib.AsstSetInstanceOption(
