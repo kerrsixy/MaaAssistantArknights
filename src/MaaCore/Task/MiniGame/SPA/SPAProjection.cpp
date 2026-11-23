@@ -1034,6 +1034,17 @@ std::vector<cv::Point> asst::spa::equipment_inventory_candidates(const cv::Mat& 
             cv::countNonZero(outer > 125) < outer.total() * 0.12) {
             continue;
         }
+        if (y <= 38) {
+            // The raised inventory row overlaps battle scenery. A dark
+            // square there is a candidate only if it also has the bright
+            // rank strokes carried by the equipment badge.
+            const cv::Rect rank_glyph(x + 3, y + 3, 17, 16);
+            cv::Mat brightness;
+            cv::extractChannel(hsv(rank_glyph), brightness, 2);
+            if (cv::countNonZero(brightness > 145) < 13) {
+                continue;
+            }
+        }
         const cv::Point source(badge.x + 42, badge.y + 80);
         if (!equipment_inventory_probe_safe(source)) {
             continue;

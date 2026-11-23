@@ -836,6 +836,17 @@ int main()
         return cv::norm(point - cv::Point(761, 465)) < 4;
     }));
     assert(equipment_inventory_candidates(empty_inventory).empty());
+    const auto raised_inventory_crops = cv::imread("spa-equipment-inventory-raised-row.png");
+    assert(raised_inventory_crops.size() == cv::Size(580, 125));
+    auto raised_inventory = blank.clone();
+    raised_inventory_crops.copyTo(raised_inventory(cv::Rect(300, 285, 580, 125)));
+    const auto raised_candidates = equipment_inventory_candidates(raised_inventory);
+    assert(std::any_of(raised_candidates.begin(), raised_candidates.end(), [](auto point) {
+        return cv::norm(point - cv::Point(834, 394)) < 4;
+    }));
+    assert(std::none_of(raised_candidates.begin(), raised_candidates.end(), [](auto point) {
+        return cv::norm(point - cv::Point(373, 395)) < 4;
+    }));
     const auto pact_top = cv::imread("spa-pact-availability-top.png");
     const auto pact_scroll = cv::imread("spa-pact-availability-scroll.png");
     assert(!pact_top.empty() && !pact_scroll.empty());
