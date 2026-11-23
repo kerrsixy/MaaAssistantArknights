@@ -146,6 +146,7 @@ bool asst::spa::RoundTaskPlugin::_run()
     m_observed_teammate_core_pacts.clear();
     m_session_interrupted = false;
     m_next_round = -1;
+    m_post_battle_choice_seen = false;
     if (m_round < 1) {
         return false;
     }
@@ -537,6 +538,7 @@ bool asst::spa::RoundTaskPlugin::_run()
             (page.page == Page::EquipmentSupply || page.page == Page::BountySelection ||
              page.page == Page::TacticalDecision) &&
             battle_seen) {
+            m_post_battle_choice_seen = true;
             auto info = basic_info_with_what("SPARoundChoiceRequired");
             info["details"] = json::object { { "after_round", m_round },
                                              { "choice_kind",

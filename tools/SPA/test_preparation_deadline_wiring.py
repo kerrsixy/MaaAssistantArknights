@@ -15,6 +15,23 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
             "bool asst::StrongholdProtocolTask::run_session(", 1
         )[1]
 
+    def test_ursus_growth_evidence_survives_a_post_battle_choice(self):
+        watch = (TASK.parents[1] / "MiniGame/SPA/SPARoundTaskPlugin.cpp").read_text(encoding="utf-8")
+        choice = watch.split('auto info = basic_info_with_what("SPARoundChoiceRequired");', 1)[0].rsplit(
+            "page.page == Page::TacticalDecision", 1
+        )[1]
+        self.assertIn("battle_seen", choice)
+        self.assertIn("m_post_battle_choice_seen = true", choice)
+        new_round = self.session.split("m_last_ursus_battle_with_layer_growth = fought_round;", 1)[0].rsplit(
+            "if (round_ok && fought_round", 1
+        )[1]
+        self.assertIn("round.battle_seen()", new_round)
+        self.assertIn("round.next_round() == fought_round + 1 || round.post_battle_choice_seen()", new_round)
+        self.assertIn("round.primary_layers_increased_during_battle()", new_round)
+        self.assertIn(
+            "m_policy.last_round_life_loss == 0 && m_last_ursus_battle_with_layer_growth == round - 1", self.session
+        )
+
     def test_only_fresh_observer_calls_supply_frame_timestamp(self):
         boundary = self.session.split("json::value state_storage;", 1)[1].split(
             "const auto& state = state_storage;", 1

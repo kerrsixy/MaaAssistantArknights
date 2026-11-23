@@ -51,6 +51,7 @@ public:
     bool session_interrupted() const { return m_session_interrupted; }
 
     int next_round() const { return m_next_round; }
+    bool post_battle_choice_seen() const { return m_post_battle_choice_seen; }
 
     bool verify(AsstMsg msg, const json::value& details) const override;
 
@@ -70,6 +71,7 @@ private:
     json::object m_last_result;
     bool m_session_interrupted = false;
     int m_next_round = -1;
+    bool m_post_battle_choice_seen = false;
     int m_round = -1;
     int m_remaining = -1;
     bool m_wait_for_next = true;

@@ -5433,9 +5433,12 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             if (round_ok && round.battle_seen()) {
                 m_last_observed_automated_battle_round = fought_round;
             }
-            if (round_ok && fought_round > 0 && round.next_round() == fought_round + 1 &&
+            if (round_ok && fought_round > 0 && round.battle_seen() &&
+                (round.next_round() == fought_round + 1 || round.post_battle_choice_seen()) &&
                 m_policy.primary_pact == "乌萨斯" && primary_active_for_battle &&
                 round.primary_layers_increased_during_battle()) {
+                // Reward pages interrupt the round watcher before the next HUD.
+                // The forecast still requires the next round and unchanged life.
                 m_last_ursus_battle_with_layer_growth = fought_round;
             }
             if (round.session_interrupted()) {
@@ -5449,6 +5452,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                                { "result_verified", false },
                                                { "next_round_ready", round.next_round() == state.get("round", -1) + 1 },
                                                { "next_round", round.next_round() },
+                                               { "post_battle_choice_seen", round.post_battle_choice_seen() },
                                                { "battle_outcome", round_ok ? "observed" : "unverified" },
                                                { "primary_pact", m_policy.primary_pact },
                                                { "active_pacts",
@@ -6238,6 +6242,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         }
         auto assessment = basic_info_with_what("SPAAutomationGrowthAssessment");
         assessment["details"] = json::object {
+            { "round", round },
             { "primary_pact", m_policy.primary_pact },
             { "deployed_primary_members", primary_field_members.size() },
             { "primary_active_by_formation", primary_active_by_formation },
