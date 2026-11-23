@@ -19,9 +19,12 @@ public:
 
     int get_number(const cv::Mat& image, const std::string& task_name);
 
-    // New consumers must preserve unknown readings instead of treating them as zero.
+    // New consumers must preserve unknown readings instead of treating them as
+    // zero.
     [[nodiscard]] static std::optional<int>
         read_number(const cv::Mat& image, const std::string& task_name, double minimum_score = 0.9);
+
+    [[nodiscard]] static std::optional<int> read_blackflow_hope(const cv::Mat& image);
 
     // int update_hope(const cv::Mat& image);
     int update_hp(const cv::Mat& image);
@@ -39,4 +42,4 @@ public:
 private:
     InstHelper m_inst_helper;
 };
-}
+} // namespace asst

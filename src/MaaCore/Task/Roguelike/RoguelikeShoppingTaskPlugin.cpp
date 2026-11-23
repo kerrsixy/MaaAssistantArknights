@@ -284,7 +284,7 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
         }
     }
     else if (theme == RoguelikeTheme::BlackFlow) {
-        shopping_hope = RoguelikeParameterAnalyzer::read_number(image, "BlackFlow@Roguelike@CurrentHope");
+        shopping_hope = RoguelikeParameterAnalyzer::read_blackflow_hope(image);
         if (shopping_hope && *shopping_hope < 0) {
             shopping_hope.reset();
         }

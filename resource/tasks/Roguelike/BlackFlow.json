@@ -658,14 +658,12 @@
         "withoutDet": true
     },
     "BlackFlow@Roguelike@CurrentHope": {
-        "Doc": "当前希望，不含右侧灰色上限。与地图/商店消费者共用，未知读数不回退旧招募缓存。",
         "algorithm": "OcrDetect",
-        "roi": [938, 15, 50, 43],
+        "roi": [930, 15, 118, 43],
         "text": [],
         "isAscii": true,
         "withoutDet": true,
-        "useRaw": false,
-        "binThreshold": [170, 255]
+        "Doc": "Geometry for the anchored yellow-glyph hope reader; current value moves with the fill bar. Gray maximum and separators are excluded. Map, shopping and stored-voucher consumers preserve unknown instead of using cached balances."
     },
     "BlackFlow@Roguelike@DropsFlag": {
         "template": "Roguelike@DropsFlag.png",
@@ -3729,5 +3727,12 @@
         "algorithm": "JustReturn",
         "action": "DoNothing",
         "next": ["BlackFlow@Roguelike@MapViewportReset-Enter"]
+    },
+    "BlackFlow@Roguelike@HopeHeader": {
+        "algorithm": "MatchTemplate",
+        "template": "BlackFlow@Roguelike@HopeHeader.png",
+        "roi": [868, 0, 56, 60],
+        "templThreshold": 0.9,
+        "Doc": "Verified BlackFlow top-right hope widget identity; unrelated battle, lobby and central recruitment headers must not be read as map hope."
     }
 }
