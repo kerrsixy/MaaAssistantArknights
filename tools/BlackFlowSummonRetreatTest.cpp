@@ -172,6 +172,112 @@ int main()
     expect(
         policy.observe(frame).action == SummonRetreatAction::None,
         "the preselection frame cannot authorize retreat");
+
+    const auto reclaim = [](std::vector<Point> allowed = { { 7, 5 } }) {
+        return BlackFlowSummonRetreat(
+            "run:devotion",
+            "魂灵之影",
+            "token_10035_wisdel_wward",
+            { 7, 4 },
+            std::move(allowed),
+            SummonRetreatIntent::ReclaimDeploymentTile);
+    };
+    frame = {};
+    frame.battle_key = "run:devotion";
+    frame.owner_present = true;
+    frame.normal_view = true;
+    frame.candidates = { { 6, 4 }, { 7, 5 } };
+    policy = reclaim();
+    result = observe(policy);
+    expect(
+        result.action == SummonRetreatAction::Select && result.tile == Point(7, 5),
+        "reclamation selects only the requested tile without invented Boss evidence");
+    expect(
+        policy.intent() == SummonRetreatIntent::ReclaimDeploymentTile &&
+            policy.allowed_tiles() == std::vector<Point> { { 7, 5 } },
+        "intent and target are bound to the transaction");
+    policy.input_result(SummonRetreatAction::Select, true);
+    frame.normal_view = false;
+    frame.selection_view = true;
+    frame.selected_name = "魂灵之影";
+    frame.selected_id = "token_10035_wisdel_wward";
+    frame.retreat_button_present = true;
+    expect(
+        observe(policy).action == SummonRetreatAction::RetreatSelection,
+        "same verified Soul identity and retreat glyph are mandatory outside Boss fights");
+    policy.input_result(SummonRetreatAction::RetreatSelection, true);
+    expect(policy.awaiting_normal_ack(), "retreat receipt keeps the UI transaction pending");
+    frame.normal_view = true;
+    frame.selection_view = false;
+    frame.candidates.clear();
+    expect(!observe(policy).removal_confirmed, "a panel closing is not a certified empty tile");
+    policy = reclaim({ { 7, 5 }, { 6, 4 } });
+    frame.candidates = { { 7, 5 }, { 6, 4 } };
+    expect(observe(policy).action == SummonRetreatAction::None, "reclamation cannot broaden to multiple tiles");
+    policy = reclaim({ { 7, 4 } });
+    expect(observe(policy).action == SummonRetreatAction::None, "a requested owner tile is never reclaimable");
+    policy = reclaim({});
+    expect(observe(policy).action == SummonRetreatAction::None, "empty target scope authorizes nothing");
+    policy = reclaim();
+    frame.candidates = { { 7, 5 } };
+    expect(observe(policy).action == SummonRetreatAction::Select, "a single target starts a fresh reclaim");
+    policy.input_result(SummonRetreatAction::Select, true);
+    frame.normal_view = false;
+    frame.selection_view = true;
+    frame.selected_name = "维什戴尔";
+    frame.selected_id = "char_1035_wisdel";
+    expect(observe(policy).action == SummonRetreatAction::CancelSelection, "reclamation never retreats the owner");
+    policy.input_result(SummonRetreatAction::CancelSelection, true);
+    expect(policy.awaiting_normal_ack(), "cancel receipt does not release UI ownership");
+    frame.normal_view = false;
+    frame.selection_view = true;
+    expect(observe(policy).action == SummonRetreatAction::None, "unclosed detail panel cannot restart selection");
+    frame.normal_view = true;
+    frame.selection_view = false;
+    expect(
+        observe(policy).action == SummonRetreatAction::None && policy.awaiting_normal_ack(),
+        "a normal observation alone cannot release the UI lease");
+    expect(!policy.complete_handoff(), "bar handoff cannot complete before two normal acknowledgments");
+    advance();
+    expect(!policy.acknowledge_normal(frame), "first normal acknowledgment still retains the lease");
+    advance();
+    expect(
+        policy.acknowledge_normal(frame) && policy.handoff_pending(),
+        "second distinct normal frame starts a pending ordinary handoff");
+    expect(
+        observe(policy).action == SummonRetreatAction::None && policy.handoff_pending(),
+        "a failed card refresh may retain the handoff without another selection");
+    expect(
+        policy.complete_handoff() && !policy.handoff_pending(),
+        "only the ordinary actor may finish a pending handoff after refreshing cards");
+    policy = reclaim();
+    frame.user_paused = true;
+    expect(observe(policy).action == SummonRetreatAction::None, "user pause blocks reclamation too");
+    frame.user_paused = false;
+    expect(observe(policy).action == SummonRetreatAction::Select, "running reclaim may start after observed resume");
+    policy.input_result(SummonRetreatAction::Select, true);
+    frame.normal_view = false;
+    frame.selection_view = true;
+    frame.selected_name.clear();
+    frame.selected_id.clear();
+    advance();
+    expect(
+        policy.abandon(frame).action == SummonRetreatAction::CancelSelection,
+        "explicit abandonment cancels only an acknowledged own selection on fresh evidence");
+    policy.input_result(SummonRetreatAction::CancelSelection, true);
+    frame.user_paused = true;
+    advance();
+    expect(policy.abandon(frame).action == SummonRetreatAction::None, "abandonment never dismisses a user pause");
+    frame.user_paused = false;
+    advance();
+    frame.received_ms += 501;
+    expect(policy.abandon(frame).action == SummonRetreatAction::None, "stale cleanup cannot authorize a click");
+    frame.normal_view = true;
+    frame.selection_view = false;
+    frame.boss = BossVitalState::Unknown;
+    policy = make();
+    expect(observe(policy).action == SummonRetreatAction::None, "protection intent still requires a live Boss");
+
     std::cout << "SUMMON_RETREAT checks=" << checks << " failures=" << failures << " device_inputs=0\n";
     return failures ? 1 : 0;
 }

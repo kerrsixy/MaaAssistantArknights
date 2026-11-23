@@ -10,12 +10,14 @@ BlackFlowSummonRetreat::BlackFlowSummonRetreat(
     std::string summon_name,
     std::string summon_id,
     asst::Point owner_tile,
-    std::vector<asst::Point> allowed_tiles) :
+    std::vector<asst::Point> allowed_tiles,
+    SummonRetreatIntent intent) :
     m_battle_key(std::move(battle_key)),
     m_summon_name(std::move(summon_name)),
     m_summon_id(std::move(summon_id)),
     m_owner_tile(owner_tile),
-    m_allowed_tiles(std::move(allowed_tiles))
+    m_allowed_tiles(std::move(allowed_tiles)),
+    m_intent(intent)
 {
 }
 
@@ -23,33 +25,97 @@ void BlackFlowSummonRetreat::reset_transaction()
 {
     m_phase = Phase::Idle;
     m_pending_tile.reset();
+    m_normal_ack_count = 0;
+    m_normal_ack_first_ms = 0;
 }
 
 SummonRetreatDecision BlackFlowSummonRetreat::cancel()
 {
     m_phase = Phase::Cancelling;
+    m_normal_ack_count = 0;
     m_authorized_action = SummonRetreatAction::CancelSelection;
     return { SummonRetreatAction::CancelSelection, m_pending_tile };
+}
+
+bool BlackFlowSummonRetreat::accept(const SummonRetreatObservation& observation)
+{
+    if (observation.battle_key != m_battle_key || m_battle_key.empty() || observation.sequence <= m_sequence ||
+        observation.observed_ms < m_observed_ms || observation.received_ms < observation.observed_ms ||
+        observation.received_ms - observation.observed_ms > 500) {
+        return false;
+    }
+    m_sequence = observation.sequence;
+    m_observed_ms = observation.observed_ms;
+    return true;
+}
+
+SummonRetreatDecision BlackFlowSummonRetreat::abandon(const SummonRetreatObservation& observation)
+{
+    m_authorized_action = SummonRetreatAction::None;
+    if (!accept(observation) || observation.user_paused || !observation.selection_view ||
+        (m_phase != Phase::Verifying && m_phase != Phase::Retreating && m_phase != Phase::CheckingRemoval &&
+         m_phase != Phase::AwaitNormalAck && m_phase != Phase::HandingOff)) {
+        return {};
+    }
+    return cancel();
+}
+
+bool BlackFlowSummonRetreat::acknowledge_normal(const SummonRetreatObservation& observation)
+{
+    m_authorized_action = SummonRetreatAction::None;
+    if (!observation.normal_view || observation.selection_view || observation.user_paused ||
+        (m_phase != Phase::Verifying && m_phase != Phase::CheckingRemoval && m_phase != Phase::AwaitNormalAck &&
+         m_phase != Phase::HandingOff)) {
+        m_normal_ack_count = 0;
+        return false;
+    }
+    if (!accept(observation)) {
+        return false;
+    }
+    if (m_normal_ack_count == 0 || observation.observed_ms - m_normal_ack_first_ms > 1500) {
+        m_normal_ack_count = 1;
+        m_normal_ack_first_ms = observation.observed_ms;
+        return false;
+    }
+    if (observation.observed_ms - m_normal_ack_first_ms < 100) {
+        return false;
+    }
+    m_normal_ack_count = 2;
+    m_phase = Phase::HandingOff;
+    return true;
+}
+
+bool BlackFlowSummonRetreat::complete_handoff()
+{
+    m_authorized_action = SummonRetreatAction::None;
+    if (m_phase != Phase::HandingOff) {
+        return false;
+    }
+    reset_transaction();
+    return true;
 }
 
 SummonRetreatDecision BlackFlowSummonRetreat::observe(const SummonRetreatObservation& observation)
 {
     m_authorized_action = SummonRetreatAction::None;
-    if (observation.battle_key != m_battle_key || m_battle_key.empty() || observation.sequence <= m_sequence ||
-        observation.observed_ms < m_observed_ms || observation.received_ms < observation.observed_ms ||
-        observation.received_ms - observation.observed_ms > 500) {
+    if (!accept(observation)) {
         return {};
     }
-    m_sequence = observation.sequence;
-    m_observed_ms = observation.observed_ms;
-    if (observation.boss == BossVitalState::ConfirmedDead) {
+    const bool protect = m_intent == SummonRetreatIntent::ProtectOwnerFromBoss;
+    if (!protect && (m_allowed_tiles.size() != 1 || m_allowed_tiles.front() == m_owner_tile)) {
+        return {};
+    }
+    if (protect && observation.boss == BossVitalState::ConfirmedDead) {
         m_boss_dead = true;
     }
     // The actor does not own the user's pause and may not cancel or resume it.
     if (observation.user_paused) {
         return {};
     }
-    if (m_boss_dead || observation.boss != BossVitalState::ConfirmedAlive || !observation.owner_present) {
+    if (m_phase == Phase::AwaitNormalAck || m_phase == Phase::HandingOff) {
+        return {};
+    }
+    if (m_boss_dead || (protect && observation.boss != BossVitalState::ConfirmedAlive) || !observation.owner_present) {
         if ((m_phase == Phase::Verifying || m_phase == Phase::Retreating) && observation.selection_view) {
             return cancel();
         }
@@ -128,7 +194,7 @@ void BlackFlowSummonRetreat::input_result(SummonRetreatAction action, bool succe
     }
     else if (action == SummonRetreatAction::CancelSelection && m_phase == Phase::Cancelling) {
         if (succeeded) {
-            reset_transaction();
+            m_phase = Phase::AwaitNormalAck;
         }
         else {
             m_phase = Phase::Verifying;

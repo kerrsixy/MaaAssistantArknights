@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <queue>
 #include <stack>
 
@@ -18,7 +19,7 @@ namespace blackflow
 class BlackFlowHunterPreludeController;
 class BlackFlowSoulObserver;
 class BlackFlowSummonRetreat;
-}
+} // namespace blackflow
 
 class RoguelikeBattleTaskPlugin : public AbstractRoguelikeTaskPlugin, private BattleHelper
 {
@@ -54,7 +55,7 @@ protected:
     }
 
     virtual void clear() override;
-    bool do_once(const cv::Mat& image, const cv::Mat& image_prev);
+    bool do_once(cv::Mat& image, const cv::Mat& image_prev);
 
     struct DeployPlanInfo
     {
@@ -90,12 +91,14 @@ protected:
                 return oper_order_in_group < x.oper_order_in_group;
             }
             // 未显式指定组内顺序时，同 rank（同一落点位）内先比费用，再比组内排名。
-            // 依据：实测 2511 条 `best deploy is X with rank N`，同一 rank 上维什戴尔（25+ 费）
-            // 与史都华德（19 费）交替出现、每轮都是贵的那位先被选中然后 `waiting for cost` 空转。
+            // 依据：实测 2511 条 `best deploy is X with rank N`，同一 rank
+            // 上维什戴尔（25+ 费） 与史都华德（19
+            // 费）交替出现、每轮都是贵的那位先被选中然后 `waiting for cost` 空转。
             // 原因是组内排名 oper_order_in_group 排在费用前面，而两人的组内排名不同，
             // 费用永远轮不到比较。同一位配多个组时，「谁能先落地」比「作者把谁排在组内第几」更关键。
             // Unknown cost sorts after known positive costs; pairwise conditional
-            // comparisons would violate strict weak ordering when three candidates differ.
+            // comparisons would violate strict weak ordering when three candidates
+            // differ.
             const int known_cost = cost > 0 ? cost : INT_MAX;
             const int other_known_cost = x.cost > 0 ? x.cost : INT_MAX;
             if (known_cost != other_known_cost) {
@@ -108,7 +111,7 @@ protected:
         }
     };
 
-    bool do_best_deploy();
+    bool do_best_deploy(bool allow_soul_inspection = true);
     static bool deployment_cost_wait_required(const battle::DeploymentOper& oper, int observed_cost);
     std::unordered_set<std::string> reconcile_returned_blackflow_operators();
     bool deployment_requirements_met(
@@ -118,7 +121,7 @@ protected:
         const battle::DeploymentOper& oper,
         const battle::roguelike::DeployInfoWithRank& plan) const;
     bool observe_hunter_prelude(const cv::Mat& image, bool normal_battle = true);
-    bool observe_blackflow_souls();
+    bool observe_blackflow_souls(std::optional<Point> required_tile = std::nullopt, cv::Mat* handoff_frame = nullptr);
     bool calc_stage_info();
 
     void all_melee_retreat();
@@ -258,7 +261,8 @@ protected:
     // ==== 漏怪 / 崩盘诊断（只读观测，不改变既有部署策略）====
     // 依据：
     //   1)《敌人机制与 MAA 可观测性盘点》§4「MAA 侧缺什么」：战斗内 MAA 只能读到
-    //      「已击杀 / 敌人总数 / 费用」，读不到敌人血量、攻击类型、元素损伤条，也读不到
+    //      「已击杀 / 敌人总数 /
+    //      费用」，读不到敌人血量、攻击类型、元素损伤条，也读不到
     //      「村民」这类中立单位，因此无法做敌人级反应式决策。
     //   2)《水月肉鸽全地图机制盘点》§5：漏怪集中在窄图（部署格少、蓝门集中）与
     //      多蓝门图的早期费用真空期。

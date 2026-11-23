@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -26,7 +27,9 @@ struct BossBodyEvidence
 };
 
 // Appearance proposes a selection, never a retreat. The battle actor must
-// independently verify the selected unit's exact name and fresh Boss evidence.
+// independently verify the selected exact identity. Boss protection
+// additionally requires fresh Boss evidence; deployment-site inspection has its
+// own intent.
 class BlackFlowSoulObserver
 {
 public:
@@ -35,6 +38,8 @@ public:
     std::vector<Point> souls(const cv::Mat& normal_image, const std::vector<SoulSite>& legal_sites) const;
     bool paused(const cv::Mat& image) const;
     bool retreat_button(const cv::Mat& image, Point expected) const;
+    bool normal_running(const cv::Mat& image) const;
+    std::optional<std::string> battle_end_scene(const cv::Mat& image) const;
 
 private:
     struct Profile
@@ -55,4 +60,4 @@ private:
     cv::Mat m_pause_mask;
     cv::Mat m_retreat_mask;
 };
-}
+} // namespace asst::blackflow

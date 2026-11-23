@@ -14,7 +14,8 @@
 #include "Utils/WorkingDir.hpp"
 #include "Vision/Roguelike/BlackFlow/BlackFlowSoulObserver.h"
 
-bool asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls()
+bool
+    asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls(std::optional<Point> required_tile, cv::Mat* handoff_frame)
 {
     using namespace blackflow;
     using namespace battle;
@@ -23,6 +24,14 @@ bool asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls()
                 << (m_soul_observer ? "exit_requested" : "observer_unavailable");
         return false;
     }
+    if (!m_soul_selection_owned &&
+        ((!required_tile && m_stage_name != "狂热敬虔") || (required_tile && m_stage_name == "狂热敬虔"))) {
+        return false;
+    }
+    const auto intent = m_soul_selection_owned && m_soul_retreat ? m_soul_retreat->intent()
+                        : required_tile                          ? SummonRetreatIntent::ReclaimDeploymentTile
+                                                                 : SummonRetreatIntent::ProtectOwnerFromBoss;
+    const bool reclaim = intent == SummonRetreatIntent::ReclaimDeploymentTile;
     const auto timestamp = [] {
         return static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
@@ -52,6 +61,10 @@ bool asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls()
     std::optional<SummonRetreatObservation> diagnostic_verification;
     std::vector<Point> diagnostic_allowed_sites;
     bool diagnostic_allowed_sites_known = false;
+    if (m_soul_selection_owned && m_soul_retreat) {
+        diagnostic_allowed_sites = m_soul_retreat->allowed_tiles();
+        diagnostic_allowed_sites_known = true;
+    }
     const auto diagnose = [&](const char* reason,
                               const SummonRetreatObservation& observation,
                               const SummonRetreatDecision& decision,
@@ -104,6 +117,8 @@ bool asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls()
               !diagnostic_owner_tile ? json::array {}
                                      : json::array { diagnostic_owner_tile->x, diagnostic_owner_tile->y } },
             { "allowed_sites_known_in_this_invocation", diagnostic_allowed_sites_known },
+            { "intent", reclaim ? "reclaim_deployment_tile" : "protect_owner_from_boss" },
+            { "proposal_source", reclaim ? "required_deployment_tile_inspection" : "soul_appearance" },
             { "allowed_sites", allowed_sites },
             { "candidates", candidates },
             { "boss_state", static_cast<int>(observation.boss) },
@@ -189,6 +204,7 @@ bool asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls()
             auto info = basic_info_with_what("BlackFlowSoulRetreat");
             info["details"] = json::object {
                 { "stage", m_stage_name },
+                { "intent", reclaim ? "reclaim_deployment_tile" : "protect_owner_from_boss" },
                 { "event", event },
                 { "sequence", observation.sequence },
                 { "observed_ms", observation.observed_ms },
@@ -201,13 +217,13 @@ bool asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls()
             };
             callback(AsstMsg::SubTaskExtraInfo, info);
             LogInfo << __FUNCTION__ << info["details"].to_string();
-            const auto directory = UserDir.get() / "BlackFlowEvidence/soul_retreat";
+            const auto directory = UserDir.get() / utils::path("BlackFlowEvidence/soul_retreat");
             std::error_code error;
             std::filesystem::create_directories(directory, error);
             if (!error) {
                 const auto stem = std::to_string(observation.observed_ms) + "-" + std::to_string(observation.sequence);
-                std::ofstream(directory / (stem + ".json"), std::ios::binary) << info.format();
-                MAA_NS::imwrite(directory / (stem + ".png"), frame);
+                std::ofstream(directory / utils::path(stem + ".json"), std::ios::binary) << info.format();
+                MAA_NS::imwrite(directory / utils::path(stem + ".png"), frame);
             }
         };
     const auto observe = [&](const cv::Mat& frame,
@@ -221,47 +237,88 @@ bool asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls()
         observation.observed_ms = captured;
         observation.owner_present = owner_present;
         observation.user_paused = m_soul_observer->paused(frame);
-        observation.selection_view = selected;
-        observation.normal_view = !selected;
+        observation.normal_view = m_soul_observer->normal_running(frame);
         diagnostic_speculative_soul_count = 0;
         diagnostic_speculative_souls_discarded = false;
-        if (!observation.user_paused && !cleanup) {
+        std::future<BossBodyEvidence> boss_future;
+        if (!observation.user_paused && !cleanup && !reclaim && (selected || observation.normal_view)) {
             const auto* observer = m_soul_observer.get();
-            // A cv::Mat value retains this exact frame through join. Only the
-            // immutable observer calculation may run off the battle thread.
-            // Deferred execution is a safe serial fallback if no worker is available.
-            auto boss_future = std::async(std::launch::async | std::launch::deferred, [observer, frame, selected] {
+            boss_future = std::async(std::launch::async | std::launch::deferred, [observer, frame, selected] {
                 return observer->boss(frame, selected);
             });
-            std::vector<Point> speculative_souls;
-            if (selected) {
+        }
+        if (!observation.user_paused && selected && !observation.normal_view) {
+            observation.retreat_button_present = m_soul_observer->retreat_button(frame, m_retreat_button_pos);
+            if (!cleanup) {
                 observation.selected_name = analyze_detail_page_oper_name(frame, Role::Unknown);
                 const auto ids = BattleData.get_ids(Role::Drone, observation.selected_name);
                 if (ids.size() == 1) {
                     observation.selected_id = ids.front();
                 }
-                observation.retreat_button_present = m_soul_observer->retreat_button(frame, m_retreat_button_pos);
             }
-            else if (normal_sites != nullptr) {
-                speculative_souls = m_soul_observer->souls(frame, *normal_sites);
-                diagnostic_speculative_soul_count = speculative_souls.size();
+            observation.selection_view = observation.retreat_button_present || !observation.selected_name.empty();
+        }
+        std::vector<Point> proposals;
+        if (!observation.user_paused && !cleanup && observation.normal_view && normal_sites != nullptr) {
+            if (reclaim) {
+                // A requested tile is a proposal to inspect, not a visual claim
+                // that a Soul occupies it. Only the selected exact identity can
+                // ever authorize retreat. Empty tiles yield back to deployment.
+                for (const auto& site : *normal_sites) {
+                    proposals.push_back(site.tile);
+                }
             }
-            // No observation, authorization or input is published before get().
-            // Future destruction also waits if main-thread perception unwinds.
+            else {
+                proposals = m_soul_observer->souls(frame, *normal_sites);
+                diagnostic_speculative_soul_count = proposals.size();
+            }
+        }
+        if (boss_future.valid()) {
             diagnostic_boss = boss_future.get();
             diagnostic_boss_sequence = observation.sequence;
             observation.boss = diagnostic_boss->alive() ? BossVitalState::ConfirmedAlive : BossVitalState::Unknown;
-            if (!selected && observation.boss == BossVitalState::ConfirmedAlive) {
-                observation.candidates = std::move(speculative_souls);
-            }
-            else if (!selected) {
-                diagnostic_speculative_souls_discarded = !speculative_souls.empty();
-            }
         }
-        // This is completion time of both same-frame computations, not a new
-        // observation origin. The pre-get_image observed_ms is unchanged.
+        if (reclaim || observation.boss == BossVitalState::ConfirmedAlive) {
+            observation.candidates = std::move(proposals);
+        }
+        else {
+            diagnostic_speculative_souls_discarded = !proposals.empty();
+        }
         observation.received_ms = timestamp();
         return observation;
+    };
+    const auto acknowledge_normal = [&](SummonRetreatObservation& observation, cv::Mat& frame) {
+        if (handoff_frame == nullptr || !observation.normal_view || observation.user_paused ||
+            observation.received_ms - observation.observed_ms > 500) {
+            return false;
+        }
+        const auto first_observed = observation.observed_ms;
+        m_soul_retreat->acknowledge_normal(observation);
+        diagnose("normal_ack_first", observation, {}, frame);
+        if (!sleep(100) || need_exit()) {
+            return false;
+        }
+        const auto captured = timestamp();
+        frame = ctrler()->get_image();
+        observation = observe(frame, captured, true, true);
+        if (!m_soul_retreat->acknowledge_normal(observation)) {
+            diagnose("normal_ack_second_unqualified", observation, {}, frame);
+            return false;
+        }
+        diagnose("normal_ack_confirmed", observation, {}, frame);
+        *handoff_frame = frame;
+        auto info = basic_info_with_what("BlackFlowSoulUiNormalAck");
+        info["details"] = json::object {
+            { "stage", m_stage_name },
+            { "intent", reclaim ? "reclaim_deployment_tile" : "protect_owner_from_boss" },
+            { "positive_normal_frames", 2 },
+            { "first_observed_ms", first_observed },
+            { "second_observed_ms", observation.observed_ms },
+            { "lease_held_until_fresh_deployment_bar", true },
+            { "removal_confirmed", false },
+        };
+        callback(AsstMsg::SubTaskExtraInfo, info);
+        return true;
     };
     if (!m_soul_selection_owned) {
         if (!owner_present || direction == m_observed_deploy_directions.end() || elite == m_oper_elite.end() ||
@@ -288,6 +345,9 @@ bool asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls()
         std::vector<Point> allowed;
         for (const auto& relative : get_attack_range(oper, direction->second)) {
             const auto tile = deployed->second + relative;
+            if (reclaim && (!required_tile || tile != *required_tile)) {
+                continue;
+            }
             const auto position = m_normal_tile_info.find(tile);
             if (tile == deployed->second || position == m_normal_tile_info.end() ||
                 position->second.buildable == LocationType::None ||
@@ -296,6 +356,9 @@ bool asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls()
             }
             sites.push_back({ tile, position->second.pos });
             allowed.emplace_back(tile);
+        }
+        if (reclaim && sites.size() != 1) {
+            return false;
         }
         diagnostic_allowed_sites = allowed;
         diagnostic_allowed_sites_known = true;
@@ -307,7 +370,11 @@ bool asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls()
             diagnose("normal_user_paused", observation, {}, frame);
             return true;
         }
-        if (observation.boss != BossVitalState::ConfirmedAlive) {
+        if (!observation.normal_view) {
+            diagnose("normal_ui_unqualified", observation, {}, frame);
+            return false;
+        }
+        if (!reclaim && observation.boss != BossVitalState::ConfirmedAlive) {
             diagnose("normal_boss_not_confirmed_alive", observation, {}, frame);
             return false;
         }
@@ -320,7 +387,8 @@ bool asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls()
             "魂灵之影",
             "token_10035_wisdel_wward",
             deployed->second,
-            std::move(allowed));
+            std::move(allowed),
+            intent);
         const auto decision = m_soul_retreat->observe(observation);
         if (decision.action != SummonRetreatAction::Select || !decision.tile ||
             !m_soul_retreat->authorized(decision.action) || need_exit()) {
@@ -334,15 +402,32 @@ bool asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls()
         m_soul_selection_owned = accepted;
         record("select", observation, accepted, frame);
         diagnose("select_input_receipt", observation, decision, frame, accepted);
-        if (!accepted || !sleep(200) || need_exit()) {
-            return accepted;
+        if (accepted) {
+            sleep(200);
         }
+        // Resume only from the next do_once capture, including an empty-tile
+        // inspection. Its handoff must refresh card positions before dragging.
+        return accepted;
     }
     const auto captured = timestamp();
     const auto frame = ctrler()->get_image();
     auto evidence_frame = frame;
-    auto observation = observe(frame, captured, true, false);
-    auto decision = m_soul_retreat->observe(observation);
+    if (!m_soul_retreat) {
+        LogWarn << __FUNCTION__ << "Owned Soul UI lost its transaction context";
+        return true;
+    }
+    auto observation =
+        observe(frame, captured, true, m_soul_retreat->awaiting_normal_ack() || m_soul_retreat->handoff_pending());
+    if (observation.normal_view) {
+        if (acknowledge_normal(observation, evidence_frame)) {
+            // This only proves that our panel is closed. An ordinary deployment
+            // still needs its existing independent placement verification.
+            return false;
+        }
+        return true;
+    }
+    auto decision = m_soul_retreat->awaiting_normal_ack() ? m_soul_retreat->abandon(observation)
+                                                          : m_soul_retreat->observe(observation);
     if (observation.user_paused || need_exit()) {
         // Keep ownership so a later running frame can finish or cancel. Never
         // dismiss the selection or resume a pause introduced by the user.
@@ -351,13 +436,18 @@ bool asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls()
     }
     if (decision.action == SummonRetreatAction::None) {
         // OCR failure or an expired analysis grants no input. Reobserve a fresh
-        // frame with Unknown Boss evidence to cancel only our own selection.
+        // selected panel before abandoning only our own UI transaction.
         diagnostic_verification = observation;
         const auto cleanup_captured = timestamp();
-        const auto cleanup = ctrler()->get_image();
-        evidence_frame = cleanup;
-        observation = observe(cleanup, cleanup_captured, true, true);
-        decision = m_soul_retreat->observe(observation);
+        evidence_frame = ctrler()->get_image();
+        observation = observe(evidence_frame, cleanup_captured, true, true);
+        if (observation.normal_view) {
+            if (acknowledge_normal(observation, evidence_frame)) {
+                return false;
+            }
+            return true;
+        }
+        decision = m_soul_retreat->abandon(observation);
         if (observation.user_paused || need_exit()) {
             diagnose("cleanup_user_paused_or_exit", observation, decision, evidence_frame);
             return true;
@@ -374,26 +464,12 @@ bool asst::RoguelikeBattleTaskPlugin::observe_blackflow_souls()
         m_soul_retreat->input_result(decision.action, accepted);
         record("retreat_current_selection", observation, accepted, evidence_frame);
         diagnose("retreat_input_receipt", observation, decision, evidence_frame, accepted);
-        if (accepted) {
-            m_soul_selection_owned = false;
-            m_soul_retreat.reset();
-            SummonRetreatObservation after_observation;
-            after_observation.sequence = ++m_soul_sequence;
-            after_observation.observed_ms = timestamp();
-            const auto after = ctrler()->get_image();
-            after_observation.received_ms = timestamp();
-            record("after_input_unverified", after_observation, accepted, after);
-        }
     }
     else if (decision.action == SummonRetreatAction::CancelSelection) {
         const bool accepted = cancel_oper_selection();
         m_soul_retreat->input_result(decision.action, accepted);
         record("cancel_owned_selection", observation, accepted, evidence_frame);
         diagnose("cancel_input_receipt", observation, decision, evidence_frame, accepted);
-        if (accepted) {
-            m_soul_selection_owned = false;
-            m_soul_retreat.reset();
-        }
     }
     return true;
 }

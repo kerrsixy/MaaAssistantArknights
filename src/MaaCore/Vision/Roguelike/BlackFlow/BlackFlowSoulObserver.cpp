@@ -6,6 +6,7 @@
 
 #include "MaaUtils/ImageIo.h"
 #include "MaaUtils/NoWarningCV.hpp"
+#include "Vision/Matcher.h"
 
 using namespace asst::blackflow;
 
@@ -79,7 +80,11 @@ bool BlackFlowSoulObserver::retreat_button(const cv::Mat& image, Point expected)
             mask[x] = value >= 120 && value - green >= 45 && value - blue >= 45 ? 1.0F : 0.0F;
         }
     }
-    for (const double scale : { 0.85, 1.0, 1.15 }) {
+    // A half-pixel change on this 50px glyph already changes its binary edge.
+    // Search the same scale bounds at that resolution, without lowering Dice.
+    for (int step = 0; step <= 30; ++step) {
+        const int offset = step == 0 ? 0 : (step % 2 == 0 ? step / 2 : -(step + 1) / 2);
+        const double scale = 1.0 + offset * 0.01;
         cv::Mat glyph, intersection, occupancy;
         cv::resize(m_retreat_mask, glyph, {}, scale, scale, cv::INTER_NEAREST);
         glyph.convertTo(glyph, CV_32FC1, 1.0 / 255.0);
@@ -97,6 +102,46 @@ bool BlackFlowSoulObserver::retreat_button(const cv::Mat& image, Point expected)
         }
     }
     return false;
+}
+
+std::optional<std::string> BlackFlowSoulObserver::battle_end_scene(const cv::Mat& image) const
+{
+    if (!m_ready || image.type() != CV_8UC3 || image.cols != 1280 || image.rows != 720) {
+        return std::nullopt;
+    }
+    for (const auto* task : { "BlackFlow@Roguelike@MissionCompletedFlag",
+                              "BlackFlow@Roguelike@MissionFailedFlag",
+                              "BlackFlow@Roguelike@MissionFailedFlag2" }) {
+        asst::Matcher matcher(image);
+        matcher.set_task_info(task);
+        if (matcher.analyze()) {
+            return task;
+        }
+    }
+    return std::nullopt;
+}
+
+bool BlackFlowSoulObserver::normal_running(const cv::Mat& image) const
+{
+    if (!m_ready || image.type() != CV_8UC3 || image.cols != 1280 || image.rows != 720 || paused(image)) {
+        return false;
+    }
+    // Both speed glyphs disappear in a selected-unit panel. Match their actual
+    // shapes instead of treating a missing panel/name as proof of normal view.
+    asst::Matcher speed(image);
+    speed.set_roi({ 1060, 20, 80, 70 });
+    speed.set_threshold(0.9);
+    speed.set_method(asst::MatchMethod::Ccoeff);
+    speed.set_templ("Battle/BattleFlag/BattleSpeedUpCheck.png");
+    if (!speed.analyze()) {
+        speed.set_templ("Battle/BattleFlag/BattleSpeedUp.png");
+        if (!speed.analyze()) {
+            return false;
+        }
+    }
+    asst::Matcher counter(image);
+    counter.set_task_info("BattleKillsFlag");
+    return counter.analyze().has_value();
 }
 
 bool BlackFlowSoulObserver::paused(const cv::Mat& image) const
@@ -272,4 +317,3 @@ std::vector<asst::Point>
     }
     return result;
 }
-
