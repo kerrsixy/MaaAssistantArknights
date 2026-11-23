@@ -129,8 +129,8 @@
             "BlackFlow@Roguelike@AccountHome",
             "BlackFlow@Roguelike@AccountFloorIntro",
             "BlackFlow@Roguelike@AccountMapReturn",
-            "BlackFlow@Roguelike@AccountHome@ReturnButtons#next",
-            "BlackFlow@Roguelike@AccountHome@QuickSwitch@ToHome#next"
+            "BlackFlow@Roguelike@AccountHome@QuickSwitch@ToHome#next",
+            "BlackFlow@Roguelike@AccountHome@ReturnButtons#next"
         ]
     },
     "BlackFlow@Roguelike@ResumeSavedExploration": {
