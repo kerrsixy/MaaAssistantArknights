@@ -241,6 +241,28 @@ inline std::vector<BoardCell> estimate_five_by_three_boss_footprint(BoardCell ce
     return cells;
 }
 
+inline BossInterception boss_interception_for_solo(
+    const BossObjective& boss,
+    std::string_view map_id,
+    const std::vector<BoardCell>& deployable_ground_route)
+{
+    if (boss.possible_enemy_ids.size() != 1 || boss.possible_enemy_ids.front() != "enemy_2124_dyjsfg" ||
+        boss.stationary_route) {
+        return {};
+    }
+    // 矩兽's resistance drops when stopped. Plan for two blocks so a
+    // baseline single-block actor does not get credit through Overload.
+    BossInterception result { boss.movement_waypoints, 2 };
+    if (map_id == "m03" && std::ranges::find(result.cells, BoardCell { 3, 4 }) != result.cells.end()) {
+        // The D7 battle showed the west approach to this checkpoint at (4,4).
+        result.cells.emplace_back(4, 4);
+    }
+    std::erase_if(result.cells, [&](BoardCell cell) {
+        return std::ranges::find(deployable_ground_route, cell) == deployable_ground_route.end();
+    });
+    return result;
+}
+
 // Use a shared spawn only for a registered solo board.
 inline std::vector<BoardCell> estimate_solo_stationary_boss_footprint(const BossObjective& objective)
 {

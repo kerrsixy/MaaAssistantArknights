@@ -366,6 +366,81 @@ int main()
     assert(route_sequence.steps.size() == 1 && deployment_change_worth_input(route_plan, route_sequence));
     assert(review_deployment(route_plan.units, one_lane, attack_posts).lanes.front().blocker == patrol_guard.id);
 
+    const auto sand_boss = terrain_layout_model("m03", true);
+    assert(sand_boss);
+    const auto matrix = boss_objective("矩兽", { 2, 4 }, 7, false);
+    const auto sand_interception = boss_interception_for_solo(matrix, "m03", sand_boss->ground_route);
+    assert(sand_interception.required_block_count == 2);
+    assert(std::ranges::find(sand_interception.cells, BoardCell { 3, 4 }) != sand_interception.cells.end());
+    assert(std::ranges::find(sand_interception.cells, BoardCell { 4, 4 }) != sand_interception.cells.end());
+    assert(boss_interception_for_solo(boss_objective("假想敌：铳", { 2, 4 }, 7, false), "m03", sand_boss->ground_route)
+               .cells.empty());
+
+    // The moving boss starts east of the attacker. Its stop to the west is
+    // preferable only when a suitable blocker can actually occupy that tile.
+    auto intercept_guard = patrol_guard;
+    intercept_guard.block_count = 2;
+    auto intercept_attacker = main_output;
+    intercept_attacker.cell = { 4, 1 };
+    intercept_attacker.placement_cells = { intercept_attacker.cell };
+    intercept_attacker.facing = 'E';
+    intercept_attacker.local_range = { { 1, 0 } };
+    const auto plan_interception = [&](const DeploymentUnit& blocker, const BossInterception& interception) {
+        return propose_deployment(
+            { blocker, intercept_attacker },
+            one_lane,
+            { blocker.cell, intercept_attacker.cell },
+            96,
+            {},
+            { { 5, 1 } },
+            { blocker.cell },
+            {},
+            1,
+            std::nullopt,
+            false,
+            interception);
+    };
+    const BossInterception stop { { intercept_guard.cell }, 2 };
+    const auto stop_plan = plan_interception(intercept_guard, stop);
+    assert(stop_plan.input_complete && stop_plan.units.back().facing == 'W');
+    assert(stop_plan.boss_interception_attack_improvement > 0);
+    assert(deployment_change_worth_input(
+        stop_plan,
+        sequence_deployment({ intercept_guard, intercept_attacker }, stop_plan.units)));
+    assert(plan_interception(intercept_guard, {}).units.back().facing == 'E');
+    intercept_guard.block_count = 1;
+    assert(plan_interception(intercept_guard, stop).units.back().facing == 'E');
+
+    // Registered field after the D7 m03 rearrangement. The two right-side
+    // spellcasters could not fire on the long contact near the blue gate.
+    std::vector<DeploymentUnit> d7_matrix {
+        member("凛御银灰", { 9, 4 }, 'N', true, PlacementRole::Frontline, *sand_boss),
+        member("初雪", { 7, 3 }, 'E', true, PlacementRole::Ranged, *sand_boss),
+        member("哈洛德", { 7, 2 }, 'W', false, PlacementRole::Healer, *sand_boss),
+        member("圣聆初雪", { 4, 3 }, 'E', false, PlacementRole::Ranged, *sand_boss),
+        member("星源", { 8, 3 }, 'W', false, PlacementRole::Ranged, *sand_boss),
+        member("极光", { 5, 4 }, 'E', false, PlacementRole::Frontline, *sand_boss),
+        member("灵知", { 4, 4 }, 'E', false, PlacementRole::Ranged, *sand_boss),
+        member("空弦", { 3, 3 }, 'E', false, PlacementRole::Ranged, *sand_boss),
+    };
+    d7_matrix[1].facing_known = false;
+    const auto d7_intercept_plan = propose_deployment(
+        d7_matrix,
+        active_preparation_lanes(*sand_boss, 14),
+        sand_boss->buildable,
+        4000,
+        {},
+        matrix.possible_cells,
+        matrix.movement_waypoints,
+        {},
+        8,
+        std::nullopt,
+        false,
+        sand_interception);
+    assert(d7_intercept_plan.boss_interception_attack_improvement > 0);
+    const auto d7_intercept_sequence = sequence_deployment(d7_matrix, d7_intercept_plan.units);
+    assert(deployment_change_worth_input(d7_intercept_plan, d7_intercept_sequence));
+
     // Regulation 4 R14 plan at 09:58:46. Replay the registered cells and
     // verified forms with season ranges, independent of the live boss pose.
     std::vector<DeploymentUnit> d4_ready {

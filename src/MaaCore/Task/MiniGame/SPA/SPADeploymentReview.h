@@ -100,6 +100,13 @@ struct DeploymentProposal
     int boss_sustained_attack_improvement = 0;
     int boss_early_contact_floor_improvement = 0;
     int boss_early_contact_sum_improvement = 0;
+    int boss_interception_attack_improvement = 0;
+};
+
+struct BossInterception
+{
+    std::vector<BoardCell> cells;
+    int required_block_count = 0;
 };
 
 // Distinct friendly patients covered by a different healer's measured range.
@@ -127,7 +134,8 @@ DeploymentProposal propose_deployment(
     const std::function<int(const std::vector<DeploymentUnit>&)>& preparation_growth_preference = {},
     std::optional<int> available_input_steps = std::nullopt,
     const std::optional<DeploymentUnit>& fixed_healer = std::nullopt,
-    bool prefer_supported_reserve = false);
+    bool prefer_supported_reserve = false,
+    const BossInterception& boss_interception = {});
 
 enum class DeploymentStepKind
 {

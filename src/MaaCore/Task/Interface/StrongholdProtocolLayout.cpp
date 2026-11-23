@@ -319,6 +319,9 @@ asst::StrongholdProtocolTask::BossOpeningTarget asst::StrongholdProtocolTask::bo
                 m_difficulty,
                 m_spatial_boss_hidden_variant);
             target.movement_waypoints = boss.movement_waypoints;
+            if (m_spatial_boss_hidden_variant == false) {
+                target.interception = spa::boss_interception_for_solo(boss, m_spatial_map_id, terrain->ground_route);
+            }
             if (target.cells.empty()) {
                 const auto spawn =
                     boss.possible_cells.size() == 1 ? std::optional(boss.possible_cells.front()) : std::nullopt;
@@ -530,6 +533,9 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
     }
     for (const auto& [col, row] : movement_waypoints) {
         boss_context += "#boss-waypoint:" + std::to_string(col) + "." + std::to_string(row);
+    }
+    for (const auto& [col, row] : boss_target.interception.cells) {
+        boss_context += "#boss-interception:" + std::to_string(col) + "." + std::to_string(row);
     }
     std::string pact_context;
     if (boss_round) {
@@ -801,10 +807,15 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         preparation_growth,
         available_input_steps,
         field_medical_support,
-        !m_spatial_boss_phase && round < m_expected_boss_round);
+        !m_spatial_boss_phase && round < m_expected_boss_round,
+        boss_target.interception);
     json::array movement_targets;
     for (const auto& [col, row] : movement_waypoints) {
         movement_targets.emplace_back(json::object { { "col", col }, { "row", row } });
+    }
+    json::array interception_targets;
+    for (const auto& [col, row] : boss_target.interception.cells) {
+        interception_targets.emplace_back(json::object { { "col", col }, { "row", row } });
     }
     const auto freeze_before =
         spa::freeze_growth_coverage(current, m_layout_lanes, cold_sources, freeze_stackers, skill_freeze_sources);
@@ -848,6 +859,8 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         { "boss_early_contact_floor_improvement", proposal.boss_early_contact_floor_improvement },
         { "boss_early_contact_sum_improvement", proposal.boss_early_contact_sum_improvement },
         { "boss_movement_waypoints", std::move(movement_targets) },
+        { "boss_interception_candidates", std::move(interception_targets) },
+        { "boss_interception_attack_improvement", proposal.boss_interception_attack_improvement },
         { "boss_movement_coverage_improvement", proposal.boss_movement_coverage_improvement },
         { "boss_uncovered_waypoints_improvement", proposal.boss_uncovered_waypoints_improvement },
         { "boss_weakest_waypoint_improvement", proposal.boss_weakest_waypoint_improvement },

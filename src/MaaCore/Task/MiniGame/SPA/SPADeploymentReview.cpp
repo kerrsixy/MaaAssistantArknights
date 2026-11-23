@@ -417,6 +417,26 @@ int sustained_boss_attack_weight(int opening, int supported)
     return opening + 4 * supported;
 }
 
+int boss_interception_attack_weight(
+    const std::vector<DeploymentUnit>& units,
+    const BossInterception& interception,
+    const std::optional<DeploymentUnit>& fixed_healer)
+{
+    if (interception.cells.empty()) {
+        return 0;
+    }
+    int best = 0;
+    for (const auto& unit : units) {
+        if (!unit.frontline || !unit.holds_position || unit.block_count < interception.required_block_count ||
+            std::ranges::find(interception.cells, unit.cell) == interception.cells.end()) {
+            continue;
+        }
+        const auto [attack, supported] = boss_attack_weights(units, std::span(&unit.cell, 1), fixed_healer);
+        best = std::max(best, sustained_boss_attack_weight(attack, supported));
+    }
+    return best;
+}
+
 struct BossRouteCoverage
 {
     int first_weight = 0;
@@ -467,7 +487,8 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
     const std::function<int(const std::vector<DeploymentUnit>&)>& preparation_growth_preference,
     std::optional<int> available_input_steps,
     const std::optional<DeploymentUnit>& fixed_healer,
-    bool prefer_supported_reserve)
+    bool prefer_supported_reserve,
+    const BossInterception& boss_interception)
 {
     DeploymentProposal result;
     const auto initial = review_deployment(units, lanes, deployable_cells, fixed_healer);
@@ -495,6 +516,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
     {
         int unblocked_lanes = 0;
         int exposed_support = 0;
+        int boss_interception_attack_cost = 0;
         bool boss_opening_uncovered = false;
         bool boss_first_contact_uncovered = false;
         int boss_uncovered_waypoints = 0;
@@ -575,6 +597,8 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         return CandidateScore {
             .unblocked_lanes = unblocked,
             .exposed_support = review.exposed_support_units,
+            .boss_interception_attack_cost =
+                -boss_interception_attack_weight(candidate, boss_interception, fixed_healer),
             .boss_opening_uncovered = has_early_boss_positions && boss_sustained_attack_weight == 0,
             .boss_first_contact_uncovered = has_early_boss_positions && route.first_weight == 0,
             .boss_uncovered_waypoints = route.uncovered_waypoints,
@@ -734,6 +758,8 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         initial_score.boss_early_contact_floor_cost - best_score.boss_early_contact_floor_cost;
     result.boss_early_contact_sum_improvement =
         initial_score.boss_early_contact_sum_cost - best_score.boss_early_contact_sum_cost;
+    result.boss_interception_attack_improvement =
+        initial_score.boss_interception_attack_cost - best_score.boss_interception_attack_cost;
     result.boss_coverage_improvement = stationary_boss_attack_weight(result.units, opening_boss_cells) -
                                        stationary_boss_attack_weight(units, opening_boss_cells);
     result.boss_estimated_attack_improvement = initial_score.boss_opening_cost - best_score.boss_opening_cost;
@@ -784,7 +810,8 @@ bool asst::spa::deployment_change_worth_input(const DeploymentProposal& proposal
         proposal.blocking_capacity_improvement > 0 || proposal.first_block_capacity_improvement > 0 ||
         proposal.boss_movement_coverage_improvement > 0 || proposal.boss_uncovered_waypoints_improvement > 0 ||
         proposal.boss_weakest_waypoint_improvement > 0 || proposal.boss_sustained_attack_improvement > 0 ||
-        proposal.boss_early_contact_floor_improvement > 0 || proposal.boss_early_contact_sum_improvement > 0) {
+        proposal.boss_early_contact_floor_improvement > 0 || proposal.boss_early_contact_sum_improvement > 0 ||
+        proposal.boss_interception_attack_improvement > 0) {
         return true;
     }
     if (proposal.supported_reserve_lanes_improvement > 0 &&

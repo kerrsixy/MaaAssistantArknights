@@ -167,6 +167,7 @@ private:
     {
         std::vector<spa::BoardCell> cells;
         std::vector<spa::BoardCell> movement_waypoints;
+        spa::BossInterception interception;
         std::string source = "unknown";
         bool measured = false;
     };
