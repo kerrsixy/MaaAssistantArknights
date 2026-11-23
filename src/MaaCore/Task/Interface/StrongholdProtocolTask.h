@@ -101,6 +101,7 @@ private:
         const spa::OwnedOperator& owned,
         const spa::PreparationPolicy* context = nullptr) const;
     int replacement_lineup_context_value(const std::vector<spa::ReplacementMember>& lineup) const;
+    bool verified_elite_clone_on_bench(const std::string& name, const spa::OwnedOperator& owned) const;
     std::pair<std::vector<spa::ReplacementMember>, std::vector<spa::ReplacementMember>> replacement_inputs() const;
     bool handle_full_bench_sale(
         const json::value& state,

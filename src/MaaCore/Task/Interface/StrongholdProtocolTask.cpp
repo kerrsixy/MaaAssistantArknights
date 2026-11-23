@@ -834,7 +834,8 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
         const auto& target = m_policy.owned.at(outgoing);
         const bool incoming_has_bench_copy =
             !source.deployed ||
-            (!source.elite && source.copies > static_cast<int>(m_auto_deploy_positions.count(incoming)));
+            (!source.elite && source.copies > static_cast<int>(m_auto_deploy_positions.count(incoming))) ||
+            verified_elite_clone_on_bench(incoming, source);
         if (source.copies <= 0 || target.copies <= 0 || !incoming_has_bench_copy || !target.deployed) {
             return false;
         }
@@ -1654,6 +1655,12 @@ asst::spa::ReplacementMember asst::StrongholdProtocolTask::replacement_member(
     });
     result.value =
         (fact == spa::OperatorCatalogue.end() ? 0 : fact->tier * spa::ReplacementTierValue) + (owned.elite ? 350 : 0);
+    if (m_selected_strategy_id == "band_copy" && !m_strategy_copy_unverified && name == m_strategy_copy_target &&
+        forms && forms->initial == 0 && forms->elite >= 2) {
+        // The second physical body has its base value. Active pact and
+        // strategy preferences are applied through distinct names below.
+        result.repeated_body_value = result.value;
+    }
     result.egir_material_tier = fact == spa::OperatorCatalogue.end() ? 0 : fact->tier;
     if (policy.primary_locked_after_activation && spa::belongs_to_planned_lineup(name, policy, pacts)) {
         result.value += 1200;
@@ -1711,6 +1718,20 @@ int asst::StrongholdProtocolTask::replacement_lineup_context_value(
     return value;
 }
 
+bool asst::StrongholdProtocolTask::verified_elite_clone_on_bench(
+    const std::string& name,
+    const spa::OwnedOperator& owned) const
+{
+    if (m_selected_strategy_id != "band_copy" || m_strategy_copy_unverified || name != m_strategy_copy_target ||
+        !spa::elite_copy_available_for_replacement(owned, static_cast<int>(m_auto_deploy_positions.count(name)))) {
+        return false;
+    }
+    const auto [begin, end] = m_auto_deploy_positions.equal_range(name);
+    return std::all_of(begin, end, [&](const auto& body) {
+        return m_verified_field_pose_points.contains(body.second);
+    });
+}
+
 std::pair<std::vector<asst::spa::ReplacementMember>, std::vector<asst::spa::ReplacementMember>>
     asst::StrongholdProtocolTask::replacement_inputs() const
 {
@@ -1754,7 +1775,8 @@ std::pair<std::vector<asst::spa::ReplacementMember>, std::vector<asst::spa::Repl
                 }
             }
         }
-        if ((!owned.deployed || (!owned.elite && owned.copies > static_cast<int>(count) && count > 0)) &&
+        if ((!owned.deployed || (!owned.elite && owned.copies > static_cast<int>(count) && count > 0) ||
+             verified_elite_clone_on_bench(name, owned)) &&
             spa::owned_form_counts(owned)) {
             bench.push_back(replacement_member(name, owned));
         }
@@ -2108,8 +2130,10 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
         }
     }
     options["placement_units"] = std::move(placed);
-    const auto incoming_forms = spa::owned_form_counts(m_policy.owned.at(choice.incoming));
-    options["verify_source_form"] = incoming_forms && incoming_forms->initial > 0 && incoming_forms->elite > 0;
+    const auto& incoming_roster = m_policy.owned.at(choice.incoming);
+    const auto incoming_forms = spa::owned_form_counts(incoming_roster);
+    options["verify_source_form"] = (incoming_forms && incoming_forms->initial > 0 && incoming_forms->elite > 0) ||
+                                    verified_elite_clone_on_bench(choice.incoming, incoming_roster);
     auto exchange = std::make_shared<spa::SwapTaskPlugin>(m_callback, m_inst, TaskType);
     exchange->use_bench_identity_hints(m_inventory_operator_hints);
     exchange->set_retry_times(0);

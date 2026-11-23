@@ -1349,6 +1349,14 @@ int main()
     assert(!replacement_outgoing_identity_trackable(true, 2, 2));
     assert(!replacement_outgoing_identity_trackable(true, 1, 0));
     assert(!replacement_outgoing_identity_trackable(false, 0, 0));
+    const OwnedOperator double_elite { 2, true, true, OperatorFormCounts { 0, 2 } };
+    const OwnedOperator elite_with_spare_initial { 2, true, true, OperatorFormCounts { 1, 1 } };
+    const OwnedOperator legacy_unknown_elite_copies { 2, true, true };
+    assert(elite_copy_available_for_replacement(double_elite, 1));
+    assert(!elite_copy_available_for_replacement(double_elite, 0));
+    assert(!elite_copy_available_for_replacement(double_elite, 2));
+    assert(!elite_copy_available_for_replacement(elite_with_spare_initial, 1));
+    assert(!elite_copy_available_for_replacement(legacy_unknown_elite_copies, 1));
     // A dollkeeper is a ground relay, not a guaranteed interceptor. Keep
     // Ghost guarding both routes while replacing an off-route ranged filler.
     std::vector<ReplacementMember> doll_relay_field {
@@ -2868,6 +2876,21 @@ int main()
     elite_transition[2].replaceable = replacement_outgoing_identity_trackable(true, 2, 2);
     assert(!choose_replacement("萨尔贡", elite_transition, { { "森蚺", PlacementRole::Frontline, { "萨尔贡" }, 1400 } })
                 .found);
+    auto copy_board = elite_transition;
+    copy_board[2].replaceable = true;
+    ReplacementMember qiubai_clone { "仇白", PlacementRole::Frontline, { "炎" }, 6000 };
+    auto existing_qiubai = qiubai_clone;
+    existing_qiubai.x = 536;
+    existing_qiubai.y = 425;
+    copy_board.push_back(existing_qiubai);
+    assert(!choose_replacement("炎", copy_board, { qiubai_clone }).found);
+    qiubai_clone.repeated_body_value = 830;
+    copy_board.back().repeated_body_value = 830;
+    const auto copy_swap = choose_replacement("炎", copy_board, { qiubai_clone });
+    assert(copy_swap.found && copy_swap.incoming == "仇白" && copy_swap.outgoing == "杰克");
+    assert(replacement_primary_members(copy_board, "炎") == 1);
+    copy_board[2] = qiubai_clone;
+    assert(replacement_primary_members(copy_board, "炎") == 1);
     const auto alternate_target = choose_replacement(
         "萨尔贡",
         transition_board,

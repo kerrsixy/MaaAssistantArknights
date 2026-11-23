@@ -46,6 +46,7 @@ struct ReplacementMember
     bool melee_only = false;
     bool ranged_only_cell = false;
     char facing = '\0';
+    int repeated_body_value = 0;
 };
 
 inline bool replacement_blocks_ground(const ReplacementMember& member)
@@ -503,6 +504,13 @@ inline bool replacement_outgoing_identity_trackable(bool elite, int owned_copies
     return owned_copies > 0 && field_copies == owned_copies && (!elite || owned_copies == 1);
 }
 
+inline bool elite_copy_available_for_replacement(const OwnedOperator& owned, int verified_field_copies)
+{
+    const auto forms = owned_form_counts(owned);
+    return owned.deployed && verified_field_copies > 0 && forms && forms->initial == 0 &&
+           forms->elite > verified_field_copies;
+}
+
 inline int replacement_primary_members(const std::vector<ReplacementMember>& field, const std::string& primary)
 {
     std::set<std::string> distinct;
@@ -545,9 +553,14 @@ inline int replacement_lineup_value(const std::vector<ReplacementMember>& field,
 {
     std::map<std::string, int> distinct_values;
     int egir_material = 0;
+    int repeated_bodies = 0;
     int blockers = 0, ranged = 0, healers = 0;
     for (const auto& member : field) {
-        distinct_values[member.name] = std::max(distinct_values[member.name], member.value);
+        const auto [distinct, first] = distinct_values.try_emplace(member.name, std::max(0, member.value));
+        if (!first) {
+            distinct->second = std::max(distinct->second, member.value);
+            repeated_bodies += member.repeated_body_value;
+        }
         if (primary == "阿戈尔" && member.egir_material_tier >= 1 && member.egir_material_tier <= 6 &&
             std::find(member.pacts.begin(), member.pacts.end(), primary) != member.pacts.end()) {
             // Every physical Egir body can extend consumption, including a
@@ -589,7 +602,8 @@ inline int replacement_lineup_value(const std::vector<ReplacementMember>& field,
         rule != rules.end() && rule->core && rule->advanced_members > 0 && distinct_primary >= rule->advanced_members
             ? 2400
             : 0;
-    return value + primary_members * 400 + (primary_members >= 3 ? 5000 + egir_material : 0) + advanced;
+    return value + repeated_bodies + primary_members * 400 + (primary_members >= 3 ? 5000 + egir_material : 0) +
+           advanced;
 }
 
 inline PreparationPolicy
