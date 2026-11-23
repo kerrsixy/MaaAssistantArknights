@@ -1,0 +1,95 @@
+{
+    "stage_name": "物欲遮天",
+    "doc": [
+        "run52 phase79本关已任务完成但4→1损失3耐久；此前无专用作业。本候选仅离线，未安装/未实胜。图ro6_n_5_2，12x8，原始96格与TilePack逐格一致。",
+        "最小改动重点是首手常规对空：提丰3,4左同时覆盖上下蓝门0,2/0,5及门前1,2/1,5；原4,5上不含这四点。先对空→EW1,4右→宽域奶4,4左→下路常驻挡1,5右→Carda1,3右→独立上路常驻挡1,2右。",
+        "首手名单是本地实际4-3几何合格的besieger一次性资格名单，不把地面限定炮手/魂灵当对空。此名单不是长期能力系统；原生range探针不能独立认证引擎空地过滤/伤害/目标优先级。缺合格对空者时本职责未满足，不假称EW平A可对空。",
+        "EW本体仅S3对空，魂灵技能不可对空（既有缓存机制证据）；需实际选中S3/技能开启与弹药证据，range合格不保证打得死。首手提丰只能提供几何与早期普通对空职责，不承诺E1火力击倒高血鳍/隐匿屏障。",
+        "医疗用required_range_tiles覆盖上下门前、EW、Carda、新提丰；仅收本地真实常规Medic形态和范围合格名单，Pod等条件治疗不默认等价。医疗总量/技能/选敌与法术伤害承受仍未知。",
+        "下主挡Mech必须常驻，不能以冷却卡或限时结构性原理替代。上路需要另一个常驻挡时不能重复计算同一Mech，且解放者司霆不合格。本局Frost13:30:20战后才招，不能倒记在物欲原战。",
+        "第六项是未来持有合格上挡才可执行的职责，现有schema不支持minimum_blocking_count；require_persistent_blocking并不认证挡2/3或生存。若阵容仍只有Mech一名常驻挡，上路只能依赖门前击倒，完整双路阻挡未满足。",
+        "两圣徒像为附近敌人叠屏障，物欲拮抗者飞行态有屏障/使其他敌隐匿/法伤和晕眩，击倒后斯第奇不可阻挡；三种萨科塔鸟会飞且半血恐惧，鳍降攻速，眼偷弹。不得将4→1全归奶量或站位，并须复核实际目标可选状态。",
+        "保留EW原1,4右避免无证扩大位移；未承诺提前拆掉5,2/7,5圣徒像或在物欲拮抗者到门前杀死。屏障/隐匿使几何可及但打不到/伤害不足的边界仍在，必要时另案做主动拆像布局。",
+        "真实费用参考本局：提丰24/EW24/纯烬16/Mech21/Carda18；本次开局DP约30是实帧，不是通用初费。首四累计85，比旧等到Mech的普通干员累计83仅多2费，但EW从第一手推迟到第二手24费，需要新局验证窗口。没有固定秒等待、无kills门禁。",
+        "普通主力不限制一次部署；护盾/魂灵实际占格需新鲜视图验身份与既有回收事务，不通过冷却或固定秒强清占位。开局对空先占3,4可防该格被后续魂灵先占，4,4医疗/1,5下挡仍有魂灵占格风险。",
+        "用户2EW朝上/3奶/4盾/1推金条教学已在光荣远征ro6_b_2来源中核实，不属于本图。本图EW合集65P无对应，望合集p57仅作同图跨核心参考，不能冒充EW胜利。"
+    ],
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true,
+    "deploy_plan": [
+        {
+            "groups": ["提丰", "狙击"],
+            "operator_names": ["提丰", "早露", "熔泉", "埃拉托", "铅踝"],
+            "exclude_starting_core": true,
+            "location": [3, 4],
+            "direction": "left",
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [0, 2],
+                [1, 2],
+                [0, 5],
+                [1, 5]
+            ]
+        },
+        {
+            "groups": ["益达"],
+            "operator_names": ["维什戴尔"],
+            "location": [1, 4],
+            "direction": "right",
+            "minimum_elite": 2,
+            "required_attack_tiles": [
+                [1, 2],
+                [1, 5],
+                [3, 4],
+                [4, 3]
+            ]
+        },
+        {
+            "groups": ["元素奶", "单奶", "群奶", "奶"],
+            "operator_names": ["纯烬艾雅法拉", "蜜莓", "桑葚", "哈洛德", "褐果"],
+            "location": [4, 4],
+            "direction": "left",
+            "minimum_elite": 1,
+            "required_range_tiles": [
+                [1, 2],
+                [1, 3],
+                [1, 4],
+                [1, 5],
+                [3, 4]
+            ]
+        },
+        {
+            "groups": ["机械师", "重装", "奶盾"],
+            "location": [1, 5],
+            "direction": "right",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true,
+            "required_attack_tiles": [
+                [1, 5],
+                [2, 5]
+            ],
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["术师"],
+            "operator_names": ["卡达", "史都华德"],
+            "location": [1, 3],
+            "direction": "right",
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [1, 2],
+                [2, 2],
+                [3, 3]
+            ]
+        },
+        {
+            "groups": ["地面阻挡", "回费", "重装"],
+            "excluded_operator_names": ["机械师", "司霆惊蛰", "玛恩纳", "龙舌兰"],
+            "location": [1, 2],
+            "direction": "right",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true,
+            "required_attack_tiles": [[1, 2]]
+        }
+    ]
+}
