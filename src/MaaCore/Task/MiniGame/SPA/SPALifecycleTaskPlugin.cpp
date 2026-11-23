@@ -263,7 +263,13 @@ bool asst::spa::LifecycleTaskPlugin::_run()
                                               m_loading_grace.formation_wait_expired(observed_at);
     page.loading_verified = loading_wait;
     auto next = lifecycle_next(page);
-    if (formation_transition_timeout || (m_fresh_independent_difficulty && different_independent_difficulty)) {
+    if (page.result_recorded && !m_result_return_started) {
+        m_result_return_started = observed_at;
+    }
+    const bool result_return_timeout = m_result_return_started && next != "MiniGame@SPA@LifecycleComplete" &&
+                                       observed_at - *m_result_return_started >= std::chrono::seconds(45);
+    if (result_return_timeout || formation_transition_timeout ||
+        (m_fresh_independent_difficulty && different_independent_difficulty)) {
         next.clear();
     }
     else if (
@@ -278,7 +284,8 @@ bool asst::spa::LifecycleTaskPlugin::_run()
             { "page", page.page },
             { "reason",
               page.page == "joint_idle_removal" ? "Game displayed the idle removal prompt. No confirmation was issued."
-              : formation_transition_timeout ? "Formation was committed without a verified destination after loading"
+              : result_return_timeout           ? "Verified settlement was not followed by the protocol lobby"
+              : formation_transition_timeout    ? "Formation was committed without a verified destination after loading"
               : different_independent_difficulty
                   ? "Observed a different independent difficulty than the verified requested start"
               : page.issued_start_required ? "An existing game appeared before this execution verified a fresh start"
@@ -322,6 +329,7 @@ bool asst::spa::LifecycleTaskPlugin::_run()
                                         { "loading_observed", observed_loading },
                                         { "loading_grace_wait", loading_wait && !observed_loading },
                                         { "blank_formation_frame", blank_formation_frame },
+                                        { "result_recorded", page.result_recorded },
                                         { "run_abandoned", false } };
     callback(AsstMsg::SubTaskExtraInfo, receipt);
     return true;

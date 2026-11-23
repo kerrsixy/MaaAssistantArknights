@@ -56,8 +56,20 @@ int main()
                                                     { "result_joint", false },
                                                     { "result_completed", false },
                                                     { "result_interrupted", true },
+                                                    { "result_difficulty_known", true },
+                                                    { "result_difficulty", 7 },
+                                                    { "passed_rounds", 13 },
                                                     { "return_home_verified", false } };
     assert(round_settlement_can_be_retained(watched_settlement));
+    // In the captured run, the observer lost the result page immediately
+    // after the round monitor retained this interrupted settlement.
+    LifecyclePage after_round_monitor;
+    after_round_monitor.page = "unknown";
+    after_round_monitor.battle_seen = true;
+    after_round_monitor.result_recorded = round_settlement_can_be_retained(watched_settlement);
+    assert(lifecycle_next(after_round_monitor) == "MiniGame@SPA@LifecycleWait");
+    after_round_monitor.page = "lobby";
+    assert(lifecycle_next(after_round_monitor) == "MiniGame@SPA@LifecycleComplete");
     assert(!settled_run_returned(watched_settlement));
     watched_settlement["result_frame_saved"] = false;
     assert(!round_settlement_can_be_retained(watched_settlement));
@@ -155,6 +167,23 @@ int main()
         assert(!settled_run_returned(result));
         page.result_recorded = true;
         assert(lifecycle_next(page) == "MiniGame@SPA@LifecycleComplete");
+        page.reconnect_available = true;
+        assert(lifecycle_next(page) == "MiniGame@SPA@LifecycleWait");
+        page.reconnect_available = false;
+        for (const auto* unconfirmed_page : { "unknown",
+                                              "main_home",
+                                              "terminal_overview",
+                                              "protocol_entry",
+                                              "difficulty",
+                                              "battle",
+                                              "strategy_report",
+                                              "result_summary",
+                                              "data_updated",
+                                              "authentication_expired",
+                                              "reconnecting" }) {
+            page.page = unconfirmed_page;
+            assert(lifecycle_next(page) == "MiniGame@SPA@LifecycleWait");
+        }
         result["return_home_verified"] = true;
         assert(settled_run_returned(result));
         result["contradictory"] = true;

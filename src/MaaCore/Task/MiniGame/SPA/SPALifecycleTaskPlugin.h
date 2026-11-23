@@ -53,5 +53,6 @@ private:
     LifecycleLoadingGrace m_loading_grace;
     int m_dispatches = 0;
     std::optional<std::chrono::steady_clock::time_point> m_joint_search_started;
+    std::optional<std::chrono::steady_clock::time_point> m_result_return_started;
 };
 }

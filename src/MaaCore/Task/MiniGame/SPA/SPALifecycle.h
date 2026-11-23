@@ -120,6 +120,12 @@ inline std::string lifecycle_next(const LifecyclePage& state)
     if (state.loading_verified || state.page == "joint_team_waiting" || state.page == "reconnecting") {
         return "MiniGame@SPA@LifecycleWait";
     }
+    if (state.result_recorded && state.page != "result") {
+        // After settlement, only the protocol lobby can complete this run.
+        // Other pages are observed again without issuing navigation input.
+        return state.page == "lobby" && !state.reconnect_available ? "MiniGame@SPA@LifecycleComplete"
+                                                                   : "MiniGame@SPA@LifecycleWait";
+    }
     if (state.page == "data_updated") {
         return "MiniGame@SPA@LifecycleAckSync";
     }
@@ -140,9 +146,6 @@ inline std::string lifecycle_next(const LifecyclePage& state)
         return state.result_verified ? "MiniGame@SPA@ReturnResultHome" : "MiniGame@SPA@LifecycleWait";
     }
     if (state.page == "lobby") {
-        if (state.result_recorded) {
-            return "MiniGame@SPA@LifecycleComplete";
-        }
         if (state.battle_seen && !state.reconnect_available) {
             // Returning to the lobby does not prove that the observed game
             // settled. Let the caller stop and reconcile the missing result.
