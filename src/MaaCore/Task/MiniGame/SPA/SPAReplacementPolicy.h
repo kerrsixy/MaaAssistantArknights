@@ -667,6 +667,8 @@ inline ReplacementChoice choose_replacement(
         return replacement_primary_members(lineup, primary) + (harmony ? 1 : 0);
     };
     const int members = activation_members(field);
+    const bool field_has_healer =
+        std::ranges::any_of(field, [](const auto& unit) { return unit.role == PlacementRole::Healer; });
     const bool boss_targets_known = !boss.opening.empty() || !boss.waypoints.empty();
     int preserve_advanced = 0;
     if (boss_targets_known) {
@@ -769,6 +771,15 @@ inline ReplacementChoice choose_replacement(
             if (returning && improvement <= ReplacementTierValue && !restores_core) {
                 continue;
             }
+            // Keep a newly fielded member through marginal ordinary-round upgrades.
+            // Intervening swaps can change the lineup while the same slot keeps turning over.
+            if (!boss_targets_known && improvement <= ReplacementTierValue && !restores_core && !activates_primary &&
+                (field_has_healer || !healing.value_or(false)) &&
+                std::ranges::any_of(visited_lineups, [&](const auto& lineup) {
+                    return !std::ranges::binary_search(lineup, outgoing.name);
+                })) {
+                continue;
+            }
             const bool same_auxiliary_role =
                 incoming.role == outgoing.role && incoming.role != PlacementRole::Unknown &&
                 std::ranges::any_of(incoming.pacts, [&](const auto& pact) {
@@ -783,8 +794,8 @@ inline ReplacementChoice choose_replacement(
             // now, is needed for the boss, or no other valid improvement exists.
             const bool preferred_preview = boss_targets_known || activates_primary ||
                                            !rejected_previews.contains({ outgoing.name, outgoing.x, outgoing.y });
-            const auto rank = std::tuple { restores_core, preferred_preview,
-                                           improvement + (same_auxiliary_role ? 800 : 0) };
+            const auto rank =
+                std::tuple { restores_core, preferred_preview, improvement + (same_auxiliary_role ? 800 : 0) };
             if ((restores_core || improvement > 100) && (!best.found || rank > best_rank)) {
                 best = { true,        incoming.name, outgoing.name,           outgoing.x,      outgoing.y,
                          improvement, restores_core, healing.value_or(false), boss_attack_gain };

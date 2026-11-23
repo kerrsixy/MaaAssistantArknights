@@ -2902,6 +2902,53 @@ int main()
     returning_lappland.value = ferryman.value;
     assert(choose_replacement("维多利亚", changed_lineup, { returning_lappland }, {}, {}, earlier_lineup)
                .restores_strategy_core);
+    // D6 R8: Iberia fielded Sea Mist, changed another slot, then replaced Sea Mist
+    // with the Ferryman for +120. The new roster did not match an earlier lineup.
+    ReplacementMember sea_mist { "海沫", PlacementRole::Ranged, { "伊比利亚" }, 600, 727, 365, true };
+    ReplacementMember lower_guard { "旅骨", PlacementRole::Frontline, { "伊比利亚" }, 400, 803, 365 };
+    sea_mist.grid_cell = BoardCell { 6, 4 };
+    sea_mist.route_membership_registered = true;
+    lower_guard.grid_cell = BoardCell { 7, 4 };
+    lower_guard.route_membership_registered = true;
+    lower_guard.terrain_routes = { "lower" };
+    const ReplacementMember indigo { "深靛", PlacementRole::Ranged, { "伊比利亚" }, 500 };
+    const std::vector<ReplacementMember> iberia_round_eight { sea_mist, lower_guard, indigo, cantabile };
+    const std::set<ReplacementLineup> before_sea_mist { replacement_lineup_identity(
+                                                            { lappland, lower_guard, indigo, meteorite }),
+                                                        replacement_lineup_identity(iberia_round_eight) };
+    auto iberia_ferryman = ferryman;
+    iberia_ferryman.pacts = { "伊比利亚" };
+    iberia_ferryman.value = sea_mist.value + ReplacementTierValue;
+    assert(choose_replacement("伊比利亚", iberia_round_eight, { iberia_ferryman }).improvement == ReplacementTierValue);
+    assert(!choose_replacement("伊比利亚", iberia_round_eight, { iberia_ferryman }, {}, {}, before_sea_mist).found);
+    const std::vector<BoardCell> iberia_boss_opening { { 9, 4 } };
+    assert(choose_replacement(
+               "伊比利亚",
+               iberia_round_eight,
+               { iberia_ferryman },
+               {},
+               {},
+               before_sea_mist,
+               {},
+               {},
+               { iberia_boss_opening, {} })
+               .found);
+    ++iberia_ferryman.value;
+    assert(choose_replacement("伊比利亚", iberia_round_eight, { iberia_ferryman }, {}, {}, before_sea_mist).found);
+    ReplacementMember new_healer { "瑰盐",
+                                   PlacementRole::Healer,
+                                   { "伊比利亚" },
+                                   sea_mist.value + ReplacementTierValue };
+    new_healer.healer_range = { { 1, 0 } };
+    const auto score_healer = [&](const auto& lineup) {
+        return std::ranges::any_of(lineup, [&](const auto& member) { return member.name == new_healer.name; })
+                   ? ReplacementTierValue
+                   : 0;
+    };
+    const auto covers_first_blocker =
+        choose_replacement("伊比利亚", iberia_round_eight, { new_healer }, {}, score_healer, before_sea_mist);
+    assert(covers_first_blocker.heals_frontline && covers_first_blocker.improvement == ReplacementTierValue);
+
     // D4 R11: the same unpromoted pair repeatedly traded across different cells
     // with the same +440 gain even though intervening swaps changed the lineup.
     ReplacementMember weedy_replacement { "温蒂", PlacementRole::Ranged, {}, 100, 888, 367, true };
