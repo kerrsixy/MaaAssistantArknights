@@ -59,6 +59,7 @@ struct LaneCoverage
     std::vector<std::string> problems;
     int block_capacity = 0;
     int first_block_capacity = 0;
+    bool has_supported_reserve = false;
 };
 
 struct DeploymentReview
@@ -86,6 +87,7 @@ struct DeploymentProposal
     int preference_improvement = 0;
     int blocking_capacity_improvement = 0;
     int first_block_capacity_improvement = 0;
+    int supported_reserve_lanes_improvement = 0;
     std::vector<DeploymentUnit> units;
     std::string reason;
     int boss_coverage_improvement = 0;
@@ -124,7 +126,8 @@ DeploymentProposal propose_deployment(
     const std::vector<BoardCell>& boss_movement_waypoints = {},
     const std::function<int(const std::vector<DeploymentUnit>&)>& preparation_growth_preference = {},
     std::optional<int> available_input_steps = std::nullopt,
-    const std::optional<DeploymentUnit>& fixed_healer = std::nullopt);
+    const std::optional<DeploymentUnit>& fixed_healer = std::nullopt,
+    bool prefer_supported_reserve = false);
 
 enum class DeploymentStepKind
 {

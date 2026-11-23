@@ -708,7 +708,8 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         movement_waypoints,
         preparation_growth,
         available_input_steps,
-        field_medical_support);
+        field_medical_support,
+        !m_spatial_boss_phase && round < m_expected_boss_round);
     json::array movement_targets;
     for (const auto& [col, row] : movement_waypoints) {
         movement_targets.emplace_back(json::object { { "col", col }, { "row", row } });
@@ -729,6 +730,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         { "score_improvement", proposal.score_improvement },
         { "blocking_capacity_improvement", proposal.blocking_capacity_improvement },
         { "first_block_capacity_improvement", proposal.first_block_capacity_improvement },
+        { "supported_reserve_lanes_improvement", proposal.supported_reserve_lanes_improvement },
         { "boss_opening_region_verified", boss_target.measured },
         { "boss_opening_region_cells", boss_cells.size() },
         { "boss_opening_target_source", boss_target.source },

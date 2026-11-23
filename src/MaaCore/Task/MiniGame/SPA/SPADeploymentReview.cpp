@@ -150,14 +150,40 @@ asst::spa::DeploymentReview asst::spa::review_deployment(
             if (blocker->cell.first < lane.minimum_engagement_column) {
                 report.problems.emplace_back("Engagement line is behind the required forward position");
             }
+            const auto heals = [](const DeploymentUnit& healer, const DeploymentUnit& patient) {
+                return healer.healer && (patient.accepts_direct_healing || healer.provides_regeneration) &&
+                       range_covers(healer, patient.cell);
+            };
+            const auto fixed_heals = [&](const DeploymentUnit& patient) {
+                return fixed_healer && patient.accepts_direct_healing && range_covers(*fixed_healer, patient.cell);
+            };
             for (const auto& unit : units) {
-                if (unit.healer && (blocker->accepts_direct_healing || unit.provides_regeneration) &&
-                    range_covers(unit, blocker->cell)) {
+                if (heals(unit, *blocker)) {
                     report.healers.emplace_back(unit.id);
                 }
             }
-            if (fixed_healer && blocker->accepts_direct_healing && range_covers(*fixed_healer, blocker->cell)) {
+            if (fixed_heals(*blocker)) {
                 report.healers.emplace_back(fixed_healer->id);
+            }
+            // Keep interception close to the front and within common fire support.
+            constexpr size_t ReserveDepth = 3;
+            for (size_t index = contact + 1; index < std::min(lane.path.size(), contact + 1 + ReserveDepth); ++index) {
+                const auto reserve = std::ranges::find(units, lane.path[index], &DeploymentUnit::cell);
+                if (reserve == units.end() || !reserve->frontline || !reserve->holds_position || reserve->healer ||
+                    reserve->block_count <= 0) {
+                    continue;
+                }
+                if (std::ranges::any_of(
+                        units,
+                        [&](const auto& attacker) {
+                            return attacker.damage_output && !attacker.healer &&
+                                   range_covers(attacker, blocker->cell) && range_covers(attacker, reserve->cell);
+                        }) &&
+                    (report.healers.empty() || fixed_heals(*reserve) ||
+                     std::ranges::any_of(units, [&](const auto& healer) { return heals(healer, *reserve); }))) {
+                    report.has_supported_reserve = true;
+                    break;
+                }
             }
             if (report.healers.empty()) {
                 report.problems.emplace_back(
@@ -440,7 +466,8 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
     const std::vector<BoardCell>& boss_movement_waypoints,
     const std::function<int(const std::vector<DeploymentUnit>&)>& preparation_growth_preference,
     std::optional<int> available_input_steps,
-    const std::optional<DeploymentUnit>& fixed_healer)
+    const std::optional<DeploymentUnit>& fixed_healer,
+    bool prefer_supported_reserve)
 {
     DeploymentProposal result;
     const auto initial = review_deployment(units, lanes, deployable_cells, fixed_healer);
@@ -486,6 +513,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         int preparation_growth_cost = 0;
         int approach_penalty = 0;
         int block_capacity_cost = 0;
+        int supported_reserve_lanes_cost = 0;
         int boss_movement_cost = 0;
         int placement_preference_cost = 0;
 
@@ -495,6 +523,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
     const bool regular_wave = opening_boss_cells.empty() && boss_movement_waypoints.empty();
     const bool has_early_boss_positions = !opening_boss_cells.empty() && !boss_movement_waypoints.empty();
     const bool prioritize_growth = preparation_growth_preference && regular_wave;
+    const bool prioritize_reserve = prefer_supported_reserve && regular_wave;
     result.input_complete = true;
     result.units = units;
     const auto score = [&](const std::vector<DeploymentUnit>& candidate) {
@@ -509,10 +538,12 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
         int lost_frontline_healing = 0;
         int lost_first_block_capacity = 0;
         int first_block_capacity = 0;
+        int supported_reserve_lanes = 0;
         for (size_t index = 0; index < review.lanes.size(); ++index) {
             const auto& lane = review.lanes[index];
             unblocked += lane.blocker.empty() ? 1 : 0;
             first_block_capacity += lanes[index].blocking_weight * lane.first_block_capacity;
+            supported_reserve_lanes += lane.has_supported_reserve ? 1 : 0;
             if (regular_wave && !initial.lanes[index].healers.empty() && lane.healers.empty()) {
                 ++lost_frontline_healing;
             }
@@ -563,6 +594,7 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
             .preparation_growth_cost = prioritize_growth ? -preparation_growth_preference(candidate) : 0,
             .approach_penalty = lane_problems * 1000 + uncovered_approach * 100,
             .block_capacity_cost = -review.balanced_block_capacity,
+            .supported_reserve_lanes_cost = prioritize_reserve ? -supported_reserve_lanes : 0,
             .boss_movement_cost = has_early_boss_positions ? -route.total_weight : 0,
             .placement_preference_cost = preference ? -preference(candidate) : 0
         };
@@ -690,6 +722,8 @@ asst::spa::DeploymentProposal asst::spa::propose_deployment(
     result.blocking_capacity_improvement = initial_score.block_capacity_cost - best_score.block_capacity_cost;
     result.first_block_capacity_improvement =
         initial_score.first_block_capacity_cost - best_score.first_block_capacity_cost;
+    result.supported_reserve_lanes_improvement =
+        initial_score.supported_reserve_lanes_cost - best_score.supported_reserve_lanes_cost;
     result.boss_movement_coverage_improvement = initial_score.boss_route_only_cost + initial_score.boss_movement_cost -
                                                 best_score.boss_route_only_cost - best_score.boss_movement_cost;
     result.boss_uncovered_waypoints_improvement =
@@ -751,6 +785,10 @@ bool asst::spa::deployment_change_worth_input(const DeploymentProposal& proposal
         proposal.boss_movement_coverage_improvement > 0 || proposal.boss_uncovered_waypoints_improvement > 0 ||
         proposal.boss_weakest_waypoint_improvement > 0 || proposal.boss_sustained_attack_improvement > 0 ||
         proposal.boss_early_contact_floor_improvement > 0 || proposal.boss_early_contact_sum_improvement > 0) {
+        return true;
+    }
+    if (proposal.supported_reserve_lanes_improvement > 0 &&
+        deployment_input_steps_with_facing_repairs(sequence) <= proposal.supported_reserve_lanes_improvement) {
         return true;
     }
     // One additional covered approach cell is worth 200 preference points;

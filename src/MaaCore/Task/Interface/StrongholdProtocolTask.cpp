@@ -4952,6 +4952,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                    { "damage_support", std::move(output) },
                                    { "approach_cells_covered", lane.covered_approach_cells },
                                    { "approach_cells_required", lane.required_approach_cells },
+                                   { "has_supported_reserve", lane.has_supported_reserve },
                                    { "ready", lane.ready },
                                    { "problems", std::move(problems) } });
             }

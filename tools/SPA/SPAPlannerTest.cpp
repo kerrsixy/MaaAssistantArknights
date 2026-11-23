@@ -996,6 +996,78 @@ int main()
     assert(vacated_capacity.unique_route_block_capacity == 0 && vacated_capacity.balanced_block_capacity == 0);
     assert(moving_tank.block_count == capacity_tank.block_count); // Physical consumption value is preserved.
 
+    const DeploymentUnit choke { .id = "Front",
+                                 .cell = { 6, 0 },
+                                 .block_count = 3,
+                                 .frontline = true,
+                                 .placement_cells = { { 6, 0 } },
+                                 .movable = false };
+    const BoardCell nearby_intercept { 4, 0 };
+    const BoardCell distant_intercept { 2, 0 };
+    const DeploymentUnit overflow_blocker { .id = "Reserve",
+                                   .cell = distant_intercept,
+                                   .block_count = 2,
+                                   .frontline = true,
+                                   .placement_cells = { distant_intercept, nearby_intercept } };
+    const DeploymentUnit lane_medic { .id = "Lane medic",
+                                      .cell = { 3, 1 },
+                                      .healer = true,
+                                      .range_known = true,
+                                      .local_range = { { 1, 1 }, { 3, 1 } },
+                                      .placement_cells = { { 3, 1 } },
+                                      .movable = false };
+    const DeploymentUnit lane_attacker { .id = "Lane attacker",
+                                         .cell = { 4, 1 },
+                                         .damage_output = true,
+                                         .range_known = true,
+                                         .local_range = { { 0, 1 }, { 2, 1 }, { 3, 1 }, { 4, 1 } },
+                                         .placement_cells = { { 4, 1 } },
+                                         .movable = false };
+    const std::vector<DeploymentLane> overflow_lane {
+        { "ground", { { 8, 0 }, { 7, 0 }, { 6, 0 }, { 5, 0 }, { 4, 0 }, { 3, 0 }, { 2, 0 }, { 1, 0 } }, 4 }
+    };
+    const std::vector<BoardCell> overflow_cells { choke.cell,
+                                                  distant_intercept,
+                                                  nearby_intercept,
+                                                  lane_medic.cell,
+                                                  lane_attacker.cell };
+    const std::vector<DeploymentUnit> isolated_reserve { choke, overflow_blocker, lane_medic, lane_attacker };
+    const auto initial_overflow = review_deployment(isolated_reserve, overflow_lane, overflow_cells);
+    assert(initial_overflow.static_constraints_met && !initial_overflow.lanes.front().has_supported_reserve);
+    const auto compact_plan =
+        propose_deployment(isolated_reserve, overflow_lane, overflow_cells, 1000, {}, {}, {}, {}, 1, {}, true);
+    assert(compact_plan.units[1].cell == nearby_intercept && compact_plan.supported_reserve_lanes_improvement == 1);
+    assert(compact_plan.blocking_capacity_improvement == 0 && compact_plan.score_improvement == 0);
+    const auto compact_sequence = sequence_deployment(isolated_reserve, compact_plan.units);
+    assert(compact_sequence.steps.size() == 1 && deployment_change_worth_input(compact_plan, compact_sequence));
+
+    auto unsupported_reserve = compact_plan.units;
+    unsupported_reserve[2].local_range = { { 3, 1 } };
+    assert(!review_deployment(unsupported_reserve, overflow_lane, overflow_cells).lanes.front().has_supported_reserve);
+    assert(review_deployment(unsupported_reserve, overflow_lane, overflow_cells, lane_medic)
+               .lanes.front()
+               .has_supported_reserve);
+    unsupported_reserve = compact_plan.units;
+    unsupported_reserve[3].local_range = { { 2, 1 }, { 3, 1 }, { 4, 1 } };
+    assert(!review_deployment(unsupported_reserve, overflow_lane, overflow_cells).lanes.front().has_supported_reserve);
+    unsupported_reserve = compact_plan.units;
+    unsupported_reserve[1].holds_position = false;
+    assert(!review_deployment(unsupported_reserve, overflow_lane, overflow_cells).lanes.front().has_supported_reserve);
+    const auto boss_without_overflow_priority = propose_deployment(
+        isolated_reserve,
+        overflow_lane,
+        overflow_cells,
+        1000,
+        {},
+        { { 8, 0 } },
+        {},
+        {},
+        1,
+        {},
+        true);
+    assert(boss_without_overflow_priority.supported_reserve_lanes_improvement == 0);
+    assert(boss_without_overflow_priority.units[1].cell == distant_intercept);
+
     {
         const std::vector<BoardCell> cells { { 3, 0 }, { 2, 0 }, { 1, 0 }, { 2, 1 } };
         const std::vector<DeploymentLane> lane {
