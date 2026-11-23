@@ -304,6 +304,37 @@ bool score_greater(const std::vector<int>& lhs, const std::vector<int>& rhs)
     return std::lexicographical_compare(rhs.begin(), rhs.end(), lhs.begin(), lhs.end());
 }
 
+// Movement reserves constrain the continuation as well as its first move.
+// Compare complete alternatives under the same declared budgets before the
+// policy executor filters first moves using their projected terminal resources.
+struct RouteReserveRequirements
+{
+    const ResourceRegistry& resources;
+    std::vector<std::pair<std::string, int>> minimums;
+
+    std::vector<int> evaluate(const PlannerState& state) const
+    {
+        if (minimums.empty()) {
+            return {};
+        }
+        RunState projected;
+        for (const auto& movement : movement_specs()) {
+            if (movement.kind != MovementKind::Walk) {
+                projected.resources.movement_charges.emplace(
+                    movement.kind,
+                    state.movement_charges[static_cast<std::size_t>(movement.kind)]);
+            }
+        }
+        std::vector<int> score;
+        score.reserve(minimums.size());
+        for (const auto& [resource, minimum] : minimums) {
+            const auto remaining = resources.read(resource, projected);
+            score.emplace_back(remaining.has_value() && *remaining >= minimum ? 1 : 0);
+        }
+        return score;
+    }
+};
+
 struct RouteLabel
 {
     SafetyStateId state = 0;
@@ -315,6 +346,7 @@ struct RouteLabel
     std::vector<std::string> immediate_milestone_ids;
     std::vector<NodeId> route;
     std::vector<PlannedRouteStep> steps;
+    std::vector<int> reserve_score;
 };
 
 bool route_label_better(
@@ -330,6 +362,9 @@ bool route_label_better(
     }
     if (score_greater(rhs_end, lhs_end)) {
         return false;
+    }
+    if (lhs.reserve_score != rhs.reserve_score) {
+        return score_greater(lhs.reserve_score, rhs.reserve_score);
     }
     const auto lhs_preferred = preferred_progress_score(milestones, lhs.progress);
     const auto rhs_preferred = preferred_progress_score(milestones, rhs.progress);
@@ -1059,10 +1094,20 @@ RouteLabel best_route_after_outcome(
     const RouteSearchOptions& search_options,
     RouteSearchBudget& search_budget,
     bool minimize_intermediate_interactions,
+    const RouteReserveRequirements& reserve_requirements,
     std::string* error)
 {
+    std::unordered_map<SafetyStateId, std::vector<int>> reserve_scores;
+    const auto reserve_score_for = [&](SafetyStateId state) -> const std::vector<int>& {
+        const auto found = reserve_scores.find(state);
+        if (found != reserve_scores.end()) {
+            return found->second;
+        }
+        return reserve_scores.emplace(state, reserve_requirements.evaluate(graph.state(state))).first->second;
+    };
     RouteLabel initial;
     initial.state = root_outcome.successor;
+    initial.reserve_score = reserve_score_for(initial.state);
     initial.action_points = remaining_action_points;
     initial.progress.reserve(milestones.size());
     initial.counted.resize(milestones.size());
@@ -1155,6 +1200,7 @@ RouteLabel best_route_after_outcome(
             action_points_after(current.action_points, action.action_point_cost, outcome.action_point_gain);
         RouteLabel next = current;
         next.state = outcome.successor;
+        next.reserve_score = reserve_score_for(next.state);
         next.action_points = remaining;
         next.metric = add_metric(next.metric, move_metric(map, graph, current.state, action.candidate));
         if (minimize_intermediate_interactions && !graph.is_terminal(outcome.successor)) {
@@ -1254,6 +1300,9 @@ RouteLabel best_route_after_outcome(
         }
         if (score_greater(rhs_end, lhs_end)) {
             return false;
+        }
+        if (lhs.reserve_score != rhs.reserve_score) {
+            return score_greater(lhs.reserve_score, rhs.reserve_score);
         }
         const auto lhs_preferred = preferred_progress_score(milestones, lhs.progress);
         const auto rhs_preferred = preferred_progress_score(milestones, rhs.progress);
@@ -1515,7 +1564,7 @@ RouteLabel best_route_after_outcome(
             }
             continue;
         }
-        if (best.has_value() &&
+        if (best.has_value() && !score_greater(current.reserve_score, best->reserve_score) &&
             !route_may_beat(map, graph, milestones, current, *best, minimize_intermediate_interactions)) {
             continue;
         }
@@ -1537,6 +1586,7 @@ RouteLabel best_route_after_outcome(
                 action_points_after(current.action_points, action.action_point_cost, outcome.action_point_gain);
             RouteLabel next = current;
             next.state = outcome.successor;
+            next.reserve_score = reserve_score_for(next.state);
             next.action_points = remaining;
             next.metric = add_metric(next.metric, move_metric(map, graph, current.state, action.candidate));
             if (minimize_intermediate_interactions && !graph.is_terminal(outcome.successor)) {
@@ -2130,6 +2180,14 @@ BlackFlowPlan BlackFlowPlanner::plan_impl(const BlackFlowPlanRequest& request) c
         int worst_intermediate_interactions = 0;
         std::unordered_map<std::string, std::int64_t> route_resources_after;
         bool complete_route_resources = true;
+        RouteReserveRequirements reserve_requirements { resources, {} };
+        const FactStore reserve_facts = request.facts->overlay(candidate.facts);
+        for (const auto& reserve : request.policy->reserves) {
+            if (resources.is_movement_resource(reserve.resource) && reserve.active_if.evaluate(*request.facts) &&
+                !reserve.release_if.evaluate(reserve_facts)) {
+                reserve_requirements.minimums.emplace_back(reserve.resource, reserve.minimum);
+            }
+        }
         for (const OnDemandSafetyOutcome& outcome : action.outcomes) {
             const int remaining =
                 action_points_after(current_action_points, action.action_point_cost, outcome.action_point_gain);
@@ -2147,6 +2205,7 @@ BlackFlowPlan BlackFlowPlanner::plan_impl(const BlackFlowPlanRequest& request) c
                 request.route_search,
                 route_search_budget,
                 minimize_intermediate_interactions,
+                reserve_requirements,
                 &error);
             if (!error.empty() || !relaxed_oracle.error().empty()) {
                 result.error =
