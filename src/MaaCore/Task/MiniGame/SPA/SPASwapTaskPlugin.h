@@ -285,7 +285,7 @@ private:
         cv::Mat* already_visible_frame,
         const cv::Mat& initial_frame = {},
         bool* toggle_input_issued = nullptr);
-    bool reacquire_cash_equipment_source(const Point& verified_source);
+    bool reacquire_cash_equipment_source(const Point& verified_source, bool search_relocated = false);
     std::optional<int> read_selected_cash_equipment_credit(const cv::Mat& frame) const;
     bool held_drag();
     bool select_direction(const Point& center);
@@ -376,6 +376,7 @@ private:
     bool m_equipment_consumption_verified = false;
     std::optional<size_t> m_equipment_source_index;
     std::vector<cv::Point> m_cash_source_inventory;
+    bool m_search_relocated_cash_source = false;
     bool m_cash_input_chain_verified = false;
     std::vector<std::string> m_expected_equipment;
     bool m_equipment_slots_mismatch = false;

@@ -167,6 +167,7 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
     m_minimum_sale_credit = options.get("minimum_sale_credit", 1);
     m_equip_only = options.get("equip_only", false);
     m_find_equipment_source = options.get("find_equipment_source", false);
+    m_search_relocated_cash_source = options.get("search_relocated_cash_source", false);
     m_preferred_equipment = { options.get("preferred_equipment_x", -1), options.get("preferred_equipment_y", -1) };
     if (m_preferred_equipment.x < -1 || m_preferred_equipment.x >= 1000 || m_preferred_equipment.y < -1 ||
         m_preferred_equipment.y >= 720 || (m_preferred_equipment.x == -1 && m_preferred_equipment.y >= 0)) {
@@ -591,10 +592,10 @@ std::optional<int> asst::spa::SwapTaskPlugin::read_selected_cash_equipment_credi
     return quote ? std::optional(quote->amount) : std::nullopt;
 }
 
-bool asst::spa::SwapTaskPlugin::reacquire_cash_equipment_source(const Point& verified_source)
+bool asst::spa::SwapTaskPlugin::reacquire_cash_equipment_source(const Point& verified_source, bool search_relocated)
 {
     m_equipment_stage = "cash_source_reacquisition";
-    const auto frame = ctrler()->get_image();
+    auto frame = ctrler()->get_image();
     const auto candidates = equipment_inventory_candidates(frame);
     const cv::Point anchor(verified_source.x, verified_source.y);
     const auto source = stable_equipment_source(anchor, candidates);
@@ -615,29 +616,58 @@ bool asst::spa::SwapTaskPlugin::reacquire_cash_equipment_source(const Point& ver
         save_evidence(ctrler()->get_image(), utils::path("debug/SPA/cash_source_reacquisition"), false);
         return false;
     };
-    if (!source) {
+    const auto probes = source             ? std::vector { candidates[*source] }
+                        : search_relocated ? nearby_cash_source_title_probes(anchor, candidates)
+                                           : std::vector<cv::Point> {};
+    if (probes.empty()) {
         return reject("No unique safe candidate near the verified cash source", candidates);
     }
     m_equipment_stage = "cash_source_title_recheck";
-    const auto point = candidates[*source];
-    const auto title = bench_identity(Point(point.x, point.y));
-    if (!title || !equipment_title_matches(m_name, *title)) {
-        close_selection();
-        return reject("The reacquired cash source title did not match", candidates);
+    std::optional<cv::Point> verified;
+    int titles_probed = 0;
+    for (const auto& candidate : probes) {
+        if (need_exit() || (!source && !preparation_matches(frame))) {
+            return false;
+        }
+        const auto current_candidates = titles_probed == 0 ? candidates : equipment_inventory_candidates(frame);
+        const auto slot = source ? source : stable_equipment_source(candidate, current_candidates);
+        if (!slot) {
+            continue;
+        }
+        const auto point = current_candidates[*slot];
+        cv::Mat panel;
+        ++titles_probed;
+        const auto title = bench_identity(Point(point.x, point.y), false, {}, nullptr, &panel);
+        const bool title_matches = title && equipment_title_matches(m_name, *title);
+        const auto credit = title_matches ? read_selected_cash_equipment_credit(panel) : std::nullopt;
+        if (!close_selection() || !ensure_expanded_shop(&frame)) {
+            return false;
+        }
+        if (frame.empty()) {
+            frame = ctrler()->get_image();
+        }
+        if (title_matches && credit == m_equipment_cash_credit) {
+            verified = point;
+            break;
+        }
+        if (source) {
+            return reject(
+                title_matches ? "The reacquired cash source effect did not match its quote"
+                              : "The reacquired cash source title did not match",
+                candidates);
+        }
     }
-    const auto credit = read_selected_cash_equipment_credit(ctrler()->get_image());
-    if (!credit || *credit != m_equipment_cash_credit) {
-        close_selection();
-        return reject("The reacquired cash source effect did not match its quote", candidates);
+    if (!verified) {
+        return reject("No nearby cash source matched both title and quote", candidates);
     }
-    if (!close_selection() || !ensure_expanded_shop()) {
+    if (!source && !preparation_matches(frame)) {
         return false;
     }
     m_equipment_stage = "cash_source_reacquisition";
-    m_cash_source_inventory = equipment_inventory_candidates(ctrler()->get_image());
-    // Keep the original anchor through title inspection. Small successive
-    // camera shifts must not accumulate into permission to drag another slot.
-    const auto final_source = stable_equipment_source(anchor, m_cash_source_inventory);
+    m_cash_source_inventory = equipment_inventory_candidates(frame);
+    // Keep the original anchor on the stable path. A relocated anchor must
+    // first earn the same title and cash quote on its own selected panel.
+    const auto final_source = stable_equipment_source(source ? anchor : *verified, m_cash_source_inventory);
     if (!final_source) {
         return reject("The verified cash source moved or became ambiguous", m_cash_source_inventory);
     }
@@ -651,7 +681,9 @@ bool asst::spa::SwapTaskPlugin::reacquire_cash_equipment_source(const Point& ver
                                      { "source_y", m_source.y },
                                      { "candidate_count", m_cash_source_inventory.size() },
                                      { "source_title_verified", true },
-                                     { "cash_gain_quote", *credit },
+                                     { "cash_gain_quote", m_equipment_cash_credit },
+                                     { "nearby_title_probes", source ? 0 : titles_probed },
+                                     { "source_relocated_after_recipient_check", !source },
                                      { "contact_release_attempted", false } };
     callback(AsstMsg::SubTaskExtraInfo, info);
     return true;
@@ -5512,7 +5544,7 @@ bool asst::spa::SwapTaskPlugin::_run()
                 return false;
             }
             if (is_immediate_cash_equipment(m_name)) {
-                if (!reacquire_cash_equipment_source(m_source)) {
+                if (!reacquire_cash_equipment_source(m_source, m_search_relocated_cash_source)) {
                     return false;
                 }
             }

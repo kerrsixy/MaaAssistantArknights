@@ -2,6 +2,8 @@
 
 #include "SPACashEquipmentPolicy.h"
 #include "SPAProjection.h"
+#include <algorithm>
+#include <cstdlib>
 #include <meojson/json.hpp>
 #include <optional>
 #include <string_view>
@@ -41,6 +43,30 @@ inline std::optional<size_t>
         match = index;
     }
     return match;
+}
+
+// This bounds title probes after a camera change. Coordinates alone can
+// never establish an equipment identity or authorize a drag.
+inline std::vector<cv::Point>
+    nearby_cash_source_title_probes(cv::Point previous, const std::vector<cv::Point>& candidates)
+{
+    std::vector<cv::Point> probes;
+    if (!equipment_inventory_probe_safe(previous)) {
+        return probes;
+    }
+    for (const auto& point : candidates) {
+        if (equipment_inventory_probe_safe(point) && std::abs(point.y - previous.y) <= 22 &&
+            std::abs(point.x - previous.x) <= 150) {
+            probes.push_back(point);
+        }
+    }
+    std::stable_sort(probes.begin(), probes.end(), [previous](cv::Point lhs, cv::Point rhs) {
+        return equipment_source_distance(lhs, previous) < equipment_source_distance(rhs, previous);
+    });
+    if (probes.size() > 3) {
+        probes.resize(3);
+    }
+    return probes;
 }
 
 inline bool cash_source_retry_allowed(int attempts, bool contact_attempted, bool committed, std::string_view stage)

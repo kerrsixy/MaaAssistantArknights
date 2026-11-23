@@ -1694,10 +1694,13 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(
                            { "field_pose_verified", m_verified_field_pose_points.contains(point) } });
     }
     const auto closed_contact = m_pending_cash_equipment;
+    int attempts = 1;
     const auto execute = [&](const spa::EquipmentRecipient& selected) {
         const auto& point = m_auto_deploy_positions.find(selected.name)->second;
         const json::object options { { "name", equipment },
                                      { "minimum_cash_credit", std::max(1, funding_deficit) },
+                                     { "search_relocated_cash_source",
+                                       boss_preparation && m_mode == "independent" && attempts == 1 },
                                      { "replaced", selected.name },
                                      { "target_equipment_known", true },
                                      { "target_elite", selected.elite },
@@ -1742,7 +1745,6 @@ bool asst::StrongholdProtocolTask::handle_cash_equipment(
         return use.configure(options) && use.run();
     };
     bool verified = execute(*recipient);
-    int attempts = 1;
     const auto alternative = std::find_if(std::next(recipient), recipients.end(), has_free_slot);
     // held_target can fail before a drop. Only a confirmed cancellation
     // outside all targets permits switching to a different recipient.

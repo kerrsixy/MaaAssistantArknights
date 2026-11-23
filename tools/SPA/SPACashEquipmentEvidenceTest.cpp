@@ -42,6 +42,18 @@ int main()
     const std::vector<cv::Point> reordered { { 679, 394 }, { 834, 393 }, { 519, 466 }, { 756, 394 } };
     assert(stable_equipment_source(doll, reordered) == 3);
 
+    // From the difficulty-7 boss capture after checking the recipient.
+    const cv::Point old_cash_anchor(686, 388);
+    const std::vector<cv::Point> changed_boss_inventory {
+        { 640, 393 }, { 718, 393 }, { 795, 393 }, { 873, 394 }, { 398, 466 }, { 479, 466 },
+        { 559, 466 }, { 640, 465 }, { 721, 466 }, { 802, 466 }, { 883, 466 },
+    };
+    assert(!stable_equipment_source(old_cash_anchor, changed_boss_inventory));
+    const std::vector<cv::Point> expected_probes { { 718, 393 }, { 640, 393 }, { 795, 393 } };
+    assert(nearby_cash_source_title_probes(old_cash_anchor, changed_boss_inventory) == expected_probes);
+    assert(nearby_cash_source_title_probes({ 970, 466 }, changed_boss_inventory).empty());
+    assert(nearby_cash_source_title_probes(old_cash_anchor, { { 685, 465 }, { 525, 389 } }).empty());
+
     assert(cash_source_retry_allowed(1, false, false, "source_identity"));
     assert(cash_source_retry_allowed(1, false, false, "cash_source_reacquisition"));
     assert(!cash_source_retry_allowed(2, false, false, "source_identity"));
