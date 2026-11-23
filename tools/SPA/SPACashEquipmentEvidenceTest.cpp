@@ -101,6 +101,13 @@ int main()
     assert(!cash_new_source_allowed(restored, 9, 9, true));
     assert(cash_new_source_allowed(restored, 9, 9, false));
     assert(!cash_new_source_allowed(pending, 9, 9, false));
+    assert(!cash_funding_candidate_ready(false, std::nullopt, 9, 9, false));
+    assert(cash_funding_candidate_ready(true, std::nullopt, 9, 8, false));
+    assert(cash_funding_candidate_ready(true, std::nullopt, 9, 9, false));
+    assert(!cash_funding_candidate_ready(true, std::nullopt, 9, 9, true));
+    assert(!cash_funding_candidate_ready(true, restored, 9, 8, false));
+    assert(cash_funding_candidate_ready(true, restored, 9, 9, false));
+    assert(!cash_funding_candidate_ready(true, pending, 9, 9, false));
     assert(
         pending_cash_observation(restored_cash_pending(restored), state, false) == CashReconciliation::AlreadyClosed);
     const auto unknown_restored = restored_cash_pending(json::object { { "unknown", true } });

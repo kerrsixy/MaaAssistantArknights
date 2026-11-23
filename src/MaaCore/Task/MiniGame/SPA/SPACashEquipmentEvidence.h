@@ -106,6 +106,17 @@ inline bool cash_new_source_allowed(
            round <= 20 && freshly_inspected_round == round && !attempted_this_round;
 }
 
+inline bool cash_funding_candidate_ready(
+    bool seen,
+    const std::optional<json::object>& pending,
+    int round,
+    int freshly_inspected_round,
+    bool attempted_this_round)
+{
+    return seen && !attempted_this_round &&
+           (!pending || cash_new_source_allowed(*pending, round, freshly_inspected_round, attempted_this_round));
+}
+
 // Only the uninterrupted wallet observations immediately after the contact
 // can attribute credit. Once closed, a later sale or round income cannot do so.
 inline CashReconciliation pending_cash_observation(const json::object& pending, const json::value& state, bool stopping)

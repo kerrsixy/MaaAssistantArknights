@@ -502,6 +502,22 @@ bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value
         (state.get("remaining_deployment", 0) > 0 && m_policy.bench_occupied > 0)) {
         return false;
     }
+    const auto available_cash_sources = [&] {
+        return std::pair(
+            spa::cash_funding_candidate_ready(
+                m_equipment_candidates.contains("盟约之币"),
+                m_pending_cash_equipment,
+                round,
+                m_cash_equipment_source_verified_round,
+                m_cash_equipment_attempted_rounds.contains(round)),
+            spa::cash_funding_candidate_ready(
+                m_equipment_candidates.contains("定期存折"),
+                m_pending_cash_equipment,
+                round,
+                m_passbook_source_verified_round,
+                m_passbook_attempted_rounds.contains(round)));
+    };
+    const auto [coin_before, passbook_before] = available_cash_sources();
     m_equipment_inventory_scan_rounds.insert(round);
     spa::SwapTaskPlugin inspect(m_callback, m_inst, TaskType);
     inspect.set_retry_times(0);
@@ -542,13 +558,12 @@ bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value
     // invalidate it explicitly. Keep presence-only hints and never infer
     // stack quantities or completeness from this scheduling flag.
     m_equipment_inventory_dirty = !inspection.probes_complete;
-    const bool funding_source_observed =
-        (m_cash_equipment_source_verified_round == round && !m_cash_equipment_attempted_rounds.contains(round)) ||
-        (m_passbook_source_verified_round == round && !m_passbook_attempted_rounds.contains(round));
-    const bool reopen_shopping = m_shopping_complete && state.get("funds", 0) > 0 && funding_source_observed;
+    const auto [coin_after, passbook_after] = available_cash_sources();
+    const bool new_funding_source = (coin_after && !coin_before) || (passbook_after && !passbook_before);
+    const bool reopen_shopping = m_shopping_complete && state.get("funds", 0) > 0 && new_funding_source;
     if (reopen_shopping) {
-        // Finalization can be the first scan to identify a funding item.
-        // Reevaluate the current shop before Ready consumes the round balance.
+        // Revisit the shop only when the scan made financing newly available.
+        // An already usable source was considered during the preceding shop pass.
         m_shopping_complete = false;
         m_spending_reviewed = false;
         m_spending_reason.clear();
@@ -566,6 +581,7 @@ bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value
                        { "inventory_count_inferred", false },
                        { "preparation_frame_invalidated", reobserve },
                        { "cash_equipment_source_verified_round", m_cash_equipment_source_verified_round },
+                       { "new_funding_source_available", new_funding_source },
                        { "shopping_reopened_for_funding_review", reopen_shopping },
                        { "equipment_candidates", equipment_candidates_snapshot() },
                        { "roster", roster_snapshot() } };
