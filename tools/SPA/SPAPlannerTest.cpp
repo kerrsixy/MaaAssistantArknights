@@ -7082,6 +7082,22 @@ int main()
     destinations[3].facing = 'N';
     const auto sequence = sequence_deployment(moving, destinations);
     assert(sequence.complete && !sequence.steps.empty());
+    // The Egir executor can resume after an intermediate swap without
+    // having read the displaced actor's direction. Move before facing it.
+    auto with_unknown_facings = moving;
+    with_unknown_facings[0].facing_known = false;
+    with_unknown_facings[3].facing_known = false;
+    const auto unknown_sequence = sequence_deployment(with_unknown_facings, destinations);
+    assert(unknown_sequence.complete && unknown_sequence.steps.front().kind == DeploymentStepKind::Swap);
+    for (const auto& step : unknown_sequence.steps) {
+        if (step.kind == DeploymentStepKind::Face) {
+            const auto final = std::ranges::find(destinations, step.unit, &DeploymentUnit::id);
+            assert(final != destinations.end() && step.from == final->cell && step.to == final->cell);
+        }
+    }
+    assert(std::ranges::any_of(unknown_sequence.steps, [&](const auto& step) {
+        return step.kind == DeploymentStepKind::Face && step.unit == destinations[3].id && step.facing == 'N';
+    }));
     auto protected_moving = moving;
     protected_moving.front().movable = false;
     assert(!sequence_deployment(protected_moving, destinations).complete);

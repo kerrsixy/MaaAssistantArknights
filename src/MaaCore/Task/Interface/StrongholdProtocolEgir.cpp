@@ -234,6 +234,9 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
         }
     }
     const bool prioritize_boss = boss_phase;
+    const auto fixed = m_boss_layout_fixed_unit.find(round);
+    const std::string fixed_boss_member =
+        boss_phase && fixed != m_boss_layout_fixed_unit.end() ? fixed->second : std::string();
     json::array conditional_windows;
     const auto catalogue = spa::operator_pacts();
     std::vector<spa::EgirPlacementUnit> inputs;
@@ -273,7 +276,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
         unit.id = entity.id;
         unit.cell = entity.cell;
         unit.facing = member.facing ? member.facing : 'E';
-        unit.movable = unique;
+        unit.movable = unique && member.name != fixed_boss_member;
         unit.frontline = member.role == spa::PlacementRole::Frontline;
         unit.healer = member.role == spa::PlacementRole::Healer;
         unit.block_count = entity.block_count.value_or(0);
@@ -336,6 +339,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
         input.eligible_chain_head = member.name != "归溟幽灵鲨";
         input.same_row_recruitment_members = member.name == "歌蕾蒂娅" && !owned.elite ? 3 : 0;
         current.push_back(unit);
+        current.back().facing_known = !unit.movable || member.facing != '\0';
         inputs.push_back(std::move(input));
     }
     // The output is the head of the chain. Dollkeeper is a relay: its
@@ -363,36 +367,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
         append_member("斯卡蒂");
     }
     request.target_admissible = [&](const std::vector<spa::DeploymentUnit>& target) {
-        auto oriented = current;
-        spa::DeploymentSequence sequence;
-        for (const auto& member : members) {
-            if (member.facing || m_auto_deploy_positions.count(member.name) != 1) {
-                continue;
-            }
-            const auto goal =
-                std::find_if(target.begin(), target.end(), [&](const auto& row) { return row.id == member.name; });
-            const auto input = std::find_if(inputs.begin(), inputs.end(), [&](const auto& row) {
-                return row.entity.id == member.name;
-            });
-            if (goal != target.end() && input != inputs.end() &&
-                (input->entity.egir_member || goal->cell != input->entity.cell || goal->facing != 'E')) {
-                sequence.steps.push_back(
-                    { spa::DeploymentStepKind::Face,
-                      member.name,
-                      {},
-                      { member.col, member.row },
-                      { member.col, member.row },
-                      goal->facing });
-                for (auto& unit : oriented) {
-                    if (unit.id == member.name) {
-                        unit.facing = goal->facing;
-                    }
-                }
-            }
-        }
-        const auto remaining = spa::sequence_deployment(oriented, target, 1500);
-        sequence.complete = remaining.complete;
-        sequence.steps.insert(sequence.steps.end(), remaining.steps.begin(), remaining.steps.end());
+        const auto sequence = spa::sequence_deployment(current, target, 1500);
         std::map<std::string, bool> forms;
         for (const auto& member : members) {
             forms[member.name] = m_policy.owned.at(member.name).elite;
@@ -428,7 +403,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
     const auto context = roster_snapshot().to_string() + equipment_slots_snapshot().to_string() + field_signature +
                          m_spatial_map_id + m_selected_strategy_id +
                          (round <= 3 ? "#egir-opening-lower" : "#egir-all-entries") + objective_context +
-                         "#rejected:" + std::to_string(m_failed_spatial_actions.size());
+                         "#fixed:" + fixed_boss_member + "#rejected:" + std::to_string(m_failed_spatial_actions.size());
     if (context != m_dynamic_layout_context) {
         m_dynamic_layout_context = context;
         m_dynamic_layout_target.clear();
@@ -473,6 +448,7 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
             { "defended_chain_names", request.defended_chain_names },
             { "placements", std::move(placements) },
             { "changed_units", proposal.changed_units },
+            { "fixed_after_held_failure", fixed_boss_member },
             { "evaluations", proposal.evaluations },
             { "budget_exhausted", proposal.budget_exhausted },
             { "validation_mode", true },
@@ -512,24 +488,8 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
     if (m_dynamic_layout_target.empty()) {
         return std::nullopt;
     }
-    // Establish only directions needed by this plan. A verified next step
-    // reuses the existing journal/held-input/population reconciliation path.
-    for (const auto& member : members) {
-        if (member.facing || m_auto_deploy_positions.count(member.name) != 1) {
-            continue;
-        }
-        const auto target =
-            std::find_if(m_dynamic_layout_target.begin(), m_dynamic_layout_target.end(), [&](const auto& unit) {
-                return unit.id == member.name;
-            });
-        const auto input =
-            std::find_if(inputs.begin(), inputs.end(), [&](const auto& unit) { return unit.entity.id == member.name; });
-        if (target != m_dynamic_layout_target.end() && input != inputs.end() &&
-            (input->entity.egir_member || target->cell != input->entity.cell || target->facing != 'E')) {
-            return spa::DeploymentStep { spa::DeploymentStepKind::Face, member.name,   {}, { member.col, member.row },
-                                         { member.col, member.row },    target->facing };
-        }
-    }
+    // Moves commit the actor's final facing. A displaced unit can wait until
+    // it reaches its final cell before spending an input on its direction.
     const auto sequence = spa::sequence_deployment(current, m_dynamic_layout_target, 1500);
     if (!sequence.complete) {
         m_failed_layout_context = context + std::to_string(round);
