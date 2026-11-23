@@ -507,6 +507,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         std::vector<OpeningStrategyCard> candidates;
         std::map<int, std::string> identified;
         std::vector<std::vector<int>> viewport_rows;
+        std::vector<std::optional<int>> viewport_scrollbars;
         json::array card_evidence;
         cv::Mat last_marker;
         const int max_viewports = m_prefer_unclaimed ? 7 : 4;
@@ -524,6 +525,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                 rows.resize(4);
             }
             viewport_rows.push_back(rows);
+            viewport_scrollbars.push_back(opening_strategy_scrollbar_center(image, details_open));
             const int slots = rows.empty() ? 16 : static_cast<int>(rows.size()) * 4;
             int initially_selected = -1;
             std::vector<OpeningStrategyCard> visible;
@@ -656,11 +658,40 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         const int selected_viewport = selected.index / 16;
         selected_strategy_index = selected.index % 16;
         m_selected_strategy_index = selected_strategy_index;
-        // Reset to a known top before replaying the same list gesture. Validate the row and the
-        // selected identity again because the client can move the grid when a detail panel opens.
+        // A retry can begin in a scrolled viewport. Return to the observed thumb
+        // position before using the relative gestures reserved for unknown layouts.
         const int last_viewport = static_cast<int>(viewport_rows.size()) - 1;
-        const auto current_rows = opening_strategy_rows(ctrler()->get_image(), edge, details_open);
-        if (selected_viewport != last_viewport || current_rows != viewport_rows.at(selected_viewport)) {
+        const auto expected_scrollbar = viewport_scrollbars.at(selected_viewport);
+        auto landing = ctrler()->get_image();
+        auto landed_scrollbar = opening_strategy_scrollbar_center(landing, details_open);
+        const auto scrollbar_matched = [&] {
+            return expected_scrollbar && landed_scrollbar && std::abs(*expected_scrollbar - *landed_scrollbar) <= 2;
+        };
+        bool scrollbar_dragged = false;
+        if (expected_scrollbar && landed_scrollbar && !scrollbar_matched() &&
+            std::chrono::steady_clock::now() + std::chrono::seconds(2) <
+                inspection_deadline + std::chrono::seconds(8)) {
+            const int x = opening_strategy_scrollbar_x(details_open);
+            scrollbar_dragged = ctrler()->swipe(Point(x, *landed_scrollbar), Point(x, *expected_scrollbar), 430);
+            if (scrollbar_dragged) {
+                if (!sleep(330)) {
+                    return false;
+                }
+                landing = ctrler()->get_image();
+                landed_scrollbar = opening_strategy_scrollbar_center(landing, details_open);
+                if (!scrollbar_matched()) {
+                    if (!sleep(180)) {
+                        return false;
+                    }
+                    landing = ctrler()->get_image();
+                    landed_scrollbar = opening_strategy_scrollbar_center(landing, details_open);
+                }
+            }
+        }
+        const bool restored_by_scrollbar = scrollbar_matched();
+        auto rows = opening_strategy_rows(landing, edge, details_open);
+        if (!restored_by_scrollbar &&
+            (selected_viewport != last_viewport || rows != viewport_rows.at(selected_viewport))) {
             for (int reset = 0; reset <= last_viewport; ++reset) {
                 if (!scroll(false)) {
                     return false;
@@ -671,8 +702,10 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                     return false;
                 }
             }
+            landing = ctrler()->get_image();
+            landed_scrollbar = opening_strategy_scrollbar_center(landing, details_open);
+            rows = opening_strategy_rows(landing, edge, details_open);
         }
-        const auto rows = opening_strategy_rows(ctrler()->get_image(), edge, details_open);
         if ((selected_viewport > 0 && rows.empty()) ||
             (!rows.empty() && selected_strategy_index / 4 >= static_cast<int>(rows.size()))) {
             return false;
@@ -701,6 +734,10 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                            { "identified_slots", candidates.size() },
                            { "scanned_viewports", viewport_rows.size() },
                            { "selected_viewport", selected_viewport },
+                           { "expected_scrollbar_center", expected_scrollbar.value_or(-1) },
+                           { "landed_scrollbar_center", landed_scrollbar.value_or(-1) },
+                           { "scrollbar_dragged", scrollbar_dragged },
+                           { "restored_by_scrollbar", restored_by_scrollbar },
                            { "pact_availability_known", final_context.pact_availability_known },
                            { "occupied_strategy_ids", final_context.occupied_strategy_ids },
                            { "route_contention_inferred", true },

@@ -35,33 +35,42 @@ inline std::optional<int> opening_strategy_display_countdown(const cv::Mat& fram
     if (frame.size() != cv::Size(1280, 720) || frame.type() != CV_8UC3) {
         return std::nullopt;
     }
-    // Clockwise from the top bar, with the middle bar last.
-    const std::array<cv::Rect, 7> segments { cv::Rect(7, 25, 12, 5), cv::Rect(22, 33, 5, 10), cv::Rect(22, 56, 5, 10),
+    // Clockwise from the top bar, with the middle bar last. The left digit's
+    // right stroke can be four pixels wide and sit one pixel further left.
+    const std::array<cv::Rect, 7> segments { cv::Rect(7, 25, 12, 5), cv::Rect(21, 33, 4, 10), cv::Rect(21, 56, 4, 10),
                                              cv::Rect(7, 68, 12, 4), cv::Rect(0, 56, 5, 10),  cv::Rect(0, 33, 5, 10),
                                              cv::Rect(7, 47, 12, 5) };
     constexpr std::array digit_masks { 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f };
-    int seconds = 0;
-    for (const int x : { 1133, 1165 }) {
-        int mask = 0;
-        for (std::size_t i = 0; i < segments.size(); ++i) {
-            const auto area = segments[i] + cv::Point(x, 0);
-            cv::Mat cyan;
-            cv::inRange(frame(area), cv::Scalar(105, 155, 0), cv::Scalar(255, 255, 95), cyan);
-            const auto lit = cv::countNonZero(cyan);
-            if (lit * 4 >= area.area() * 3) {
-                mask |= 1 << i;
+    const auto read = [&](const cv::Scalar& lower, const cv::Scalar& upper) -> std::optional<int> {
+        int seconds = 0;
+        for (const int x : { 1133, 1165 }) {
+            int mask = 0;
+            for (std::size_t i = 0; i < segments.size(); ++i) {
+                const auto area = segments[i] + cv::Point(x, 0);
+                cv::Mat color;
+                cv::inRange(frame(area), lower, upper, color);
+                const auto lit = cv::countNonZero(color);
+                if (lit * 4 >= area.area() * 3) {
+                    mask |= 1 << i;
+                }
+                else if (lit * 5 > area.area()) {
+                    return std::nullopt;
+                }
             }
-            else if (lit * 5 > area.area()) {
+            const auto digit = std::find(digit_masks.begin(), digit_masks.end(), mask);
+            if (digit == digit_masks.end()) {
                 return std::nullopt;
             }
+            seconds = seconds * 10 + static_cast<int>(digit - digit_masks.begin());
         }
-        const auto digit = std::find(digit_masks.begin(), digit_masks.end(), mask);
-        if (digit == digit_masks.end()) {
-            return std::nullopt;
-        }
-        seconds = seconds * 10 + static_cast<int>(digit - digit_masks.begin());
+        return seconds;
+    };
+    const auto cyan = read(cv::Scalar(105, 155, 0), cv::Scalar(255, 255, 95));
+    const auto orange = read(cv::Scalar(0, 45, 175), cv::Scalar(85, 145, 255));
+    if (cyan && orange && *cyan != *orange) {
+        return std::nullopt;
     }
-    return seconds;
+    return cyan ? cyan : orange;
 }
 
 // Catalogue order provides a first-viewport hint. Every slot remains a
@@ -78,6 +87,43 @@ inline std::vector<int> opening_strategy_probe_order(int visible_slots, int pref
         }
     }
     return slots;
+}
+
+inline int opening_strategy_scrollbar_x(bool details_open)
+{
+    return details_open ? 956 : 1220;
+}
+
+inline std::optional<int> opening_strategy_scrollbar_center(const cv::Mat& frame, bool details_open)
+{
+    if (frame.size() != cv::Size(1280, 720) || frame.type() != CV_8UC3) {
+        return std::nullopt;
+    }
+    const int x = opening_strategy_scrollbar_x(details_open);
+    int first = -1;
+    std::optional<int> center;
+    for (int y = 105; y < 700; ++y) {
+        int thumb_pixels = 0;
+        for (int dx = -2; dx <= 2; ++dx) {
+            const auto pixel = frame.at<cv::Vec3b>(y, x + dx);
+            const auto [darkest, brightest] = std::minmax({ pixel[0], pixel[1], pixel[2] });
+            thumb_pixels += darkest > 105 && brightest - darkest < 26;
+        }
+        if (thumb_pixels >= 3) {
+            if (first < 0) {
+                first = y;
+            }
+            continue;
+        }
+        if (first >= 0 && y - first >= 60) {
+            if (center || y - first > 240) {
+                return std::nullopt;
+            }
+            center = (first + y - 1) / 2;
+        }
+        first = -1;
+    }
+    return first < 0 ? center : std::nullopt;
 }
 
 inline bool strategy_unavailable_label(std::string_view compact_text)

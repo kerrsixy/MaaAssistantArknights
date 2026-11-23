@@ -3139,7 +3139,40 @@ int main()
     assert(opening_strategy_display_countdown(opening_clock) == 69);
     light_segment(1133, { 22, 33, 2, 10 });
     assert(!opening_strategy_display_countdown(opening_clock));
+    opening_clock.setTo(cv::Scalar());
+    // Low-time digits 05 have the same shape and a different color.
+    const cv::Scalar opening_warning(16, 85, 239);
+    for (const auto& segment : { cv::Rect(7, 25, 12, 5),
+                                 cv::Rect(21, 33, 4, 10),
+                                 cv::Rect(21, 56, 4, 10),
+                                 cv::Rect(7, 68, 12, 4),
+                                 cv::Rect(0, 56, 5, 10),
+                                 cv::Rect(0, 33, 5, 10) }) {
+        opening_clock(segment + cv::Point(1133, 0)).setTo(opening_warning);
+    }
+    for (const auto& segment : { cv::Rect(7, 25, 12, 5),
+                                 cv::Rect(0, 33, 5, 10),
+                                 cv::Rect(7, 47, 12, 5),
+                                 cv::Rect(21, 56, 4, 10),
+                                 cv::Rect(7, 68, 12, 4) }) {
+        opening_clock(segment + cv::Point(1165, 0)).setTo(opening_warning);
+    }
+    assert(opening_strategy_display_countdown(opening_clock) == 5);
+    assert(opening_strategy_inspection_seconds(opening_strategy_display_countdown(opening_clock)) == 0);
+    opening_clock(cv::Rect(1186, 33, 2, 10)).setTo(opening_warning);
+    assert(!opening_strategy_display_countdown(opening_clock));
     assert(opening_strategy_inspection_seconds(std::nullopt) == 16);
+    cv::Mat opening_grid = cv::Mat::zeros(720, 1280, CV_8UC3);
+    assert(!opening_strategy_scrollbar_center(opening_grid, true));
+    // The observed 2/3 retry began at 375, while the list's top was at 171.
+    const cv::Scalar thumb_color(164, 163, 161);
+    opening_grid(cv::Rect(954, 315, 5, 121)).setTo(thumb_color);
+    opening_grid(cv::Rect(1218, 112, 5, 120)).setTo(thumb_color);
+    assert(opening_strategy_scrollbar_center(opening_grid, true) == 375);
+    assert(opening_strategy_scrollbar_center(opening_grid, false) == 171);
+    opening_grid(cv::Rect(954, 120, 5, 72)).setTo(thumb_color);
+    assert(!opening_strategy_scrollbar_center(opening_grid, true));
+    assert(opening_strategy_scrollbar_center(opening_grid, false) == 171);
     const auto nymph_first = opening_strategy_probe_order(16, 8);
     assert(nymph_first.size() == 16 && nymph_first.front() == 8 && nymph_first.back() == 15);
     assert(std::count(nymph_first.begin(), nymph_first.end(), 8) == 1);
