@@ -162,7 +162,10 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_deferred_opening_gift_scan_attempts = 0;
     m_strategy_copy_target = params.get("strategy_copy_target", std::string());
     m_strategy_copy_unverified = params.get("strategy_copy_unverified", false);
-    if ((!m_strategy_copy_target.empty() && !spa::operator_pacts().contains(m_strategy_copy_target)) ||
+    m_strategy_copy_retry_after_round = params.get("strategy_copy_retry_after_round", -1);
+    if ((m_strategy_copy_retry_after_round != -1 &&
+         (m_strategy_copy_retry_after_round < 1 || m_strategy_copy_retry_after_round > m_resume_after_round)) ||
+        (!m_strategy_copy_target.empty() && !spa::operator_pacts().contains(m_strategy_copy_target)) ||
         (m_strategy_copy_unverified && m_strategy_copy_target.empty())) {
         return false;
     }

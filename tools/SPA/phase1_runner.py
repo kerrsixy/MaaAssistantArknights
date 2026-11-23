@@ -326,6 +326,20 @@ def main() -> int:
         if isinstance(state.get("round"), int) and state["round"] >= 1:
             policy["resume_after_round"] = state["round"]
             changed = True
+        copy_target = state.get("strategy_copy_target")
+        copy_unverified = state.get("strategy_copy_unverified")
+        copy_retry_round = state.get("strategy_copy_retry_after_round", -1)
+        if (
+            isinstance(copy_target, str)
+            and type(copy_unverified) is bool
+            and (copy_target or not copy_unverified)
+            and type(copy_retry_round) is int
+            and (copy_retry_round == -1 or 1 <= copy_retry_round <= policy.get("resume_after_round", 1))
+        ):
+            policy["strategy_copy_target"] = copy_target
+            policy["strategy_copy_unverified"] = copy_unverified
+            policy["strategy_copy_retry_after_round"] = copy_retry_round
+            changed = True
         if isinstance(state.get("remaining_deployment"), int) and 0 <= state["remaining_deployment"] <= 8:
             policy["remaining_deployment"] = state["remaining_deployment"]
             changed = True

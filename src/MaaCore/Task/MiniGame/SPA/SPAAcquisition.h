@@ -44,6 +44,12 @@ bool verify_strategy_copy_delta(
     const std::string& recipient,
     bool elite);
 
+bool strategy_copy_remained_unspent(
+    const ObservedOperatorInventory& before,
+    const ObservedOperatorInventory& first,
+    const ObservedOperatorInventory& second,
+    bool strategy_ready);
+
 enum class AcquiredEffectKind
 {
     Layers,

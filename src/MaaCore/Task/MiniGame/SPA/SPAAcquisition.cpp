@@ -34,6 +34,16 @@ bool asst::spa::verify_strategy_copy_delta(
     return gained.initial < promotion_copies_required(recipient) && expected == after.members;
 }
 
+bool asst::spa::strategy_copy_remained_unspent(
+    const ObservedOperatorInventory& before,
+    const ObservedOperatorInventory& first,
+    const ObservedOperatorInventory& second,
+    bool strategy_ready)
+{
+    return strategy_ready && before.complete && first.complete && second.complete && first.members == before.members &&
+           second.members == before.members;
+}
+
 asst::spa::PactRecruitmentDelta asst::spa::verify_pact_recruitment_delta(
     const ObservedOperatorInventory& before,
     const ObservedOperatorInventory& after,

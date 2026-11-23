@@ -4675,6 +4675,12 @@ int main()
     auto incomplete_copy = after_copy;
     incomplete_copy.complete = false;
     assert(!verify_strategy_copy_delta(before_copy, incomplete_copy, "初雪", true));
+    assert(strategy_copy_remained_unspent(before_copy, before_copy, before_copy, true));
+    assert(!strategy_copy_remained_unspent(before_copy, before_copy, before_copy, false));
+    assert(!strategy_copy_remained_unspent(before_copy, incomplete_copy, before_copy, true));
+    assert(!strategy_copy_remained_unspent(before_copy, before_copy, incomplete_copy, true));
+    assert(!strategy_copy_remained_unspent(before_copy, after_copy, before_copy, true));
+    assert(!strategy_copy_remained_unspent(before_copy, before_copy, after_copy, true));
     incomplete_copy = after_copy;
     incomplete_copy.members["深靛"].initial++;
     assert(!verify_strategy_copy_delta(before_copy, incomplete_copy, "初雪", true));

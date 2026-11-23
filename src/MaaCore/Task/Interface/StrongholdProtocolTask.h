@@ -62,6 +62,7 @@ private:
     bool handle_strategy_copy(const json::value& state);
     std::string m_strategy_copy_target;
     bool m_strategy_copy_unverified = false;
+    int m_strategy_copy_retry_after_round = -1;
     bool handle_fear_trap_instruction(const json::value& state);
     std::set<spa::BoardCell> m_fear_trap_cells;
     int m_fear_trap_round = -1;

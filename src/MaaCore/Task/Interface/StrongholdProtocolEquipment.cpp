@@ -24,9 +24,10 @@ bool asst::StrongholdProtocolTask::handle_strategy_copy(const json::value& state
     const int funds = state.get("funds", -1);
     const int remaining = state.get("remaining_deployment", -1);
     if (m_selected_strategy_id != "band_copy" || !m_strategy_copy_target.empty() ||
-        m_preparation_instruction_attempts.contains(round) || !state.get("round_known", false) ||
-        !state.get("funds_known", false) || !state.get("remaining_deployment_known", false) ||
-        remaining < 0 || remaining > 8 || state.get("remaining_deployment_inferred", false) || m_policy.bench_occupied < 0 ||
+        m_strategy_copy_retry_after_round >= round || m_preparation_instruction_attempts.contains(round) ||
+        !state.get("round_known", false) || !state.get("funds_known", false) ||
+        !state.get("remaining_deployment_known", false) || remaining < 0 || remaining > 8 ||
+        state.get("remaining_deployment_inferred", false) || m_policy.bench_occupied < 0 ||
         m_policy.bench_occupied >= 10 || m_field_checkpoint_loaded || m_bench_recount_pending ||
         m_pending_spatial_orientation || m_pending_field_replacement ||
         m_auto_deploy_positions.size() != static_cast<size_t>(8 - remaining) ||
@@ -145,11 +146,21 @@ bool asst::StrongholdProtocolTask::handle_strategy_copy(const json::value& state
     bool verified = spa::verify_strategy_copy_delta(before, after, target, elite);
     bool unchanged = false;
     if (!verified && m_mode != "joint" && sleep(400)) {
-        const bool first_unchanged = after.complete && after.members == before.members;
+        const auto first = std::move(after);
         after = observe_bench();
         verified = spa::verify_strategy_copy_delta(before, after, target, elite);
-        unchanged = first_unchanged && after.complete && after.members == before.members &&
-                    spa::active_strategy_ready(ctrler()->get_image());
+        unchanged = !verified && spa::strategy_copy_remained_unspent(
+                                     before,
+                                     first,
+                                     after,
+                                     spa::active_strategy_ready(ctrler()->get_image()));
+    }
+    const bool retry_later = unchanged && m_strategy_copy_retry_after_round < 0 && round < m_expected_boss_round;
+    if (retry_later) {
+        // Two independent bench reads and a live ready icon confirm the
+        // one-use strategy is still available. Reassess the target next round.
+        m_strategy_copy_retry_after_round = round;
+        m_strategy_copy_target.clear();
     }
     m_strategy_copy_unverified = !verified && !unchanged;
     if (verified) {
@@ -172,12 +183,14 @@ bool asst::StrongholdProtocolTask::handle_strategy_copy(const json::value& state
                                         { "target", target },
                                         { "elite", elite },
                                         { "expected_equipment", expected_items },
-                                        { "strategy_copy_target", target },
+                                        { "strategy_copy_target", m_strategy_copy_target },
+                                        { "strategy_copy_retry_after_round", m_strategy_copy_retry_after_round },
                                         { "strategy_copy_unverified", m_strategy_copy_unverified },
                                         { "requires_roster_resync", m_strategy_copy_unverified },
                                         { "copy_and_equipment_verified", verified && !m_strategy_copy_unverified },
                                         { "bench_occupied", m_policy.bench_occupied },
                                         { "retry_input_allowed", false },
+                                        { "later_round_retry_scheduled", retry_later },
                                         { "roster", roster_snapshot() },
                                         { "field_positions", field_position_snapshot() } };
     callback(AsstMsg::SubTaskExtraInfo, receipt);
