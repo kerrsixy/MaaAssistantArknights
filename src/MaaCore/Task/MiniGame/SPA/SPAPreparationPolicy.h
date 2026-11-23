@@ -224,6 +224,7 @@ struct DynamicPactSignal
     // Three actual Aegir members supply the native consumption growth
     // mechanism. This is availability, not proof of a connected chain.
     bool native_growth_available = false;
+    bool kjerag_freeze_foundation = false;
 };
 
 struct DynamicPactChoice

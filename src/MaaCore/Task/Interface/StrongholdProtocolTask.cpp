@@ -5842,6 +5842,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                        { "book_window_met", signal.book_window_met },
                                        { "role_signal", signal.role_signal },
                                        { "viable", signal.viable },
+                                       { "kjerag_freeze_foundation", signal.kjerag_freeze_foundation },
                                        { "native_growth_available", signal.native_growth_available } });
                 }
                 auto selected = basic_info_with_what("SPAAutomationPrimaryPactSelected");

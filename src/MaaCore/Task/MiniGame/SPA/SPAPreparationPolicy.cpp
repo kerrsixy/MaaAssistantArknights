@@ -865,6 +865,19 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
                                  signal.deployed_members >= signal.required_members;
         signal.role_signal = signal.growth_engine_owned > 0 || signal.growth_engine_offers > 0 ||
                              signal.output_owned > 0 || signal.output_offers > 0;
+        const bool two_members_verified =
+            signal.owned_members >= 2 || (available_funds >= 0 && signal.reachable_members >= 2);
+        if (signal.pact == "谢拉格" && signal.book_window_met && !policy.boss_preparation && signal.owned_members > 0 &&
+            two_members_verified &&
+            (policy.growth_scenario_horizon_round <= 0 || policy.round < policy.growth_scenario_horizon_round)) {
+            const bool provider_owned = kjerag_freeze_roles(policy, false).second;
+            const bool provider_affordable =
+                available_funds >= 0 && policy.bench_occupied >= 0 && policy.bench_occupied < 10 &&
+                std::ranges::any_of(
+                    new_member_prices,
+                    [](const auto& quote) { return is_kjerag_freeze_provider(quote.first); });
+            signal.kjerag_freeze_foundation = provider_owned || provider_affordable;
+        }
         // A deployed member is stronger evidence than an unbought offer. A
         // stacker/output appearing now is the next strongest signal; density
         // breaks ties. The preferred opening pact gets only a small tie-break,
@@ -901,7 +914,8 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
         // between an opening preference and a live shop decision: density is
         // evidence, while a missing engine/carry lowers the score and may
         // still make the faction lose to a better candidate.
-        signal.viable = signal.role_signal || signal.activation_ready || signal.deployed_members >= requirement.members;
+        signal.viable = signal.role_signal || signal.activation_ready || signal.deployed_members >= requirement.members ||
+                        signal.kjerag_freeze_foundation;
         // A low book is a timing constraint, not a route rejection.  Growth
         // hands commonly appear in III-IV while an opening shop is still at
         // I-II; keep the route as a provisional line when the live pool has

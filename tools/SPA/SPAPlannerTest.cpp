@@ -4812,6 +4812,40 @@ int main()
     const auto mech_guides = guided_primary_choices("band_mech");
     assert(mech_guides.pacts == std::vector<std::string>({ "乌萨斯", "精准" }));
     assert(!guided_primary_choices("band_takecare").guide_found);
+    // D6 band_lmlee, round six: an owned defender and an affordable cold
+    // source give the only available guided route a recruitable foundation.
+    auto kjerag_opening = dynamic_policy;
+    kjerag_opening.primary_pact = "auto";
+    kjerag_opening.enabled_core_pacts.clear();
+    kjerag_opening.disabled_pacts = { "阿戈尔", "叙拉古", "维多利亚", "萨尔贡", "莱塔尼亚",
+                                      "精准",   "迅捷",   "奇迹",     "突袭",   "不屈" };
+    kjerag_opening.selected_strategy_id = "band_lmlee";
+    kjerag_opening.round = 6;
+    kjerag_opening.shop_level = 3;
+    kjerag_opening.bench_occupied = 1;
+    kjerag_opening.deployed_population = 7;
+    kjerag_opening.early_board_ready = true;
+    kjerag_opening.owned = { { "卡达", { 1, true, true } },    { "承曦格雷伊", { 1, false, false } },
+                             { "摆渡人", { 2, false, true } }, { "深靛", { 1, false, true } },
+                             { "矩", { 1, false, true } },     { "褐果", { 1, false, true } },
+                             { "角峰", { 1, false, true } } };
+    const std::vector<ShopOffer> kjerag_opening_shop { { "耶拉", 3, 3 },
+                                                       { "野鬃", 2, 2 },
+                                                       { "渡桥", 3, 1 },
+                                                       { "夏栎", 2, 0 } };
+    const auto found_kjerag = choose_dynamic_primary_pact(kjerag_opening, kjerag_opening_shop, catalog, 5);
+    assert(found_kjerag.valid && found_kjerag.guide_restricted && found_kjerag.primary_pact == "谢拉格");
+    assert(found_kjerag.ranking.front().kjerag_freeze_foundation && !found_kjerag.ranking.front().activation_ready);
+    assert(!found_kjerag.ranking.front().role_signal && !found_kjerag.ranking.front().funded_growth_package_cost);
+    const auto buy_yela = choose_preparation(kjerag_opening, 5, kjerag_opening_shop, catalog);
+    assert(buy_yela.action == PreparationAction::Buy && buy_yela.name == "耶拉");
+    assert(!choose_dynamic_primary_pact(kjerag_opening, kjerag_opening_shop, catalog, 2).valid);
+    assert(!choose_dynamic_primary_pact(kjerag_opening, kjerag_opening_shop, catalog).valid);
+    kjerag_opening.boss_preparation = true;
+    assert(!choose_dynamic_primary_pact(kjerag_opening, kjerag_opening_shop, catalog, 5).valid);
+    kjerag_opening.boss_preparation = false;
+    kjerag_opening.disabled_pacts.push_back("谢拉格");
+    assert(choose_dynamic_primary_pact(kjerag_opening, kjerag_opening_shop, catalog, 5).primary_pact != "谢拉格");
     // The documented Ursus/Arcane route does not require a dual-pact bridge,
     // but still needs a distinct activation pair and its actual growth unit.
     PreparationPolicy ursus_arcane;
