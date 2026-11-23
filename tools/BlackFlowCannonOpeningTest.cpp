@@ -108,15 +108,16 @@ int wmain(int argc, wchar_t** argv)
     for (int j = 0; j < 4; ++j) {
         expect(order.at(j).oper_name == actors.at(j).name, "real comparator retains authored duty priority");
     }
-    expect(in(carda, clear, Point(2, 2)), "Carda E1 directly reaches upper cannon");
-    expect(in(carda, clear, Point(3, 2)), "taunting chef also in caster range target competition remains");
-    expect(!in(carda, clear, Point(2, 5)), "Carda upper cannon duty does not promise lower cannon");
-    expect(in(ew, core, Point(2, 5)), "EW UP directly reaches lower cannon");
-    expect(!in(ew, core, Point(2, 2)), "EW UP upper cannon requires indirect effects and cannot be promised direct");
+    expect(in(carda, clear, Point(2, 5)), "Carda E1 directly reaches lower cannon");
+    expect(in(carda, clear, Point(3, 5)), "lower taunting chef also competes for caster targeting");
+    expect(!in(carda, clear, Point(2, 2)), "lower cannon duty cannot claim upper cannon damage");
+    expect(in(ew, core, Point(7, 4)), "EW intercepts the lower delivered route after its first turn");
+    expect(!in(ew, core, Point(2, 2)), "EW interception does not claim direct upper cannon damage");
     for (const auto& t : core.required_attack_tiles) {
         expect(in(ew, core, t), "all main-core attack requirements covered");
     }
     auto old = clear;
+    old.location = Point(4, 3);
     old.direction = DeployDirection::Up;
     expect(
         !in(typhon, old, Point(2, 2)) && !in(typhon, old, Point(2, 5)),
@@ -173,19 +174,39 @@ int wmain(int argc, wchar_t** argv)
         for (int e : { 1, 2 }) {
             probe.elite(n, e);
             expect(
-                probe.deployment_requirements_met(o, heal),
-                "version-bound ordinary medical range covers actual two core units");
+                probe.deployment_requirements_met(o, heal) ==
+                    (n != "夜莺" && n != "白面鸮" && n != "调香师" && n != "微风" && n != "明椒" && n != "莎草"),
+                "shorter base healing ranges cannot claim the three-cell forward core");
         }
     }
     expect(
-        probe.deployment_requirements_met(pod, heal),
-        "Pod geometry alone covers EW and blocker but does not grant actor admission");
+        !probe.deployment_requirements_met(pod, heal),
+        "Pod base range does not reach the repositioned EW and cannot bypass medical requirements");
     expect(!in(pod, heal, Point(5, 3)), "Pod condition cannot claim future pusher treatment");
-    expect(!in(pod, heal, clear.location), "Pod condition cannot claim upper caster treatment");
-    expect(!in(ew, core, heal.location), "lower medic lies outside EW UP soul domain");
+    expect(in(pod, heal, clear.location), "reaching the nearby caster alone does not qualify healing the farther core");
+    expect(!in(ew, core, heal.location), "medic lies outside the new right-facing Soul domain");
     expect(
         push.location == Point(5, 3) && push.direction == DeployDirection::Down,
         "user pusher site and direction preserved without inventing recruitment");
+    expect(
+        core.location == Point(4, 3) && core.direction == DeployDirection::Right,
+        "intercept platform is left of the user right-side exclusion");
+    for (const auto target : { Point(7, 2), Point(7, 3), Point(7, 4) }) {
+        expect(in(ew, core, target), "EW directly covers both delivered approach turns");
+        auto stale = core;
+        stale.location = Point(4, 5);
+        stale.direction = DeployDirection::Up;
+        expect(!in(ew, stale, target), "run61 facing misses delivered approaches while all operators survive");
+    }
+    expect(!in(ew, core, Point(9, 0)), "approach interception is not full-route coverage");
+    expect(
+        in(ew, core, clear.location) && clear.rank < core.rank,
+        "caster claims the shared Soul-domain site before EW");
+    expect(!in(ew, core, heal.location), "healer cannot be displaced by EW Soul generation");
+    auto pure = unit("纯烬艾雅法拉", Role::Medic);
+    probe.elite(pure.name, 1);
+    expect(probe.deployment_requirements_met(pure, heal), "actual run61 E1 healer covers main damage and blocker");
+    expect(!in(ew, core, Point(2, 5)), "interception does not claim EW still focuses the lower cannon");
     mech.cost = 19;
     mech.available = false;
     mech.cooling = false;
