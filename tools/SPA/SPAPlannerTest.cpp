@@ -6498,6 +6498,24 @@ int main()
     assert(!is_primary_growth_engine("佩佩", "炎"));
     assert(is_primary_growth_engine("复奏", "莱塔尼亚"));
     assert(is_primary_growth_engine("涤火杰西卡", "维多利亚"));
+    assert(is_primary_growth_engine("流明", "伊比利亚"));
+    assert(is_primary_growth_engine("流明", "聚合"));
+    assert(!is_primary_growth_engine("流明", "谢拉格"));
+    const auto lumen_unknown = project_primary_growth("伊比利亚", 11, 14, true, { { "流明", false } });
+    assert(lumen_unknown.engine_names == std::vector<std::string> { "流明" });
+    assert(lumen_unknown.population_phase_additions_if_unchanged == 0 && lumen_unknown.unmodeled_sources == 1);
+    assert(
+        project_primary_growth("伊比利亚", 11, 14, true, { { "流明", false, true, 8 } })
+            .population_phase_additions_if_unchanged == 24);
+    assert(
+        project_primary_growth("聚合", 11, 14, true, { { "流明", true, true, 8 } })
+            .population_phase_additions_if_unchanged == 48);
+    assert(
+        project_primary_growth("伊比利亚", 11, 14, true, { { "流明", true, false, 8 } })
+            .population_phase_additions_if_unchanged == 0);
+    assert(
+        project_primary_growth("伊比利亚", 14, 14, true, { { "流明", true, true, 8 } })
+            .population_phase_additions_if_unchanged == 0);
     assert(is_primary_growth_engine("罗比菈塔", "助力"));
     assert(!is_primary_growth_engine("罗比菈塔", "维多利亚"));
     assert(growth_profiles().at("罗比菈塔").phase == GrowthPhase::PreparationEnd);
