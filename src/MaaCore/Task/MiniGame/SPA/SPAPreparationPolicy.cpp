@@ -1983,11 +1983,15 @@ static int additional_primary_layers_from_refresh(const PreparationPolicy& polic
     const auto& growth = growth_profiles();
     for (const auto& [name, owned] : policy.owned) {
         const auto found = growth.find(name);
-        if (found == growth.end() || owned.copies != 1 || !owned_form_counts(owned)) {
+        const auto forms = owned_form_counts(owned);
+        if (found == growth.end() || owned.copies <= 0 || !forms) {
             continue;
         }
         const auto& profile = found->second;
-        if (profile.kind != GrowthKind::CappedConditional || (!owned.deployed && !profile.works_on_bench) ||
+        // The form ledger counts field and bench bodies together. A
+        // field-only trait needs a uniquely attributed deployed body.
+        if (profile.kind != GrowthKind::CappedConditional ||
+            (!profile.works_on_bench && (!owned.deployed || owned.copies != 1)) ||
             !contains(profile.pacts, policy.primary_pact)) {
             continue;
         }
@@ -1996,17 +2000,22 @@ static int additional_primary_layers_from_refresh(const PreparationPolicy& polic
             override == profile.pact_formulas.end()
                 ? GrowthFormula { profile.normal_gain, profile.elite_gain, profile.normal_cap, profile.elite_cap }
                 : override->second;
-        const int gain = owned.elite ? formula.elite_gain : formula.normal_gain;
-        const int cap = owned.elite ? formula.elite_cap : formula.normal_cap;
-        if (profile.phase == GrowthPhase::ShopRefresh && preceding_refreshes == 0) {
-            layers += std::min(gain, cap);
-        }
-        else if (profile.scales_with_round_refreshes && gain > 0 && cap > 0) {
-            const int counted = std::clamp(preceding_refreshes, 0, cap / gain + 1);
-            layers += std::min(cap, (counted + 1) * gain) - std::min(cap, counted * gain);
-        }
+        const auto per_copy = [&](int gain, int cap) {
+            if (profile.phase == GrowthPhase::ShopRefresh && preceding_refreshes == 0) {
+                return std::min(gain, cap);
+            }
+            if (profile.scales_with_round_refreshes && gain > 0 && cap > 0) {
+                const int counted = std::clamp(preceding_refreshes, 0, cap / gain + 1);
+                return std::min(cap, (counted + 1) * gain) - std::min(cap, counted * gain);
+            }
+            return 0;
+        };
+        layers += forms->initial * per_copy(formula.normal_gain, formula.normal_cap) +
+                  forms->elite * per_copy(formula.elite_gain, formula.elite_cap);
     }
-    return layers;
+    const auto observed = policy.observed_pact_layers.find(policy.primary_pact);
+    return observed == policy.observed_pact_layers.end() ? layers
+                                                         : std::min(layers, 999 - std::clamp(observed->second, 0, 999));
 }
 
 static std::optional<PreparationChoice> choose_open_field_recruit(
@@ -2603,10 +2612,13 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
     }
     // Preserve enough of the current round's budget to recruit after the paid refresh.
     if (resolved.allow_refresh && resolved.free_refreshes > 0 && !resolved.shop_frozen_this_round) {
-        return {
-            PreparationAction::Refresh, "刷新", 0, -1, "Use a verified free refresh before spending the round budget",
-            resolved.primary_pact,      true
-        };
+        return { .action = PreparationAction::Refresh,
+                 .name = "刷新",
+                 .price = 0,
+                 .reason = "Use a verified free refresh before spending the round budget",
+                 .selected_pact = resolved.primary_pact,
+                 .free_refresh = true,
+                 .expected_refresh_layers = additional_primary_layers_from_refresh(resolved) };
     }
     if (const auto recruit = choose_open_field_recruit(resolved, funds, offers, pacts)) {
         return *recruit;
@@ -2622,10 +2634,14 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
     }
     if (resolved.allow_refresh && !resolved.shop_frozen_this_round &&
         can_recruit_after_paid_refresh(resolved, funds, pacts)) {
-        return { PreparationAction::Refresh, "刷新", 1, -1, "Refresh while retaining a recruitment budget",
-                 resolved.primary_pact,      false };
+        return { .action = PreparationAction::Refresh,
+                 .name = "刷新",
+                 .price = 1,
+                 .reason = "Refresh while retaining a recruitment budget",
+                 .selected_pact = resolved.primary_pact,
+                 .expected_refresh_layers = additional_primary_layers_from_refresh(resolved) };
     }
-    if (funds == 1 && resolved.dynamic_decision_mode && resolved.allow_refresh && !resolved.shop_frozen_this_round &&
+    if (funds >= 1 && resolved.dynamic_decision_mode && resolved.allow_refresh && !resolved.shop_frozen_this_round &&
         retention && !retention->carries) {
         if (const int layers = additional_primary_layers_from_refresh(resolved); layers > 0) {
             return { .action = PreparationAction::Refresh,

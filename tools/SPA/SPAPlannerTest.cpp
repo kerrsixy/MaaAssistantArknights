@@ -7368,6 +7368,30 @@ int main()
     refresh_growth.ordinary_refreshes_this_round = 0;
     refresh_growth.owned["安洁莉娜"].deployed = false;
     assert(choose_preparation(refresh_growth, 1, {}, catalog).expected_refresh_layers == 2);
+    // The first refresh with two initial Reprise copies gives four layers,
+    // including the copy on the bench. The later refresh gives none.
+    refresh_growth.owned["复奏"] = { 2, false, true };
+    const auto duplicate_growth = choose_preparation(refresh_growth, 2, {}, catalog);
+    assert(duplicate_growth.action == PreparationAction::Refresh && duplicate_growth.expected_refresh_layers == 4);
+    refresh_growth.owned["安洁莉娜"] = { 2, false, true };
+    assert(choose_preparation(refresh_growth, 1, {}, catalog).expected_refresh_layers == 4);
+    refresh_growth.owned["安洁莉娜"] = { 1, true, false };
+    refresh_growth.free_refreshes = 1;
+    const auto free_growth = choose_preparation(refresh_growth, 0, {}, catalog);
+    assert(free_growth.free_refresh && free_growth.expected_refresh_layers == 4);
+    refresh_growth.free_refreshes = 0;
+    refresh_growth.ordinary_refreshes_this_round = 1;
+    assert(choose_preparation(refresh_growth, 1, {}, catalog).action == PreparationAction::Review);
+    refresh_growth.ordinary_refreshes_this_round = 0;
+    refresh_growth.owned["复奏"] = { 2, true, false };
+    assert(choose_preparation(refresh_growth, 1, {}, catalog).action == PreparationAction::Review);
+    assert(set_owned_form_counts(refresh_growth.owned.at("复奏"), { 1, 1 }));
+    assert(choose_preparation(refresh_growth, 1, {}, catalog).expected_refresh_layers == 6);
+    refresh_growth.observed_pact_layers["叙拉古"] = 998;
+    assert(choose_preparation(refresh_growth, 1, {}, catalog).expected_refresh_layers == 1);
+    refresh_growth.observed_pact_layers["叙拉古"] = 999;
+    assert(choose_preparation(refresh_growth, 1, {}, catalog).action == PreparationAction::Review);
+    refresh_growth.observed_pact_layers.clear();
     refresh_growth.selected_strategy_id = "band_cannot";
     assert(choose_preparation(refresh_growth, 1, {}, catalog).action == PreparationAction::Review);
     refresh_growth.selected_strategy_id = "band_dance";
