@@ -203,14 +203,15 @@ asst::spa::GrowthProjection asst::spa::project_primary_growth(
         };
         if (profile.kind == GrowthKind::PopulationPhase) {
             result.engine_names.push_back(unit.name);
-            if (!unit.eligible_population) {
+            if (!unit.eligible_population && !profile.dynamic_recipients) {
                 ++result.unmodeled_sources;
             }
-            else if (active) {
-                // This is the current verified population held unchanged for
-                // a scenario, not a promise that future rows/gear stay fixed.
+            if (active && unit.eligible_population) {
+                // A verified population supplies the scenario; a cap applies
+                // per trigger before multiplying by the remaining phases.
+                const int per_trigger = gain * *unit.eligible_population;
                 result.population_phase_additions_if_unchanged +=
-                    gain * *unit.eligible_population * remaining_phase_triggers(profile.phase);
+                    (cap > 0 ? std::min(cap, per_trigger) : per_trigger) * remaining_phase_triggers(profile.phase);
             }
         }
         else if (profile.kind == GrowthKind::SalePriceDependent) {
