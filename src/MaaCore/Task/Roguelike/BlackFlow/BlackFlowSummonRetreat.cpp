@@ -324,3 +324,9 @@ SummonRetreatAuthorization BlackFlowSummonRetreat::authorize_input(
     m_authorized_action = SummonRetreatAction::None;
     return result;
 }
+
+void BlackFlowSummonRetreat::invalidate_input_permission() noexcept
+{
+    m_initial_alive.reset();
+    m_authorized_action = SummonRetreatAction::None;
+}

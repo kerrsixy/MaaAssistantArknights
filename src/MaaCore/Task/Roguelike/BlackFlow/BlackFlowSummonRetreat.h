@@ -101,6 +101,7 @@ public:
     bool acknowledge_normal(const SummonRetreatObservation& observation);
     bool complete_handoff();
     void input_result(SummonRetreatAction action, bool succeeded);
+    void invalidate_input_permission() noexcept;
     // State-only query for diagnostics/tests. Real input additionally requires
     // authorize_input immediately before the controller call, with no evidence
     // IO.
