@@ -258,10 +258,11 @@ asst::StrongholdProtocolTask::BossOpeningTarget asst::StrongholdProtocolTask::bo
         m_boss_attackable_round,
         m_boss_attackable_cells);
     target.measured = !target.cells.empty();
+    const auto bar = target.measured ? std::nullopt : spa::preparation_boss_health_bar(m_spatial_grid_reference);
     if (target.measured) {
         target.source = "observed_red_hatched_attackable_region";
     }
-    else if (const auto bar = spa::preparation_boss_health_bar(m_spatial_grid_reference)) {
+    else if (bar) {
         target.cells = spa::estimate_boss_opening_footprint(m_spatial_grid_reference, *bar, m_spatial_grid_projection);
         if (!target.cells.empty()) {
             target.source = "projected_five_by_three_opening_footprint";
@@ -277,10 +278,18 @@ asst::StrongholdProtocolTask::BossOpeningTarget asst::StrongholdProtocolTask::bo
                 m_spatial_boss_hidden_variant);
             target.movement_waypoints = boss.movement_waypoints;
             if (target.cells.empty()) {
-                target.cells = spa::estimate_solo_boss_opening_cells(boss);
+                const auto spawn =
+                    boss.possible_cells.size() == 1 ? std::optional(boss.possible_cells.front()) : std::nullopt;
+                const bool corroborated_moving_opening = !boss.stationary_route && bar && spawn &&
+                                                         spa::boss_opening_bar_aligns_with_spawn(
+                                                             *bar,
+                                                             m_spatial_grid_projection,
+                                                             { spawn->first, spawn->second });
+                target.cells = spa::estimate_solo_boss_opening_cells(boss, corroborated_moving_opening);
                 if (!target.cells.empty()) {
-                    target.source = boss.stationary_route ? "stationary_footprint_from_registered_solo_spawn"
-                                                          : "moving_boss_opening_cell_from_client_route";
+                    target.source = boss.stationary_route     ? "stationary_footprint_from_registered_solo_spawn"
+                                    : target.cells.size() > 1 ? "moving_opening_footprint_from_spawn_and_bar"
+                                                              : "moving_boss_opening_cell_from_client_route";
                 }
             }
         }

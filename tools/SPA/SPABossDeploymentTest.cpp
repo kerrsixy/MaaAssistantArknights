@@ -127,6 +127,21 @@ int main()
     assert(cocoon_footprint.size() == 15);
     assert(cocoon_footprint.front() == BoardCell(8, 2) && cocoon_footprint.back() == BoardCell(12, 4));
     assert(estimate_solo_stationary_boss_footprint(moving_objective).empty());
+    const auto hidden_eel = boss_objective("假想敌：鳍", { 2, 4 }, 6, true);
+    assert(hidden_eel.known && hidden_eel.variant_known && !hidden_eel.stationary_route);
+    const auto hidden_opening_cell = estimate_solo_boss_opening_cells(hidden_eel);
+    assert((hidden_opening_cell == std::vector<BoardCell> { { 10, 2 } }));
+    const auto hidden_opening_footprint = estimate_solo_boss_opening_cells(hidden_eel, true);
+    assert(hidden_opening_footprint.size() == 15);
+    assert(hidden_opening_footprint.front() == BoardCell(8, 1) && hidden_opening_footprint.back() == BoardCell(12, 3));
+    const std::vector<DeploymentUnit> eel_attackers {
+        member("黑键", { 7, 2 }, 'E', true, PlacementRole::Ranged, *terrain),
+        member("车尔尼", { 8, 1 }, 'E', true, PlacementRole::Frontline, *terrain)
+    };
+    assert(stationary_boss_attackers(eel_attackers, hidden_opening_cell) == 1);
+    assert(stationary_boss_attackers(eel_attackers, hidden_opening_footprint) == 2);
+    assert(hidden_eel.movement_waypoints == moving_objective.movement_waypoints);
+
     assert(estimate_solo_boss_opening_cells(cocoon) == cocoon_footprint);
     assert((estimate_solo_boss_opening_cells(moving_objective) == std::vector<BoardCell> { { 10, 2 } }));
     auto ambiguous_opening = moving_objective;

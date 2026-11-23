@@ -226,14 +226,9 @@ inline BossObjective boss_objective(
     return result;
 }
 
-// Use a shared spawn only for a registered solo board. This is a planning
-// estimate from the client route and the stationary five-by-three rule.
-inline std::vector<BoardCell> estimate_solo_stationary_boss_footprint(const BossObjective& objective)
+inline std::vector<BoardCell> estimate_five_by_three_boss_footprint(BoardCell center)
 {
-    if (!objective.stationary_route || objective.possible_cells.size() != 1) {
-        return {};
-    }
-    const auto [center_col, center_row] = objective.possible_cells.front();
+    const auto [center_col, center_row] = center;
     if (center_col < 2 || center_col > 10 || center_row < 1 || center_row > 3) {
         return {};
     }
@@ -246,15 +241,30 @@ inline std::vector<BoardCell> estimate_solo_stationary_boss_footprint(const Boss
     return cells;
 }
 
-// The client route supplies one opening location only when every possible
-// variant agrees. A moving boss can leave that cell as soon as battle starts.
-inline std::vector<BoardCell> estimate_solo_boss_opening_cells(const BossObjective& objective)
+// Use a shared spawn only for a registered solo board.
+inline std::vector<BoardCell> estimate_solo_stationary_boss_footprint(const BossObjective& objective)
+{
+    return objective.stationary_route && objective.possible_cells.size() == 1
+               ? estimate_five_by_three_boss_footprint(objective.possible_cells.front())
+               : std::vector<BoardCell> {};
+}
+
+// A moving boss can leave its opening footprint immediately. It still has
+// separate route checkpoints, and widening needs current preview geometry.
+inline std::vector<BoardCell>
+    estimate_solo_boss_opening_cells(const BossObjective& objective, bool moving_opening_corroborated = false)
 {
     if (!objective.known || objective.possible_cells.size() != 1) {
         return {};
     }
     if (objective.stationary_route) {
         return estimate_solo_stationary_boss_footprint(objective);
+    }
+    if (moving_opening_corroborated) {
+        auto footprint = estimate_five_by_three_boss_footprint(objective.possible_cells.front());
+        if (!footprint.empty()) {
+            return footprint;
+        }
     }
     const auto [col, row] = objective.possible_cells.front();
     return col >= 0 && col <= 12 && row >= 0 && row <= 4 ? objective.possible_cells : std::vector<BoardCell> {};

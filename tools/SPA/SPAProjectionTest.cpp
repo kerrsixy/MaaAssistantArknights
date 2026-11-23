@@ -270,6 +270,37 @@ int main()
     cv::line(red_cross, { 900, 225 }, { 979, 294 }, cv::Scalar(0, 0, 255), 12);
     cv::line(red_cross, { 979, 225 }, { 900, 294 }, cv::Scalar(0, 0, 255), 12);
     assert(!boss_attackable_region(red_cross, *manual_boss_bar));
+    // Solo regulation 6, hidden core, 2026-11-23 at 14:38:28.
+    const auto hidden_bar_crop = cv::imread("spa-hidden-eel-preparation-bar-live.png");
+    assert(hidden_bar_crop.size() == cv::Size(234, 32));
+    cv::Mat hidden_preview = cv::Mat::zeros(720, 1280, CV_8UC3);
+    hidden_bar_crop.copyTo(hidden_preview(cv::Rect(946, 408, 234, 32)));
+    const auto hidden_bar = preparation_boss_health_bar(hidden_preview);
+    assert(hidden_bar && hidden_bar->x == 974 && hidden_bar->y == 425);
+    // From the same registered field's eight verified operator cells and screen points.
+    const cv::Mat hidden_grid =
+        (cv::Mat_<double>(3, 3) << 77.28976,
+         -12.41776,
+         247.75275,
+         -.39413,
+         57.20743,
+         173.53904,
+         -.0007936,
+         -.0202803,
+         1);
+    assert(estimate_boss_opening_footprint(hidden_preview, *hidden_bar, hidden_grid).empty());
+    assert(boss_opening_bar_aligns_with_spawn(*hidden_bar, hidden_grid, { 10, 2 }));
+    assert(!boss_opening_bar_aligns_with_spawn(*hidden_bar, hidden_grid, { 9, 2 }));
+    assert(!boss_opening_bar_aligns_with_spawn(*hidden_bar, hidden_grid, { 10, 3 }));
+    assert(!boss_opening_bar_aligns_with_spawn(*hidden_bar, cv::Mat(), { 10, 2 }));
+    cv::Mat hidden_mirror;
+    cv::flip(hidden_preview, hidden_mirror, 1);
+    const auto hidden_mirrored_bar = preparation_boss_health_bar(hidden_mirror);
+    const cv::Mat reflect = (cv::Mat_<double>(3, 3) << -1, 0, 1279, 0, 1, 0, 0, 0, 1);
+    assert(
+        hidden_mirrored_bar &&
+        boss_opening_bar_aligns_with_spawn(*hidden_mirrored_bar, reflect * hidden_grid, { 10, 2 }));
+
     const cv::Rect occluded_bar(969, 335, 186, 6);
     const cv::Mat grid_projection = (cv::Mat_<double>(3, 3) << 82, 0, 302, 0, 64, 180, 0, 0, 1);
     cv::Mat occluded_boss(720, 1280, CV_8UC3, cv::Scalar(0, 0, 0));

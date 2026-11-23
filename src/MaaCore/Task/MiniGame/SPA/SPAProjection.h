@@ -164,6 +164,9 @@ std::optional<int> battle_boss_hp_bar_fill_percent(const cv::Mat& image);
 // A single long boss HP bar in the enemy preparation area. This supplies a
 // visible phase marker, not a boss identity or a guessed ground coordinate.
 std::optional<cv::Rect> preparation_boss_health_bar(const cv::Mat& image);
+// Check whether the bar agrees with a separately known client spawn, in
+// board coordinates so the same check works across camera positions.
+bool boss_opening_bar_aligns_with_spawn(cv::Rect boss_bar, const cv::Mat& grid_to_screen, cv::Point spawn);
 // Recognized red diagonal hatching above a separately established boss bar.
 // Frames with the direction-and-cancel overlay yield no region. Only visible
 // red pixels are retained; occluded body pixels are not inferred.

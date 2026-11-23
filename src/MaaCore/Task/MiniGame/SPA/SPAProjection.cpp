@@ -830,6 +830,25 @@ std::optional<cv::Rect> asst::spa::preparation_boss_health_bar(const cv::Mat& im
     return result;
 }
 
+bool asst::spa::boss_opening_bar_aligns_with_spawn(cv::Rect boss_bar, const cv::Mat& grid_to_screen, cv::Point spawn)
+{
+    if (boss_bar.width < 140 || boss_bar.width > 230 || boss_bar.height < 4 || boss_bar.height > 12 ||
+        (boss_bar & cv::Rect(0, 0, 1280, 720)) != boss_bar || grid_to_screen.size() != cv::Size(3, 3) ||
+        grid_to_screen.type() != CV_64FC1 || !cv::checkRange(grid_to_screen) ||
+        std::abs(cv::determinant(grid_to_screen)) < 1e-8) {
+        return false;
+    }
+    const cv::Point2f bar_center(boss_bar.x + boss_bar.width * .5F, boss_bar.y + boss_bar.height * .5F);
+    std::vector<cv::Point2f> mapped;
+    cv::perspectiveTransform(std::vector<cv::Point2f> { bar_center }, mapped, grid_to_screen.inv());
+    const auto point = mapped.front();
+    // The preview bar sits roughly two rows below the authored spawn.
+    // Preserve the one-cell estimate if the projection cannot corroborate it.
+    const float row_offset = point.y - spawn.y;
+    return std::isfinite(point.x) && std::isfinite(point.y) && std::abs(point.x - spawn.x) <= .55F &&
+           row_offset >= 1.55F && row_offset <= 2.25F;
+}
+
 std::optional<cv::Mat> asst::spa::boss_attackable_region(const cv::Mat& image, cv::Rect boss_bar)
 {
     if (image.type() != CV_8UC3 || image.size() != cv::Size(1280, 720) || boss_bar.width < 140 || boss_bar.height < 4 ||
