@@ -1151,7 +1151,12 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
     // input here could respawn a Soul or invalidate the fresh card observation.
     if (!yielding_soul_ui && !m_first_deploy &&
         (!m_hunter_prelude || m_hunter_main_allowed || m_hunter_prelude->bait_skill_allowed(m_battlefield_opers))) {
-        use_all_ready_skill(image);
+        if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+            use_all_ready_skill(image, SkillButtonIntent::ActivateOnly);
+        }
+        else {
+            use_all_ready_skill(image);
+        }
     }
     // 漏怪 / 崩盘诊断：只记录，不干预部署
     diagnose_battle_progress();

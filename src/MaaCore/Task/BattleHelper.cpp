@@ -832,6 +832,154 @@ bool asst::BattleHelper::use_skill(const Point& loc, int timeout_ms)
     return click_oper_on_battlefield(loc) && click_skill(timeout_ms) && m_inst_helper.sleep(200);
 }
 
+asst::BattleHelper::SkillInputResult
+    asst::BattleHelper::use_skill(const Point& loc, int timeout_ms, SkillButtonIntent intent)
+{
+    if (m_inst_helper.need_exit()) {
+        return SkillInputResult::Interrupted;
+    }
+    // The typed path never owns a pause, so it can never resume a user's pause.
+    if (!check_pause_button(m_inst_helper.ctrler()->get_image())) {
+        return SkillInputResult::Interrupted;
+    }
+    if (!click_oper_on_battlefield(loc)) {
+        return SkillInputResult::Failed;
+    }
+    const auto result = click_skill(timeout_ms, intent);
+    if (result == SkillInputResult::InputIssued) {
+        m_inst_helper.sleep(200);
+    }
+    return result;
+}
+
+asst::BattleHelper::SkillButtonState asst::BattleHelper::classify_skill_button(const cv::Mat& top_view)
+{
+    if (top_view.empty() || top_view.type() != CV_8UC3) {
+        return SkillButtonState::Unknown;
+    }
+    // Positive stop evidence vetoes activation even if readiness also matches.
+    Matcher active(top_view);
+    active.set_task_info("BattleSkillActiveOnClick-TopView");
+    active.set_roi({ 250, 250, 250, 250 });
+    if (active.analyze()) {
+        return SkillButtonState::Active;
+    }
+    Matcher ready(top_view);
+    ready.set_task_info("BattleSkillActivateOnClick-TopView");
+    ready.set_roi({ 250, 250, 250, 250 });
+    return ready.analyze() ? SkillButtonState::Ready : SkillButtonState::Unknown;
+}
+
+bool asst::BattleHelper::skill_button_click_allowed(SkillButtonState state, SkillButtonIntent intent)
+{
+    return (intent == SkillButtonIntent::ActivateOnly && state == SkillButtonState::Ready) ||
+           (intent == SkillButtonIntent::StopOnly && state == SkillButtonState::Active);
+}
+
+asst::BattleHelper::SkillInputResult asst::BattleHelper::dispatch_skill_button(
+    SkillButtonState state,
+    SkillButtonIntent intent,
+    bool input_allowed,
+    const std::function<bool()>& click,
+    const std::function<bool()>& close_selection)
+{
+    if (!input_allowed) {
+        return SkillInputResult::Interrupted;
+    }
+    if (state == SkillButtonState::Unknown) {
+        return SkillInputResult::Failed;
+    }
+    if (skill_button_click_allowed(state, intent)) {
+        if (click()) {
+            return SkillInputResult::InputIssued;
+        }
+        close_selection();
+        return SkillInputResult::Failed;
+    }
+    if (!close_selection()) {
+        return SkillInputResult::Failed;
+    }
+    return state == SkillButtonState::Active ? SkillInputResult::AlreadyActive : SkillInputResult::AlreadyInactive;
+}
+
+bool asst::BattleHelper::record_automatic_skill_result(
+    SkillInputResult result,
+    battle::SkillUsage& usage,
+    int& times,
+    int& errors,
+    std::chrono::steady_clock::time_point& last_poll,
+    std::chrono::steady_clock::time_point now,
+    bool suppress_error_backoff)
+{
+    if (result == SkillInputResult::Interrupted) {
+        return false;
+    }
+    if (result == SkillInputResult::AlreadyActive || result == SkillInputResult::AlreadyInactive) {
+        errors = 0;
+        last_poll = now;
+        return false;
+    }
+    if (result == SkillInputResult::Failed) {
+        if (!suppress_error_backoff && ++errors >= 3) {
+            errors = 0;
+            last_poll = now + std::chrono::seconds(15);
+        }
+        return false;
+    }
+    errors = 0;
+    last_poll = now;
+    if (usage == battle::SkillUsage::Times && --times == 0) {
+        usage = battle::SkillUsage::TimesUsed;
+    }
+    return true;
+}
+
+asst::BattleHelper::SkillInputResult asst::BattleHelper::click_skill(int timeout_ms, SkillButtonIntent intent)
+{
+    LogTraceFunction;
+    const auto start = std::chrono::steady_clock::now();
+    // Keep a bounded selected-panel recognition retry without pausing the game.
+    const int recognition_timeout = timeout_ms == 0 ? 1200 : timeout_ms;
+    cv::Mat top_view;
+    while (!m_inst_helper.need_exit()) {
+        const auto image = m_inst_helper.ctrler()->get_image();
+        if (!check_pause_button(image)) {
+            // No cleanup input on an unverified page, user pause or task exit.
+            return SkillInputResult::Interrupted;
+        }
+        top_view = get_top_view(image, true, m_has_multi_stages);
+        const auto state = classify_skill_button(top_view);
+        if (state != SkillButtonState::Unknown) {
+            const auto result = dispatch_skill_button(
+                state,
+                intent,
+                !m_inst_helper.need_exit(),
+                [&]() { return m_inst_helper.ctrler()->click(m_skill_button_pos); },
+                [&]() { return cancel_oper_selection(); });
+            LogInfo << __FUNCTION__ << "Typed skill button result"
+                    << (intent == SkillButtonIntent::ActivateOnly ? "activate" : "stop") << static_cast<int>(result)
+                    << "Engine transition unverified";
+            return result;
+        }
+        if (recognition_timeout >= 0 &&
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count() >=
+                recognition_timeout) {
+            break;
+        }
+        if (!m_inst_helper.sleep(Config.get_options().task_delay)) {
+            return SkillInputResult::Interrupted;
+        }
+    }
+    if (m_inst_helper.need_exit()) {
+        return SkillInputResult::Interrupted;
+    }
+    // Only a still-running board owns this selection-cleanup input.
+    if (check_pause_button(m_inst_helper.ctrler()->get_image())) {
+        cancel_oper_selection();
+    }
+    return SkillInputResult::Failed;
+}
+
 bool asst::BattleHelper::check_pause_button(const cv::Mat& reusable)
 {
     cv::Mat image = reusable.empty() ? m_inst_helper.ctrler()->get_image() : reusable;
@@ -957,6 +1105,16 @@ bool asst::BattleHelper::do_strategic_action(const cv::Mat& reusable)
 
 bool asst::BattleHelper::use_all_ready_skill(const cv::Mat& reusable)
 {
+    return use_all_ready_skill_impl(reusable, std::nullopt);
+}
+
+bool asst::BattleHelper::use_all_ready_skill(const cv::Mat& reusable, SkillButtonIntent intent)
+{
+    return use_all_ready_skill_impl(reusable, intent);
+}
+
+bool asst::BattleHelper::use_all_ready_skill_impl(const cv::Mat& reusable, std::optional<SkillButtonIntent> intent)
+{
     // TODO: 可配置延迟时间
     static constexpr auto min_frame_interval = std::chrono::milliseconds(1500);
 
@@ -996,6 +1154,17 @@ bool asst::BattleHelper::use_all_ready_skill(const cv::Mat& reusable)
         LogInfo << "Skill" << oper_tag.name << "is ready";
 
         // 识别到了，但点进去发现没有。一般来说是识别错了
+        if (intent) {
+            const auto result = use_skill(loc, 0, *intent);
+            if (result == SkillInputResult::Interrupted) {
+                return used;
+            }
+            static const bool save_infinitely = std::filesystem::exists("DEBUG_skill_ready.txt");
+            const bool issued =
+                record_automatic_skill_result(result, usage, times, retry, last_use_time, now, save_infinitely);
+            used = used || issued;
+            continue;
+        }
         if (!use_skill(loc, 0)) {
             LogWarn << "Skill" << oper_tag.name << "is not ready";
             static const bool save_infinitely = std::filesystem::exists("DEBUG_skill_ready.txt");

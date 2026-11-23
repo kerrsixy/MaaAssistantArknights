@@ -13,6 +13,7 @@
 
 #include <concepts>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <optional>
 
@@ -125,6 +126,47 @@ protected:
     virtual bool check_in_battle(const cv::Mat& reusable = cv::Mat(), bool weak = true);
     virtual bool wait_until_start(bool weak = true);
     bool wait_until_end(bool weak = true, bool do_strategy = true);
+
+    // Pure intents never interpret a stop button as activation or a ready button as stop.
+    enum class SkillButtonIntent
+    {
+        ActivateOnly,
+        StopOnly
+    };
+    enum class SkillButtonState
+    {
+        Unknown,
+        Ready,
+        Active
+    };
+    enum class SkillInputResult
+    {
+        Failed,
+        InputIssued,
+        AlreadyActive,
+        AlreadyInactive,
+        Interrupted
+    };
+    static SkillButtonState classify_skill_button(const cv::Mat& top_view);
+    static bool skill_button_click_allowed(SkillButtonState state, SkillButtonIntent intent);
+    static SkillInputResult dispatch_skill_button(
+        SkillButtonState state,
+        SkillButtonIntent intent,
+        bool input_allowed,
+        const std::function<bool()>& click,
+        const std::function<bool()>& close_selection);
+    static bool record_automatic_skill_result(
+        SkillInputResult result,
+        battle::SkillUsage& usage,
+        int& times,
+        int& errors,
+        std::chrono::steady_clock::time_point& last_poll,
+        std::chrono::steady_clock::time_point now,
+        bool suppress_error_backoff);
+    SkillInputResult use_skill(const Point& loc, int timeout_ms, SkillButtonIntent intent);
+    SkillInputResult click_skill(int timeout_ms, SkillButtonIntent intent);
+    bool use_all_ready_skill(const cv::Mat& reusable, SkillButtonIntent intent);
+    bool use_all_ready_skill_impl(const cv::Mat& reusable, std::optional<SkillButtonIntent> intent);
     bool use_all_ready_skill(const cv::Mat& reusable = cv::Mat());
     bool check_and_use_skill(const std::string& name, bool& has_error, const cv::Mat& reusable = cv::Mat());
     bool check_and_use_skill(
