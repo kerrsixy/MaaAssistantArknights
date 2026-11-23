@@ -147,6 +147,7 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
     m_displaced_name.clear();
     m_strategy_only = options.get("strategy_only", false);
     m_strategy_target_on_field = options.get("strategy_target_on_field", false);
+    m_temporary_elite_description_verified = false;
     m_strategy_copy_contact_attempted = false;
     m_layers_before = options.get("layers_before", -1);
     m_target_elite = options.get("target_elite", false);
@@ -4108,36 +4109,49 @@ bool asst::spa::SwapTaskPlugin::_run()
                                            ? selected_field_identity(m_target, m_name, target_panel)
                                            : selected_identity(m_target, m_name, &target_panel);
         const auto card = identity_verified ? selected_operator_card(target_panel, m_name) : std::nullopt;
-        if (!close_selection() || !card || card->elite) {
+        if (!card || card->elite) {
+            static_cast<void>(close_selection());
             return false;
         }
-        const Point view(1155, 235);
-        if (!ctrler()->click(view) || !sleep(600)) {
-            return false;
-        }
-        std::string description;
-        OCRer ocr(ctrler()->get_image(), Rect(750, 145, 390, 145));
-        if (const auto texts = ocr.analyze()) {
-            for (const auto& text : *texts) {
-                if (text.score >= 0.85) {
-                    description += text.text;
+        const bool reused_description = m_temporary_elite_description_verified && m_strategy_target_on_field;
+        if (!reused_description) {
+            const Point view(1155, 235);
+            if (!close_selection() || !ctrler()->click(view) || !sleep(600)) {
+                return false;
+            }
+            std::string description;
+            OCRer ocr(ctrler()->get_image(), Rect(750, 145, 390, 145));
+            if (const auto texts = ocr.analyze()) {
+                for (const auto& text : *texts) {
+                    if (text.score >= 0.85) {
+                        description += text.text;
+                    }
                 }
             }
+            if (!ctrler()->click(view) || !sleep(500) || description.find("全场聚焦") == std::string::npos ||
+                description.find("大嘴莫布") == std::string::npos ||
+                description.find("精锐干员") == std::string::npos ||
+                description.find("持续至战斗结束") == std::string::npos) {
+                return false;
+            }
         }
-        if (!ctrler()->click(view) || !sleep(500) ||
-            description.find("全场聚焦") == std::string::npos || description.find("大嘴莫布") == std::string::npos ||
-            description.find("精锐干员") == std::string::npos ||
-            description.find("持续至战斗结束") == std::string::npos ||
-            (m_strategy_target_on_field ? !capture_collapsed_preparation(board) : !restore_preparation()) ||
-            !active_strategy_ready(board.empty() ? ctrler()->get_image() : board) || !held_drag()) {
+        // Reuse only the match's immutable description. The current board,
+        // target form, available charge and payment still need fresh evidence.
+        if ((m_strategy_target_on_field
+                 ? !capture_collapsed_preparation(board, reused_description ? target_panel : cv::Mat {})
+                 : !restore_preparation()) ||
+            !active_strategy_ready(board.empty() ? ctrler()->get_image() : board)) {
+            return false;
+        }
+        m_temporary_elite_description_verified = true;
+        if ((m_spatial_hold_guard && !m_spatial_hold_guard()) || !held_drag()) {
             return false;
         }
         auto issued = basic_info_with_what("SPAActiveStrategyInputIssued");
-        issued["details"] = json::object { { "strategy", m_replaced },
-                                           { "target", m_name },
-                                           { "round", m_round },
-                                           { "effect_verified", false },
-                                           { "trigger", "next_battle_start" } };
+        issued["details"] =
+            json::object { { "strategy", m_replaced },   { "target", m_name },
+                           { "round", m_round },         { "strategy_description_reused", reused_description },
+                           { "effect_verified", false }, { "trigger", "next_battle_start" } };
         callback(AsstMsg::SubTaskExtraInfo, issued);
         if (!sleep(1000)) {
             return false;

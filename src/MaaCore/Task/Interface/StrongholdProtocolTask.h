@@ -55,6 +55,7 @@ private:
     std::string m_mode = "independent";
     std::string m_requested_strategy_id;
     bool m_current_strategy_inspected = false;
+    bool m_temporary_elite_description_verified = false;
     std::set<int> m_preparation_instruction_attempts;
     int m_deferred_opening_gift_scan_attempts = 0;
     int m_equipment_discount_round = -1;

@@ -88,6 +88,10 @@ public:
         const std::map<std::string, bool>& unchanged_forms,
         const std::map<std::string, std::vector<std::string>>& expected_equipment = {});
     bool strategy_copy_contact_attempted() const { return m_strategy_copy_contact_attempted; }
+
+    void set_temporary_elite_description_verified(bool verified) { m_temporary_elite_description_verified = verified; }
+
+    bool temporary_elite_description_verified() const { return m_temporary_elite_description_verified; }
     std::optional<bool> inspect_field_operator_form(
         const std::string& name,
         const Point& point,
@@ -401,6 +405,7 @@ private:
     bool m_sale_committed = false;
     bool m_strategy_only = false;
     bool m_strategy_target_on_field = false;
+    bool m_temporary_elite_description_verified = false;
     bool m_strategy_copy_contact_attempted = false;
     int m_layers_before = -1;
     bool m_target_elite = false;

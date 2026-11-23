@@ -159,6 +159,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_replacement_bench_space_round = -1;
     m_prefer_unclaimed = params.get("prefer_unclaimed_strategy", false);
     m_current_strategy_inspected = false;
+    m_temporary_elite_description_verified = false;
     m_preparation_instruction_attempts.clear();
     m_deferred_opening_gift_scan_attempts = 0;
     m_strategy_copy_target = params.get("strategy_copy_target", std::string());
@@ -3033,7 +3034,16 @@ bool asst::StrongholdProtocolTask::handle_temporary_elite_instruction(const json
                            { "round", round },
                            { "funds", funds },
                            { "remaining_deployment", state.get("remaining_deployment", -1) } })) {
+        instruction.set_temporary_elite_description_verified(m_temporary_elite_description_verified);
+        if (m_mode == "joint") {
+            instruction.set_spatial_hold_guard([&] {
+                const auto left =
+                    m_joint_preparation_deadline.observe(round, std::nullopt, spa::PreparationDeadline::Clock::now());
+                return left && *left >= 10;
+            });
+        }
         static_cast<void>(instruction.run());
+        m_temporary_elite_description_verified = instruction.temporary_elite_description_verified();
     }
     return true;
 }
