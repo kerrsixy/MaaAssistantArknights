@@ -2194,6 +2194,13 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
     }
     if (policy.dynamic_decision_mode && !policy.primary_locked_after_activation && policy.deployed_population >= 0 &&
         policy.deployed_population <= 8 && !policy.early_board_scores.empty()) {
+        const auto specter = policy.owned.find("幽灵鲨");
+        const bool build_egir_chain =
+            policy.primary_pact == "阿戈尔" && !contains(policy.disabled_pacts, "阿戈尔") &&
+            !policy.growth_primary_active_verified && !policy.boss_preparation && policy.early_board_ready &&
+            policy.last_round_life_loss == 0 && policy.deployed_population < 8 && policy.bench_occupied >= 0 &&
+            policy.deployed_population + policy.bench_occupied < 8 && specter != policy.owned.end() &&
+            specter->second.deployed && (specter->second.copies > 0 || specter->second.elite);
         const ShopOffer* best_early = nullptr;
         int best_early_score = 0;
         std::vector<ScoredShopPurchase> early_purchases;
@@ -2215,6 +2222,9 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
             }
             const auto value = policy.early_board_scores.find(offer.name);
             const int combat_value = value == policy.early_board_scores.end() ? 0 : value->second;
+            const bool egir_growth_recruit = build_egir_chain && copies == 0 &&
+                                             contains(pacts.at(offer.name), policy.primary_pact) &&
+                                             is_primary_growth_engine(offer.name, policy.primary_pact);
             if (policy.deployed_population == 8 && completes_promotion) {
                 // Keep an affordable missing-role repair ahead of this
                 // optional promotion, but do not discard the final copy
@@ -2241,10 +2251,12 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
             // Four deployed guards do not provide ranged damage or healing.
             // Fill observed role gaps and take an offered final copy even
             // when it belongs to another faction; do not roll to force it.
-            if (policy.deployed_population >= 4 && combat_value < 900 && !completes_promotion) {
+            if (policy.deployed_population >= 4 && combat_value < 900 && !completes_promotion && !egir_growth_recruit) {
                 continue;
             }
-            int score = combat_value - offer.price * 20;
+            // Once the head is already on a clean opening board, a new
+            // growth member can use an open slot even without a role gap.
+            int score = (egir_growth_recruit ? std::max(combat_value + 100, 1000) : combat_value) - offer.price * 20;
             if (copies > 0) {
                 score += copies + 1 >= required ? 1200 : 500;
             }

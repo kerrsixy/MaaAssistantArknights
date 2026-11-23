@@ -5555,6 +5555,38 @@ int main()
     egir_early_head.bench_occupied = 0;
     egir_early_head.owned["幽灵鲨"] = { 1, false, true };
     assert(should_upgrade_dynamic_shop(egir_early_head, 5, 4, { { "幽灵鲨", 2, 0 } }, catalog));
+    // D6 R4: the opening board was clean with Specter on it. Angela was
+    // affordable at book II, even though a chain could not activate yet.
+    auto egir_early_link = dynamic_decision;
+    egir_early_link.primary_pact = "阿戈尔";
+    egir_early_link.selected_strategy_id = "band_ducklord";
+    egir_early_link.round = 4;
+    egir_early_link.shop_level = 2;
+    egir_early_link.current_life = 29;
+    egir_early_link.early_board_ready = true;
+    egir_early_link.last_round_life_loss = 0;
+    egir_early_link.deployed_population = 5;
+    egir_early_link.bench_occupied = 0;
+    egir_early_link.economy_scenario_horizon_round = 14;
+    egir_early_link.growth_scenario_horizon_round = 14;
+    egir_early_link.owned = { { "幽灵鲨", { 1, false, true } },
+                              { "摆渡人", { 1, false, true } },
+                              { "烈夏", { 1, false, true } },
+                              { "褐果", { 1, false, true } },
+                              { "野鬃", { 1, false, true } } };
+    egir_early_link.early_board_scores = { { "瑰盐", 250 }, { "雪猎", 600 }, { "褐果", 250 }, { "安哲拉", 600 } };
+    const std::vector<ShopOffer> egir_opening_shop { { "瑰盐", 3, 3 },
+                                                     { "雪猎", 3, 2 },
+                                                     { "褐果", 2, 1 },
+                                                     { "安哲拉", 3, 0 } };
+    assert(!should_upgrade_dynamic_shop(egir_early_link, 7, 7, egir_opening_shop, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->reason.find("安哲拉") != std::string::npos);
+    const auto egir_link_purchase = choose_preparation(egir_early_link, 7, egir_opening_shop, catalog);
+    assert(egir_link_purchase.action == PreparationAction::Buy && egir_link_purchase.name == "安哲拉");
+    assert(should_upgrade_dynamic_shop(egir_early_link, 10, 7, egir_opening_shop, catalog));
+    assert(should_upgrade_dynamic_shop(egir_early_link, 7, 0, egir_opening_shop, catalog));
+    egir_early_link.disabled_pacts = { "阿戈尔" };
+    assert(should_upgrade_dynamic_shop(egir_early_link, 7, 7, egir_opening_shop, catalog));
     auto live_activation_window = dynamic_decision;
     live_activation_window.primary_pact = "莱塔尼亚";
     live_activation_window.shop_level = 2;
