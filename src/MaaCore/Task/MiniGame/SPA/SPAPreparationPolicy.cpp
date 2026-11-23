@@ -2589,16 +2589,18 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
                                                                                                                 : 0,
               first_growth_recruit_bonus > 0 ? 70 : 0 });
         const int growth_score = growth_weight * growth_relevance / 100;
-        const int score =
-            growth_score + promotion_bonus + std::min(acquisition_layers * 100, 1000) + first_growth_recruit_bonus +
-            (adds_boss_output ? exchange->second : 0) + 2 * std::min(boss_promotion_gain, 3000) +
-            (enables_sale_growth ? 1250 : 0) + (completes_freeze_pair ? 1800 : 0) +
-            (primary
-                 ? (carry ? (copies == 0 && (current_roles.output_owned == 0 || missing_terminal) ? 4000 : 500) : 0) +
-                       (engine ? (copies == 0 && current_roles.growth_engine_owned == 0 ? 3000 : 1000) : 0) +
-                       (copies == 0 ? new_member_priority : 20)
-                 : std::max({ growth_support, 1500 * completes_support, adds_first_healer ? exchange->second : 0 }) +
-                       (preferred_support ? 250 : 0));
+        const int healer_score = adds_first_healer ? exchange->second : 0;
+        const int carry_score =
+            carry ? (copies == 0 && (current_roles.output_owned == 0 || missing_terminal) ? 4000 : 500) : 0;
+        const int engine_score = engine ? (copies == 0 && current_roles.growth_engine_owned == 0 ? 3000 : 1000) : 0;
+        const int primary_lineup_score = carry_score + engine_score + (copies == 0 ? new_member_priority : 20);
+        const int support_lineup_score =
+            std::max({ growth_support, 1500 * completes_support, healer_score }) + (preferred_support ? 250 : 0);
+        const int lineup_score = primary ? std::max(primary_lineup_score, healer_score) : support_lineup_score;
+        const int score = growth_score + promotion_bonus + std::min(acquisition_layers * 100, 1000) +
+                          first_growth_recruit_bonus + (adds_boss_output ? exchange->second : 0) +
+                          2 * std::min(boss_promotion_gain, 3000) + (enables_sale_growth ? 1250 : 0) +
+                          (completes_freeze_pair ? 1800 : 0) + lineup_score;
         eligible_purchases.push_back({ &offer, score, !primary, growth_score });
         if (!best || score > best_score || (score == best_score && offer.price < best->price)) {
             best = &offer;

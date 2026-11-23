@@ -6058,6 +6058,46 @@ int main()
     full_missing_healer.early_board_scores["褐果"] = 900;
     full_missing_healer.owned["褐果"] = { 1, false, false };
     assert(choose_preparation(full_missing_healer, 4, { { "褐果", 3, 1 } }, catalog).action != PreparationAction::Buy);
+    // Regulation 6 round 7: the full-field fit found Iberia's first
+    // healer, but the former score granted the healing benefit only to off-pact cards.
+    PreparationPolicy iberia_healing_gap;
+    iberia_healing_gap.primary_pact = "伊比利亚";
+    iberia_healing_gap.dynamic_decision_mode = true;
+    iberia_healing_gap.primary_locked_after_activation = true;
+    iberia_healing_gap.growth_primary_active_verified = true;
+    iberia_healing_gap.allow_refresh = true;
+    iberia_healing_gap.round = 7;
+    iberia_healing_gap.shop_level = 3;
+    iberia_healing_gap.deployed_population = 8;
+    iberia_healing_gap.bench_occupied = 5;
+    iberia_healing_gap.growth_scenario_horizon_round = 14;
+    iberia_healing_gap.observed_pact_layers = { { "伊比利亚", 4 } };
+    iberia_healing_gap.support_pacts = { "精准" };
+    for (const auto& name : { "伊桑", "夏栎", "摆渡人", "海沫", "深靛", "灰喉", "蓝毒", "野鬃" }) {
+        iberia_healing_gap.owned[name] = { 1, false, true };
+    }
+    for (const auto& name : { "地灵", "旅骨", "空弦" }) {
+        iberia_healing_gap.owned[name] = { 1, false, false };
+    }
+    iberia_healing_gap.owned["深靛"].copies = 2;
+    iberia_healing_gap.owned["蓝毒"].copies = 2;
+    const std::vector<ShopOffer> r7_healer_offers { { "瑰盐", 3, 0 },
+                                                    { "空弦", 3, 1 },
+                                                    { "吉星", 3, 2 },
+                                                    { "宴", 3, 3 } };
+    iberia_healing_gap.full_field_offer_improvements = { { "瑰盐", 4820 },
+                                                         { "空弦", 5840 },
+                                                         { "吉星", 240 },
+                                                         { "宴", 120 } };
+    assert(choose_preparation(iberia_healing_gap, 3, r7_healer_offers, catalog).name == "空弦");
+    iberia_healing_gap.first_healer_replacement_offers = { "瑰盐" };
+    const auto recruit_primary_healer = choose_preparation(iberia_healing_gap, 3, r7_healer_offers, catalog);
+    assert(recruit_primary_healer.action == PreparationAction::Buy && recruit_primary_healer.name == "瑰盐");
+    assert(recruit_primary_healer.reason.find("first healer") != std::string::npos);
+    assert(choose_preparation(iberia_healing_gap, 2, r7_healer_offers, catalog).action != PreparationAction::Buy);
+    iberia_healing_gap.full_field_offer_improvements["瑰盐"] = 0;
+    assert(choose_preparation(iberia_healing_gap, 3, r7_healer_offers, catalog).name == "空弦");
+
     // D4 R10 live wallet and offer sheet after eight refreshes. The
     // existing full-field fit said both healers could improve the lineup.
     PreparationPolicy siracusa_healing_gap;
