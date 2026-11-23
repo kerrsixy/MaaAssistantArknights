@@ -683,6 +683,15 @@ int main()
     assert(!plan_egir_formation(independent_attacker, separate_boss).found);
     assert(!conditional_skill_attack_window("克莱门莎", false, 10).possible);
     assert(!conditional_skill_attack_window("乌尔比安", false, 120).possible);
+    SeasonCombatStats basic_weight_fixture {};
+    basic_weight_fixture.attack = 1000;
+    basic_weight_fixture.attack_interval = 2;
+    assert(season_basic_attack_weight(basic_weight_fixture, "band_weakness", true) == 672);
+    assert(season_basic_attack_weight(basic_weight_fixture, "band_weakness", false) == 500);
+    assert(season_basic_attack_weight(basic_weight_fixture, "", true) == 500);
+    assert(season_basic_attack_weight(basic_weight_fixture, "band_evolve", true) == 500);
+    basic_weight_fixture.attack_interval = 0;
+    assert(season_basic_attack_weight(basic_weight_fixture, "band_weakness", true) == 0);
     // R14 m06: layer count is a health bonus, so a boss attacker must prefer
     // inherited attack over a larger count of off-chain growth victims.
     std::vector<EgirPlacementUnit> m06_boss_units;

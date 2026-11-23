@@ -1631,7 +1631,8 @@ asst::spa::ReplacementMember asst::StrongholdProtocolTask::replacement_member(
             result.boss_basic_output_known =
                 !has_attack || (stats && stats->attack_interval > 0 && !stats->basic_range.empty());
             if (has_attack && result.boss_basic_output_known) {
-                result.boss_basic_attack_weight = static_cast<int>(stats->attack / stats->attack_interval);
+                result.boss_basic_attack_weight =
+                    spa::season_basic_attack_weight(*stats, policy.selected_strategy_id, forms->elite > 0);
                 result.boss_basic_range.assign(stats->basic_range.begin(), stats->basic_range.end());
             }
         }

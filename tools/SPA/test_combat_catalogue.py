@@ -62,6 +62,7 @@ class SeasonCombatCatalogueTests(unittest.TestCase):
             for name in ('initial', 'elite'):
                 form = row[name]
                 self.assertGreater(form['stats_base']['maxHp'], 0)
+                self.assertEqual(form['stats_base']['attackSpeed'], 100)
                 self.assertTrue(form['range_grid'])
                 self.assertTrue(any(s['index'] == row['default_skill_index'] for s in form['skills']))
                 self.assertTrue(form['garrisons'])
@@ -109,6 +110,12 @@ class SeasonCombatCatalogueTests(unittest.TestCase):
         for strategy in self.data['strategies']:
             self.assertIn(strategy['effectId'], self.data['effects'])
             self.assertEqual(strategy['victorCount'], 3)
+        weakness = next(s for s in self.data['strategies'] if s['bandId'] == 'band_weakness')
+        buffs = self.data['effects'][weakness['effectId']]['buffs']
+        weakness_attributes = {b['key']: b['value'] for effect in buffs for b in effect['blackboard']}
+        self.assertEqual(weakness_attributes['atk'], .16)
+        self.assertEqual(weakness_attributes['attack_speed'], 16)
+        self.assertEqual(weakness_attributes['filter_autochess_golden'], 1)
         base = self.data['effects']['bondeffect_egir']
         values = {b['key']: b['value'] for effect in base['buffs'] for b in effect['blackboard']}
         self.assertEqual(values['damage_value'], 5000)

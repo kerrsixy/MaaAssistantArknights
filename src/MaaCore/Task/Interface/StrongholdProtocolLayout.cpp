@@ -206,7 +206,10 @@ asst::spa::DeploymentUnit asst::StrongholdProtocolTask::describe_deployed_unit(
     const auto baseline = spa::season_combat_stats(member.name, elite);
     unit.block_count = baseline ? baseline->block_count : 1;
     if (baseline && baseline->attack_interval > 0) {
-        unit.boss_basic_attack_weight = std::max(1, static_cast<int>(baseline->attack / baseline->attack_interval));
+        const auto forms = elite ? spa::owned_form_counts(owned->second) : std::nullopt;
+        const bool confirmed_elite = forms && forms->initial == 0 && forms->elite > 0;
+        unit.boss_basic_attack_weight =
+            std::max(1, spa::season_basic_attack_weight(*baseline, m_selected_strategy_id, confirmed_elite));
     }
     unit.holds_position = spa::default_skill_holds_position(member.name, elite);
     unit.facing = member.facing ? member.facing : 'E';

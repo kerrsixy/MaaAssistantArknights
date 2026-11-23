@@ -20,6 +20,22 @@ inline std::optional<SeasonCombatStats> season_combat_stats(std::string_view nam
     return elite ? found->elite : found->initial;
 }
 
+// Estimate basic attack output before enemy mitigation or conditional effects.
+// This season's garrison base attack speed is 100 in both forms.
+inline int
+    season_basic_attack_weight(const SeasonCombatStats& stats, std::string_view strategy_id, bool confirmed_elite)
+{
+    if (stats.attack_interval <= 0) {
+        return 0;
+    }
+    constexpr double weakness_elite_attack_multiplier = 1.16;
+    constexpr double weakness_elite_speed_multiplier = 116.0 / 100.0;
+    const double modifier = strategy_id == "band_weakness" && confirmed_elite
+                                ? weakness_elite_attack_multiplier * weakness_elite_speed_multiplier
+                                : 1.0;
+    return static_cast<int>(stats.attack * modifier / stats.attack_interval);
+}
+
 inline std::optional<SeasonDefaultSkill> season_default_skill(std::string_view name, bool elite)
 {
     const auto found = std::find_if(SeasonDefaultSkills.begin(), SeasonDefaultSkills.end(), [&](const auto& row) {
