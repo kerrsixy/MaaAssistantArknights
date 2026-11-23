@@ -1022,7 +1022,9 @@ bool asst::spa::SwapTaskPlugin::observe_deployed_pose(const cv::Mat& preparation
         return false;
     }
     const Point target(projected->x, projected->y);
-    m_field_pose_verified = selected_identity(target, m_name) && close_selection();
+    cv::Mat selected_panel;
+    m_field_pose_verified =
+        selected_identity(target, m_name, &selected_panel) && close_selection(nullptr, selected_panel);
     if (m_field_pose_verified) {
         m_target = target;
         if (!m_growth_grid_to_screen.empty()) {
@@ -1802,8 +1804,9 @@ bool asst::spa::SwapTaskPlugin::verify_replacement_bench_identity(const std::str
         }
         ++probes;
         const auto hitbox = compact_sprite ? Point(candidate.x, candidate.y + 27) : candidate;
-        const bool matched = bench_identity(hitbox, false, name) == name;
-        if (!close_selection()) {
+        cv::Mat selected_panel;
+        const bool matched = bench_identity(hitbox, false, name, nullptr, &selected_panel) == name;
+        if (!close_selection(nullptr, selected_panel)) {
             return false;
         }
         if (matched) {
@@ -4383,7 +4386,9 @@ bool asst::spa::SwapTaskPlugin::_run()
         }
         m_equipment_reference = (reference.empty() ? ctrler()->get_image() : reference).clone();
         save_evidence(m_equipment_reference, utils::path("debug/SPA/replacement_reference"), false);
-        if (!selected_identity(m_target, m_replaced) || !close_selection() || !ensure_expanded_shop()) {
+        cv::Mat selected_panel, clean_field;
+        if (!selected_identity(m_target, m_replaced, &selected_panel) ||
+            !close_selection(&clean_field, selected_panel) || !ensure_shop_visibility(true, nullptr, clean_field)) {
             return false;
         }
         if (!m_registered_grid_reference.empty()) {
