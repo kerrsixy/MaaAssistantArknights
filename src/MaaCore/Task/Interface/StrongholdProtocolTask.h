@@ -73,6 +73,7 @@ private:
     void refresh_mode_pact_restrictions();
     bool m_shopping_complete = false;
     bool m_shop_review_after_replacements = false;
+    std::optional<std::pair<int, spa::ShopOffer>> m_reviewed_funding_quote;
     bool m_shop_reviewed_last_ordinary_coin = false;
     int m_last_coin_review_after_deployment_round = -1;
     int m_last_economy_round = -1;
@@ -243,6 +244,7 @@ private:
         const Point& previous,
         const Point& actual,
         int round,
+        int funds,
         std::optional<char> committed_facing,
         int planned_improvement);
 

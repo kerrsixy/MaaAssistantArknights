@@ -133,6 +133,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     }
     m_shopping_complete = false;
     m_shop_review_after_replacements = false;
+    m_reviewed_funding_quote.reset();
     m_shop_reviewed_last_ordinary_coin = false;
     m_last_coin_review_after_deployment_round = -1;
     m_last_economy_round = -1;
@@ -1912,6 +1913,7 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
             pending.verifier->field_pose_verified() ? pending.verifier->target_point()
                                                     : pending.verifier->drag_target_point(),
             round,
+            state.get("funds_known", false) ? state.get("funds", -1) : -1,
             pending.committed_facing ? pending.committed_facing : pending.verifier->committed_facing(),
             pending.decision_round == round ? pending.planned_improvement : 0);
         m_pending_field_replacement.reset();
@@ -2208,6 +2210,7 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
         Point(choice.x, choice.y),
         exchange->field_pose_verified() ? exchange->target_point() : exchange->drag_target_point(),
         round,
+        state.get("funds_known", false) ? state.get("funds", -1) : -1,
         exchange->committed_facing(),
         choice.improvement);
     return true;
@@ -2219,6 +2222,7 @@ void asst::StrongholdProtocolTask::commit_full_field_replacement(
     const Point& previous,
     const Point& actual,
     int round,
+    int funds,
     std::optional<char> committed_facing,
     int planned_improvement)
 {
@@ -2287,6 +2291,18 @@ void asst::StrongholdProtocolTask::commit_full_field_replacement(
     m_shop_review_after_replacements =
         m_shopping_complete && (m_policy.primary_locked_after_activation || m_shop_reviewed_last_ordinary_coin);
     m_shopping_complete = m_shop_review_after_replacements;
+    std::string funding_target;
+    if (m_shopping_complete && m_reviewed_funding_quote && m_reviewed_funding_quote->first == round &&
+        !m_failed_bench_sales.contains({ round, outgoing }) &&
+        spa::can_fund_with_released_transition(m_policy, funds, m_reviewed_funding_quote->second, outgoing)) {
+        // A verified replacement just released a seller for a reviewed quote.
+        // Re-enter normal shopping before the next swap. Re-read the shop and
+        // re-run funding policy before issuing any sale or purchase.
+        funding_target = m_reviewed_funding_quote->second.name;
+        m_reviewed_funding_quote.reset();
+        m_shop_review_after_replacements = false;
+        m_shopping_complete = false;
+    }
     m_spending_reviewed = false;
     m_spending_reason.clear();
     auto receipt = basic_info_with_what("SPAReplacementReconciled");
@@ -2299,6 +2315,7 @@ void asst::StrongholdProtocolTask::commit_full_field_replacement(
                        { "completed_unique_exchanges_this_round", m_completed_replacement_exchanges.size() },
                        { "outgoing_available_for_sale_review", m_policy.released_transitions.contains(outgoing) },
                        { "shop_review_deferred_until_replacements_finish", m_shop_review_after_replacements },
+                       { "shop_review_before_next_replacement_for", funding_target },
                        { "bench_occupied", m_policy.bench_occupied },
                        { "remaining_deployment", 0 },
                        { "roster", roster_snapshot() },
@@ -3550,6 +3567,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             m_last_economy_round = current_round;
             m_shopping_complete = false;
             m_shop_review_after_replacements = false;
+            m_reviewed_funding_quote.reset();
             m_shop_reviewed_last_ordinary_coin = false;
             m_purchase_reserved_after_sale.reset();
             m_bench_funding_pair.reset();
@@ -6420,6 +6438,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 continue;
             }
         }
+        m_reviewed_funding_quote.reset();
         auto decision = spa::choose_preparation(m_policy, funds, offers, catalog);
         bool purchase_reserved_after_sale = false;
         if (m_purchase_reserved_after_sale) {
@@ -6934,6 +6953,10 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                           spa::round_balance_review_reason(m_selected_strategy_id, funds)
                                     : spa::round_balance_review_reason(m_selected_strategy_id, funds);
             m_shopping_complete = true;
+            if (m_mode == "independent" && m_policy.dynamic_decision_mode && ordinary_balance_rule_known && funds > 0 &&
+                funding && funding->deficit == 1 && exact_funding_quote) {
+                m_reviewed_funding_quote = std::pair(round, funding->offer);
+            }
             m_shop_reviewed_last_ordinary_coin = m_policy.dynamic_decision_mode && funds == 1 &&
                                                 ordinary_balance_rule_known && m_policy.free_refreshes == 0;
             if (funds == 1 && ordinary_balance_rule_known && m_policy.dynamic_decision_mode && field_population >= 0 &&

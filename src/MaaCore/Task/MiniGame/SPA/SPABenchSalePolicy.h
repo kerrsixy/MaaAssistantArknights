@@ -111,6 +111,17 @@ inline std::optional<std::string> choose_full_bench_sale(
     return result;
 }
 
+inline bool can_fund_with_released_transition(
+    const PreparationPolicy& policy,
+    int funds,
+    const ShopOffer& offer,
+    const std::string& released)
+{
+    return funds > 0 && offer.price == funds + 1 && offer.name != released &&
+           policy.released_transitions.contains(released) &&
+           choose_full_bench_sale(policy, {}, 1, released).has_value();
+}
+
 struct FundingPurchase
 {
     ShopOffer offer;

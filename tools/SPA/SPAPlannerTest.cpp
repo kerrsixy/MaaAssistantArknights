@@ -1885,6 +1885,27 @@ int main()
     assert(!pending_swap_bench.owned.at(*unrelated_sale).deployed);
     pending_swap_bench.released_transitions = { "霜叶", "奥尔佳", "杰克" };
     assert(choose_full_bench_sale(pending_swap_bench, { "奥尔佳", "杰克" }) == "霜叶");
+    // D7 round 11 waited until several more swaps before selling Lappland
+    // for Kazemaru. Only an identified, still expendable release changes
+    // this reviewed one-coin shortfall.
+    PreparationPolicy egir_release_funding;
+    egir_release_funding.primary_pact = "阿戈尔";
+    egir_release_funding.primary_locked_after_activation = true;
+    egir_release_funding.support_pacts = { "不屈" };
+    egir_release_funding.shop_level = 5;
+    egir_release_funding.bench_occupied = 8;
+    egir_release_funding.owned["拉普兰德"] = { 1, false, true };
+    const ShopOffer kazemaru { "风丸", 3, 1 };
+    assert(!can_fund_with_released_transition(egir_release_funding, 2, kazemaru, "拉普兰德"));
+    egir_release_funding.owned.at("拉普兰德").deployed = false;
+    assert(!can_fund_with_released_transition(egir_release_funding, 2, kazemaru, "拉普兰德"));
+    egir_release_funding.released_transitions.insert("拉普兰德");
+    assert(can_fund_with_released_transition(egir_release_funding, 2, kazemaru, "拉普兰德"));
+    assert(!can_fund_with_released_transition(egir_release_funding, 1, kazemaru, "拉普兰德"));
+    assert(!can_fund_with_released_transition(egir_release_funding, 3, kazemaru, "拉普兰德"));
+    egir_release_funding.owned.at("拉普兰德").copies = 2;
+    assert(!can_fund_with_released_transition(egir_release_funding, 2, kazemaru, "拉普兰德"));
+
     auto all_reserved = pending_swap_bench;
     all_reserved.owned = { { "奥尔佳", { 1, false, false } }, { "杰克", { 1, true, true } } };
     assert(!choose_full_bench_sale(all_reserved, { "奥尔佳", "杰克" }));
