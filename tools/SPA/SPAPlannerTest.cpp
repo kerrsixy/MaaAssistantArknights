@@ -754,6 +754,11 @@ int main()
     assert(season_primary_damage_bonuses("阿戈尔", 168).attack_basis_points == 0);
     assert(season_basic_attack_weight(basic_weight_fixture, "", false, ursus_bonus) == 1305);
     assert(season_basic_attack_weight(basic_weight_fixture, "band_weakness", true, ursus_bonus) == 1513);
+    const auto leithanien_bonus = season_primary_damage_bonuses("莱塔尼亚", 156);
+    assert(leithanien_bonus.attack_basis_points == 18'600);
+    assert(leithanien_bonus.outgoing_damage_basis_points == 0);
+    assert(season_basic_attack_weight(basic_weight_fixture, "band_evolve", false, leithanien_bonus) == 1430);
+    assert(season_primary_damage_bonuses("莱塔尼亚", 0).attack_basis_points == 3000);
     const auto kjerag_bonus = season_primary_damage_bonuses("谢拉格", 93);
     assert(kjerag_bonus.attack_basis_points == 0);
     assert(kjerag_bonus.outgoing_damage_basis_points == 2500);
@@ -2872,6 +2877,18 @@ int main()
     assert(spatial_vacant_drop_failure_key("m01#normal", rejected_drop, false) != drop_key);
     rejected_drop.kind = DeploymentStepKind::Swap;
     assert(!spatial_vacant_drop_failure_key("m01#normal", rejected_drop, false));
+    BossVacantDropRejections boss_drops;
+    const BoardCell observed_receiver { 7, 1 };
+    constexpr auto ranged = asst::battle::LocationType::Ranged;
+    assert(!boss_drops.record(14, "m01", observed_receiver, ranged, "折光"));
+    assert(!boss_drops.record(14, "m01", observed_receiver, ranged, "折光"));
+    assert(!boss_drops.rejected(14, "m01", observed_receiver, ranged));
+    assert(boss_drops.record(14, "m01", observed_receiver, ranged, "艾雅法拉"));
+    assert(boss_drops.rejected(14, "m01", observed_receiver, ranged));
+    assert(!boss_drops.rejected(14, "m01", { 7, 2 }, ranged));
+    assert(!boss_drops.rejected(14, "m01", observed_receiver, asst::battle::LocationType::Melee));
+    assert(!boss_drops.rejected(14, "m09", observed_receiver, ranged));
+    assert(!boss_drops.rejected(15, "m01", observed_receiver, ranged));
     const std::vector<ReplacementMember> transition_board {
         { "艾丝黛尔", PlacementRole::Frontline, { "萨尔贡" }, 500, 800, 235, true },
         { "泡泡", PlacementRole::Frontline, { "萨尔贡" }, 500, 880, 437, true },

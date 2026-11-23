@@ -3,6 +3,7 @@
 #include "StrongholdProtocolTask.h"
 #include "Task/MiniGame/SPA/SPABattleRole.h"
 #include "Task/MiniGame/SPA/SPABossPolicy.h"
+#include "Task/MiniGame/SPA/SPACombatRole.h"
 #include "Task/MiniGame/SPA/SPACombatStats.h"
 #include "Task/MiniGame/SPA/SPAEngagementPolicy.h"
 #include "Task/MiniGame/SPA/SPAFormation.h"
@@ -466,6 +467,13 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::dynamic_l
         }
         const auto owned = m_policy.owned.find(unit.id);
         const spa::DeploymentStep move { spa::DeploymentStepKind::Move, unit.id, {}, unit.cell, cell, unit.facing };
+        if (review_vacant_previews && !m_boss_vacant_drop_rejections.empty()) {
+            const auto role = BattleData.get_first_role(unit.id);
+            const auto type = spa::season_location_type(unit.id, BattleData.get_location_type(role, unit.id));
+            if (m_boss_vacant_drop_rejections.rejected(round, m_spatial_map_id, cell, type)) {
+                return true;
+            }
+        }
         const auto key = spa::spatial_vacant_drop_failure_key(
             map_context,
             move,
@@ -1509,6 +1517,7 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
         executor->spatial_preview_failed() || executor->spatial_vacant_destination_unregistered();
     bool replan_after_held_failure = false;
     bool replan_after_vacant_rejection = false;
+    bool boss_vacant_tile_rejected = false;
     if (relocation ? !executor->relocation_applied() : !executor->committed_facing()) {
         if (m_pending_spatial_orientation->get("dynamic_layout", false)) {
             const auto drop = m_pending_spatial_orientation->get("drop_fingerprint", std::string());
@@ -1519,6 +1528,17 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
                                             !executor->committed_facing() && !preview.empty();
             if (executor->spatial_drop_returned_without_direction() && !drop.empty()) {
                 m_failed_spatial_actions.insert(drop);
+                if (m_mode == "independent" && m_spatial_boss_phase && m_spatial_boss_phase_round == round &&
+                    m_spatial_snapshot_round == round && relocation && displaced.empty() &&
+                    !executor->committed_facing()) {
+                    const auto role = BattleData.get_first_role(name);
+                    const auto type = spa::season_location_type(name, BattleData.get_location_type(role, name));
+                    const spa::BoardCell cell { m_pending_spatial_orientation->get("target_col", -1),
+                                                m_pending_spatial_orientation->get("target_row", -1) };
+                    boss_vacant_tile_rejected =
+                        type > battle::LocationType::None &&
+                        m_boss_vacant_drop_rejections.record(round, m_spatial_map_id, cell, type, name);
+                }
             }
             else if (!replan_after_vacant_rejection) {
                 // After one cancelled Boss drag with a verified restored field, keep that
@@ -1570,6 +1590,7 @@ bool asst::StrongholdProtocolTask::handle_spatial_reorientation(const json::valu
                        { "drop_returned_without_direction", executor->spatial_drop_returned_without_direction() },
                        { "vacant_preview_failed", executor->spatial_preview_failed() },
                        { "held_registration_failed", executor->spatial_held_registration_failed() },
+                       { "boss_vacant_tile_rejected_for_placement_type", boss_vacant_tile_rejected },
                        { "boss_replan_with_fixed_unit", replan_after_held_failure },
                        { "boss_replan_after_vacant_preview_rejected",
                          replan_after_vacant_rejection && executor->spatial_preview_failed() },

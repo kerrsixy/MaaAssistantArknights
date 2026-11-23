@@ -40,6 +40,9 @@ inline PrimaryDamageBonuses season_primary_damage_bonuses(std::string_view pact,
     if (pact == "炎") {
         return { .attack_basis_points = 2300 + 90 * layers };
     }
+    if (pact == "莱塔尼亚") {
+        return { .attack_basis_points = 3000 + 100 * layers };
+    }
     if (pact == "谢拉格") {
         return { .outgoing_damage_basis_points = 2500 };
     }

@@ -16,6 +16,11 @@
 #include <tuple>
 #include <vector>
 
+namespace asst::battle
+{
+enum class LocationType;
+}
+
 namespace asst::spa
 {
 struct ReplacementMember
@@ -453,6 +458,33 @@ inline std::optional<std::string>
            std::to_string(step.from.first) + "." + std::to_string(step.from.second) + ">" +
            std::to_string(step.to.first) + "." + std::to_string(step.to.second);
 }
+
+// A same-cell rejection from two different operators is evidence about the tile
+// for that placement type in this round. It does not alter the terrain model.
+class BossVacantDropRejections
+{
+public:
+    bool empty() const { return m_sources.empty(); }
+
+    bool record(int round, const std::string& map, BoardCell cell, battle::LocationType type, const std::string& name)
+    {
+        if (map.empty() || name.empty() || round < 1) {
+            return false;
+        }
+        auto& rejected = m_sources[{ round, map, cell, type }];
+        rejected.insert(name);
+        return rejected.size() >= 2;
+    }
+
+    bool rejected(int round, const std::string& map, BoardCell cell, battle::LocationType type) const
+    {
+        const auto found = m_sources.find({ round, map, cell, type });
+        return found != m_sources.end() && found->second.size() >= 2;
+    }
+
+private:
+    std::map<std::tuple<int, std::string, BoardCell, battle::LocationType>, std::set<std::string>> m_sources;
+};
 
 inline std::optional<std::string> replacement_target_failure_key(
     const std::string& map_id,
