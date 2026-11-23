@@ -756,18 +756,43 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
     const auto& expected_identity = specific_selected ? m_requested_strategy : expected_default_identity;
     const bool selected_tile_verified =
         !expected_identity.empty() && selected_tile_matches(selected_image, selected_strategy_index, card);
-    if (selected_identity_conflict ||
-        (!expected_identity.empty() &&
-         (!selected_identity || selected_identity->band_id != expected_identity || !selected_tile_verified))) {
-        LogError << "SPA strategy confirmation did not match the planned slot and identity" << expected_identity
+    const bool confirmation_enabled =
+        !selected_unavailable && confirm_rect && strategy_confirmation_enabled_on_frame(selected_image);
+    if (selected_identity_conflict || (!expected_identity.empty() && (!selected_identity || !selected_tile_verified))) {
+        LogError << "SPA strategy confirmation could not verify the selected slot and identity" << expected_identity
                  << (selected_identity ? selected_identity->band_id : "") << card << selected_tile_verified;
         return false;
+    }
+    bool scroll_fallback = false;
+    if (!expected_identity.empty() && selected_identity->band_id != expected_identity) {
+        const auto context = m_context_provider ? m_context_provider() : OpeningStrategyContext {};
+        // An auto-selected viewport can return at a different scroll offset.
+        // The visible highlight and panel still identify a usable card.
+        // Recover there while time remains, without overriding an explicit choice.
+        if (!m_auto_selected || specific_selected || !m_requested_strategy.empty() || !confirmation_enabled ||
+            !assess_opening_strategy(selected_identity->band_id, context).eligible ||
+            std::ranges::find(context.occupied_strategy_ids, selected_identity->band_id) !=
+                context.occupied_strategy_ids.end()) {
+            LogError << "SPA strategy confirmation did not match the planned identity" << expected_identity
+                     << selected_identity->band_id << card;
+            return false;
+        }
+        auto recovered = basic_info_with_what("SPAStrategyScrollFallback");
+        recovered["details"] = json::object { { "planned_strategy_id", expected_identity },
+                                              { "observed_strategy_id", selected_identity->band_id },
+                                              { "selected_tile_verified", true },
+                                              { "confirmation_issued", false } };
+        callback(AsstMsg::SubTaskExtraInfo, recovered);
+        expected_default_identity = selected_identity->band_id;
+        selected_badge_known = false;
+        selected_completed = false;
+        scroll_fallback = true;
     }
     if (!m_requested_strategy.empty() && (!selected_identity || selected_identity->band_id != m_requested_strategy)) {
         LogError << "SPA requested strategy identity changed before confirmation" << m_requested_strategy;
         return false;
     }
-    if (selected_unavailable || !confirm_rect || !strategy_confirmation_enabled_on_frame(selected_image)) {
+    if (!confirmation_enabled) {
         m_requested_strategy.clear();
         LogWarn << "SPA strategy confirmation is unavailable; retry with the current default pool";
         return false;
@@ -832,7 +857,8 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                                      { "completed", selected_completed },
                                      { "silver_progress_candidate", selected_orange_only } };
     if (!expected_default_identity.empty()) {
-        info["details"]["selection_basis"] = "verified_identity_effects_and_pact_bans";
+        info["details"]["selection_basis"] =
+            scroll_fallback ? "verified_scroll_fallback" : "verified_identity_effects_and_pact_bans";
         info["details"]["inspected_cards"] = inspected_strategy_cards;
         info["details"]["all_catalogue_pages_scanned"] = false;
     }
