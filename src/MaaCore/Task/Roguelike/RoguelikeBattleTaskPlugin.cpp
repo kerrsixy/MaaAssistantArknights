@@ -134,7 +134,8 @@ bool asst::RoguelikeBattleTaskPlugin::_run()
     }
 
     if (m_config->get_theme() == RoguelikeTheme::BlackFlow && (m_stage_name == "搏杀" || m_stage_name == "共斗")) {
-        LogInfo << "BlackFlow duel preparation is delegated to its observed deployment-limit handler";
+        LogInfo << "BlackFlow duel preparation is delegated to its observed "
+                   "deployment-limit handler";
         return true;
     }
 
@@ -144,7 +145,7 @@ bool asst::RoguelikeBattleTaskPlugin::_run()
     }
 
     cache_oper_elite_status();
-    if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_stage_name == "狂热敬虔") {
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
         auto observer = std::make_unique<blackflow::BlackFlowSoulObserver>();
         std::string error;
         if (observer->load(ResDir.get() / "roguelike/BlackFlow/stage_mechanics/ew_soul_guard", &error)) {
@@ -225,7 +226,8 @@ bool asst::RoguelikeBattleTaskPlugin::wait_until_start_button_clicked()
         Matcher formation(image);
         formation.set_task_info(task);
         if (!formation.analyze()) {
-            // Leaving formation is expected. calc_stage_info subsequently verifies the battle scene.
+            // Leaving formation is expected. calc_stage_info subsequently verifies
+            // the battle scene.
             return true;
         }
         if (!sleep(250)) {
@@ -657,7 +659,7 @@ void asst::RoguelikeBattleTaskPlugin::observe_hunter_after_deployment()
     }
 }
 
-bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
+bool asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
 {
     Log.info("deploy diag: cur_opers", m_cur_deployment_opers.size(), "homes", m_homes.size());
     LogTraceFunction;
@@ -693,7 +695,8 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
             continue;
         }
         // 地图自带的无名放置物（黑流树海的「工人」）：没有招募信息，只按固定组名匹配。
-        // 依据（用户实测）：不先放工人挖开 (4,1)，第 3 手的远程干员会被卡住放不下去。
+        // 依据（用户实测）：不先放工人挖开 (4,1)，第 3
+        // 手的远程干员会被卡住放不下去。
         if (is_nameless_deployable(oper.name)) {
             if (oper.cooling) {
                 LogDebug << "nameless deployable is cooling now.";
@@ -783,7 +786,8 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                     deploy_plan.role = oper.role;
                     deploy_plan.oper_name = oper.name;
                     // deploy_plan.oper_priority = recruit_info.recruit_priority;
-                    // deploy_plan.oper_order_in_group = recruit_info.order_in_group.at(group_id);
+                    // deploy_plan.oper_order_in_group =
+                    // recruit_info.order_in_group.at(group_id);
 
                     deploy_plan.oper_order_in_group =
                         recruit_info.order_in_group.empty() ? INT_MAX : recruit_info.order_in_group.at(group_id);
@@ -811,9 +815,10 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
             LogTrace << m_stage_name << "operator" << oper.name << "is not in ALL deploy plan.";
         }
     }
-    // 用稳定排序而不是 std::sort：当两个条目 rank 与组内排名都相同时（同一落点可被
-    // 多个干员匹配），稳定排序保证仍然尊重 m_cur_deployment_opers 的原始顺序，
-    // 配合 operator< 里的费用比较，行为可预测。
+    // 用稳定排序而不是 std::sort：当两个条目 rank
+    // 与组内排名都相同时（同一落点可被 多个干员匹配），稳定排序保证仍然尊重
+    // m_cur_deployment_opers 的原始顺序， 配合 operator<
+    // 里的费用比较，行为可预测。
     std::stable_sort(deploy_plan_list.begin(), deploy_plan_list.end());
     // 排序结果必须可见：否则「低费优先」是否真的生效只能靠 best deploy 反推，
     // 而同 rank 多条记录混在一起时根本看不出谁排在前面。
@@ -874,6 +879,13 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
                         << best_waiting_plan->rank;
                 continue;
             }
+            if (allow_soul_inspection && m_soul_observer && oper_it->role != battle::Role::Drone &&
+                !is_nameless_deployable(oper_it->name) && observe_blackflow_souls(deploy_plan.placed)) {
+                return true;
+            }
+            if (need_exit()) {
+                return true;
+            }
             const auto direction = resolve_deploy_direction(*oper_it, deploy_plan.placed, deploy_plan.direction);
             if (!deploy_oper(deploy_plan.role, deploy_plan.oper_name, deploy_plan.placed, direction)) {
                 LogWarn << __FUNCTION__ << "Deployment action failed" << deploy_plan.oper_name << deploy_plan.placed;
@@ -917,12 +929,14 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy()
 
 // 漏怪 / 崩盘诊断。
 // 依据：
-//   1)《敌人机制与 MAA 可观测性盘点》§4：战斗内可观测项只有「已击杀 / 敌人总数 / 费用」，
+//   1)《敌人机制与 MAA 可观测性盘点》§4：战斗内可观测项只有「已击杀 / 敌人总数
+//   / 费用」，
 //      敌人血量、攻击类型（物理/法术/真实/元素）、攻击范围、元素损伤条、以及「村民」这类
 //      中立单位全部不可读；因此元素损伤、村民扣血、精英/领袖识别在本架构下无法做反应式判断。
 //   2)《水月肉鸽全地图机制盘点》§5：漏怪集中在窄图与多蓝门图的早期费用真空期。
 // 实现取舍：本轮只「把看不见的变成看得见」，不在战斗内做任何会自动改变部署行为的判断，
-//      以免在冲 N8 的过程中引入回归。心跳 30 秒一条、停滞告警每场最多一次，日志量可控。
+//      以免在冲 N8 的过程中引入回归。心跳 30
+//      秒一条、停滞告警每场最多一次，日志量可控。
 void asst::RoguelikeBattleTaskPlugin::diagnose_battle_progress()
 {
     const auto now = std::chrono::steady_clock::now();
@@ -982,8 +996,27 @@ void asst::RoguelikeBattleTaskPlugin::diagnose_battle_progress()
     }
 }
 
-bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Mat& image_prev)
+bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& image_prev)
 {
+    if (need_exit()) {
+        return false;
+    }
+    if (m_soul_selection_owned && m_soul_observer) {
+        if (const auto terminal = m_soul_observer->battle_end_scene(image)) {
+            auto info = basic_info_with_what("BlackFlowSoulUiBattleEnded");
+            info["details"] = json::object {
+                { "stage", m_stage_name },
+                { "positive_local_result_task", *terminal },
+                { "first_ending_clear_proven", false },
+            };
+            callback(AsstMsg::SubTaskExtraInfo, info);
+            m_soul_selection_owned = false;
+            m_soul_retreat.reset();
+            // Return to the existing reward/settlement chain. A local battle
+            // result is not an exploration victory or a certified empty tile.
+            return false;
+        }
+    }
     // 每 5 秒输出一次战斗状态快照，定位漏怪时的可用兵力
     {
         static auto last_snap = std::chrono::steady_clock::now();
@@ -1041,8 +1074,12 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
 
     // A pending verified-token selection owns this UI transaction. Skill input
     // must not change that selection before it is committed or cancelled.
-    if (m_soul_selection_owned) {
-        return observe_blackflow_souls();
+    const bool yielding_soul_ui = m_soul_selection_owned;
+    if (yielding_soul_ui && observe_blackflow_souls(std::nullopt, &image)) {
+        return true;
+    }
+    if (need_exit()) {
+        return false;
     }
     check_drone_tiles();
 
@@ -1058,7 +1095,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
     for (const auto& [oper_tag, loc] : pre_battlefield) {
         const auto& oper_info = RoguelikeRecruit.get_oper_info(m_config->get_theme(), oper_tag);
         auto iter = m_deployed_time.find(oper_tag);
-        if (iter != m_deployed_time.end() && oper_info.auto_retreat > 0) {
+        if (!yielding_soul_ui && iter != m_deployed_time.end() && oper_info.auto_retreat > 0) {
             if (std::chrono::steady_clock::now() - m_deployed_time.at(oper_tag) >=
                 oper_info.auto_retreat * std::chrono::seconds(1)) {
                 // 时间到了就撤退
@@ -1070,6 +1107,10 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
     pre_battlefield = m_battlefield_opers;
 
     if (!update_deployment(false, image, true)) {
+        if (yielding_soul_ui) {
+            LogInfo << __FUNCTION__ << "Retain Soul UI handoff until card recognition completes";
+            return !need_exit();
+        }
         return check_in_battle(image);
     }
     // A freshly recognized ordinary card is no longer a deployed entity, even
@@ -1077,14 +1118,48 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
     auto returned_operators = reconcile_returned_blackflow_operators();
     const bool cost_observed = update_cost(image, image_prev);
     update_kills(image, image_prev);
-    if (!m_first_deploy &&
+    if (yielding_soul_ui) {
+        // The lease survives recognition failures. Only a fresh complete card
+        // observation may consume the handoff and re-enable ordinary actions.
+        if (need_exit()) {
+            return false;
+        }
+        if (!m_soul_retreat || !m_soul_retreat->handoff_pending()) {
+            return true;
+        }
+        const auto intent = m_soul_retreat->intent();
+        const auto tile = m_soul_retreat->pending_tile();
+        if (!m_soul_retreat->complete_handoff()) {
+            return true;
+        }
+        m_soul_selection_owned = false;
+        m_soul_retreat.reset();
+        auto released = basic_info_with_what("BlackFlowSoulUiReleased");
+        released["details"] = json::object {
+            { "stage", m_stage_name },
+            { "intent",
+              intent == blackflow::SummonRetreatIntent::ReclaimDeploymentTile ? "reclaim_deployment_tile"
+                                                                              : "protect_owner_from_boss" },
+            { "requested_tile", tile ? json::array { tile->x, tile->y } : json::array {} },
+            { "fresh_deployment_bar", true },
+            { "ordinary_deployment_still_required", true },
+            { "removal_confirmed", false },
+        };
+        callback(AsstMsg::SubTaskExtraInfo, released);
+    }
+    // Give a newly acknowledged panel to ordinary deployment first. Skill
+    // input here could respawn a Soul or invalidate the fresh card observation.
+    if (!yielding_soul_ui && !m_first_deploy &&
         (!m_hunter_prelude || m_hunter_main_allowed || m_hunter_prelude->bait_skill_allowed(m_battlefield_opers))) {
         use_all_ready_skill(image);
     }
     // 漏怪 / 崩盘诊断：只记录，不干预部署
     diagnose_battle_progress();
-    if (m_soul_observer && observe_blackflow_souls()) {
+    if (!yielding_soul_ui && m_soul_observer && observe_blackflow_souls()) {
         return true;
+    }
+    if (need_exit()) {
+        return false;
     }
     if (m_hunter_prelude && !m_hunter_main_allowed && observe_hunter_prelude(ctrler()->get_image())) {
         return true;
@@ -1111,12 +1186,12 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
     // 退场事件必须先处理；预设部署成功后提前返回会漏掉这一帧的防线失守。
     auto urgent_home_opt = check_urgent(pre_cooling, current_departures, pre_battlefield);
     if (m_deploy_plan_only) {
-        if (do_best_deploy()) {
+        if (do_best_deploy(!yielding_soul_ui)) {
             m_first_deploy = false;
         }
         return true;
     }
-    if (!urgent_home_opt && do_best_deploy()) {
+    if (!urgent_home_opt && do_best_deploy(!yielding_soul_ui)) {
         m_first_deploy = false;
         return true;
     }
@@ -1141,7 +1216,9 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
 
         Log.info("To path", m_cur_home_index);
 
-        if (!update_deployment(false, image, true)) {
+        // Handoff already verified this exact normal frame and deliberately
+        // skipped skill/retreat input; reuse its fresh card observation.
+        if (!yielding_soul_ui && !update_deployment(false, image, true)) {
             return false;
         }
 
@@ -1171,6 +1248,13 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(const cv::Mat& image, const cv::Ma
         }
         const auto& [placed_loc, direction] = *best_loc_opt;
 
+        if (!yielding_soul_ui && !best_oper_is_dice && m_soul_observer && best_oper.role != Role::Drone &&
+            !is_nameless_deployable(best_oper.name) && observe_blackflow_souls(placed_loc)) {
+            return true;
+        }
+        if (need_exit()) {
+            return false;
+        }
         if (!deploy_oper(best_oper.role, best_oper.name, placed_loc, direction)) {
             LogWarn << __FUNCTION__ << "Deployment action failed" << best_oper.name << placed_loc;
             return true;
@@ -1531,8 +1615,9 @@ std::optional<asst::battle::DeploymentOper>
                     get_oper_position({ oper.role, oper.name }) != OperPosition::Blocking) {
                     continue;
                 }
-                // 原来这里是「同职业里取第一个」：cur_available 按费用升序，于是预备干员
-                // 这类低费单位总能抢先落地。改为同职业内按 prefer_oper 取最优。
+                // 原来这里是「同职业里取第一个」：cur_available
+                // 按费用升序，于是预备干员 这类低费单位总能抢先落地。改为同职业内按
+                // prefer_oper 取最优。
                 if (!best_of_role || prefer_oper(oper, *best_of_role)) {
                     best_of_role = oper;
                 }
@@ -1551,7 +1636,9 @@ std::optional<asst::battle::DeploymentOper>
     if (!best_oper && focused) {
         best_oper = pick_oper(false, true);
         if (best_oper) {
-            LogInfo << __FUNCTION__ << "focus role unavailable at current cost; deploy affordable fallback"
+            LogInfo << __FUNCTION__
+                    << "focus role unavailable at current cost; deploy affordable "
+                       "fallback"
                     << best_oper->name << best_oper->cost << m_cost;
         }
     }
@@ -1845,7 +1932,8 @@ std::optional<asst::RoguelikeBattleTaskPlugin::DeployInfo>
 
     best_direction = resolve_deploy_direction(oper, best_location, best_direction);
 
-    // 2026-10-26 盲放抑制：场上已有 >=2 人，而最近 4 个候选点的原始覆盖分都不为正，
+    // 2026-10-26 盲放抑制：场上已有 >=2 人，而最近 4
+    // 个候选点的原始覆盖分都不为正，
     // 说明这些位置打不到任何敌人，放出去就是浪费费用和部署位（用户反馈的「瞎放」）。
     if (best_raw_score <= 0 && m_used_tiles.size() >= 2) {
         Log.info("skip blind deploy: no positive coverage, best raw score", best_raw_score);
@@ -2007,9 +2095,11 @@ asst::RoguelikeBattleTaskPlugin::DirectionAndScore asst::RoguelikeBattleTaskPlug
         }
     }
 
-    // 所有方向的得分都不大于 0 时（攻击范围完全落在不可通行地块/图外，或地图数据缺失），
-    // best_direction 会保持在 None。None 会让 deploy_oper 跳过朝向拖拽，干员朝向由游戏
-    // 默认值决定，行为不可预期。这里退回「朝敌方家」的 base_direction，保证朝向有确定性。
+    // 所有方向的得分都不大于 0
+    // 时（攻击范围完全落在不可通行地块/图外，或地图数据缺失）， best_direction
+    // 会保持在 None。None 会让 deploy_oper 跳过朝向拖拽，干员朝向由游戏
+    // 默认值决定，行为不可预期。这里退回「朝敌方家」的
+    // base_direction，保证朝向有确定性。
     if (best_direction == DeployDirection::None && base_direction != DeployDirection::None) {
         best_direction = base_direction;
     }

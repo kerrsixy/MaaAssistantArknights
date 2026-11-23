@@ -24,6 +24,12 @@ enum class SummonRetreatAction
     RetreatSelection,
 };
 
+enum class SummonRetreatIntent
+{
+    ProtectOwnerFromBoss,
+    ReclaimDeploymentTile,
+};
+
 struct SummonRetreatObservation
 {
     std::string battle_key;
@@ -35,7 +41,8 @@ struct SummonRetreatObservation
     bool normal_view = false;
     bool selection_view = false;
     bool owner_present = false;
-    // Vision candidates are proposals only. A candidate never authorizes retreat.
+    // Vision or a required deployment site may propose inspection. A proposal
+    // never authorizes retreat without the selected exact identity and button.
     std::vector<Point> candidates;
     std::vector<Point> confirmed_empty_tiles;
     std::string selected_name;
@@ -50,9 +57,9 @@ struct SummonRetreatDecision
     bool removal_confirmed = false;
 };
 
-// An input-free transaction policy. The actor must supply fresh Boss evidence
-// and verify the currently selected identity, then report the actual input result.
-// Missing Boss evidence is never converted to death or to permission to retreat.
+// An input-free transaction policy. Both intents require fresh exact identity.
+// Protection additionally requires a live Boss; reclamation is limited to one
+// requested deployment tile and never invents Boss evidence.
 class BlackFlowSummonRetreat
 {
 public:
@@ -61,13 +68,30 @@ public:
         std::string summon_name,
         std::string summon_id,
         Point owner_tile,
-        std::vector<Point> allowed_tiles);
+        std::vector<Point> allowed_tiles,
+        SummonRetreatIntent intent = SummonRetreatIntent::ProtectOwnerFromBoss);
 
     SummonRetreatDecision observe(const SummonRetreatObservation& observation);
+    SummonRetreatDecision abandon(const SummonRetreatObservation& observation);
+    bool acknowledge_normal(const SummonRetreatObservation& observation);
+    bool complete_handoff();
     void input_result(SummonRetreatAction action, bool succeeded);
     bool authorized(SummonRetreatAction action) const noexcept;
 
     bool boss_dead() const noexcept { return m_boss_dead; }
+
+    SummonRetreatIntent intent() const noexcept { return m_intent; }
+
+    const std::vector<Point>& allowed_tiles() const noexcept { return m_allowed_tiles; }
+
+    std::optional<Point> pending_tile() const noexcept { return m_pending_tile; }
+
+    bool awaiting_normal_ack() const noexcept
+    {
+        return m_phase == Phase::CheckingRemoval || m_phase == Phase::AwaitNormalAck;
+    }
+
+    bool handoff_pending() const noexcept { return m_phase == Phase::HandingOff; }
 
 private:
     enum class Phase
@@ -78,16 +102,22 @@ private:
         Retreating,
         CheckingRemoval,
         Cancelling,
+        AwaitNormalAck,
+        HandingOff,
     };
 
     SummonRetreatDecision cancel();
     void reset_transaction();
+    bool accept(const SummonRetreatObservation& observation);
 
     std::string m_battle_key;
     std::string m_summon_name;
     std::string m_summon_id;
     Point m_owner_tile;
     std::vector<Point> m_allowed_tiles;
+    SummonRetreatIntent m_intent;
+    unsigned m_normal_ack_count = 0;
+    std::uint64_t m_normal_ack_first_ms = 0;
     Phase m_phase = Phase::Idle;
     std::optional<Point> m_pending_tile;
     std::uint64_t m_sequence = 0;
@@ -96,4 +126,4 @@ private:
     bool m_boss_dead = false;
     SummonRetreatAction m_authorized_action = SummonRetreatAction::None;
 };
-}
+} // namespace asst::blackflow
