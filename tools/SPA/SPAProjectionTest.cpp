@@ -59,6 +59,16 @@ int main()
     final_report(cv::Rect(731, 610, 14, 18)).setTo(cv::Scalar(99, 100, 60));
     assert(strategy_report_trailing_row(final_report, final_report_rows, leading_report_columns, bottom_thumb) == 572);
     assert(!strategy_report_trailing_row(final_report, final_report_rows, leading_report_columns, middle_thumb));
+    auto thin_report_selection = final_report.clone();
+    cv::rectangle(thin_report_selection, cv::Rect(707, 600, 4, 90), cv::Scalar(236, 245, 248), cv::FILLED);
+    assert(!strategy_report_cell_selected(thin_report_selection, 710, 572));
+    cv::rectangle(thin_report_selection, cv::Rect(728, 580, 82, 1), cv::Scalar(236, 245, 248), cv::FILLED);
+    assert(!strategy_report_cell_selected(thin_report_selection, 710, 572));
+    cv::rectangle(thin_report_selection, cv::Rect(728, 581, 77, 3), cv::Scalar(236, 245, 248), cv::FILLED);
+    assert(strategy_report_cell_selected(thin_report_selection, 710, 572));
+    assert(!strategy_report_cell_selected(thin_report_selection, 578, 572));
+    assert(!strategy_report_cell_selected(thin_report_selection, 710, 435));
+    assert(!strategy_report_cell_selected(thin_report_selection, 710, 640));
     const std::vector<int> row_already_visible { 161, 298, 435, 572 };
     assert(!strategy_report_trailing_row(final_report, row_already_visible, leading_report_columns, bottom_thumb));
     assert(bottom_thumb && bottom_thumb->at_bottom() && strategy_report_scroll_moved(*bottom_thumb, *top_thumb, true));

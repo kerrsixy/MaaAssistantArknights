@@ -79,19 +79,6 @@ static std::vector<int> strategy_report_rows(const cv::Mat& image, const cv::Mat
     return rows;
 }
 
-static bool strategy_report_cell_selected(const cv::Mat& image, int x, int y)
-{
-    if (image.size() != cv::Size(1280, 720) || image.type() != CV_8UC3) {
-        return false;
-    }
-    const auto pale_border = [&](const cv::Rect& area, double proportion) {
-        cv::Mat pale;
-        cv::inRange(image(area), cv::Scalar(190, 190, 190), cv::Scalar(255, 255, 255), pale);
-        return cv::countNonZero(pale) >= area.area() * proportion;
-    };
-    return pale_border(cv::Rect(x + 18, y + 4, 82, 10), .45) && pale_border(cv::Rect(x - 3, y + 21, 10, 96), .25);
-}
-
 static bool same_strategy_report_grid(const cv::Mat& left, const cv::Mat& right)
 {
     const cv::Rect catalogue(565, StrategyReportRowTop, 675, 705 - StrategyReportRowTop);

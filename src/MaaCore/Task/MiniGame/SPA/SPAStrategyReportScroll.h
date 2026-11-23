@@ -96,6 +96,41 @@ inline std::optional<int> strategy_report_trailing_row(
     return portraits_present ? std::optional(next_row) : std::nullopt;
 }
 
+inline bool strategy_report_cell_selected(const cv::Mat& image, int x, int y)
+{
+    const cv::Rect top(x + 18, y, 82, 17);
+    const cv::Rect side(x - 3, y + 21, 10, 96);
+    const cv::Rect frame(0, 0, image.cols, image.rows);
+    if (image.size() != cv::Size(1280, 720) || image.type() != CV_8UC3 || (top & frame) != top ||
+        (side & frame) != side) {
+        return false;
+    }
+    const cv::Scalar white_lower(190, 190, 190), white_upper(255, 255, 255);
+    cv::Mat side_mask;
+    cv::inRange(image(side), white_lower, white_upper, side_mask);
+    if (cv::countNonZero(side_mask) < side.area() * .25) {
+        return false;
+    }
+    cv::Mat top_mask;
+    cv::inRange(image(top), white_lower, white_upper, top_mask);
+    const auto standard = top_mask.rowRange(4, 14);
+    if (cv::countNonZero(standard) >= standard.total() * .45) {
+        return true;
+    }
+    // The bottom gradient leaves a thin but continuous selected outline.
+    // It is still anchored to this precise tile by the side evidence.
+    int adjacent_bright_lines = 0;
+    for (int row = 0; row < top_mask.rows; ++row) {
+        if (cv::countNonZero(top_mask.row(row)) < top_mask.cols * .85) {
+            adjacent_bright_lines = 0;
+        }
+        else if (++adjacent_bright_lines == 2) {
+            return true;
+        }
+    }
+    return false;
+}
+
 inline bool same_strategy_report_scrollbar(const StrategyReportScrollbar& left, const StrategyReportScrollbar& right)
 {
     return std::abs(left.top - right.top) <= 2 && std::abs(left.bottom - right.bottom) <= 2;
