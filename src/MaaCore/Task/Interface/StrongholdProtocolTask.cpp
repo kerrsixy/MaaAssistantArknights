@@ -146,6 +146,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_replacement_round = -1;
     m_failed_replacements.clear();
     m_unverified_replacement_receivers.clear();
+    m_unverified_direction_receivers.clear();
     m_visited_replacement_lineups.clear();
     m_completed_replacement_exchanges.clear();
     m_unavailable_replacement_sources.clear();
@@ -838,6 +839,10 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
             PendingReplacement { nullptr,       incoming,     outgoing,     Point(x, y), source.copies,
                                  target.copies, source.elite, target.elite, -1,          true };
         const auto saved_facing = saved->get("committed_facing", std::string());
+        const int unverified_round = saved->get("unverified_direction_round", -1);
+        if (unverified_round == m_resume_after_round) {
+            m_pending_field_replacement->unverified_direction_round = unverified_round;
+        }
         if (saved_facing.size() == 1 && std::string("ENSW").find(saved_facing[0]) != std::string::npos) {
             m_pending_field_replacement->committed_facing = saved_facing[0];
         }
@@ -1739,6 +1744,7 @@ std::pair<std::vector<asst::spa::ReplacementMember>, std::vector<asst::spa::Repl
                                              owned.copies,
                                              static_cast<int>(count)) &&
                                          m_verified_field_pose_points.contains(item->second) &&
+                                         !m_unverified_direction_receivers.contains({ name, placed.x, placed.y }) &&
                                          (!m_pending_direct_promotion ||
                                           m_pending_direct_promotion->get("operator", std::string()) != name);
                     field.push_back(std::move(placed));
@@ -1847,6 +1853,12 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
             return false;
         }
         if (pending.verifier->replacement_original_preserved()) {
+            // A separate read confirmed both original identities. Other bench
+            // candidates would reuse the same unreadable receiver this round.
+            const bool defer_receiver = round > 0 && pending.unverified_direction_round == round;
+            if (defer_receiver) {
+                m_unverified_direction_receivers.emplace(pending.outgoing, pending.previous.x, pending.previous.y);
+            }
             auto unchanged = basic_info_with_what("SPAReplacementOriginalPreserved");
             unchanged["details"] = json::object { { "run_id", m_run_id },
                                                   { "round", round },
@@ -1857,6 +1869,9 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
                                                   { "incoming_bench_identity_verified", true },
                                                   { "outgoing_field_identity_verified", true },
                                                   { "drag_repeated", false },
+                                                  { "receiver_deferred_for_round", defer_receiver },
+                                                  { "receiver_x", pending.previous.x },
+                                                  { "receiver_y", pending.previous.y },
                                                   { "pending_replacement", nullptr } };
             m_pending_field_replacement.reset();
             callback(AsstMsg::SubTaskExtraInfo, unchanged);
@@ -2128,6 +2143,9 @@ bool asst::StrongholdProtocolTask::handle_full_field_replacement(const json::val
             m_pending_field_replacement->committed_facing = exchange->committed_facing();
             m_pending_field_replacement->planned_improvement = choice.improvement;
             m_pending_field_replacement->decision_round = round;
+            if (exchange->replacement_direction_unverified()) {
+                m_pending_field_replacement->unverified_direction_round = round;
+            }
             // A drop can be issued before the normal verifier has gathered
             // its postconditions. Use the same observation-only route as
             // a persisted exchange, starting with a fresh field identity.
@@ -3887,6 +3905,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             m_replacement_round = preparation_round;
             m_failed_replacements.clear();
             m_unverified_replacement_receivers.clear();
+            m_unverified_direction_receivers.clear();
             m_visited_replacement_lineups.clear();
             m_completed_replacement_exchanges.clear();
             m_unavailable_replacement_sources.clear();
@@ -7171,6 +7190,7 @@ json::value asst::StrongholdProtocolTask::pending_replacement_snapshot() const
                           { "y", pending.previous.y },
                           { "verification_only", true },
                           { "drag_replay_allowed", false },
+                          { "unverified_direction_round", pending.unverified_direction_round },
                           { "committed_facing",
                             pending.committed_facing ? std::string(1, *pending.committed_facing) : std::string() } };
 }

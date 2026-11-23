@@ -223,6 +223,7 @@ bool asst::spa::SwapTaskPlugin::configure(const json::object& options)
     m_replacement_original_preserved = false;
     m_replacement_committed = false;
     m_replacement_target_unavailable = false;
+    m_replacement_direction_unverified = false;
     m_replacement_above_blocking_device = false;
     m_registered_replacement_receiver.reset();
     m_field_pose_verified = false;
@@ -5194,13 +5195,18 @@ bool asst::spa::SwapTaskPlugin::_run()
         // The B-server confirms the facing with a short drag from the
         // diamond centre toward the requested direction; a tap on the
         // visible arrow is only a visual cue and does not commit placement.
-        const auto placement_image = ctrler()->get_image();
+        auto placement_image = ctrler()->get_image();
         std::optional<cv::Point> center;
         if (has_replacement_preview) {
-            center = replacement_direction_center(
-                placement_image,
-                m_held_board,
-                cv::Point(m_drag_target.x, m_drag_target.y));
+            const cv::Point receiver(m_drag_target.x, m_drag_target.y);
+            center = replacement_direction_center(placement_image, m_held_board, receiver);
+            // Let a newly opened diamond finish drawing before classifying
+            // its receiver. This captures evidence without replaying the drag.
+            if (!center && !placement_image.empty() && sleep(180)) {
+                placement_image = ctrler()->get_image();
+                center = replacement_direction_center(placement_image, m_held_board, receiver);
+                m_replacement_direction_unverified = !center && !placement_image.empty();
+            }
         }
         else if (!m_replace_only) {
             center = direction_selection_center(placement_image);

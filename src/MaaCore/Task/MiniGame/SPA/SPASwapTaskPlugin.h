@@ -171,6 +171,8 @@ public:
 
     bool replacement_target_unavailable() const { return m_replacement_target_unavailable; }
 
+    bool replacement_direction_unverified() const { return m_replacement_direction_unverified; }
+
     bool replacement_can_reconcile() const { return m_replacement_postconditions_ready; }
 
     bool replacement_original_preserved() const { return m_replacement_original_preserved; }
@@ -337,6 +339,7 @@ private:
     bool m_replacement_reconcile_only = false;
     bool m_replacement_committed = false;
     bool m_replacement_target_unavailable = false;
+    bool m_replacement_direction_unverified = false;
     bool m_replacement_postconditions_ready = false;
     bool m_replacement_original_preserved = false;
     bool m_fast_mode = false;

@@ -258,6 +258,7 @@ private:
         std::optional<char> committed_facing;
         int planned_improvement = 0;
         int decision_round = -1;
+        int unverified_direction_round = -1;
     };
 
     std::optional<PendingReplacement> m_pending_field_replacement;
@@ -265,6 +266,7 @@ private:
     int m_replacement_round = -1;
     std::set<std::tuple<std::string, std::string, int, int>> m_failed_replacements;
     std::set<std::tuple<std::string, int, int>> m_unverified_replacement_receivers;
+    std::set<std::tuple<std::string, int, int>> m_unverified_direction_receivers;
     std::set<spa::ReplacementLineup> m_visited_replacement_lineups;
     spa::ReplacementHistory m_completed_replacement_exchanges;
     std::set<std::string> m_unavailable_replacement_sources;

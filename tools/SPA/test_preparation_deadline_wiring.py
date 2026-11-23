@@ -201,5 +201,32 @@ class PreparationDeadlineWiringTests(unittest.TestCase):
         self.assertNotIn("reorient_in_place()", executor)
 
 
+    def test_receiver_is_deferred_only_after_unchanged_exchange_with_unreadable_direction(self):
+        task = TASK.read_text(encoding="utf-8")
+        review = task.split("if (pending.verifier->replacement_original_preserved())", 1)[1].split(
+            "commit_full_field_replacement(", 1
+        )[0]
+        self.assertIn("round > 0 && pending.unverified_direction_round == round", review)
+        self.assertIn(
+            "m_unverified_direction_receivers.emplace(pending.outgoing, pending.previous.x, pending.previous.y)",
+            review,
+        )
+        self.assertIn('"incoming_bench_identity_verified", true', review)
+        self.assertIn('"outgoing_field_identity_verified", true', review)
+        inputs = task.split("StrongholdProtocolTask::replacement_inputs() const", 1)[1].split(
+            "StrongholdProtocolTask::handle_full_field_replacement", 1
+        )[0]
+        self.assertIn("!m_unverified_direction_receivers.contains({ name, placed.x, placed.y })", inputs)
+        self.assertIn("m_unverified_direction_receivers.clear();", self.session)
+        self.assertIn("if (exchange->replacement_direction_unverified())", task)
+        plugin = (TASK.parent.parent / "MiniGame" / "SPA" / "SPASwapTaskPlugin.cpp").read_text(encoding="utf-8")
+        check = plugin.split("if (!center && !placement_image.empty() && sleep(180))", 1)[1].split(
+            "else if (!m_replace_only)", 1
+        )[0]
+        self.assertIn("ctrler()->get_image()", check)
+        self.assertIn("replacement_direction_center", check)
+        self.assertIn("m_replacement_direction_unverified = !center && !placement_image.empty()", check)
+        self.assertNotIn("drag_direction_only(", check)
+
 if __name__ == "__main__":
     unittest.main()
