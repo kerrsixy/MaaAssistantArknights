@@ -11,6 +11,11 @@
 #include <cmath>
 #include <tuple>
 
+namespace
+{
+constexpr int OpeningMissingRoleScore = 900;
+}
+
 std::optional<std::string> asst::spa::leading_core_pact(const std::map<std::string, int>& layers)
 {
     std::optional<std::string> leading;
@@ -48,7 +53,7 @@ int asst::spa::early_recruit_score(
         score = ranged < 2 ? 1600 : 600;
         break;
     case PlacementRole::Healer:
-        score = healers == 0 && blockers >= 2 ? 900 : 250;
+        score = healers == 0 && blockers >= 2 ? OpeningMissingRoleScore : 250;
         break;
     case PlacementRole::Unknown:
         break;
@@ -1689,6 +1694,23 @@ bool asst::spa::should_upgrade_dynamic_shop(
     if (policy.shop_level <= 2 && retention && !retention->carries && upgrade_price > 0 && policy.early_board_ready &&
         policy.last_round_life_loss == 0 && !policy.boss_preparation && policy.round > 0 &&
         policy.round < policy.economy_scenario_horizon_round) {
+        // Both lanes can have blockers while the opening roster still lacks
+        // a healer or ranged coverage. Compare the current eligible recruit
+        // before paying a book price that would make that purchase impossible.
+        if (policy.bench_occupied == 0 && policy.deployed_population >= 0 && policy.deployed_population < 8 &&
+            !policy.early_board_scores.empty()) {
+            const auto recruit = choose_preparation(policy, funds, offers, pacts);
+            const auto value = policy.early_board_scores.find(recruit.name);
+            if (recruit.action == PreparationAction::Buy && !recruit.is_equipment && !recruit.banked_value_purchase &&
+                recruit.price > funds - upgrade_price && !policy.owned.contains(recruit.name) &&
+                value != policy.early_board_scores.end() && value->second >= OpeningMissingRoleScore) {
+                if (hold) {
+                    *hold =
+                        ShopUpgradeHold { "Recruit " + recruit.name + " to fill an open field role before upgrading" };
+                }
+                return false;
+            }
+        }
         if (policy.shop_discount_wait_level == policy.shop_level && policy.shop_discount_wait_round == policy.round) {
             return false;
         }
@@ -2288,13 +2310,14 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
             // healer/ranged/blocking role can still be recruited for a
             // subsequent evaluated exchange, without buying more duplicates
             // merely because a role is absent from the current field.
-            if (policy.deployed_population == 8 && (combat_value < 900 || copies > 0)) {
+            if (policy.deployed_population == 8 && (combat_value < OpeningMissingRoleScore || copies > 0)) {
                 continue;
             }
             // Four deployed guards do not provide ranged damage or healing.
             // Fill observed role gaps and take an offered final copy even
             // when it belongs to another faction; do not roll to force it.
-            if (policy.deployed_population >= 4 && combat_value < 900 && !completes_promotion && !egir_growth_recruit) {
+            if (policy.deployed_population >= 4 && combat_value < OpeningMissingRoleScore && !completes_promotion &&
+                !egir_growth_recruit) {
                 continue;
             }
             // Once the head is already on a clean opening board, a new

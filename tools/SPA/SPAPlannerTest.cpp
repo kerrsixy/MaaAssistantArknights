@@ -5515,6 +5515,33 @@ int main()
     discount_window.round = 9;
     assert(should_upgrade_dynamic_shop(discount_window, 6, 5, available_healer, catalog, &upgrade_hold));
 
+    // D7 round 4: five fielded bodies and no bench did not make book III
+    // more useful than the affordable first healer on the current page.
+    auto opening_roles = discount_window;
+    opening_roles.shop_level = 2;
+    opening_roles.shop_discount_wait_level = 0;
+    opening_roles.shop_discount_wait_round = 0;
+    opening_roles.round = 4;
+    opening_roles.selected_strategy_id = "band_evolve";
+    opening_roles.primary_pact = "阿戈尔";
+    opening_roles.bench_occupied = 0;
+    opening_roles.deployed_population = 5;
+    opening_roles.owned = { { "幽灵鲨", { 1, false, true } },
+                            { "杰克", { 2, false, true } },
+                            { "卡达", { 1, false, true } },
+                            { "夏栎", { 1, false, true } } };
+    opening_roles.early_board_scores = { { "幽灵鲨", 500 }, { "哈洛德", 900 }, { "复奏", 600 }, { "波登可", 600 } };
+    const std::vector<ShopOffer> opening_roles_quotes { { "幽灵鲨", 2, 0 },
+                                                        { "哈洛德", 3, 1 },
+                                                        { "复奏", 3, 2 },
+                                                        { "波登可", 3, 3 } };
+    assert(choose_preparation(opening_roles, 7, opening_roles_quotes, catalog).name == "哈洛德");
+    assert(!should_upgrade_dynamic_shop(opening_roles, 7, 7, opening_roles_quotes, catalog, &upgrade_hold));
+    assert(upgrade_hold && upgrade_hold->reason.find("哈洛德") != std::string::npos);
+    assert(should_upgrade_dynamic_shop(opening_roles, 7, 0, opening_roles_quotes, catalog));
+    assert(should_upgrade_dynamic_shop(opening_roles, 7, 7, {}, catalog));
+    assert(should_upgrade_dynamic_shop(opening_roles, 10, 7, opening_roles_quotes, catalog));
+
     // D4 R14 took a ten-gold book-VI upgrade with eleven gold and a
     // full bench. Neither the reroll nor a new four-gold carry fit.
     auto boss_book = victoria_pair_window;
