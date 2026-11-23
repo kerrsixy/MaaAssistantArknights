@@ -5,6 +5,7 @@
 #include "Config/TaskData.h"
 #include "Controller/Controller.h"
 #include "MaaUtils/ImageIo.h"
+#include "Task/AbstractTaskPlugin.h"
 #include "Task/Miscellaneous/AccountSnapshotTask.h"
 #include "Task/Miscellaneous/OperBoxRecognitionTask.h"
 #include "Task/ProcessTask.h"
@@ -14,6 +15,46 @@
 
 namespace asst::blackflow
 {
+class AccountDetailStrengthObserver final : public AbstractTaskPlugin
+{
+public:
+    using AbstractTaskPlugin::AbstractTaskPlugin;
+
+    void configure(std::string id, std::string name)
+    {
+        m_id = std::move(id);
+        m_name = std::move(name);
+        set_retry_times(0);
+    }
+
+    bool verify(AsstMsg msg, const json::value& details) const override
+    {
+        const auto process = dynamic_cast<const ProcessTask*>(m_task_ptr);
+        return msg == AsstMsg::SubTaskCompleted && details.get("subtask", "") == "ProcessTask" && process &&
+               process->get_last_task_name() == "BlackFlowAccountScan@Detail";
+    }
+
+    const std::optional<FreshAccountDetailStrength>& observation() const noexcept { return m_observation; }
+
+protected:
+    bool _run() override
+    {
+        const auto image = get_hit_image();
+        if (image) {
+            const auto strength = BlackFlowDetailStrengthAnalyzer(*image).analyze(m_id, m_name);
+            if (strength) {
+                m_observation = FreshAccountDetailStrength { *strength, image->clone() };
+            }
+        }
+        return true;
+    }
+
+private:
+    std::string m_id;
+    std::string m_name;
+    std::optional<FreshAccountDetailStrength> m_observation;
+};
+
 void BlackFlowAccountRefreshTask::configure(
     std::string client,
     std::string uid,
@@ -29,12 +70,15 @@ void BlackFlowAccountRefreshTask::configure(
     }
 }
 
-bool BlackFlowAccountRefreshTask::action(const std::string& task)
+bool BlackFlowAccountRefreshTask::action(const std::string& task, const std::shared_ptr<AbstractTaskPlugin>& observer)
 {
     if (need_exit() || !Task.get(task)) {
         return false;
     }
     ProcessTask process(*this, { task });
+    if (observer) {
+        process.append_plugin(observer);
+    }
     // A navigation click can be followed by one delayed emulator frame.
     // Retry the pending recognition with a new frame, not the completed action.
     process.set_retry_times(2);
@@ -125,7 +169,13 @@ bool BlackFlowAccountRefreshTask::visit_target(const AccountModuleScanTarget& ta
     m_attempted.insert(target.operator_name);
     // Select -> detail identity -> exact Manage OCR -> module-page anchor is one
     // resource chain.
-    const bool opened = action("BlackFlowAccountScan@Select");
+    auto strength_observer = std::make_shared<AccountDetailStrengthObserver>(m_callback, m_inst, m_task_chain);
+    strength_observer->configure(target.operator_id, target.operator_name);
+    const bool opened = action("BlackFlowAccountScan@Select", strength_observer);
+    if (const auto& strength = strength_observer->observation(); strength) {
+        m_observation.verified_strengths.emplace(target.operator_name, *strength);
+        persist_frame("detail-strength.png", strength->source_image);
+    }
     persist_frame("selection-result.png", ctrler()->get_image());
     select->specific_rect = previous_rect;
     identity->text = previous_names;

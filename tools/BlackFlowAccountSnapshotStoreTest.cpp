@@ -9,6 +9,8 @@
 #endif
 
 #include "Config/Miscellaneous/BattleDataConfig.h"
+#include "MaaUtils/ImageIo.h"
+#include "MaaUtils/NoWarningCV.hpp"
 #include "Task/Roguelike/BlackFlow/BlackFlowAccountSnapshotStore.h"
 #include "Utils/Platform.hpp"
 
@@ -205,6 +207,83 @@ int wmain(int argc, wchar_t** argv)
         partial_result && partial_result->at("operators").at(omitted.operator_name) ==
                               baseline->at("operators").at(omitted.operator_name),
         "unknown omitted target retains all old evidence/timestamps");
+
+    // Historical same-UID images qualify the reader separately; these tests
+    // exercise the typed merge contract without touching the source account.
+    auto verified = observation;
+    std::map<std::string, std::filesystem::path> strength_images;
+    for (const auto& target : targets) {
+        const auto& saved = ledger->at("operators").at(target.operator_name);
+        const auto image = utils::path(saved.at("evidence").at(0).at("file").as_string());
+        FreshAccountDetailStrength value;
+        value.observation.operator_id = target.operator_id;
+        value.observation.operator_name = target.operator_name;
+        value.observation.recognized_name = target.operator_name;
+        value.observation.elite = static_cast<int>(saved.at("elite").as_integer());
+        value.observation.level = static_cast<int>(saved.at("level").as_integer());
+        value.observation.maximum_level = 90;
+        value.source_image = MAA_NS::imread(image);
+        verified.verified_strengths.emplace(target.operator_name, std::move(value));
+        strength_images.emplace(target.operator_name, image);
+    }
+    const auto merge_verified = [&](const AccountRefreshObservation& value,
+                                    const std::map<std::string, std::filesystem::path>& proof) {
+        return BlackFlowAccountSnapshotStore::merge(*baseline, value, targets, images, "20261124000001", &error, proof);
+    };
+    const auto strengthened = merge_verified(verified, strength_images);
+    expect(strengthened.has_value(), "verified detail strength may replace stale same-UID values");
+    for (const auto& target : targets) {
+        const auto& expected = ledger->at("operators").at(target.operator_name);
+        expect(
+            strengthened &&
+                strengthened->at("operators").at(target.operator_name).at("elite") == expected.at("elite") &&
+                strengthened->at("operators").at(target.operator_name).at("level") == expected.at("level"),
+            "five typed detail observations update their exact canonical operators");
+    }
+    expect(
+        strengthened && strengthened->get("modules", "last_required_scan", "detail_strength_refresh_count", 0) == 5,
+        "detail coverage is counted separately from full-roster coverage");
+    expect(
+        strengthened && !strengthened->get("modules", "last_required_scan", "fresh_roster_complete", true),
+        "five detail reads cannot claim a complete fresh roster");
+    expect(
+        strengthened && !strengthened->get("modules", "last_required_scan", "current_battle_equipment_proven", true),
+        "detail strength still cannot enable Horn battle equipment");
+    for (const auto& [name, old] : baseline->at("operators").as_object()) {
+        if (!verified.verified_strengths.contains(name)) {
+            expect(
+                strengthened && strengthened->at("operators").at(name) == old,
+                "untargeted operators retain their complete source data");
+        }
+    }
+    auto missing_proof = strength_images;
+    missing_proof.erase("机械师");
+    expect(!merge_verified(verified, missing_proof), "missing detail image path prevents the transaction");
+    auto inconsistent = verified;
+    inconsistent.verified_strengths.at("机械师").observation.level = 91;
+    expect(!merge_verified(inconsistent, strength_images), "over-maximum detail strength rejected");
+    inconsistent = verified;
+    inconsistent.verified_strengths.at("机械师").observation.level = 0;
+    expect(!merge_verified(inconsistent, strength_images), "zero is unknown rather than a verified level");
+    inconsistent = verified;
+    inconsistent.verified_strengths.at("机械师").observation.elite = 3;
+    expect(!merge_verified(inconsistent, strength_images), "unsupported elite rejected");
+    inconsistent = verified;
+    inconsistent.verified_strengths.at("机械师").observation.operator_id = "char_2012_typhon";
+    expect(!merge_verified(inconsistent, strength_images), "canonical ID conflict cannot rewrite another operator");
+    inconsistent = verified;
+    inconsistent.verified_strengths.at("机械师").observation.recognized_name = "unknown";
+    expect(!merge_verified(inconsistent, strength_images), "unrecognized name cannot qualify detail strength");
+    inconsistent = verified;
+    inconsistent.verified_strengths.at("机械师").source_image.release();
+    expect(!merge_verified(inconsistent, strength_images), "missing exact frame cannot qualify detail strength");
+    inconsistent = verified;
+    inconsistent.returned_same_uid = false;
+    expect(!merge_verified(inconsistent, strength_images), "valid detail values require final same-UID return");
+    inconsistent = verified;
+    inconsistent.uid = "different-account";
+    expect(!merge_verified(inconsistent, strength_images), "detail values cannot cross an account boundary");
+    expect(baseline->to_string() == before, "verified-strength merge leaves the input cache unchanged");
 
     const auto work = std::filesystem::absolute(std::filesystem::path(argv[4])).lexically_normal();
     // Never touch a cache supplied as the read-only input; output must be the

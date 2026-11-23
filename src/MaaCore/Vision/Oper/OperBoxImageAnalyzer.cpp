@@ -158,8 +158,13 @@ bool asst::OperBoxImageAnalyzer::opers_analyze()
             name_analyzer.set_bottom_line_height(params[4]);
             name_analyzer.set_width_threshold(params[5]);
             if (auto ocr_opt = name_analyzer.analyze()) {
-                results.emplace_back(OperResult { ocr_opt->rect, ocr_opt->score, std::move(ocr_opt->text),
-                                                  Rect(grid_x, grid_y, 30, 30), 0.0, battle::Role::Unknown });
+                results.emplace_back(
+                    OperResult { ocr_opt->rect,
+                                 ocr_opt->score,
+                                 std::move(ocr_opt->text),
+                                 Rect(grid_x, grid_y, 30, 30),
+                                 0.0,
+                                 battle::Role::Unknown });
             }
         }
     }
@@ -178,10 +183,10 @@ bool asst::OperBoxImageAnalyzer::opers_analyze()
         const std::string& name = oper.text;
 
         OperBoxInfo box;
-        auto oper_data = BattleData.find_first_oper(oper.role, name);
+        auto oper_data = BattleData.find_first_oper(oper.role, name, true);
         if (!oper_data) {
             if (name == "阿米娅") { // 临时兼容, 后续重构后移除
-                oper_data = BattleData.find_first_oper(battle::Role::Caster, name);
+                oper_data = BattleData.find_first_oper(battle::Role::Caster, name, true);
             }
 
             if (!oper_data) {
