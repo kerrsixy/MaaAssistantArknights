@@ -2746,15 +2746,6 @@ bool asst::spa::SwapTaskPlugin::held_drag()
                         board.grid_verified && !m_placement_members.empty() &&
                         grid_members.size() == m_placement_members.size() && !range.empty() &&
                         (placement_role == PlacementRole::Healer || placement_role == PlacementRole::Ranged);
-                    if (registered_range_scoring) {
-                        std::vector<GridPlacementCell> grid_cells;
-                        for (const auto& cell : board.legal_cells) {
-                            grid_cells.push_back({ cell.col, cell.row, cell.center.x, cell.center.y });
-                        }
-                        const auto coverage =
-                            range_placement_preferences(placement_role, grid_cells, grid_members, range, regeneration);
-                        preferences.insert(preferences.end(), coverage.begin(), coverage.end());
-                    }
                     // The support safety filter changes candidates above.
                     // Rebuild the actual selection domain, otherwise its
                     // earlier copy still admits an exposed rear-line cell.
@@ -2779,37 +2770,48 @@ bool asst::spa::SwapTaskPlugin::held_drag()
                     }
                     const bool ranged_output =
                         placement_role == PlacementRole::Ranged && role != battle::Role::Medic && !range.empty();
+                    bool ranged_approach_scoring = false;
                     if (board.grid_verified && grid_members.size() == m_placement_members.size() &&
                         placement_role != PlacementRole::Healer &&
                         (ranged_output || uses_attack_approach_geometry(m_name))) {
                         if (const auto terrain = terrain_layout_model(board.map_id, board.boss_phase_visible)) {
-                            const auto lanes = active_preparation_lanes(*terrain, m_round);
-                            std::set<std::pair<int, int>> covered_positions;
+                            std::vector<GridPlacementCell> approach_cells;
                             for (const auto& cell : board.legal_cells) {
-                                if (std::find(legal.begin(), legal.end(), std::pair { cell.center.x, cell.center.y }) ==
+                                if (std::find(legal.begin(), legal.end(), std::pair { cell.center.x, cell.center.y }) !=
                                     legal.end()) {
-                                    continue;
-                                }
-                                for (const char direction : { 'E', 'N', 'S', 'W' }) {
-                                    const int value = attack_approach_value(
-                                        { cell.col, cell.row },
-                                        direction,
-                                        grid_members,
-                                        lanes,
-                                        range,
-                                        frontline);
-                                    if (value > 0) {
-                                        preferences.push_back({ cell.center.x, cell.center.y, direction, value });
-                                        covered_positions.emplace(cell.center.x, cell.center.y);
-                                    }
+                                    approach_cells.push_back({ cell.col, cell.row, cell.center.x, cell.center.y });
                                 }
                             }
-                            if (ranged_output && !covered_positions.empty()) {
+                            const auto approach = attack_approach_placement_preferences(
+                                approach_cells,
+                                grid_members,
+                                active_preparation_lanes(*terrain, m_round),
+                                range,
+                                frontline);
+                            preferences.insert(preferences.end(), approach.begin(), approach.end());
+                            if (ranged_output && !approach.empty()) {
+                                std::set<std::pair<int, int>> covered_positions;
+                                for (const auto& preference : approach) {
+                                    covered_positions.emplace(preference.x, preference.y);
+                                }
                                 std::erase_if(legal, [&](const auto& point) {
                                     return !covered_positions.contains(point);
                                 });
+                                ranged_approach_scoring = !m_replace_only && !board.boss_phase_visible;
                             }
                         }
+                    }
+                    if (registered_range_scoring && !ranged_approach_scoring) {
+                        // Active approach coverage already scores damage at the
+                        // first blocker. Keep this broader range score for
+                        // healing and when the active approach is unavailable.
+                        std::vector<GridPlacementCell> grid_cells;
+                        for (const auto& cell : board.legal_cells) {
+                            grid_cells.push_back({ cell.col, cell.row, cell.center.x, cell.center.y });
+                        }
+                        const auto coverage =
+                            range_placement_preferences(placement_role, grid_cells, grid_members, range, regeneration);
+                        preferences.insert(preferences.end(), coverage.begin(), coverage.end());
                     }
                     if (const auto chosen = choose_role_placement(
                             placement_role,
@@ -2839,6 +2841,7 @@ bool asst::spa::SwapTaskPlugin::held_drag()
                                            { "engagement_preferences", engagement_preferences },
                                            { "replacement_growth_directions", m_replacement_growth_bonuses.size() },
                                            { "registered_range_scoring", registered_range_scoring },
+                                           { "ranged_approach_scoring", ranged_approach_scoring },
                                            { "registered_member_count", grid_members.size() },
                                            { "legal_candidates", legal.size() },
                                            { "on_ground_route", board.verified && frontline },

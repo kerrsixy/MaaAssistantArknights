@@ -198,6 +198,26 @@ inline int attack_approach_value(
     return score;
 }
 
+inline std::vector<PlacementPreference> attack_approach_placement_preferences(
+    const std::vector<GridPlacementCell>& legal,
+    const std::vector<GridPlacementMember>& placed,
+    const std::vector<DeploymentLane>& lanes,
+    const std::vector<BoardCell>& attack_range,
+    bool intercepts)
+{
+    std::vector<PlacementPreference> preferences;
+    for (const auto& cell : legal) {
+        for (const char facing : { 'E', 'N', 'S', 'W' }) {
+            const int value =
+                attack_approach_value({ cell.col, cell.row }, facing, placed, lanes, attack_range, intercepts);
+            if (value > 0) {
+                preferences.push_back({ cell.screen_x, cell.screen_y, facing, value });
+            }
+        }
+    }
+    return preferences;
+}
+
 inline bool uses_attack_approach_geometry(std::string_view name)
 {
     return name == "灰喉" || name == "矩" || name == "拉普兰德" || name == "荒芜拉普兰德";

@@ -2320,6 +2320,66 @@ int main()
 
     assert(attack_approach_value({ 3, 2 }, 'E', marksman_screen, straight_approach, marksman_range, false) > 0);
     assert(attack_approach_value({ 3, 2 }, 'N', marksman_screen, straight_approach, marksman_range, false) == 0);
+    const auto d6_opening = terrain_layout_model("m11", false);
+    assert(d6_opening);
+    std::vector<GridPlacementMember> d6_opening_field { { 4, 3, PlacementRole::Ranged, "地灵", 'E' },
+                                                        { 4, 4, PlacementRole::Frontline, "摆渡人", 'E' },
+                                                        { 3, 4, PlacementRole::Frontline, "野鬃", 'E' } };
+    std::vector<PlacementMember> d6_opening_screen { { 554, 368, PlacementRole::Ranged, "地灵" },
+                                                     { 553, 438, PlacementRole::Frontline, "摆渡人" },
+                                                     { 468, 438, PlacementRole::Frontline, "野鬃" } };
+    const auto replay_ranged_opening = [&](const std::string& name,
+                                           int regulation_round,
+                                           const GridPlacementCell& original,
+                                           const GridPlacementCell& adjusted,
+                                           char adjusted_facing) {
+        const auto stats = season_combat_stats(name, false);
+        assert(stats);
+        const std::vector<BoardCell> range(stats->basic_range.begin(), stats->basic_range.end());
+        const std::vector<BoardCell> allowed { { original.screen_x, original.screen_y },
+                                               { adjusted.screen_x, adjusted.screen_y } };
+        const std::vector<GridPlacementCell> test_cells { original, adjusted };
+        auto route_scores =
+            engagement_placement_preferences(PlacementRole::Ranged, test_cells, d6_opening->lanes, range);
+        const auto approach = attack_approach_placement_preferences(
+            test_cells,
+            d6_opening_field,
+            active_preparation_lanes(*d6_opening, regulation_round),
+            range,
+            false);
+        assert(!approach.empty());
+        route_scores.insert(route_scores.end(), approach.begin(), approach.end());
+        auto old_scores = route_scores;
+        const auto blanket = range_placement_preferences(PlacementRole::Ranged, test_cells, d6_opening_field, range);
+        old_scores.insert(old_scores.end(), blanket.begin(), blanket.end());
+        char facing = '\0';
+        assert(
+            choose_role_placement(
+                PlacementRole::Ranged,
+                allowed,
+                d6_opening_screen,
+                range,
+                &facing,
+                old_scores,
+                true) == allowed.front());
+        assert(
+            choose_role_placement(
+                PlacementRole::Ranged,
+                allowed,
+                d6_opening_screen,
+                range,
+                &facing,
+                route_scores,
+                true) == allowed.back());
+        assert(facing == adjusted_facing);
+    };
+    // Regulation 6 rounds 2 and 3. Both replay candidates were confirmed
+    // in game, once as the first destination and once as the later move.
+    replay_ranged_opening("夏栎", 2, { 3, 3, 472, 368 }, { 5, 2, 638, 300 }, 'S');
+    d6_opening_field.push_back({ 5, 2, PlacementRole::Ranged, "夏栎", 'S' });
+    d6_opening_screen.push_back({ 638, 300, PlacementRole::Ranged, "夏栎" });
+    replay_ranged_opening("深靛", 3, { 4, 1, 558, 236 }, { 3, 3, 472, 368 }, 'E');
+
     assert(needs_screened_position("矩") && !needs_screened_position("拜松"));
     const auto ju_stats = season_combat_stats("矩", false);
     assert(ju_stats);
