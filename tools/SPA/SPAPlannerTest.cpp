@@ -1592,11 +1592,20 @@ int main()
                              { "卡涅利安", { 1, false, false } },
                              { "陨星", { 1, false, false } } };
     assert(planning_support_pacts(sargon_support, {}, operator_pacts()).empty());
+    const std::vector<ReplacementMember> supported_lineup { { "异客" }, { "卡涅利安" } };
+    const auto projected_supports = replacement_lineup_policy(sargon_support, supported_lineup);
+    assert(!projected_supports.support_pacts.empty());
+    assert(projected_supports.owned.at("异客").deployed && !sargon_support.owned.at("异客").deployed);
+    assert(replacement_lineup_policy(sargon_support, { { "褐果" } }).owned.at("褐果").copies == 1);
     sargon_support.owned.at("异客").deployed = true;
     sargon_support.owned.at("卡涅利安").deployed = true;
     const auto feasible_supports = planning_support_pacts(sargon_support, {}, operator_pacts());
     assert(
         feasible_supports.size() == 1 && (feasible_supports.front() == "奥术" || feasible_supports.front() == "迅捷"));
+    assert(projected_supports.support_pacts == feasible_supports);
+    assert(replacement_lineup_policy(sargon_support, {}).support_pacts.empty());
+    sargon_support.support_pacts = { "突袭" };
+    assert(replacement_lineup_policy(sargon_support, supported_lineup).support_pacts == sargon_support.support_pacts);
 
     assert(!choose_bench_capacity_trade(victoria_full, 13, victoria_shop, victoria_field, { "凯瑟琳", "涤火杰西卡" }));
     victoria_full.tactical_elite_purchase_pending = true;

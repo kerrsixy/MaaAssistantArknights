@@ -1661,25 +1661,10 @@ asst::spa::ReplacementMember asst::StrongholdProtocolTask::replacement_member(
 int asst::StrongholdProtocolTask::replacement_lineup_context_value(
     const std::vector<spa::ReplacementMember>& lineup) const
 {
-    auto context = m_policy;
-    context.support_pacts = spa::planning_support_pacts(context, {}, spa::operator_pacts());
-    for (const auto& unit : lineup) {
-        if (!context.owned.contains(unit.name)) {
-            // A shop offer is an initial body in this counterfactual only.
-            // It must participate in pact/growth scoring before purchase.
-            context.owned.emplace(unit.name, spa::OwnedOperator { 1, false, true });
-        }
-    }
-    for (auto& [name, owned] : context.owned) {
-        owned.deployed = std::any_of(lineup.begin(), lineup.end(), [&](const auto& unit) { return unit.name == name; });
-    }
+    const auto context = spa::replacement_lineup_policy(m_policy, lineup);
     auto scored = lineup;
     for (auto& unit : scored) {
-        const auto owned = context.owned.find(unit.name);
-        if (owned == context.owned.end()) {
-            return 0;
-        }
-        unit.value = replacement_member(unit.name, owned->second, &context).value;
+        unit.value = replacement_member(unit.name, context.owned.at(unit.name), &context).value;
     }
     int value = spa::replacement_lineup_value(scored, context.primary_pact) +
                 spa::replacement_support_pact_value(scored, context.support_pacts, context.disabled_pacts);

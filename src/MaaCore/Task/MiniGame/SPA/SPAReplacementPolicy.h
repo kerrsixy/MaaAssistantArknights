@@ -3,6 +3,7 @@
 #include "SPADeploymentReview.h"
 #include "SPAFormation.h"
 #include "SPAPlacementPolicy.h"
+#include "SPAPreparationPolicy.h"
 #include "SPASpatialGrowthPolicy.h"
 #include "SPATerrainModel.h"
 #include <algorithm>
@@ -589,6 +590,23 @@ inline int replacement_lineup_value(const std::vector<ReplacementMember>& field,
             ? 2400
             : 0;
     return value + primary_members * 400 + (primary_members >= 3 ? 5000 + egir_material : 0) + advanced;
+}
+
+inline PreparationPolicy
+    replacement_lineup_policy(PreparationPolicy context, const std::vector<ReplacementMember>& lineup)
+{
+    std::set<std::string> deployed;
+    for (const auto& unit : lineup) {
+        deployed.insert(unit.name);
+        // A hypothetical offer contributes one initial body to this lineup.
+        context.owned.try_emplace(unit.name, OwnedOperator { 1, false, true });
+    }
+    for (auto& [name, owned] : context.owned) {
+        owned.deployed = deployed.contains(name);
+    }
+    // Compare prospective lineups using their own fielded support members.
+    context.support_pacts = planning_support_pacts(context, {}, operator_pacts());
+    return context;
 }
 
 inline int replacement_support_pact_value(
