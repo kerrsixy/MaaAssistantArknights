@@ -157,6 +157,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_prefer_unclaimed = params.get("prefer_unclaimed_strategy", false);
     m_current_strategy_inspected = false;
     m_preparation_instruction_attempts.clear();
+    m_deferred_opening_gift_scan_attempts = 0;
     m_strategy_copy_target = params.get("strategy_copy_target", std::string());
     m_strategy_copy_unverified = params.get("strategy_copy_unverified", false);
     if ((!m_strategy_copy_target.empty() && !spa::operator_pacts().contains(m_strategy_copy_target)) ||
@@ -3964,6 +3965,9 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         observe_delayed_cash_equipment(state);
         if (m_auto_run && identify_current_strategy(state)) {
             continue;
+        }
+        if (reconcile_deferred_opening_gifts(state)) {
+            continue; // Bench panels changed the frame available for shopping.
         }
         if (m_pending_spatial_orientation && handle_spatial_reorientation(state)) {
             continue;

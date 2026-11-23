@@ -472,6 +472,7 @@ def main():
             "SPADirectPromotionObserved",
             "SPADirectPromotionReconciled",
             "SPABenchPopulationReconciled",
+            "SPADeferredOpeningGiftsReconciled",
         ):
             receipt = value.get("details", {})
             if receipt.get("run_id") and isinstance(receipt.get("roster"), list):

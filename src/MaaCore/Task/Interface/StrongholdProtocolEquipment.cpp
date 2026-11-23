@@ -366,6 +366,54 @@ bool asst::StrongholdProtocolTask::reconcile_tactical_recruitment(const json::va
     return true;
 }
 
+bool asst::StrongholdProtocolTask::reconcile_deferred_opening_gifts(const json::value& state)
+{
+    constexpr int GrantRound = 3;
+    const int round = state.get("round", -1);
+    const int funds = state.get("funds", -1);
+    if (m_selected_strategy_id != "band_lmlee" || round != GrantRound || !m_auto_run || m_mode == "joint" ||
+        m_round_only || m_decision_only || m_deferred_opening_gift_scan_attempts >= 2 || funds <= 0 ||
+        !state.get("remaining_deployment_known", false) || state.get("remaining_deployment_inferred", false) ||
+        state.get("remaining_deployment", -1) != 8 || !m_policy.owned.empty() || m_policy.bench_occupied != 0 ||
+        m_bench_recount_pending || !m_auto_deploy_positions.empty()) {
+        return false;
+    }
+    ++m_deferred_opening_gift_scan_attempts;
+    spa::SwapTaskPlugin probe(m_callback, m_inst, TaskType);
+    probe.set_retry_times(0);
+    probe.set_task_id(m_task_id);
+    probe.set_task_ptr(this);
+    const auto bench = probe.inspect_bench_operator_forms(round, funds, 8, {});
+    std::set<int> tiers;
+    if (bench) {
+        for (const auto& [name, elite] : *bench) {
+            const auto facts =
+                std::ranges::find_if(spa::OperatorCatalogue, [&](const auto& entry) { return entry.name == name; });
+            if (!elite && facts != spa::OperatorCatalogue.end()) {
+                tiers.insert(facts->tier);
+            }
+        }
+    }
+    const bool verified = bench && bench->size() == 2 && tiers == std::set<int> { 2, 4 };
+    auto receipt = basic_info_with_what(verified ? "SPADeferredOpeningGiftsReconciled" : "SPADeferredOpeningGiftScan");
+    receipt["details"] = json::object { { "run_id", m_run_id },
+                                        { "round", round },
+                                        { "attempt", m_deferred_opening_gift_scan_attempts },
+                                        { "verified", verified } };
+    if (verified) {
+        for (const auto& [name, elite] : *bench) {
+            m_policy.owned.emplace(name, spa::OwnedOperator { 1, elite, false });
+            m_equipped_items[name] = {};
+        }
+        m_policy.bench_occupied = static_cast<int>(bench->size());
+        receipt["details"]["roster"] = roster_snapshot();
+        receipt["details"]["bench_occupied"] = m_policy.bench_occupied;
+        receipt["details"]["equipment_slots"] = equipment_slots_snapshot();
+    }
+    callback(AsstMsg::SubTaskExtraInfo, receipt);
+    return true;
+}
+
 void asst::StrongholdProtocolTask::record_acquired_equipment_hints(const std::string& name, bool elite, int round)
 {
     const auto hints = spa::acquired_equipment_hints(name, elite);

@@ -54,6 +54,7 @@ private:
     std::string m_requested_strategy_id;
     bool m_current_strategy_inspected = false;
     std::set<int> m_preparation_instruction_attempts;
+    int m_deferred_opening_gift_scan_attempts = 0;
     int m_equipment_discount_round = -1;
     bool identify_current_strategy(const json::value& state);
     bool handle_temporary_elite_instruction(const json::value& state);
@@ -228,6 +229,7 @@ private:
     int m_pending_tactical_recruitment_round = 0;
     int m_tactical_recruitment_probes = 0;
     bool reconcile_tactical_recruitment(const json::value& state);
+    bool reconcile_deferred_opening_gifts(const json::value& state);
     int m_cash_equipment_acquired_round = -1;
     json::array equipment_candidates_snapshot() const;
     json::array equipment_slots_snapshot() const;
