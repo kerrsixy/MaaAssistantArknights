@@ -155,6 +155,7 @@ struct EgirFormationPlan
     int boss_priority_attackers = 0;
     int boss_chain_attack_priority = 0;
     int boss_core_movement_waypoints = 0;
+    int boss_surviving_attackers_movement_waypoints = 0;
     std::vector<std::string> chain;
     std::vector<DeploymentUnit> units;
     EgirConsumptionProjection conditional_consumption;

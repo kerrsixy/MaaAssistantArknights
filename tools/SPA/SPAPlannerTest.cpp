@@ -662,6 +662,33 @@ int main()
     const auto boss_support_plan = plan_egir_formation(egir_with_protected_output, opening_egir_boss);
     assert(boss_support_plan.found && boss_support_plan.boss_priority_attackers == 2);
     assert(boss_support_plan.units.back().cell == BoardCell(6, 2) && boss_support_plan.units.back().facing == 'E');
+    // The protected attacker should cover the part of the route missed by the
+    // head. A relay about to be consumed does not fill a coverage gap.
+    auto route_head = egir_placement.front();
+    route_head.entity.cell = route_head.deployment.cell = { 5, 4 };
+    route_head.entity.facing = route_head.deployment.facing = 'E';
+    route_head.deployment.placement_cells = { { 5, 4 } };
+    auto route_relay = egir_placement[1];
+    route_relay.entity.cell = route_relay.deployment.cell = { 6, 4 };
+    route_relay.entity.facing = route_relay.deployment.facing = 'E';
+    route_relay.required_facing = 'E';
+    route_relay.deployment.placement_cells = { { 6, 4 } };
+    route_relay.deployment.local_range = { { 2, 0 } };
+    auto route_support = boss_support;
+    route_support.entity.cell = route_support.deployment.cell = { 6, 3 };
+    route_support.entity.facing = route_support.deployment.facing = 'S';
+    route_support.deployment.placement_cells = { { 6, 3 } };
+    auto complementary_route = opening_egir_boss;
+    complementary_route.boss_opening_only = false;
+    complementary_route.boss_cells = { { 9, 4 } };
+    complementary_route.boss_movement_waypoints = { { 6, 4 }, { 7, 3 }, { 8, 4 } };
+    const auto complementary_plan =
+        plan_egir_core_chain({ route_head, route_relay, route_support }, complementary_route, "Ghost");
+    assert(complementary_plan.found && complementary_plan.units.back().facing == 'E');
+    assert(complementary_plan.boss_core_movement_waypoints == 1);
+    assert(complementary_plan.boss_surviving_attackers_movement_waypoints == 2);
+    assert(complementary_plan.conditional_consumption.victims.size() == 1);
+    assert(complementary_plan.conditional_consumption.victims.front().id == route_relay.entity.id);
     auto independent_attacker = egir_placement;
     auto clem_attacker = independent_attacker.front();
     clem_attacker.entity.id = clem_attacker.entity.name = clem_attacker.deployment.id = "Clementia";

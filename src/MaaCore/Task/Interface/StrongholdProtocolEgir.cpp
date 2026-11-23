@@ -440,6 +440,8 @@ std::optional<asst::spa::DeploymentStep> asst::StrongholdProtocolTask::egir_layo
             { "boss_chain_attack_priority", proposal.boss_chain_attack_priority },
             { "boss_movement_waypoints_known", request.boss_movement_waypoints.size() },
             { "boss_core_movement_waypoints_covered", proposal.boss_core_movement_waypoints },
+            { "boss_surviving_attackers_movement_waypoints_covered",
+              proposal.boss_surviving_attackers_movement_waypoints },
             { "attacking_core_separate_from_chain", proposal.attacking_core_separate_from_chain },
             { "input_complete", proposal.input_complete },
             { "found", proposal.found },
