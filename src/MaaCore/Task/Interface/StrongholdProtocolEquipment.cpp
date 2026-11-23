@@ -446,7 +446,7 @@ bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value
     inspect.set_retry_times(0);
     inspect.set_task_id(m_task_id);
     inspect.set_task_ptr(this);
-    const bool probes_complete = inspect.inspect_equipment_inventory(
+    const auto inspection = inspect.inspect_equipment_inventory(
         round,
         state.get("funds", -1),
         state.get("remaining_deployment", -1),
@@ -480,7 +480,7 @@ bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value
     // because it found an item. Acquisitions, returned gear and consumption
     // invalidate it explicitly. Keep presence-only hints and never infer
     // stack quantities or completeness from this scheduling flag.
-    m_equipment_inventory_dirty = !probes_complete;
+    m_equipment_inventory_dirty = !inspection.probes_complete;
     const bool funding_source_observed =
         (m_cash_equipment_source_verified_round == round && !m_cash_equipment_attempted_rounds.contains(round)) ||
         (m_passbook_source_verified_round == round && !m_passbook_attempted_rounds.contains(round));
@@ -492,25 +492,25 @@ bool asst::StrongholdProtocolTask::refresh_equipment_inventory(const json::value
         m_spending_reviewed = false;
         m_spending_reason.clear();
     }
+    const bool reobserve = !inspection.preparation_frame_reusable || reopen_shopping;
     auto receipt = basic_info_with_what("SPAAutomationEquipmentInventoryObserved");
     receipt["details"] =
         json::object { { "run_id", m_run_id },
                        { "round", round },
                        { "scheduled_strategy_equipment_grant", scheduled_strategy_gift },
-                       { "detected_candidates_inspected", probes_complete },
+                       { "detected_candidates_inspected", inspection.probes_complete },
                        { "equipment_slots_observed", inspect.inspected_equipment().size() },
                        { "summon_slots_observed", inspect.inspected_summons().size() },
                        { "inventory_complete", false },
                        { "inventory_count_inferred", false },
-                       { "preparation_frame_invalidated", true },
+                       { "preparation_frame_invalidated", reobserve },
                        { "cash_equipment_source_verified_round", m_cash_equipment_source_verified_round },
                        { "shopping_reopened_for_funding_review", reopen_shopping },
                        { "equipment_candidates", equipment_candidates_snapshot() },
                        { "roster", roster_snapshot() } };
     callback(AsstMsg::SubTaskExtraInfo, receipt);
-    // Inspection clicks can open panels or change a HUD control even when
-    // no item is recognized. Never reuse pre-inspection money/freeze/page.
-    return true;
+    // Only a verified read-only scan can proceed with the prior preparation.
+    return reobserve;
 }
 
 bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value& state)

@@ -1517,8 +1517,14 @@ std::optional<std::vector<std::string>> asst::spa::SwapTaskPlugin::selected_equi
     return result;
 }
 
-bool asst::spa::SwapTaskPlugin::close_selection(cv::Mat* clean_frame, const cv::Mat& initial_frame)
+bool asst::spa::SwapTaskPlugin::close_selection(
+    cv::Mat* clean_frame,
+    const cv::Mat& initial_frame,
+    bool* dismiss_input_attempted)
 {
+    if (dismiss_input_attempted) {
+        *dismiss_input_attempted = false;
+    }
     if (clean_frame) {
         clean_frame->release();
     }
@@ -1579,6 +1585,9 @@ bool asst::spa::SwapTaskPlugin::close_selection(cv::Mat* clean_frame, const cv::
             // opened another detail panel instead of dismissing the source.
             // This gap is above the battlefield, clear of the HUD buttons.
             if (!input_issued) {
+                if (dismiss_input_attempted) {
+                    *dismiss_input_attempted = true;
+                }
                 if (!ctrler()->click(Point(1040, 80))) {
                     return false;
                 }
@@ -1606,8 +1615,13 @@ bool asst::spa::SwapTaskPlugin::close_selection(cv::Mat* clean_frame, const cv::
             }
             placement_panel = has_range && has_sale;
         }
-        if (placement_panel && (!ctrler()->click(Point(1040, 80)) || !sleep(300))) {
-            return false;
+        if (placement_panel) {
+            if (dismiss_input_attempted) {
+                *dismiss_input_attempted = true;
+            }
+            if (!ctrler()->click(Point(1040, 80)) || !sleep(300)) {
+                return false;
+            }
         }
     }
     return restore_preparation();
@@ -1690,13 +1704,13 @@ bool asst::spa::SwapTaskPlugin::ensure_shop_visibility(
             return true;
         }
         if (control && !input_issued) {
+            if (toggle_input_issued) {
+                *toggle_input_issued = true;
+            }
             if (!ctrler()->click(control->second)) {
                 return false;
             }
             input_issued = true;
-            if (toggle_input_issued) {
-                *toggle_input_issued = true;
-            }
         }
         // After one click, only observe. A delayed frame must never toggle
         // the shop back before the first transition becomes visible.
@@ -1953,7 +1967,7 @@ std::optional<bool> asst::spa::SwapTaskPlugin::inspect_field_operator_form(
     return capture_collapsed_preparation(field, panel) ? elite : std::nullopt;
 }
 
-bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
+asst::spa::SwapTaskPlugin::EquipmentInventoryInspection asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
     int round,
     int funds,
     int remaining,
@@ -1964,16 +1978,21 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
     m_inspected_equipment.clear();
     m_inspected_summons.clear();
     if (round < 1 || round > 20 || funds < 0 || funds > 999 || remaining < 0 || remaining > 8) {
-        return false;
+        return {};
     }
     m_round = round;
     m_funds = funds;
     m_remaining = remaining;
     m_fast_mode = true;
     m_best_effort_deployment = true;
+    bool input_attempted = false;
     const auto restore_inventory_frame = [&](cv::Mat& frame) {
         cv::Mat clean;
-        if (!close_selection(&clean) || !ensure_shop_visibility(true, &frame, clean)) {
+        bool dismissed = false, toggled = false;
+        const bool restored =
+            close_selection(&clean, {}, &dismissed) && ensure_shop_visibility(true, &frame, clean, &toggled);
+        input_attempted |= dismissed || toggled;
+        if (!restored) {
             return false;
         }
         if (frame.empty()) {
@@ -1983,7 +2002,7 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
     };
     cv::Mat inventory_frame;
     if (!may_start_probe() || !restore_inventory_frame(inventory_frame) || !preparation_matches(inventory_frame)) {
-        return false;
+        return {};
     }
     save_evidence(inventory_frame, utils::path("debug/SPA/equipment_inventory_discovery"), false);
     const auto read_freeze = [](const cv::Mat& image) -> std::optional<bool> {
@@ -2040,6 +2059,7 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
             break;
         }
         ++fresh_title_probes;
+        input_attempted = true;
         const auto identity = bench_identity(Point(source->x, source->y));
         std::string equipment;
         if (identity) {
@@ -2096,9 +2116,9 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
             }
         }
     }
-    const bool restored = (expanded_frame_restored || restore_inventory_frame(fresh_frame)) &&
-                          preparation_matches(fresh_frame);
-    if (restored && !unknown_probe_input) {
+    const bool restored =
+        (expanded_frame_restored || restore_inventory_frame(fresh_frame)) && preparation_matches(fresh_frame);
+    if (restored && input_attempted && !unknown_probe_input) {
         freeze_after = read_freeze(fresh_frame);
         ui_side_effect_observed = freeze_before && freeze_after && *freeze_before != *freeze_after;
     }
@@ -2112,6 +2132,9 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
     }
     const auto scan_ms =
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count();
+    // With no input, freeze_after describes the same frame as freeze_before.
+    // Require a complete, restorable pass and known freeze state to keep the caller's observation.
+    const bool frame_reusable = complete && restored && !input_attempted && freeze_before.has_value();
     auto receipt = basic_info_with_what("SPAEquipmentInventoryInspected");
     receipt["details"] =
         json::object { { "round", round },
@@ -2139,10 +2162,11 @@ bool asst::spa::SwapTaskPlugin::inspect_equipment_inventory(
                        { "shop_freeze_before", freeze_before.value_or(false) },
                        { "shop_freeze_after_known", freeze_after.has_value() },
                        { "shop_freeze_after", freeze_after.value_or(false) },
-                       { "fresh_observation_required", fresh_title_probes > 0 },
+                       { "inventory_input_attempted", input_attempted },
+                       { "fresh_observation_required", !frame_reusable },
                        { "observations", std::move(observations) } };
     callback(AsstMsg::SubTaskExtraInfo, receipt);
-    return complete && restored;
+    return { complete && restored, frame_reusable };
 }
 
 std::optional<bool> asst::spa::SwapTaskPlugin::deploy_preparation_summon(

@@ -67,7 +67,13 @@ public:
 
     bool set_registered_grid_context(const cv::Mat& reference, const cv::Mat& projection, const std::string& map_id);
 
-    bool inspect_equipment_inventory(
+    struct EquipmentInventoryInspection
+    {
+        bool probes_complete = false;
+        bool preparation_frame_reusable = false;
+    };
+
+    EquipmentInventoryInspection inspect_equipment_inventory(
         int round,
         int funds,
         int remaining,
@@ -265,7 +271,10 @@ private:
         cv::Mat* verified_panel = nullptr);
     bool reconcile_deployed_target();
     bool observe_deployed_pose(const cv::Mat& preparation_frame = {});
-    bool close_selection(cv::Mat* clean_frame = nullptr, const cv::Mat& initial_frame = {});
+    bool close_selection(
+        cv::Mat* clean_frame = nullptr,
+        const cv::Mat& initial_frame = {},
+        bool* dismiss_input_attempted = nullptr);
     bool ensure_expanded_shop(cv::Mat* already_visible_frame = nullptr);
     bool ensure_collapsed_shop(cv::Mat* already_visible_frame = nullptr);
     bool capture_collapsed_preparation(cv::Mat& image, const cv::Mat& selected_frame = {});
