@@ -792,7 +792,49 @@ void asst::RoguelikeBattleTaskPlugin::observe_hunter_after_deployment()
     }
 }
 
-bool asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
+bool asst::RoguelikeBattleTaskPlugin::request_authored_budget_reobservation(
+    const battle::DeploymentOper& oper,
+    const DeployPlanInfo& plan)
+{
+    if (m_config->get_theme() != RoguelikeTheme::BlackFlow || !m_reserve_deploy_cost || m_deploy_plan.empty() ||
+        oper.role == Role::Drone || is_nameless_deployable(oper.name) || m_soul_selection_owned) {
+        return false;
+    }
+    const auto identity = RoguelikeTraining.unique_identity(oper.name);
+    const auto props = BattleData.find_first_oper(oper.role, oper.name);
+    blackflow::AuthoredBudgetObservations observed;
+    observed.strict_authored = true;
+    observed.duty_eligible = deployment_target_allowed(oper, plan.placed) && !m_used_tiles.contains(plan.placed) &&
+                             !m_blacklist_location.contains(plan.placed);
+    observed.identity_known = !identity.empty() && props && props->id == identity;
+    const auto prepared = m_config->status().opers.find(oper.name);
+    const auto elite = m_oper_elite.find(oper.name);
+    if (prepared != m_config->status().opers.end() && elite != m_oper_elite.end()) {
+        const auto& current = prepared->second;
+        observed.preparation_valid = current.preparation.operator_id == identity &&
+                                     current.preparation.selection_sequence > 0 && current.elite == elite->second &&
+                                     RoguelikeTraining.skill_availability(
+                                         oper.name,
+                                         current.preparation.selected_skill,
+                                         current.elite,
+                                         current.level) == SkillAvailability::Available;
+    }
+    observed.already_deployed = m_battlefield_opers.contains({ oper.role, oper.name });
+    observed.available = oper.available;
+    observed.cooling = oper.cooling;
+    observed.card_cost = oper.cost;
+    observed.observed_cost = m_cost;
+    if (m_authored_budget_reobserver.request(plan.plan_index, observed) !=
+        blackflow::AuthoredBudgetReobservation::NeedsReobservation) {
+        return false;
+    }
+    LogInfo << __FUNCTION__ << "Authored readiness/budget observations need one ordinary reobservation" << oper.name
+            << "plan" << plan.plan_index << "card cost" << oper.cost << "observed cost" << m_cost
+            << "same-frame affordability unproven; no deployment input authorized";
+    return true;
+}
+
+asst::blackflow::AuthoredPlanResult asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
 {
     Log.info("deploy diag: cur_opers", m_cur_deployment_opers.size(), "homes", m_homes.size());
     LogTraceFunction;
@@ -804,7 +846,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
             if (m_used_tiles.contains(info.location)) {
                 retreat_oper(info.location);
                 Log.info("retreat operator");
-                return true;
+                return blackflow::AuthoredPlanResult::Handled;
             }
         }
     }
@@ -989,6 +1031,11 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
                 if (cost_wait && (best_waiting_plan == nullptr || deploy_plan < *best_waiting_plan)) {
                     best_waiting_plan = &deploy_plan;
                 }
+                if (!cost_wait && request_authored_budget_reobservation(*oper_it, deploy_plan)) {
+                    // No input or plan progress. The next outer iteration obtains
+                    // another ordinary image after these iterators are destroyed.
+                    return blackflow::AuthoredPlanResult::Reobserve;
+                }
                 continue;
             }
             // 但也不能一味等：场上人数不足 3 时先把人放下，否则前期就漏怪。
@@ -1003,15 +1050,15 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
             }
             if (allow_soul_inspection && m_soul_observer && oper_it->role != battle::Role::Drone &&
                 !is_nameless_deployable(oper_it->name) && observe_blackflow_souls(deploy_plan.placed)) {
-                return true;
+                return blackflow::AuthoredPlanResult::Handled;
             }
             if (need_exit()) {
-                return true;
+                return blackflow::AuthoredPlanResult::Handled;
             }
             const auto direction = resolve_deploy_direction(*oper_it, deploy_plan.placed, deploy_plan.direction);
             if (!deploy_oper(deploy_plan.role, deploy_plan.oper_name, deploy_plan.placed, direction)) {
                 LogWarn << __FUNCTION__ << "Deployment action failed" << deploy_plan.oper_name << deploy_plan.placed;
-                return true;
+                return blackflow::AuthoredPlanResult::Handled;
             }
             ++m_plan_deployment_counts[deploy_plan.plan_index];
             battle::OperNameTag oper_tag { deploy_plan.role, deploy_plan.oper_name };
@@ -1043,10 +1090,10 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
             m_skill_times[oper_tag] = oper_info.skill_times;
             Log.info("    best deploy is", deploy_plan.oper_name, "with rank", deploy_plan.rank);
             observe_hunter_after_deployment();
-            return true;
+            return blackflow::AuthoredPlanResult::Handled;
         }
     }
-    return is_success;
+    return is_success ? blackflow::AuthoredPlanResult::Handled : blackflow::AuthoredPlanResult::NoAction;
 }
 
 // 漏怪 / 崩盘诊断。
@@ -1358,17 +1405,23 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
     // 退场事件必须先处理；预设部署成功后提前返回会漏掉这一帧的防线失守。
     auto urgent_home_opt = check_urgent(pre_cooling, current_departures, pre_battlefield);
     if (m_deploy_plan_only) {
-        if (do_best_deploy(!yielding_soul_ui)) {
+        const auto planned = do_best_deploy(!yielding_soul_ui);
+        if (planned == blackflow::AuthoredPlanResult::Handled) {
             m_first_deploy = false;
         }
         return true;
     }
-    if (!urgent_home_opt && do_best_deploy(!yielding_soul_ui)) {
-        m_first_deploy = false;
-        return true;
+    if (!urgent_home_opt) {
+        const auto planned = do_best_deploy(!yielding_soul_ui);
+        if (planned != blackflow::AuthoredPlanResult::NoAction) {
+            if (planned == blackflow::AuthoredPlanResult::Handled) {
+                m_first_deploy = false;
+            }
+            return true;
+        }
     }
 
-    else { // 这是旧的、通用部署逻辑
+    { // 这是旧的、通用部署逻辑
         battle::DeploymentOper best_oper;
         bool best_oper_is_dice = false;
         size_t normal_home_index = m_cur_home_index;
@@ -1960,6 +2013,7 @@ void asst::RoguelikeBattleTaskPlugin::clear()
     m_deploy_plan_only = false;
     m_reserve_deploy_cost = false;
     m_plan_deployment_counts.clear();
+    m_authored_budget_reobserver.reset();
     m_hunter_prelude.reset();
     m_hunter_main_allowed = false;
     m_hunter_observation_sequence = 0;

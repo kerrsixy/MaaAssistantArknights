@@ -6,6 +6,7 @@
 #include <stack>
 
 #include "AbstractRoguelikeTaskPlugin.h"
+#include "BlackFlowAuthoredBudget.h"
 #include "Common/AsstBattleDef.h"
 #include "Common/AsstTypes.h"
 #include "Config/Miscellaneous/TilePack.h"
@@ -115,7 +116,8 @@ protected:
         }
     };
 
-    bool do_best_deploy(bool allow_soul_inspection = true);
+    blackflow::AuthoredPlanResult do_best_deploy(bool allow_soul_inspection = true);
+    bool request_authored_budget_reobservation(const battle::DeploymentOper& oper, const DeployPlanInfo& plan);
     static bool deployment_cost_wait_required(const battle::DeploymentOper& oper, int observed_cost);
     std::unordered_set<std::string> reconcile_returned_blackflow_operators();
     bool deployment_plan_exhausted(const battle::roguelike::DeployInfoWithRank& plan) const;
@@ -200,6 +202,7 @@ protected:
     std::uint64_t m_hunter_observation_sequence = 0;
     bool m_waiting_for_manual_resume = false;
     std::unordered_map<int, int> m_plan_deployment_counts;
+    blackflow::AuthoredBudgetReobserver m_authored_budget_reobserver;
     std::unordered_set<Point> m_blacklist_location;
     std::unordered_map<Point, battle::TileAvailability> m_dynamic_tile_observation;
     bool m_dynamic_tile_observation_enabled = false;
