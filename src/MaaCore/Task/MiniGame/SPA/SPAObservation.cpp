@@ -254,6 +254,22 @@ bool asst::spa::joint_strategy_own_turn(const std::vector<TextObservation>& text
     });
 }
 
+bool asst::spa::verified_opening_strategy_page(const std::vector<TextObservation>& texts)
+{
+    if (!joint_strategy_own_turn(texts)) {
+        return false;
+    }
+    return std::ranges::any_of(texts, [](const auto& item) {
+        if (!std::isfinite(item.score) || item.score < .9 || item.x < 525 || item.x >= 740 || item.y < 0 ||
+            item.y >= 70) {
+            return false;
+        }
+        auto title = item.text;
+        std::erase(title, ' ');
+        return title == "2/3选择策略";
+    });
+}
+
 std::optional<std::string> asst::spa::joint_teammate_view(const std::vector<TextObservation>& texts)
 {
     std::optional<std::string> player;
@@ -1053,7 +1069,8 @@ asst::spa::PageObservation
         return result;
     }
     if (verified_pact_setup_page(texts) || (has("确认本局信息") && has("核心盟约") && has("准备就绪")) ||
-        (has("请选择策略") && has("泛用型策略")) || (has("确定自选编队") && has("准备就绪"))) {
+        verified_opening_strategy_page(texts) || (has("请选择策略") && has("泛用型策略")) ||
+        (has("确定自选编队") && has("准备就绪"))) {
         result.page = Page::RunSetup;
         return result;
     }

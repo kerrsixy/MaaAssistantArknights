@@ -47,6 +47,7 @@ bool verified_loading_page(const std::vector<TextObservation>& texts);
 // The scrollable pact list may hide its heading. Require fixed stage/ready
 // anchors and pact-specific content on the same frame, including split OCR.
 bool verified_pact_setup_page(const std::vector<TextObservation>& texts);
+bool verified_opening_strategy_page(const std::vector<TextObservation>& texts);
 
 // A unique catalogue identity in the selected operator title, not a name
 // mentioned in a description or an unreadable neighboring panel.

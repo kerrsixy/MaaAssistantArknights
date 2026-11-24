@@ -68,6 +68,17 @@ int main()
     check(
         strategy_portrait_similarity(strategy, cv::Mat::zeros(24, 24, CV_8UC1)) == 0.0,
         "blank locked portrait cannot rank as a visual hint");
+    const std::vector<TextObservation> scrolled_strategy { { "2/3 选择策略", .965129, 562, 21 },
+                                                           { "请选择策略", .999861, 934, 14 },
+                                                           { "决策中", .98, 214, 381 } };
+    check(verified_opening_strategy_page(scrolled_strategy), "fixed scrolled strategy anchors admit the stage");
+    check(observe_page(scrolled_strategy, {}).page == Page::RunSetup, "scrolled strategy page is not unknown");
+    auto missing_prompt = scrolled_strategy;
+    missing_prompt.erase(missing_prompt.begin() + 1);
+    check(!verified_opening_strategy_page(missing_prompt), "stage counter alone does not prove it is our turn");
+    auto lowered_header = scrolled_strategy;
+    lowered_header.front().y = 360;
+    check(!verified_opening_strategy_page(lowered_header), "body text cannot impersonate the strategy stage title");
     const auto fixture = json::open(std::filesystem::current_path() / "setup_scrolled_archived.json");
     check(fixture.has_value(), "actual native OCR fixture loads");
     std::vector<TextObservation> split;
