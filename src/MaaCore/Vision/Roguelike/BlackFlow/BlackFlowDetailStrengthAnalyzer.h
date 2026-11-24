@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "Vision/VisionHelper.h"
 
@@ -25,6 +26,9 @@ class BlackFlowDetailStrengthAnalyzer final : public VisionHelper
 {
 public:
     using VisionHelper::VisionHelper;
+
+    [[nodiscard]] static std::vector<std::string>
+        expected_labels(const std::string& operator_id, const std::string& operator_name);
 
     [[nodiscard]] std::optional<DetailStrengthObservation>
         analyze(const std::string& operator_id, const std::string& operator_name) const;

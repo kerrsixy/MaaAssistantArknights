@@ -152,6 +152,10 @@ bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const Ac
     }
     const auto previous_rect = select->specific_rect;
     const auto previous_names = identity->text;
+    const auto expected_labels = BlackFlowDetailStrengthAnalyzer::expected_labels(oper_id, oper_name);
+    if (expected_labels.empty()) {
+        return true;
+    }
     auto name_region = found->rect.move(select->specific_rect);
     if (name_region.empty() || name_region.x < 0 || name_region.y < 0 || name_region.x >= current_image.cols ||
         name_region.y >= current_image.rows) {
@@ -180,7 +184,7 @@ bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const Ac
     // recognized in this card's footer, rather than a random portrait offset.
     const auto& label_rect = labels->front().rect;
     select->specific_rect = { label_rect.x + label_rect.width / 2, label_rect.y + label_rect.height / 2, 1, 1 };
-    identity->text = { oper_name };
+    identity->text = expected_labels;
     m_attempted.insert(oper_name);
     // Select -> detail identity -> exact Manage OCR -> module-page anchor is one
     // resource chain.
