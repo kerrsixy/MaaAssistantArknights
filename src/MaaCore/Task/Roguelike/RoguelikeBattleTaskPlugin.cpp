@@ -3,6 +3,7 @@
 #include "RoguelikeBattleTaskPlugin.h"
 
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <future>
 #include <ranges>
@@ -1186,11 +1187,39 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
                 if (m_soul_retreat) {
                     m_soul_retreat->invalidate_input_permission();
                 }
-                flush_soul_evidence("positive_user_pause");
+                flush_soul_evidence("positive_pause_ui");
                 if (!m_waiting_for_manual_resume) {
+                    // A paused UI can also appear during a local result transition.
+                    // Keep the exact source frame; its origin is not inferred here.
+                    const auto stamp = std::chrono::duration_cast<std::chrono::microseconds>(
+                                           std::chrono::steady_clock::now().time_since_epoch())
+                                           .count();
+                    const auto path = UserDir.get() / utils::path("debug/blackflow/pause-ui") /
+                                      utils::path(std::to_string(stamp) + ".png");
+                    std::error_code image_error;
+                    std::filesystem::create_directories(path.parent_path(), image_error);
+                    bool image_saved = false;
+                    if (!image_error && !image.empty()) {
+                        try {
+                            image_saved = MAA_NS::imwrite(path, image);
+                        }
+                        catch (const cv::Exception& error) {
+                            LogWarn << __FUNCTION__ << "Pause frame encoding failed" << error.what();
+                        }
+                    }
                     LogInfo << __FUNCTION__ << "Observed paused battle; waiting without game input";
                     auto info = basic_info_with_what("BlackFlowBattlePaused");
-                    info["details"] = json::object { { "stage", m_stage_name }, { "waiting_for_resume", true } };
+                    info["details"] = json::object {
+                        { "stage", m_stage_name },
+                        { "waiting_for_resume", true },
+                        { "origin", "unknown" },
+                        { "pause_glyph_observed", soul_guard_paused },
+                        { "image_saved", image_saved },
+                        { "image_file", image_saved ? utils::path_to_utf8_string(path) : std::string {} },
+                        { "last_observed_kills", m_kills },
+                        { "last_observed_total_kills", m_total_kills },
+                        { "automation_resumed_pause", false },
+                    };
                     callback(AsstMsg::SubTaskExtraInfo, info);
                 }
                 m_waiting_for_manual_resume = true;

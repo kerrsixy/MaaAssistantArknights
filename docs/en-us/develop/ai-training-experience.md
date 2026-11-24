@@ -950,4 +950,12 @@ All43 new Debug native and11 generator checks pass, including actual phase diffe
 
 Actual phase108 run71 committed and reloaded181 training records under the same UID, retaining438 operators. EW's original and persisted frames have identical hashes. Fifteen recruitment receipts prove effective training consumption, while priority_adjusted remains false. Horn's module is unknown this refresh; neither full module refresh nor current equipment is claimed, and blue-gate capability stays disabled. Do not hot-swap the active exploration. General damage/task scoring, unattended first ending and stableN10 remain unfinished.
 
+### 2026-11-25 Phase 111: batch frame sampling and pause provenance
+
+Batch runs now forward cached-frame sampling at one second with a 1200-sample limit per battle by default; explicit zero disables it. The report records these settings without claiming engine frame times or scene classification. The first positive pause UI saves the exact recognition frame and records unknown origin. It does not resume the game or relax pause/error acceptance. Image encoding failure is logged without aborting combat.
+
+All 23 offline argument-transport checks pass: three-round forwarding, first-round refresh, disabling, invalid inputs, and rejection of an unchanged real prior paused sample. Positive transport fixtures are explicitly synthetic settlements, not clear evidence. One C++ unit was rebuilt in the inherited coherent 308-object phase110 cohort. All 43 inherited blocking regressions and actual DLL resource loading/task construction with both scan flags pass with zero connections or game inputs. Live triggering of the pause screenshot branch remains unverified.
+
+Account training is available outside exploration; learning levels or mastery does not require starting a run. The181-record training cache and actual pre-recruitment effective-skill mapping are proven. Recruitment currently records training without adjusting priority. The independent valuation prototype is not a live consumer; run phase, temporary identity, preparation skill choice and current equipment require separate evidence. An unattended first ending and stable N10 remain unfinished.
+
 Publication check: actual run71 naturally failed at floor5 过度繁殖 and returned to the lobby, settling N9 at752 points with four floors completed. All29 initial account-scan errors and one pause receipt of unknown origin remain preserved; strict acceptance still rejects this sample. An unattended first ending, N10 unlock and stable clears remain unproven.
