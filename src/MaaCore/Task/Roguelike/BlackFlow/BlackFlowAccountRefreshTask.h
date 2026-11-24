@@ -68,5 +68,6 @@ private:
     std::set<std::string> m_attempted;
     std::set<std::string> m_opening_training_names;
     AccountRefreshObservation m_observation;
+    std::vector<OperBoxInfo> m_verified_page;
 };
 }

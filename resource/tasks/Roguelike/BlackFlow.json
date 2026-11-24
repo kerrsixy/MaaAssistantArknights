@@ -3615,8 +3615,9 @@
     "BlackFlowAccountScan@TrainingDetail": {
         "baseTask": "BlackFlowAccountScan@Detail",
         "template": "OperInformationMenu.png",
-        "requiredPage": "BlackFlowAccountScan@DetailName",
-        "next": []
+        "requiredPage": "",
+        "next": [],
+        "Doc": "Optional read-only detail anchor; the same-frame typed reader strictly verifies exact identity and reports unknown training as data quality. Module Detail/Manage gates remain unchanged."
     },
     "BlackFlowAccountScan@DetailName": {
         "algorithm": "OcrDetect",

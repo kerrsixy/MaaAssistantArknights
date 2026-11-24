@@ -9,8 +9,9 @@
 
 namespace asst::blackflow
 {
-std::optional<AccountTrainingEvidence>
-    BlackFlowAccountTrainingAnalyzer::analyze(const std::string& operator_id, const std::string& operator_name) const
+std::optional<AccountDetailTrainingObservation> BlackFlowAccountTrainingAnalyzer::analyze_detail(
+    const std::string& operator_id,
+    const std::string& operator_name) const
 {
     const auto strength = BlackFlowDetailStrengthAnalyzer(m_image).analyze(operator_id, operator_name);
     if (!strength) {
@@ -56,6 +57,14 @@ std::optional<AccountTrainingEvidence>
             }
         }
     }
-    return observation;
+    return AccountDetailTrainingObservation { *strength, std::move(observation) };
 }
+
+std::optional<AccountTrainingEvidence>
+    BlackFlowAccountTrainingAnalyzer::analyze(const std::string& operator_id, const std::string& operator_name) const
+{
+    auto detail = analyze_detail(operator_id, operator_name);
+    return detail ? std::optional<AccountTrainingEvidence>(std::move(detail->training)) : std::nullopt;
+}
+
 }
