@@ -16,5 +16,9 @@ public:
 
 protected:
     virtual bool _run() override;
+
+private:
+    bool run_blackflow_preparation();
+    bool interrupt_before_battle(std::string_view reason);
 };
 }

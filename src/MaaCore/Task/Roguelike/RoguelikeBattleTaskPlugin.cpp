@@ -428,6 +428,23 @@ bool asst::RoguelikeBattleTaskPlugin::calc_stage_info()
     auto& details = cb_info["details"];
     details["name"] = m_stage_name;
     details["size"] = m_side_tile_info.size();
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+        json::array prepared;
+        for (const auto& [name, oper] : m_config->status().opers) {
+            prepared.emplace_back(
+                json::object {
+                    { "name", name },
+                    { "elite", oper.elite },
+                    { "level", oper.level },
+                    { "operator_id", oper.preparation.operator_id },
+                    { "displayed_skill_levels", oper.preparation.displayed_skill_levels },
+                    { "selected_skill", oper.preparation.selected_skill },
+                    { "training_source_sequence", oper.preparation.training_sequence },
+                    { "selection_source_sequence", oper.preparation.selection_sequence },
+                });
+        }
+        details["current_run_preparation"] = std::move(prepared);
+    }
     callback(AsstMsg::SubTaskExtraInfo, cb_info);
 
     return true;

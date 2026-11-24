@@ -3807,5 +3807,49 @@
         "action": "ClickSelf",
         "postDelay": 400,
         "next": ["BlackFlow@Roguelike@StageTraderLeave"]
+    },
+    "BlackFlowPreparationSkillAnchor": {
+        "rectMove": [0, 0, 63, 34],
+        "baseTask": "RoguelikeSkillSelectionFlag",
+        "template": "RoguelikeSkillSelectionFlag.png"
+    },
+    "BlackFlowPreparationFormationAnchor": {
+        "rectMove": [-2, 77, 63, 34],
+        "baseTask": "RoguelikeSkillSelectionFlag",
+        "template": "RoguelikeSkillSelectionFlag.png"
+    },
+    "BlackFlowPreparationElite": {
+        "template": ["RoguelikeRecruitElite0.png", "RoguelikeRecruitElite1.png", "RoguelikeRecruitElite2.png"],
+        "templThreshold": 0.8,
+        "rectMove": [45, -65, 60, 55],
+        "specialParams": [0, 1, 2],
+        "roi": [0, 0, 1280, 720]
+    },
+    "BlackFlowPreparationLevel": {
+        "baseTask": "NumberOcrReplace",
+        "rectMove": [36, 3, 24, 24],
+        "roi": [0, 0, 1280, 720]
+    },
+    "BlackFlowPreparationTraining": {
+        "template": [
+            "BattleQuickFormationSkillLevel-10.png",
+            "BattleQuickFormationSkillLevel-09.png",
+            "BattleQuickFormationSkillLevel-08.png"
+        ],
+        "templThreshold": 0.8,
+        "rectMove": [162, -62, 34, 35],
+        "specialParams": [10, 9, 8],
+        "roi": [0, 0, 1280, 720]
+    },
+    "BlackFlowPreparationBasicSkill": {
+        "baseTask": "NumberOcrReplace",
+        "rectMove": [165, -54, 11, 13],
+        "roi": [0, 0, 1280, 720]
+    },
+    "BlackFlowPreparationSelected": {
+        "rectMove": [173, 2, 48, 2],
+        "specialParams": [58, 220, 90],
+        "baseTask": "RoguelikeSkillSelectionFlag",
+        "template": "RoguelikeSkillSelectionFlag.png"
     }
 }
