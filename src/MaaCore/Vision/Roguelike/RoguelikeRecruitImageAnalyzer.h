@@ -1,5 +1,7 @@
 #pragma once
 #include "Vision/VisionHelper.h"
+#include <cstdint>
+#include <functional>
 
 #include "Common/AsstBattleDef.h"
 
@@ -20,6 +22,34 @@ struct RoguelikeRecruitHopeCostEvidence
     std::string reason;
 };
 
+// One recognized name/flag observation from one analyze() call. A missing
+// level can exclude it from get_result() while this raw sidecar still survives.
+struct RoguelikeRecruitCandidateEvidence
+{
+    std::uint64_t analysis_id = 0;
+    std::size_t observation_index = 0;
+    std::optional<std::size_t> usable_result_index;
+    std::string name;
+    Rect name_rect;
+    double name_score = 0.0;
+    Rect currency_flag_rect;
+    double currency_flag_score = 0.0;
+    std::optional<std::size_t> hope_cost_evidence_index;
+    int elite = -1;
+    int level = -1;
+    // true = positively temporary; false requires a proven non-temporary rule.
+    // The present detector emits true/unknown, never false from a missing badge.
+    std::optional<bool> temporary;
+    std::optional<bool> legacy_temporary_flag;
+    Rect temporary_search_roi;
+    std::optional<Rect> temporary_badge_rect;
+    std::optional<double> temporary_badge_score;
+    std::string temporary_reason;
+    bool exact_price_link = false;
+    std::string price_link_reason;
+    std::string usability_reason;
+};
+
 class RoguelikeRecruitImageAnalyzer final : public VisionHelper
 {
 public:
@@ -32,6 +62,15 @@ public:
 
     const auto& get_hope_cost_evidence() const noexcept { return m_hope_cost_evidence; }
 
+    const auto& get_candidate_evidence() const noexcept { return m_candidate_evidence; }
+
+    std::uint64_t get_analysis_id() const noexcept { return m_analysis_id; }
+
+    // Returns a reference only for an unambiguous same-analysis flag/index link.
+    // Copies with a stale analysis ID or a different card/price index are rejected.
+    std::optional<std::reference_wrapper<const RoguelikeRecruitHopeCostEvidence>>
+        resolve_candidate_hope_cost(const RoguelikeRecruitCandidateEvidence& candidate) const noexcept;
+
     // The flag must be this card's matched hope-currency template, not its name
     // or a rarity/level-derived price. Unreadable fields remain unknown.
     static RoguelikeRecruitHopeCostEvidence
@@ -43,5 +82,7 @@ private:
 
     std::vector<battle::roguelike::Recruitment> m_result;
     std::vector<RoguelikeRecruitHopeCostEvidence> m_hope_cost_evidence;
+    std::vector<RoguelikeRecruitCandidateEvidence> m_candidate_evidence;
+    std::uint64_t m_analysis_id = 0;
 };
 }

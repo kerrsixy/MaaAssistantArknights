@@ -1,6 +1,9 @@
 #include "RoguelikeRecruitImageAnalyzer.h"
 #include "RoguelikeRecruitEvidence.h"
 
+#include <algorithm>
+#include <atomic>
+
 #include "Config/TaskData.h"
 #include "MaaUtils/NoWarningCV.hpp"
 #include "Utils/Logger.hpp"
@@ -14,10 +17,15 @@ bool asst::RoguelikeRecruitImageAnalyzer::analyze()
     LogTraceFunction;
     m_result.clear();
     m_hope_cost_evidence.clear();
+    m_candidate_evidence.clear();
+    // Evidence identity only: never used to change recruitment decisions.
+    static std::atomic<std::uint64_t> analysis_sequence { 0 };
+    m_analysis_id = ++analysis_sequence;
 
     Matcher temporary_matcher(m_image);
     temporary_matcher.set_task_info("Roguelike@TempRecruitFlag");
-    const bool temporary_badge = temporary_matcher.analyze().has_value();
+    const auto temporary_match = temporary_matcher.analyze();
+    const bool temporary_badge = temporary_match.has_value();
     const auto list_roi = Task.get("RoguelikeRecruitOcrFlag")->roi;
 
     // Some disabled cards have name/level text below the name OCR threshold.
@@ -65,9 +73,43 @@ bool asst::RoguelikeRecruitImageAnalyzer::analyze()
         }
         auto& hope_evidence = m_hope_cost_evidence[evidence_index];
         hope_evidence.name = res.text;
+        RoguelikeRecruitCandidateEvidence observed {
+            .analysis_id = m_analysis_id,
+            .observation_index = m_candidate_evidence.size(),
+            .name = res.text,
+            .name_rect = res.rect,
+            .name_score = res.score,
+            .currency_flag_rect = res.flag_rect,
+            .currency_flag_score = res.flag_score,
+            .hope_cost_evidence_index = evidence_index,
+            .elite = elite,
+            .level = level,
+            .temporary_search_roi = Task.get("Roguelike@TempRecruitFlag")->roi,
+        };
+        const bool positively_temporary = has_first_slot_temporary_badge(
+            temporary_badge,
+            res.rect.x,
+            res.rect.y,
+            list_roi.x,
+            list_roi.y,
+            list_roi.width,
+            list_roi.height);
+        if (positively_temporary) {
+            observed.temporary = true;
+            observed.temporary_badge_rect = temporary_match->rect;
+            observed.temporary_badge_score = temporary_match->score;
+            observed.temporary_reason = "positive_first_slot_badge_rule";
+        }
+        else {
+            observed.temporary_reason = temporary_match ? "positive_badge_not_attributed_to_this_card"
+                                                        : "missing_badge_is_not_negative_identity_proof";
+        }
+
         if (level < 0) {
             // Keep the independently observed price as evidence, while retaining
             // the existing rule that an unverified level is not a usable recruit.
+            observed.usability_reason = "level_OCR_unverified_legacy_result_excluded";
+            m_candidate_evidence.emplace_back(std::move(observed));
             continue;
         }
 
@@ -93,10 +135,48 @@ bool asst::RoguelikeRecruitImageAnalyzer::analyze()
         }
 
         Log.info(__FUNCTION__, info.name, elite, level, info.rect);
+        observed.usable_result_index = m_result.size();
+        observed.legacy_temporary_flag = info.temporary;
+        observed.usability_reason = level > 0 ? "included_in_legacy_result" : "included_with_unverified_level_zero";
         m_result.emplace_back(std::move(info));
+        m_candidate_evidence.emplace_back(std::move(observed));
     }
 
+    for (auto& observed : m_candidate_evidence) {
+        observed.exact_price_link = resolve_candidate_hope_cost(observed).has_value();
+        observed.price_link_reason = observed.exact_price_link ? "same_analysis_exact_currency_flag_and_index"
+                                                               : "currency_link_ambiguous_stale_or_conflicting";
+    }
     return !m_result.empty();
+}
+
+std::optional<std::reference_wrapper<const asst::RoguelikeRecruitHopeCostEvidence>>
+    asst::RoguelikeRecruitImageAnalyzer::resolve_candidate_hope_cost(
+        const RoguelikeRecruitCandidateEvidence& candidate) const noexcept
+{
+    if (candidate.analysis_id == 0 || candidate.analysis_id != m_analysis_id ||
+        candidate.observation_index >= m_candidate_evidence.size() || !candidate.hope_cost_evidence_index ||
+        *candidate.hope_cost_evidence_index >= m_hope_cost_evidence.size()) {
+        return std::nullopt;
+    }
+    const auto& canonical = m_candidate_evidence[candidate.observation_index];
+    if (candidate.name != canonical.name || candidate.name_rect != canonical.name_rect ||
+        candidate.currency_flag_rect != canonical.currency_flag_rect ||
+        candidate.hope_cost_evidence_index != canonical.hope_cost_evidence_index ||
+        candidate.usable_result_index != canonical.usable_result_index) {
+        return std::nullopt;
+    }
+    const auto& price = m_hope_cost_evidence[*candidate.hope_cost_evidence_index];
+    if (price.currency_rect != candidate.currency_flag_rect || price.name != candidate.name ||
+        std::ranges::count_if(
+            m_hope_cost_evidence,
+            [&](const auto& value) { return value.currency_rect == candidate.currency_flag_rect; }) != 1 ||
+        std::ranges::count_if(m_candidate_evidence, [&](const auto& value) {
+            return value.currency_flag_rect == candidate.currency_flag_rect;
+        }) != 1) {
+        return std::nullopt;
+    }
+    return std::cref(price);
 }
 
 int asst::RoguelikeRecruitImageAnalyzer::match_elite(const Rect& raw_roi)
