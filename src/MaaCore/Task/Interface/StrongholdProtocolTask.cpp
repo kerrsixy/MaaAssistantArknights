@@ -6922,15 +6922,26 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         if (m_decision_only) {
             return true;
         }
-        if (m_auto_run && !resume_funded_purchase && !resume_funding_pair &&
-            (decision.action == spa::PreparationAction::Review ||
-             (decision.action == spa::PreparationAction::Refresh && !decision.free_refresh)) &&
-            handle_ursus_strategy_recruitment(
-                state,
-                std::ranges::find(modeled_formation.active_pacts, m_policy.primary_pact) !=
-                    modeled_formation.active_pacts.end())) {
-            observer.expect_unchanged_preparation(round);
-            continue;
+        if (m_auto_run && m_selected_strategy_id == "band_ursus" && !resume_funded_purchase && !resume_funding_pair &&
+            !purchase_reserved_after_sale) {
+            const bool primary_active = modeled_formation.complete &&
+                                        std::ranges::find(modeled_formation.active_pacts, m_policy.primary_pact) !=
+                                            modeled_formation.active_pacts.end();
+            const bool competing_transition_recruit =
+                !primary_active && m_policy.early_board_ready && healers > 0 && has_anti_air_recruit &&
+                m_policy.last_round_life_loss <= 3 && decision.action == spa::PreparationAction::Buy &&
+                !decision.is_equipment && !decision.banked_value_purchase && !m_policy.owned.contains(decision.name) &&
+                !spa::belongs_to_planned_lineup(decision.name, m_policy, catalog);
+            const bool economy_window = decision.action == spa::PreparationAction::Review ||
+                                        (decision.action == spa::PreparationAction::Refresh && !decision.free_refresh);
+            if ((competing_transition_recruit || economy_window) &&
+                handle_ursus_strategy_recruitment(
+                    state,
+                    primary_active,
+                    competing_transition_recruit ? std::optional(decision.price) : std::nullopt)) {
+                observer.expect_unchanged_preparation(round);
+                continue;
+            }
         }
         if (decision.action == spa::PreparationAction::Review) {
             const auto modeled_current = spa::evaluate_formation(

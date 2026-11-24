@@ -232,7 +232,10 @@ bool asst::StrongholdProtocolTask::handle_strategy_copy(const json::value& state
     return true;
 }
 
-bool asst::StrongholdProtocolTask::handle_ursus_strategy_recruitment(const json::value& state, bool primary_active)
+bool asst::StrongholdProtocolTask::handle_ursus_strategy_recruitment(
+    const json::value& state,
+    bool primary_active,
+    std::optional<int> competing_recruit_price)
 {
     const int round = state.get("round", -1), funds = state.get("funds", -1);
     const int remaining = state.get("remaining_deployment", -1);
@@ -274,6 +277,7 @@ bool asst::StrongholdProtocolTask::handle_ursus_strategy_recruitment(const json:
     // Preserve most of a developed lineup's budget for known recruits and
     // equipment. An unformed Ursus board can use a full-price grant.
     if (!price || *price < 0 || *price > (primary_active ? 2 : 5) || *price > funds ||
+        (competing_recruit_price && *competing_recruit_price <= funds - *price) ||
         spa::preparation_round_number(opening, round, .80) != round ||
         spa::shop_number(opening, Rect(1180, 510, 45, 40), .72) != funds) {
         return false;
@@ -321,6 +325,7 @@ bool asst::StrongholdProtocolTask::handle_ursus_strategy_recruitment(const json:
                        { "shop_level", m_policy.shop_level },
                        { "funds_before", funds },
                        { "price_verified", *price },
+                       { "competing_recruit_price", competing_recruit_price.value_or(-1) },
                        { "strategy_recruitment_expected_funds", m_strategy_recruitment_expected_funds },
                        { "tactical_recruitment_pending", m_pending_tactical_recruitment },
                        { "tactical_recruitment_round", round },
