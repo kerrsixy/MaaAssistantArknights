@@ -1,5 +1,6 @@
 #include "RoguelikeTrainingConfig.h"
 
+#include "Config/Miscellaneous/BattleDataConfig.h"
 #include "Utils/Logger.hpp"
 #include <algorithm>
 #include <cmath>
@@ -74,13 +75,31 @@ bool asst::RoguelikeTrainingConfig::parse(const json::value& value)
 std::string asst::RoguelikeTrainingConfig::unique_identity(const std::string& name) const
 {
     const auto found = m_by_name.find(name);
-    return found != m_by_name.end() && found->second.size() == 1 ? found->second.front().id : std::string {};
+    return found != m_by_name.end() && found->second.size() == 1 && identity_coverage_complete(name)
+               ? found->second.front().id
+               : std::string {};
+}
+
+bool asst::RoguelikeTrainingConfig::identity_coverage_complete(const std::string& name) const
+{
+    const auto found = m_by_name.find(name);
+    if (found == m_by_name.end()) {
+        return false;
+    }
+    auto identities = BattleData.get_ids(battle::Role::Unknown, name);
+    std::erase_if(identities, [](const auto& identity) { return !identity.starts_with("char_"); });
+    if (identities.size() != found->second.size()) {
+        return false;
+    }
+    return std::ranges::all_of(found->second, [&](const auto& rule) {
+        return std::ranges::find(identities, rule.id) != identities.end();
+    });
 }
 
 std::optional<int> asst::RoguelikeTrainingConfig::maximum_level(const std::string& name, int elite) const
 {
     const auto found = m_by_name.find(name);
-    if (found == m_by_name.end()) {
+    if (found == m_by_name.end() || !identity_coverage_complete(name)) {
         return std::nullopt;
     }
     std::optional<int> maximum;
@@ -109,7 +128,7 @@ std::optional<int> asst::RoguelikeTrainingConfig::maximum_level(const std::strin
 std::optional<int> asst::RoguelikeTrainingConfig::maximum_base_skill(const std::string& name) const
 {
     const auto found = m_by_name.find(name);
-    if (found == m_by_name.end()) {
+    if (found == m_by_name.end() || !identity_coverage_complete(name)) {
         return std::nullopt;
     }
     const int maximum = found->second.front().base_skill_max;
@@ -123,7 +142,7 @@ std::optional<int> asst::RoguelikeTrainingConfig::maximum_base_skill(const std::
 std::optional<int> asst::RoguelikeTrainingConfig::maximum_training(const std::string& name, int skill) const
 {
     const auto found = m_by_name.find(name);
-    if (found == m_by_name.end() || skill <= 0) {
+    if (found == m_by_name.end() || skill <= 0 || !identity_coverage_complete(name)) {
         return std::nullopt;
     }
     std::optional<int> maximum;
@@ -145,7 +164,7 @@ asst::SkillAvailability
     asst::RoguelikeTrainingConfig::skill_availability(const std::string& name, int skill, int elite, int level) const
 {
     const auto found = m_by_name.find(name);
-    if (found == m_by_name.end() || skill <= 0) {
+    if (found == m_by_name.end() || skill <= 0 || !identity_coverage_complete(name)) {
         return SkillAvailability::Unknown;
     }
     std::optional<SkillAvailability> consensus;
