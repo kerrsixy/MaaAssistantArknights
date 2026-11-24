@@ -1,0 +1,79 @@
+{
+    "stage_name": "进退趋同",
+    "doc": [
+        "仅隔离候选：先双路7,1/7,6拦截，EW6,2Right负责7,1/9,1；下副输出8,5Down需实际覆盖7,6/9,6。",
+        "能力组地面阻挡优先且同组按实际已知费用；机械师仅后备组，避免跨组rank压过已知低费先锋。本机制不是所有组间全局最便宜保证。",
+        "不在buildable0蓝门8,1/8,6放人。左向双挡不能拦传送门后9,1/9,6，必须实际输出资格。DPS/承伤/初始费用/中间怪提前激活风险待实测。",
+        "输出后上奶4,2Right覆盖7,1/6,2，下奶6,5Right覆盖7,6/8,5。全部用真实精英范围门禁；不持有两奶不假设同时治疗。旧6,5Right副输出拒卡达作为反例保留，8,2旧奶位有魂占格风险。"
+    ],
+    "replacement_home": [
+        {
+            "location": [7, 1],
+            "direction": "left"
+        },
+        {
+            "location": [7, 6],
+            "direction": "left"
+        }
+    ],
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true,
+    "reserve_starting_core_groups": ["益达"],
+    "deploy_plan": [
+        {
+            "groups": ["地面阻挡", "机械师"],
+            "location": [7, 1],
+            "direction": "left",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true
+        },
+        {
+            "groups": ["地面阻挡", "机械师"],
+            "location": [7, 6],
+            "direction": "left",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true
+        },
+        {
+            "groups": ["益达"],
+            "location": [6, 2],
+            "direction": "right",
+            "minimum_elite": 2,
+            "required_attack_tiles": [
+                [7, 1],
+                [9, 1]
+            ]
+        },
+        {
+            "groups": ["狙击", "高台输出", "术师"],
+            "location": [8, 5],
+            "direction": "down",
+            "minimum_elite": 1,
+            "exclude_starting_core": true,
+            "required_attack_tiles": [
+                [7, 6],
+                [9, 6]
+            ]
+        },
+        {
+            "groups": ["元素奶", "单奶"],
+            "location": [4, 2],
+            "direction": "right",
+            "minimum_elite": 1,
+            "required_range_tiles": [
+                [7, 1],
+                [6, 2]
+            ]
+        },
+        {
+            "groups": ["元素奶", "单奶"],
+            "location": [6, 5],
+            "direction": "right",
+            "minimum_elite": 1,
+            "required_range_tiles": [
+                [7, 6],
+                [8, 5]
+            ]
+        }
+    ]
+}
