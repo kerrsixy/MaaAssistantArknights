@@ -73,8 +73,8 @@ int wmain(int argc, wchar_t** argv)
     expect(lower.require_persistent_blocking, "middle slot cannot use an idle Liberator");
     expect(upper.require_persistent_blocking, "upper slot cannot use an idle Liberator");
     expect(
-        lower.rank < core.rank && core.rank < healer.rank && healer.rank < upper.rank,
-        "middle defense precedes upper reinforcement");
+        core.rank < healer.rank && healer.rank < lower.rank && lower.rank < upper.rank,
+        "core and real healing precede blocker exposure in the isolated counterexample trial");
     for (const auto& [point, type] : std::vector<std::pair<Point, int>> { { { 8, 4 }, 1 },
                                                                           { { 9, 3 }, 2 },
                                                                           { { 10, 3 }, 2 },

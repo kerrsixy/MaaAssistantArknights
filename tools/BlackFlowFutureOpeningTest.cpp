@@ -73,9 +73,9 @@ int wmain(int argc, wchar_t** argv)
     const auto groups = RoguelikeRecruit.get_group_names("BlackFlow");
     for (const auto& [role, name, elite, plan] :
          std::vector<std::tuple<Role, std::string, int, roguelike::DeployInfoWithRank>> {
-             { Role::Tank, "机械师", 2, mech },
+             { Role::Tank, "机械师", 1, mech },
              { Role::Caster, "卡达", 1, carda },
-             { Role::Medic, "蜜莓", 2, medic },
+             { Role::Medic, "纯烬艾雅法拉", 1, medic },
              { Role::Sniper, "维什戴尔", 2, core } }) {
         DeploymentOper oper;
         oper.role = role;
@@ -95,7 +95,8 @@ int wmain(int argc, wchar_t** argv)
                 }),
             "actual roster membership reaches intended deployment plan");
         expect(
-            std::ranges::find(plan.operator_names, name) != plan.operator_names.end(),
+            (role == Role::Medic && plan.operator_names.empty()) ||
+                std::ranges::find(plan.operator_names, name) != plan.operator_names.end(),
             "plan keeps real identity qualified");
         expect(
             probe.deployment_requirements_met(oper, plan),
@@ -108,6 +109,24 @@ int wmain(int argc, wchar_t** argv)
                     [&](const Point& p) { return std::ranges::find(range, p - plan.location) != range.end(); }),
                 "actual healer reaches both air defense operators and EW");
         }
+    }
+    expect(
+        mech.minimum_elite == 1 && mech.require_persistent_blocking,
+        "E1 eligibility retains actual persistent blocking");
+    DeploymentOper mechanical { .role = Role::Tank, .name = "机械师" };
+    probe.elite(mechanical.name, 0);
+    expect(!probe.deployment_requirements_met(mechanical, mech), "E0 cannot borrow E1 qualification");
+    for (const auto& name : { "蜜莓", "纯烬艾雅法拉" }) {
+        DeploymentOper healer { .role = Role::Medic, .name = name };
+        probe.elite(healer.name, 1);
+        expect(
+            probe.deployment_requirements_met(healer, medic),
+            "actual E1 wandering healer covers all three current duties");
+        auto wrong = medic;
+        wrong.direction = DeployDirection::Up;
+        expect(
+            !probe.deployment_requirements_met(healer, wrong),
+            "wrong heading cannot qualify by a broad group label");
     }
     std::cout << "FUTURE_OPENING checks=" << checks << " failures=" << failures << " device_inputs=0\n";
     return failures ? 1 : 0;
