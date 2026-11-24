@@ -316,6 +316,10 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         });
         const auto opening_context = m_context_provider ? m_context_provider() : OpeningStrategyContext {};
         const bool requested_mode_available = strategy_available_in_mode(m_requested_strategy, opening_context.mode);
+        const auto requested_pact = declared_strategy_pact(m_requested_strategy);
+        const bool requested_pact_banned =
+            !requested_pact.empty() &&
+            std::ranges::find(opening_context.disabled_pacts, requested_pact) != opening_context.disabled_pacts.end();
         const bool portrait_available = !m_requested_portrait.empty();
         const auto initial_scrollbar = opening_strategy_scrollbar_center(image, details_open);
         int requested_scrolls = 0;
@@ -328,9 +332,9 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         const int max_viewports = portrait_available ? 12 : 7;
         cv::Mat last_marker;
         bool requested_unavailable = false;
-        for (int page = 0;
-             wanted != identities.end() && requested_mode_available && page < max_viewports && !need_exit() &&
-             std::chrono::steady_clock::now() < deadline && !specific_selected && !requested_unavailable;
+        for (int page = 0; wanted != identities.end() && requested_mode_available && !requested_pact_banned &&
+                           page < max_viewports && !need_exit() && std::chrono::steady_clock::now() < deadline &&
+                           !specific_selected && !requested_unavailable;
              ++page) {
             image = ctrler()->get_image();
             const auto marker = viewport_marker(image);
@@ -462,13 +466,18 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         if (!specific_selected) {
             auto fallback = basic_info_with_what("SPAStrategyFallback");
             const auto unlock = strategy_unlock_rule(m_requested_strategy);
+            std::string reason = "Could not verify a selectable requested card within the opening search";
+            if (!requested_mode_available) {
+                reason = "Requested strategy is unavailable in this simulation mode";
+            }
+            if (requested_pact_banned) {
+                reason = "Requested strategy's core pact is banned for the current simulation";
+            }
             fallback["details"] =
                 json::object { { "requested_strategy", m_requested_strategy },
-                               { "reason",
-                                 requested_mode_available
-                                     ? "Could not verify a selectable requested card within the opening search"
-                                     : "Requested strategy is unavailable in this simulation mode" },
+                               { "reason", std::move(reason) },
                                { "requested_mode", opening_context.mode },
+                               { "requested_pact_banned", requested_pact_banned },
                                { "probed_cards", requested_probes },
                                { "report_portrait_available", portrait_available },
                                { "viewport_scrolls", requested_scrolls },
@@ -482,7 +491,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
             callback(AsstMsg::SubTaskExtraInfo, fallback);
             m_requested_strategy.clear();
             m_prefer_unclaimed = false;
-            requested_search_fell_back = true;
+            requested_search_fell_back = requested_probes > 0 || requested_scrolls > 0;
             // Restore by thumb position when available instead of replaying
             // every swipe from a deep viewport.
             if (requested_scrolls > 0) {
