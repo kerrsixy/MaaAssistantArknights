@@ -17,7 +17,9 @@ int main()
     assert(bench_inspection_panel_absent(failed));
     assert(!bench_inspection_panel_absent(selected));
     assert(exposed_bench_head(failed, source) == exposed);
-    assert(bench_inventory_inspection_point(failed, source) == exposed);
+    const cv::Point inventory_contact(947, 474);
+    assert(bench_inventory_inspection_point(failed, source) == inventory_contact);
+    assert(!overlaps_expanded_shop_controls(inventory_contact + cv::Point(2, 0)));
     assert(bench_inventory_inspection_point(failed, cv::Point(883, 450)) == cv::Point(883, 480));
     assert(!bench_inventory_inspection_point(failed, cv::Point(1040, 450)));
     // Identical-frame replay proves the geometry and unchanged-panel gates,
