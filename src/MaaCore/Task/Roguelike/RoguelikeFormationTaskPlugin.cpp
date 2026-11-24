@@ -1,4 +1,5 @@
 #include "RoguelikeFormationTaskPlugin.h"
+#include "RoguelikePreparationTask.h"
 
 #include "Config/Roguelike/RoguelikeRecruitConfig.h"
 #include "Config/TaskData.h"
@@ -58,10 +59,13 @@ bool asst::RoguelikeFormationTaskPlugin::_run()
 {
     LogTraceFunction;
 
-    RoguelikeFormationImageAnalyzer formation_analyzer(ctrler()->get_image());
+    const auto frame = ctrler()->get_image();
+    RoguelikeFormationImageAnalyzer formation_analyzer(frame);
     if (!formation_analyzer.analyze()) {
         return false;
     }
+
+    observe_preparation(frame, formation_analyzer.get_result());
 
     size_t pre_selected = 0;
     size_t select_count = 0;
@@ -197,7 +201,8 @@ bool asst::RoguelikeFormationTaskPlugin::analyze()
 {
     LogTraceFunction;
 
-    RoguelikeFormationImageAnalyzer formation_analyzer(ctrler()->get_image());
+    const auto frame = ctrler()->get_image();
+    RoguelikeFormationImageAnalyzer formation_analyzer(frame);
     if (!formation_analyzer.analyze()) {
         return false;
     }
@@ -209,6 +214,9 @@ bool asst::RoguelikeFormationTaskPlugin::analyze()
     std::vector<std::string> detected_oper_names(oper_name_view.begin(), oper_name_view.end());
     const bool reach_last_column = (detected_oper_names == m_last_detected_oper_names);
     m_last_detected_oper_names = std::move(detected_oper_names);
+    if (!reach_last_column) {
+        observe_preparation(frame, formation_analyze_result);
+    }
 
     auto unique_filter = std::views::filter([&](const auto& oper) {
         // TODO: 这里没考虑多个相同预备干员的情况，不过影响应该不大
@@ -272,4 +280,24 @@ void asst::RoguelikeFormationTaskPlugin::scan_oper()
     }
 
     cur_page--; // 最后多划了一下，退回最后一页的页码
+}
+
+void asst::RoguelikeFormationTaskPlugin::observe_preparation(
+    const cv::Mat& frame,
+    const std::vector<RoguelikeFormationImageAnalyzer::FormationOper>& operators)
+{
+    if (m_config->get_theme() != RoguelikeTheme::BlackFlow) {
+        return;
+    }
+    const auto relative = Task.get("BlackFlowPreparationFormationAnchor")->rect_move;
+    std::vector<PreparationCardAnchor> cards;
+    for (const auto& oper : operators) {
+        cards.push_back({ oper.name, oper.rect.move(relative) });
+    }
+    RoguelikePreparationAnalyzer analyzer(frame);
+    const auto observations = analyzer.analyze(cards, PreparationPage::Formation);
+    auto receipt = basic_info_with_what("BlackFlowPreparationObserved");
+    receipt["details"] =
+        commit_preparation_observations(m_config->status(), frame, observations, PreparationPage::Formation);
+    callback(AsstMsg::SubTaskExtraInfo, receipt);
 }

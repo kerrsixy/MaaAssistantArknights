@@ -29,6 +29,7 @@
 #include "Roguelike/RoguelikeRecruitConfig.h"
 #include "Roguelike/RoguelikeShoppingConfig.h"
 #include "Roguelike/RoguelikeStageEncounterConfig.h"
+#include "Roguelike/RoguelikeTrainingConfig.h"
 #include "Roguelike/Sami/RoguelikeCollapsalParadigmConfig.h"
 #include "Roguelike/Sami/RoguelikeFoldartalConfig.h"
 #include "TaskData.h"
@@ -218,6 +219,17 @@ bool asst::ResourceLoader::load(const std::filesystem::path& path)
                 "RoguelikeRecruitConfig")) {
             return false;
         }
+    }
+
+    const auto training_path = roguelike_path("BlackFlow", "operator_training.json"_p);
+    if (std::filesystem::exists(path / training_path)) {
+        if (!load_with_custom.template operator()<RoguelikeTrainingConfig>(training_path, "RoguelikeTrainingConfig")) {
+            return false;
+        }
+    }
+    else {
+        RoguelikeTraining.clear();
+        LogWarn << __FUNCTION__ << "Operator training rules unavailable; preserve unknown preparation fields";
     }
 
     // Shopping Config

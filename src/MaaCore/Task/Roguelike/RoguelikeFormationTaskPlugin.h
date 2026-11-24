@@ -27,6 +27,9 @@ protected:
     bool select(RoguelikeFormationImageAnalyzer::FormationOper oper);
     void swipe_to_first_page();
     void scan_oper();
+    void observe_preparation(
+        const cv::Mat& frame,
+        const std::vector<RoguelikeFormationImageAnalyzer::FormationOper>& operators);
 
 private:
     int cur_page = 1;

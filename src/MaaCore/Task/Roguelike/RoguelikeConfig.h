@@ -1,4 +1,5 @@
 #pragma once
+#include "RoguelikeOperPreparation.h"
 #include <functional>
 #include <memory>
 #include <meojson/json.hpp>
@@ -55,6 +56,7 @@ struct RoguelikeOper
 {
     int elite = 0; // 精英化
     int level = 0; // 干员等级
+    RoguelikeOperPreparation preparation;
 };
 
 // 开局招募顺位干员，按列表顺序对应开局第 1/2/3 次免费招募
