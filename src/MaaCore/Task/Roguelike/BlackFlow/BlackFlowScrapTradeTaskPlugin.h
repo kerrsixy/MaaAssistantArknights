@@ -1,5 +1,7 @@
 #pragma once
 
+#include "BlackFlowScrapPurchase.h"
+
 #include <deque>
 #include <optional>
 #include <string>
@@ -32,7 +34,7 @@ private:
         Enter,
         Decide,
         ClickAtMost,
-        BuyConfirmed,
+        PurchaseInputObserved,
         RefreshConfirmed,
     };
 
@@ -46,13 +48,6 @@ private:
         Leave,
     };
 
-    struct PendingPurchase
-    {
-        std::string name;
-        Rect rect;
-        bool keep = false;
-    };
-
     // 店内可花的源石锭：钱包扣除策略预留后的部分。
     struct Funds
     {
@@ -63,7 +58,9 @@ private:
 
     void enter();
     void decide();
-    void on_purchase_confirmed();
+    void apply_purchase(const ScrapPurchaseReceipt& receipt);
+    [[nodiscard]] bool reconcile_purchase(const cv::Mat& image);
+    bool issue_purchase(const TextRect& offer, bool keep, const Funds& funds, int maximum_price);
     void on_refresh_confirmed();
 
     // 当前页面与所需页面不同时切换，返回是否已安排切换动作。
@@ -79,6 +76,8 @@ private:
     // 交易无法继续时上报原因再离店；用户停止任务时只离店。
     void abort_trade(std::string_view reason, const std::string& item = {});
 
+    [[nodiscard]] bool on_buying_page(const cv::Mat& image) const;
+    [[nodiscard]] bool sold_at(const cv::Mat& image, const Rect& title) const;
     [[nodiscard]] bool on_selling_page(const cv::Mat& image) const;
     [[nodiscard]] std::vector<TextRect> recognize(const cv::Mat& image, const std::vector<std::string>& names) const;
     [[nodiscard]] bool already_purchased(const Rect& rect) const;
@@ -103,7 +102,7 @@ private:
     bool m_liquidating = false;
     std::deque<std::string> m_sell_backs;
     std::string m_inventory_last_task;
-    std::optional<PendingPurchase> m_pending_purchase;
+    ScrapPurchaseTransaction m_purchase;
     bool m_pending_refresh = false;
     std::vector<Rect> m_purchased_rects;
     std::unordered_set<std::string> m_kept;
