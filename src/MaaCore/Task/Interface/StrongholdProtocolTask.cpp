@@ -4926,6 +4926,33 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             }
             continue;
         }
+        // A zero wallet goes straight to lineup finalization; a free recruit
+        // can still supply a better lineup before that route skips shopping.
+        if (m_auto_run && !m_round_only && !m_decision_only && m_mode == "independent" &&
+            m_selected_strategy_id == "band_ursus" && available_funds == 0 &&
+            !m_preparation_instruction_attempts.contains(preparation_round) && spa::active_strategy_ready(image)) {
+            const auto pacts = spa::operator_pacts();
+            std::vector<spa::RosterUnit> roster;
+            for (const auto& [name, owned] : m_policy.owned) {
+                roster.push_back({ name, owned.deployed, field_added_pacts(name), owned.elite });
+            }
+            const auto formation = spa::evaluate_formation(
+                roster,
+                pacts,
+                spa::pact_requirements(),
+                spa::enabled_formation_pacts(m_enabled_core_pacts, m_policy.disabled_pacts));
+            const bool primary_active =
+                formation.complete &&
+                std::ranges::find(formation.active_pacts, m_policy.primary_pact) != formation.active_pacts.end();
+            if (handle_ursus_strategy_recruitment(
+                    state,
+                    primary_active,
+                    std::nullopt,
+                    spa::planning_support_pacts(m_policy, {}, pacts))) {
+                observer.expect_unchanged_preparation(preparation_round);
+                continue;
+            }
+        }
         const bool layout_due = !prioritize_joint_ready &&
                                 (!m_auto_run || m_shopping_complete || state.get("funds", -1) == 0 || m_movement_only ||
                                  m_verify_layout_identities);

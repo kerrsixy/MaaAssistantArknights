@@ -100,6 +100,17 @@ class CashEquipmentCheckpointTests(unittest.TestCase):
         )
         self.assertNotIn("pending_cash_observation", new_use)
 
+    def test_free_ursus_recruitment_is_reachable_before_zero_wallet_battle_entry(self):
+        root = Path(__file__).resolve().parents[2]
+        source = (
+            root / "src/MaaCore/Task/Interface/StrongholdProtocolTask.cpp"
+        ).read_text(encoding="utf-8")
+        session = source.split("bool asst::StrongholdProtocolTask::run_session(", 1)[1]
+        gate_start = session.index('m_selected_strategy_id == "band_ursus" && available_funds == 0')
+        dispatch = session.index("handle_ursus_strategy_recruitment(", gate_start)
+        self.assertLess(dispatch, session.index("const bool layout_due", gate_start))
+        self.assertLess(dispatch, session.index("spa::battle_entry_allowed", gate_start))
+
     def test_new_physical_coin_keeps_previous_unknown_contact_in_receipt(self):
         old = {
             "source_round": 8,
