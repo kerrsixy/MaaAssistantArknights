@@ -18,7 +18,11 @@ import sys
 import time
 from pathlib import Path
 
-from spa_checkpoint import checkpoint_roster, verified_boss_context
+from spa_checkpoint import (
+    checkpoint_preparation_transactions,
+    checkpoint_roster,
+    verified_boss_context,
+)
 
 
 def invoke(args: argparse.Namespace, task: str, output: Path, extra: list[str] | None = None) -> tuple[int, dict]:
@@ -295,9 +299,12 @@ def main() -> int:
                 state = {}
         if state.get("run_id") != policy["run_id"]:
             state = {}
-        boss_context = verified_boss_context(state)
-        policy.update(boss_context)
-        changed = bool(boss_context)
+        resume_context = {
+            **verified_boss_context(state),
+            **checkpoint_preparation_transactions(state),
+        }
+        policy.update(resume_context)
+        changed = bool(resume_context)
         if isinstance(state.get("roster"), list):
             roster, pending_promotion = checkpoint_roster(state, policy.get("promotion_pending", ""))
             policy["roster"] = roster
@@ -342,6 +349,9 @@ def main() -> int:
             changed = True
         if isinstance(state.get("remaining_deployment"), int) and 0 <= state["remaining_deployment"] <= 8:
             policy["remaining_deployment"] = state["remaining_deployment"]
+            changed = True
+        if isinstance(state.get("field_positions"), list):
+            policy["field_positions"] = state["field_positions"]
             changed = True
         if isinstance(state.get("used_deploy_points"), list):
             policy["used_deploy_points"] = state["used_deploy_points"]

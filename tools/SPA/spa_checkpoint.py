@@ -122,6 +122,62 @@ def checkpoint_roster(
     return roster, pending
 
 
+def checkpoint_preparation_transactions(state: dict) -> dict:
+    """Carry same-run preparation reservations into an observation-only resume."""
+    result = {}
+    strategy = state.get("selected_strategy_id")
+    if isinstance(strategy, str) and strategy:
+        result["selected_strategy_id"] = strategy
+
+    pact = state.get("tactical_recruitment_pending")
+    round_number = state.get("tactical_recruitment_round")
+    expected_funds = state.get("strategy_recruitment_expected_funds", -1)
+    if (
+        isinstance(pact, str)
+        and type(round_number) is int
+        and type(expected_funds) is int
+        and (
+            (not pact and round_number == 0 and expected_funds == -1)
+            or (
+                pact
+                and 1 <= round_number <= 20
+                and (
+                    expected_funds == -1
+                    or (
+                        strategy == "band_ursus"
+                        and state.get("mode") == "independent"
+                        and pact == "乌萨斯"
+                        and 0 <= expected_funds <= 999
+                    )
+                )
+            )
+        )
+    ):
+        result.update(
+            tactical_recruitment_pending=pact,
+            tactical_recruitment_round=round_number,
+            strategy_recruitment_expected_funds=expected_funds,
+        )
+
+    if "direct_promotion_pending" in state:
+        pending = state["direct_promotion_pending"]
+        if pending is None:
+            result["direct_promotion_pending"] = None
+        elif (
+            isinstance(pending, dict)
+            and pending.get("equipment") == "博士投影"
+            and isinstance(pending.get("operator"), str)
+            and pending["operator"]
+            and type(pending.get("contact_round")) is int
+            and 1 <= pending["contact_round"] <= 20
+            and pending.get("effect_timing")
+            in ("unknown", "on_equip", "next_round_start")
+            and type(pending.get("recipient_initial_form_observed")) is bool
+        ):
+            result["direct_promotion_pending"] = pending.copy()
+    return result
+
+
 def verified_lifecycle_receipt(
     events: list[dict], chain_completed_message: int = 10002
 ) -> dict | None:
