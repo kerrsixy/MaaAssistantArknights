@@ -3825,6 +3825,9 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                    { "used_deploy_points", deployment_point_snapshot() },
                                    { "requires_roster_resync", true },
                                    { "run_victory_verified", false } };
+                if (m_policy.shop_level >= 1 && m_policy.shop_level <= 6) {
+                    deferred["details"]["shop_level"] = m_policy.shop_level;
+                }
                 callback(AsstMsg::SubTaskExtraInfo, deferred);
                 if (lifecycle) {
                     lifecycle->note_input_reconciliation("SPATacticalRecruitmentDeferred");

@@ -383,6 +383,17 @@ bool asst::StrongholdProtocolTask::reconcile_tactical_recruitment(const json::va
         return false;
     }
 
+    // A cold continuation may have recovered an older checkpoint without
+    // the book. Reuse only a positive live HUD read before scanning inventory.
+    const int shop_level = m_policy.shop_level > 0                ? m_policy.shop_level
+                           : state.get("shop_level_known", false) ? state.get("shop_level", 0)
+                                                                  : 0;
+    if (shop_level < 1 || shop_level > 6) {
+        LogWarn << "SPA tactical recruitment awaits verified shop level" << round;
+        return false;
+    }
+    m_policy.shop_level = shop_level;
+
     // The confirmed tactic is the only allowed roster-changing input between
     // the prior field/bench ledger and this observation.
     const auto catalogue = spa::operator_pacts();
@@ -485,7 +496,8 @@ bool asst::StrongholdProtocolTask::reconcile_tactical_recruitment(const json::va
     const auto& name = delta.gained_initial_operators.front();
     const auto facts =
         std::ranges::find_if(spa::OperatorCatalogue, [&](const auto& entry) { return entry.name == name; });
-    if (m_policy.shop_level < 1 || facts == spa::OperatorCatalogue.end() || facts->tier > m_policy.shop_level) {
+    if (facts == spa::OperatorCatalogue.end() || facts->tier > shop_level) {
+        LogWarn << "SPA tactical recruitment exceeds verified shop level" << round << name << shop_level;
         return false;
     }
     auto reconciled = m_policy.owned;
@@ -541,6 +553,7 @@ bool asst::StrongholdProtocolTask::reconcile_tactical_recruitment(const json::va
                                         { "name", name },
                                         { "strategy_recruitment_payment_verified", from_strategy },
                                         { "strategy_recruitment_expected_funds", -1 },
+                                        { "shop_level", shop_level },
                                         { "automatic_synthesis_observed", promoted },
                                         { "tactical_recruitment_pending", std::string() },
                                         { "tactical_recruitment_round", 0 },
