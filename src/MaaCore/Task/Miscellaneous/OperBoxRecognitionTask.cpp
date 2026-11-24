@@ -1,4 +1,5 @@
 #include "OperBoxRecognitionTask.h"
+#include "OperBoxPageCoverage.h"
 
 #include <algorithm>
 #include <chrono>
@@ -20,7 +21,9 @@ bool asst::OperBoxRecognitionTask::_run()
     LogTraceFunction;
 
     bool ret = swipe_and_analyze();
-    callback_analyze_result(true);
+    if (!m_traversal_profile || m_traversal_profile->emit_roster_callbacks) {
+        callback_analyze_result(true);
+    }
     return ret;
 }
 
@@ -35,6 +38,16 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
     m_own_opers.clear();
     m_repeated_page_stop = false;
 
+    if (m_traversal_profile &&
+        (m_traversal_profile->forward_task.empty() || m_traversal_profile->backtrack_task.empty() ||
+         m_traversal_profile->maximum_page_analyses == 0 || !m_page_guard)) {
+        LogError << __FUNCTION__ << "Incomplete optional list traversal profile";
+        return false;
+    }
+    OperBoxTraversalBudget traversal_budget(
+        m_traversal_profile ? m_traversal_profile->maximum_page_analyses : 0,
+        m_traversal_profile ? m_traversal_profile->maximum_backtracks : 0);
+
     // 游戏会记住上次的滚动位置，先把它拖回列表顶端，否则会从中间开始扫、少读一批干员
     // 回顶：每滑一次就看一眼首张卡的名字，连续两次没变化说明已经到头了，立即停，
     // 不要固定滑满 25 次（用户反馈「翻到头了还在滑」）。
@@ -46,6 +59,9 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
         if (m_page_guard && !m_page_guard()) {
             LogWarn << __FUNCTION__ << "Operator list navigation guard failed at head";
             return false;
+        }
+        if (m_traversal_profile && !traversal_budget.take_analysis()) {
+            break;
         }
         OperBoxImageAnalyzer head_analyzer(ctrler()->get_image());
         if (head_analyzer.analyze()) {
@@ -63,12 +79,30 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
     }
     LogInfo << __FUNCTION__ << "back to the list head";
 
+    bool pending_backtrack = false;
+    std::set<std::string> previous_page_ids;
+    cv::Mat last_source;
+    std::vector<OperBoxInfo> last_frame_opers, last_union;
     bool first_page = true;
     while (!need_exit()) {
+        if (m_traversal_profile && !traversal_budget.can_analyze()) {
+            LogWarn << __FUNCTION__ << "Optional list traversal page budget exhausted" << traversal_budget.analyses();
+            break;
+        }
+        bool backtrack_observation = false;
         // 先滑、再等画面稳定、最后分析：慢拖要 2 秒，边滑边分析会拿到拖动中的旧帧，
         // 连续几页读到同一张卡就会被误判成「到底了」，导致漏读大半个列表。
         if (!first_page) {
-            swipe_page();
+            if (pending_backtrack) {
+                if (!m_page_guard() || !ProcessTask(*this, { m_traversal_profile->backtrack_task }).run()) {
+                    return false;
+                }
+                pending_backtrack = false;
+                backtrack_observation = true;
+            }
+            else if (!swipe_page()) {
+                return false;
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(700));
         }
         first_page = false;
@@ -80,18 +114,28 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
         // 同页多采：单帧常常只认出 6~13 张卡（边界卡、半张卡容易漏），
         // 连采两帧再把结果并起来，能把单页召回率拉满。
         std::vector<OperBoxInfo> opers_result;
+        cv::Mat source_frame;
+        std::vector<OperBoxInfo> frame_opers;
         std::string page_last_oper;
         for (int shot = 0; shot < 2; ++shot) {
             if (shot > 0) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(250));
             }
-            OperBoxImageAnalyzer analyzer(ctrler()->get_image());
+            if (m_traversal_profile && !traversal_budget.take_analysis()) {
+                break;
+            }
+            const auto image = ctrler()->get_image();
+            OperBoxImageAnalyzer analyzer(image);
             if (!analyzer.analyze()) {
                 continue;
             }
             const auto& one_shot = analyzer.get_result();
             if (one_shot.empty()) {
                 continue;
+            }
+            if (m_traversal_profile) {
+                source_frame = image.clone();
+                frame_opers = one_shot;
             }
             if (page_last_oper != one_shot.back().name) {
                 page_last_oper = one_shot.back().name;
@@ -109,6 +153,33 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
             break;
         }
 
+        if (m_traversal_profile) {
+            std::set<std::string> ids;
+            for (const auto& oper : opers_result) {
+                if (!oper.id.empty()) {
+                    ids.insert(oper.id);
+                }
+            }
+            const auto& profile = *m_traversal_profile;
+            last_source = source_frame;
+            last_frame_opers = frame_opers;
+            last_union = opers_result;
+            if (profile.evidence) {
+                profile.evidence(source_frame, frame_opers, opers_result, previous_page_ids, "page_observed");
+            }
+            if (!previous_page_ids.empty() && !oper_box_pages_overlap(previous_page_ids, ids)) {
+                if (profile.evidence) {
+                    profile.evidence(source_frame, frame_opers, opers_result, previous_page_ids, "no_overlap");
+                }
+                // Unknown coverage is not proof of a missed operator. One optional
+                // backtrack for this entire pass cannot become an oscillating loop.
+                if (!backtrack_observation && traversal_budget.request_backtrack()) {
+                    pending_backtrack = true;
+                }
+            }
+            previous_page_ids = std::move(ids);
+        }
+
         const std::string& last_oper = opers_result.back().name;
         const std::string& first_oper = opers_result.front().name;
 
@@ -119,8 +190,12 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
             if (reswipe < 2) {
                 ++reswipe;
                 LogInfo << __FUNCTION__ << "swipe did not move, retry" << reswipe << "first" << first_oper;
-                swipe_page();
-                std::this_thread::sleep_for(std::chrono::milliseconds(700));
+                if (!m_traversal_profile) {
+                    if (!swipe_page()) {
+                        return false;
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(700));
+                }
                 continue;
             }
         }
@@ -146,8 +221,14 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
             LogWarn << __FUNCTION__ << "Page observer could not restore the verified operator list";
             return false;
         }
-        callback_analyze_result(false);
+        if (!m_traversal_profile || m_traversal_profile->emit_roster_callbacks) {
+            callback_analyze_result(false);
+        }
         if (m_stop_after_page && m_stop_after_page()) {
+            if (m_traversal_profile) {
+                LogInfo << __FUNCTION__ << "Optional traversal targets encountered; analyses"
+                        << traversal_budget.analyses() << "backtrack requests" << traversal_budget.backtracks();
+            }
             return true;
         }
 
@@ -163,12 +244,24 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
             }
         }
     }
+    if (m_traversal_profile) {
+        LogInfo << __FUNCTION__ << "Optional traversal finished; analyses" << traversal_budget.analyses()
+                << "backtrack requests" << traversal_budget.backtracks();
+    }
+    if (m_traversal_profile && m_traversal_profile->evidence && !last_source.empty()) {
+        m_traversal_profile->evidence(last_source, last_frame_opers, last_union, previous_page_ids, "scan_finished");
+    }
     return !m_own_opers.empty();
 }
 
-void asst::OperBoxRecognitionTask::swipe_page()
+bool asst::OperBoxRecognitionTask::swipe_page()
 {
+    if (m_traversal_profile) {
+        return m_page_guard && m_page_guard() && ProcessTask(*this, { m_traversal_profile->forward_task }).run();
+    }
+    // Preserve the legacy default, including its historical ignored run result.
     ProcessTask(*this, { "OperBoxSlowlySwipeToTheRight" }).run();
+    return true;
 }
 
 void asst::OperBoxRecognitionTask::callback_analyze_result(bool done)

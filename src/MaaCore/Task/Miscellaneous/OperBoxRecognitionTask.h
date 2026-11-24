@@ -3,6 +3,9 @@
 #include "Task/AbstractTask.h"
 #include "Vision/Oper/OperBoxImageAnalyzer.h"
 #include <functional>
+#include <optional>
+#include <set>
+#include <string>
 
 namespace asst
 {
@@ -14,6 +17,26 @@ public:
 
     // Optional page-local observer. It must restore and verify the same list page.
     using PageVisitor = std::function<bool(const std::vector<OperBoxInfo>&)>;
+
+    struct TraversalProfile
+    {
+        std::string forward_task;
+        std::string backtrack_task;
+        std::size_t maximum_page_analyses = 128;
+        std::size_t maximum_backtracks = 1;
+        bool emit_roster_callbacks = true;
+        // The frame and frame_opers belong to one successful analysis. The union
+        // may include another shot and is explicitly separate diagnostic data.
+        std::function<void(
+            const cv::Mat& frame,
+            const std::vector<OperBoxInfo>& frame_opers,
+            const std::vector<OperBoxInfo>& page_union,
+            const std::set<std::string>& previous_ids,
+            const char* reason)>
+            evidence;
+    };
+
+    void set_traversal_profile(TraversalProfile profile) { m_traversal_profile = std::move(profile); }
 
     void set_page_visitor(PageVisitor visitor) { m_page_visitor = std::move(visitor); }
 
@@ -28,7 +51,7 @@ public:
 
 protected:
     virtual bool _run() override;
-    void swipe_page();
+    bool swipe_page();
     void callback_analyze_result(bool done);
     bool swipe_and_analyze();
 
@@ -37,5 +60,6 @@ protected:
     std::function<bool()> m_page_guard;
     bool m_repeated_page_stop = false;
     std::function<bool()> m_stop_after_page;
+    std::optional<TraversalProfile> m_traversal_profile;
 };
 }

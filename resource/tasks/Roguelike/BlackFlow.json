@@ -3882,5 +3882,21 @@
         "specialParams": [58, 220, 90, 1],
         "baseTask": "RoguelikeSkillSelectionFlag",
         "template": "RoguelikeSkillSelectionFlag.png"
+    },
+    "BlackFlowAccountScan@RequiredRepairForward": {
+        "Doc": "Optional required-module locating pass only; shorter guarded list traversal, not global operator-box scrolling.",
+        "baseTask": "OperBoxSlowlySwipeToTheRight",
+        "specificRect": [1090, 350, 20, 20],
+        "rectMove": [650, 350, 20, 20],
+        "specialParams": [1500, 0, 10, 10],
+        "postDelay": 700
+    },
+    "BlackFlowAccountScan@RequiredRepairBacktrack": {
+        "Doc": "At most one coverage-unknown backtrack during the entire optional locating pass.",
+        "baseTask": "OperBoxSlowlySwipeToTheLeft",
+        "specificRect": [190, 350, 20, 20],
+        "rectMove": [410, 350, 20, 20],
+        "specialParams": [1500, 0, 10, 10],
+        "postDelay": 700
     }
 }
