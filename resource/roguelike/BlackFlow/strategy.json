@@ -2160,7 +2160,7 @@
         },
         {
             "id": "ending1_survival_encounters",
-            "description": "常规第一结局的生命预算：同奖励且支付选项当前可用时优先花钱，否则保留生命离开。",
+            "description": "常规第一结局的生命与前期成长预算：保留已规划的首层战斗，同奖励且支付选项当前可用时优先花钱，否则保留生命离开。",
             "encounter_rules": [
                 {
                     "id": "ending1_silent_house_preserve_life",
@@ -2182,6 +2182,38 @@
                         ]
                     },
                     "option_text": ["试图和人形藤蔓交流", "离开"],
+                    "allow_fallback": false
+                },
+                {
+                    "id": "ending1_triplicate_keep_planned_floor1_battles",
+                    "description": "run68 在第一层接受三重身直接换层，原规划两场战斗未执行。仅第一层且路线已知且仍安排战斗、自己找路当前可选时保留原路线；不增加固定战斗数量，不限制其它层或刷取模式。",
+                    "event_name": "三重身",
+                    "rank": 0,
+                    "when": {
+                        "all": [
+                            {
+                                "fact": "current_floor",
+                                "op": "eq",
+                                "value": 1
+                            },
+                            {
+                                "fact": "encounter.route_known",
+                                "op": "eq",
+                                "value": true
+                            },
+                            {
+                                "fact": "encounter.remaining_battles",
+                                "op": "gt",
+                                "value": 0
+                            },
+                            {
+                                "fact": "encounter.available_options",
+                                "op": "contains",
+                                "value": "自己找路"
+                            }
+                        ]
+                    },
+                    "option_text": ["自己找路"],
                     "allow_fallback": false
                 }
             ]
