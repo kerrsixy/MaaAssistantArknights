@@ -54,6 +54,9 @@ struct ScrapTradeInventoryTarget
     std::optional<std::size_t> index;
 };
 
+// A card-interior click avoids the bulk-sale control and the leave overlay.
+[[nodiscard]] std::optional<Rect> scrap_trade_sale_click_rect(const Rect& title, const Rect& titles_roi);
+
 class BlackFlowScrapTradeInventoryContext
 {
 public:

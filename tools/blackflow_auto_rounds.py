@@ -1,78 +1,205 @@
-"""黑流树海多局连跑：把 blackflow_live_run.py 串起来，用于稳定性回归。
+"""Run complete BlackFlow samples serially, stopping on incomplete evidence.
 
-用法：
-    python blackflow_auto_rounds.py --rounds 3 --seconds 2400 \
-        --squad 开拓者分队 --roles 先手必胜
-
-每一轮结束后等待若干秒让 MAA 收尾，再由下一轮自己的 `Begin` 任务
-（含 BeginRecovery_* 恢复链）从上一局的结算页/弹窗里脱身。
-
-注意：
-- 每轮复用同一个模拟器会话，不重启游戏；
-- 若某轮在战斗中被打断（进程被杀），下一轮会卡在战斗页，需要人工处理；
-- 每轮开跑前会做一次画面预检（`blackflow_state_check.py`），不在黑流界面就立刻中止，
-  免得 `Begin` 空转几十秒还把游戏带到基建/活动页；
-- 本脚本只负责串行调度，日志仍落在 --out 前缀 + 轮次序号。
+The default has no wall-clock cutoff. Each round must finish natively, settle,
+and return to the lobby before another round can start. Module refresh runs only
+in the first round; later rounds use that verified account's cache. Native game
+pass flags are recorded without claiming an independently audited ending.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
+import re
 import subprocess
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]  # tools/ 的上一级
-RUNNER = REPO_ROOT / "tools" / "blackflow_live_run.py"
+from blackflow_live_run import DLL_DIR, is_fresh_lobby
+from blackflow_state_check import ADB_ADDRESS
+from blackflow_state_check import check as check_state
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+RUNNER = REPO_ROOT / "tools/blackflow_live_run.py"
 LOG_ROOT = Path(r"D:\dsh\明日方舟\日志")
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from blackflow_state_check import check as check_state  # noqa: E402
-from blackflow_state_check import ADB_ADDRESS  # noqa: E402
+
+def verified_round(outcome, client, expected_uid=None, expected_difficulty=None):
+    """Validate completion and account identity independently of process exit."""
+    if not isinstance(outcome, dict):
+        raise ValueError("Outcome is not an object")
+    if any(
+        type(outcome.get(key)) is not int
+        for key in (
+            "task_exit_code",
+            "workflow_error_callbacks",
+            "pause_callbacks",
+            "fresh_exploration_starts",
+            "assisted_roster_restorations",
+        )
+    ):
+        raise ValueError("Completion/error counters must be typed integers")
+    if (
+        outcome.get("task_exit_code") != 0
+        or outcome.get("finished") is not True
+        or outcome.get("settlement_required") is not True
+        or outcome.get("stop_requested") is not False
+        or outcome.get("workflow_error_callbacks") != 0
+        or outcome.get("pause_callbacks") != 0
+        or outcome.get("fresh_exploration_starts") != 1
+        or outcome.get("assisted_roster_restorations") != 0
+        or outcome.get("assisted_continuation") is True
+        or outcome.get("unattended_acceptance_eligible") is False
+    ):
+        raise ValueError(
+            "Round stopped, failed, paused or has incomplete completion evidence"
+        )
+    lobby = outcome.get("final_lobby")
+    settlements = outcome.get("settlements")
+    if not is_fresh_lobby(lobby):
+        raise ValueError("Final lobby was not verified")
+    if (
+        not isinstance(settlements, list)
+        or not settlements
+        or any(
+            not isinstance(row, dict) or type(row.get("game_pass")) is not bool
+            for row in settlements
+        )
+    ):
+        raise ValueError("A valid native settlement is required")
+    difficulty = settlements[-1].get("difficulty")
+    if type(difficulty) is not int or difficulty < 0:
+        raise ValueError("Actual settled difficulty is missing or malformed")
+    if expected_difficulty is not None and difficulty != expected_difficulty:
+        raise ValueError("Actual settled difficulty differs from the requested sample")
+    bindings = outcome.get("account_bindings")
+    if not isinstance(bindings, list) or not bindings:
+        raise ValueError("Live account binding is missing")
+    identity = None
+    for binding in bindings:
+        if not isinstance(binding, dict):
+            raise ValueError("Malformed live account binding")
+        uid, cache = binding.get("uid"), binding.get("cache_file")
+        if (
+            not isinstance(uid, str)
+            or not uid.strip()
+            or not isinstance(cache, str)
+            or not cache.strip()
+        ):
+            raise ValueError("Live UID/cache is missing")
+        if binding.get("client") != client or (
+            expected_uid is not None and uid != expected_uid
+        ):
+            raise ValueError("Live account changed")
+        current = (uid, cache)
+        if identity is not None and current != identity:
+            raise ValueError("Account/cache changed within one round")
+        identity = current
+    return identity, settlements[-1]["game_pass"]
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="黑流树海多局连跑")
-    ap.add_argument("--rounds", type=int, default=3, help="连跑轮数")
-    ap.add_argument("--seconds", type=int, default=2400, help="每轮时长上限")
-    ap.add_argument("--squad", default="远程战术分队")
-    ap.add_argument("--roles", default="稳扎稳打")
-    ap.add_argument("--address", default=ADB_ADDRESS)
-    ap.add_argument("--client", choices=("Official", "Bilibili"), default="Official")
-    ap.add_argument("--difficulty", type=int, default=2147483647)
-    ap.add_argument("--gap", type=int, default=20, help="轮间等待秒数")
-    ap.add_argument("--tag", default=None, help="输出目录 tag，默认按日期时间生成")
-    ap.add_argument(
-        "--quick-fail-minutes",
-        type=float,
-        default=4.0,
-        help="用时短于该阈值的轮次视为「开局就崩」（多半是游戏不在黑流主界面），连续两次即中止连跑",
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--rounds", type=int, default=3)
+    parser.add_argument(
+        "--seconds", type=int, default=0, help="单轮时限；0 等待原生结束"
     )
-    ap.add_argument("--max-quick-fails", type=int, default=2)
-    ap.add_argument(
-        "--skip-precheck",
-        action="store_true",
-        help="跳过开轮前的画面预检（只在你确定游戏已经在局内时才用）",
+    parser.add_argument("--squad", default="远程战术分队")
+    parser.add_argument("--roles", default="稳扎稳打")
+    parser.add_argument("--address", default=ADB_ADDRESS)
+    parser.add_argument(
+        "--client", choices=("Official", "Bilibili"), default="Official"
     )
-    args = ap.parse_args()
-
-    if not RUNNER.is_file():
-        print(f"找不到 {RUNNER}", file=sys.stderr)
-        return 2
-
+    parser.add_argument("--difficulty", type=int, default=2_147_483_647)
+    parser.add_argument("--core-dir", default=str(DLL_DIR))
+    parser.add_argument("--core-char", default="维什戴尔")
+    parser.add_argument("--account-cache-file")
+    parser.add_argument(
+        "--scan-account-modules", action=argparse.BooleanOptionalAction, default=True
+    )
+    parser.add_argument(
+        "--life-game", action=argparse.BooleanOptionalAction, default=True
+    )
+    parser.add_argument("--mumu-extras", action="store_true")
+    parser.add_argument("--gap", type=int, default=0, help="轮间等待秒数，0 至 60")
+    parser.add_argument("--tag", help="本批次唯一日志标记")
+    parser.add_argument(
+        "--skip-precheck", action="store_true", help="仅跳过画面检查，仍需原生账号核验"
+    )
+    args = parser.parse_args()
+    if (
+        args.rounds < 1
+        or args.seconds < 0
+        or args.difficulty < 0
+        or not 0 <= args.gap <= 60
+    ):
+        parser.error(
+            "rounds must be positive; seconds/difficulty nonnegative; gap in0..60"
+        )
     tag = args.tag or f"auto_{datetime.now():%Y%m%d_%H%M%S}"
-    print(f"连跑 {args.rounds} 轮，tag={tag}，每轮上限 {args.seconds}s")
+    if not re.fullmatch(r"[\w.-]+", tag):
+        parser.error("tag must not contain path separators")
+    if not RUNNER.is_file():
+        print(f"Runner not found: {RUNNER}", file=sys.stderr)
+        return 2
+    report_path = LOG_ROOT / f"blackflow_regression_{tag}.json"
+    if report_path.exists():
+        print(f"Preserve existing regression evidence: {report_path}", file=sys.stderr)
+        return 2
+    report = {
+        "client": args.client,
+        "address": args.address,
+        "core_dir": args.core_dir,
+        "requested_rounds": args.rounds,
+        "requested_difficulty": args.difficulty,
+        "wait_limit_seconds": args.seconds,
+        "samples": [],
+        "status": "running",
+        "unattended_first_ending_proven": False,
+        "stable_n10_proven": False,
+    }
 
-    quick_fails = 0
-    for i in range(1, args.rounds + 1):
-        out = LOG_ROOT / f"blackflow_round_{tag}_r{i:02d}"
-        cmd = [
+    def save(status, error=None):
+        report["status"] = status
+        if error:
+            report["error"] = error
+        report["completed_samples"] = len(report["samples"])
+        report["native_game_pass_count"] = sum(
+            row["native_game_pass"] for row in report["samples"]
+        )
+        LOG_ROOT.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+
+    save("running")
+    expected_uid, cache = None, args.account_cache_file
+    for index in range(1, args.rounds + 1):
+        out = LOG_ROOT / f"blackflow_round_{tag}_r{index:02d}"
+        if out.exists():
+            save("stopped", f"Preserve existing round evidence: {out}")
+            return 2
+        if not args.skip_precheck:
+            state = check_state(address=args.address)
+            if not is_fresh_lobby(state):
+                save(
+                    "stopped",
+                    "Preflight rejected the current page; no round was started",
+                )
+                return 4
+        command = [
             sys.executable,
             str(RUNNER),
             "--seconds",
             str(args.seconds),
+            "--starts",
+            "1",
+            "--mode",
+            "0",
+            "--strategy",
+            "ending1",
             "--out",
             str(out),
             "--squad",
@@ -85,48 +212,64 @@ def main() -> int:
             args.client,
             "--difficulty",
             str(args.difficulty),
+            "--core-dir",
+            args.core_dir,
+            "--core-char",
+            args.core_char,
+            "--scan-account-modules"
+            if index == 1 and args.scan_account_modules
+            else "--no-scan-account-modules",
+            "--life-game" if args.life_game else "--no-life-game",
         ]
-        print(f"\n=== 第 {i}/{args.rounds} 轮：{out.name} ===", flush=True)
-        if not args.skip_precheck:
-            state = check_state(address=args.address)
-            best = state["best"]
-            if not state["ok"]:
-                print(
-                    f"!!! 预检未通过：{best['template']} score={best['score']:.4f}，"
-                    f"当前不在黑流树海主界面（阈值 {state['threshold']}）",
-                    flush=True,
+        if cache:
+            command.extend(["--account-cache-file", cache])
+        if args.mumu_extras:
+            command.append("--mumu-extras")
+        print(f"Round{index}/{args.rounds}: {out}", flush=True)
+        started = time.monotonic()
+        try:
+            code = subprocess.call(command, cwd=str(REPO_ROOT))
+            if code != 0:
+                raise ValueError(
+                    f"Runner exited with code{code}; no subsequent round started"
                 )
-                print(
-                    "中止连跑；请先把游戏恢复到黑流树海主界面（终端→集成战略）。",
-                    flush=True,
-                )
-                return 4
-            print(f"预检通过：{best['template']} score={best['score']:.4f}", flush=True)
-        started = time.time()
-        code = subprocess.call(cmd, cwd=str(REPO_ROOT))
-        elapsed = time.time() - started
-        print(
-            f"--- 第 {i} 轮结束，exit={code}，用时 {elapsed / 60:.1f} 分钟", flush=True
-        )
-        if elapsed / 60 < args.quick_fail_minutes:
-            quick_fails += 1
-            print(
-                f"!!! 本轮用时不足 {args.quick_fail_minutes:g} 分钟，"
-                f"连续快速失败 {quick_fails}/{args.max_quick_fails}",
-                flush=True,
+            outcome = json.loads((out / "outcome.json").read_text(encoding="utf-8"))
+            (uid, bound_cache), game_pass = verified_round(
+                outcome,
+                args.client,
+                expected_uid,
+                None if args.difficulty == 2_147_483_647 else args.difficulty,
             )
-            if quick_fails >= args.max_quick_fails:
-                print(
-                    "连续快速失败，中止连跑；请先把游戏恢复到黑流树海主界面后再跑。",
-                    flush=True,
+            if (
+                cache is not None
+                and Path(cache).resolve() != Path(bound_cache).resolve()
+            ):
+                raise ValueError(
+                    "Native binding does not match the selected account cache"
                 )
-                return 3
-        else:
-            quick_fails = 0
-        if i < args.rounds:
+        except (OSError, ValueError) as error:
+            save("stopped", str(error))
+            print(f"Regression stopped: {error}", file=sys.stderr)
+            return 3
+        expected_uid, cache = uid, bound_cache
+        report["samples"].append(
+            {
+                "round": index,
+                "directory": str(out),
+                "uid": uid,
+                "native_game_pass": game_pass,
+                "native_difficulty": outcome["settlements"][-1]["difficulty"],
+                "elapsed_seconds": time.monotonic() - started,
+            }
+        )
+        save("running")
+        if index < args.rounds and args.gap:
             time.sleep(args.gap)
-
-    print("\n全部轮次已跑完")
+    save("complete")
+    print(
+        f"Completed{len(report['samples'])} terminal samples; ending audit remains separate",
+        flush=True,
+    )
     return 0
 
 

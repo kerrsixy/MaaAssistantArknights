@@ -21,6 +21,10 @@ constexpr std::string_view ScrapTradeContinueTask = "BlackFlow@Roguelike@ScrapTr
 constexpr std::string_view ScrapTradeAction = "BlackFlow@Roguelike@ScrapTradeAction";
 constexpr std::string_view ScrapTradeToggleTask = "BlackFlow@Roguelike@ScrapTradeToggle";
 constexpr std::string_view ScrapTradeBuyConfirmEntry = "BlackFlow@Roguelike@ScrapTradeBuyConfirm-Enter";
+constexpr std::string_view ScrapTradeBuyDialogTask = "BlackFlow@Roguelike@ScrapTradeBuyDialog";
+constexpr std::string_view ScrapTradeReceiptWaitTask = "BlackFlow@Roguelike@ScrapTradeReceiptWait";
+constexpr std::string_view ScrapTradeBuyingFlagTask = "BlackFlow@Roguelike@ScrapTradeBuyingFlag";
+constexpr std::string_view ScrapTradeSoldBadgeTask = "BlackFlow@Roguelike@ScrapTradeSoldBadge";
 constexpr std::string_view ScrapTradeBuyConfirmTask = "BlackFlow@Roguelike@ScrapTradeBuyConfirm";
 constexpr std::string_view ScrapTradeRefreshEntry = "BlackFlow@Roguelike@ScrapTradeRefresh-Enter";
 constexpr std::string_view ScrapTradeRefreshConfirmTask = "BlackFlow@Roguelike@ScrapTradeRefreshConfirm";
@@ -58,8 +62,8 @@ bool BlackFlowScrapTradeTaskPlugin::verify(AsstMsg msg, const json::value& detai
         }
     }
     if (msg == AsstMsg::SubTaskCompleted) {
-        if (task == ScrapTradeBuyConfirmTask) {
-            m_pending = PendingWork::BuyConfirmed;
+        if (task == ScrapTradeBuyConfirmTask || task == ScrapTradeBuyDialogTask) {
+            m_pending = PendingWork::PurchaseInputObserved;
             return true;
         }
         if (task == ScrapTradeRefreshConfirmTask) {
@@ -92,8 +96,8 @@ bool BlackFlowScrapTradeTaskPlugin::_run()
     case PendingWork::ClickAtMost:
         click_at_most();
         break;
-    case PendingWork::BuyConfirmed:
-        on_purchase_confirmed();
+    case PendingWork::PurchaseInputObserved:
+        m_purchase.note_confirmation_input();
         break;
     case PendingWork::RefreshConfirmed:
         on_refresh_confirmed();
@@ -116,7 +120,7 @@ void BlackFlowScrapTradeTaskPlugin::enter()
     m_sell_backs.clear();
     m_inventory.invalidate();
     m_inventory_last_task.clear();
-    m_pending_purchase.reset();
+    m_purchase = {};
     m_pending_refresh = false;
     m_purchased_rects.clear();
     m_kept.clear();
@@ -146,6 +150,9 @@ void BlackFlowScrapTradeTaskPlugin::decide()
     }
 
     const cv::Mat image = ctrler()->get_image();
+    if (reconcile_purchase(image)) {
+        return;
+    }
     const bool selling = on_selling_page(image);
     while (true) {
         switch (m_phase) {
@@ -203,15 +210,22 @@ void BlackFlowScrapTradeTaskPlugin::decide()
             {
                 // 策略预留的余额不参与店内消费；卖出到账后下一轮按新余额重算，未卖回的估价不计入。
                 RoguelikeParameterAnalyzer analyzer(image);
-                const int wallet = analyzer.get_number(image, std::string(ScrapTradeWalletTask));
+                const auto observed_wallet =
+                    RoguelikeParameterAnalyzer::read_number(image, std::string(ScrapTradeWalletTask));
+                if (!observed_wallet || !on_buying_page(image)) {
+                    abort_trade("purchase_page_or_wallet_unknown");
+                    return;
+                }
+                const int wallet = *observed_wallet;
                 const int reserved = m_session->reserved_amount("ingots");
                 const Funds funds { wallet, reserved, std::max(0, wallet - reserved) };
                 std::vector<std::string> skipped;
                 if (buy(image, funds, skipped) || refresh(funds)) {
                     return;
                 }
-                LogInfo << __FUNCTION__ << "BlackFlow scrap trade buying finished" << "budget" << funds.budget
-                        << "wallet" << funds.wallet << "reserved" << funds.reserved << "skipped" << skipped;
+                LogInfo << __FUNCTION__ << "BlackFlow scrap trade buying finished"
+                        << "budget" << funds.budget << "wallet" << funds.wallet << "reserved" << funds.reserved
+                        << "skipped" << skipped;
             }
             m_phase = Phase::Liquidate;
             continue;
@@ -239,7 +253,8 @@ bool BlackFlowScrapTradeTaskPlugin::switch_tab(bool want_selling, bool selling)
         return false;
     }
     if (++m_toggle_attempts > ScrapTradeMaxToggleAttempts) {
-        LogWarn << __FUNCTION__ << "BlackFlow scrap trade cannot switch page" << "want selling" << want_selling;
+        LogWarn << __FUNCTION__ << "BlackFlow scrap trade cannot switch page"
+                << "want selling" << want_selling;
         abort_trade("page_switch_failed");
         return true;
     }
@@ -303,7 +318,9 @@ bool BlackFlowScrapTradeTaskPlugin::buy(const cv::Mat& image, const Funds& funds
         }
     }
     std::vector<TextRect> shelf = recognize(image, names);
-    std::erase_if(shelf, [this](const TextRect& offer) { return already_purchased(offer.rect); });
+    std::erase_if(shelf, [this, &image](const TextRect& offer) {
+        return already_purchased(offer.rect) || sold_at(image, offer.rect);
+    });
 
     if (!m_shop_type && m_purchased_rects.empty()) {
         std::vector<std::string> shelf_names;
@@ -362,10 +379,7 @@ bool BlackFlowScrapTradeTaskPlugin::buy(const cv::Mat& image, const Funds& funds
         }
         LogInfo << __FUNCTION__ << "BlackFlow scrap trade buys to keep" << goods.name << "price" << *item->get().price
                 << "budget" << funds.budget << "wallet" << funds.wallet << "reserved" << funds.reserved;
-        ctrler()->click(offer->rect);
-        m_pending_purchase = PendingPurchase { offer->text, offer->rect, true };
-        set_action(ScrapTradeBuyConfirmEntry);
-        return true;
+        return issue_purchase(*offer, true, funds, *item->get().price);
     }
 
     const int growth = m_ledger.growth(BlackFlowScrapMarket);
@@ -393,10 +407,7 @@ bool BlackFlowScrapTradeTaskPlugin::buy(const cv::Mat& image, const Funds& funds
     }
     LogInfo << __FUNCTION__ << "BlackFlow scrap trade buys" << best->text << "net" << best_net << "growth" << growth
             << "budget" << funds.budget << "wallet" << funds.wallet << "reserved" << funds.reserved;
-    ctrler()->click(best->rect);
-    m_pending_purchase = PendingPurchase { best->text, best->rect, false };
-    set_action(ScrapTradeBuyConfirmEntry);
-    return true;
+    return issue_purchase(*best, false, funds, *BlackFlowScrapMarket.find(best->text)->get().price);
 }
 
 bool BlackFlowScrapTradeTaskPlugin::refresh(const Funds& funds)
@@ -447,13 +458,76 @@ void BlackFlowScrapTradeTaskPlugin::abort_trade(std::string_view reason, const s
     leave();
 }
 
-void BlackFlowScrapTradeTaskPlugin::on_purchase_confirmed()
+bool BlackFlowScrapTradeTaskPlugin::issue_purchase(
+    const TextRect& offer,
+    bool keep,
+    const Funds& funds,
+    int maximum_price)
 {
-    if (!m_pending_purchase) {
-        return;
+    if (!m_purchase.begin({ offer.text, offer.rect, keep, funds.wallet, maximum_price })) {
+        abort_trade("purchase_already_pending_or_invalid", offer.text);
+        return true;
     }
-    const PendingPurchase purchase = std::move(*m_pending_purchase);
-    m_pending_purchase.reset();
+    if (!ctrler()->click(offer.rect)) {
+        abort_trade("purchase_selection_failed", offer.text);
+        return true;
+    }
+    set_action(ScrapTradeBuyConfirmEntry);
+    return true;
+}
+
+bool BlackFlowScrapTradeTaskPlugin::reconcile_purchase(const cv::Mat& image)
+{
+    if (!m_purchase.intent()) {
+        return false;
+    }
+    const auto& intent = *m_purchase.intent();
+    const bool buying = on_buying_page(image);
+    OCRer dialog(image);
+    dialog.set_task_info(std::string(ScrapTradeBuyDialogTask));
+    const bool confirmation_visible = dialog.analyze().has_value();
+    const bool sold = buying && !confirmation_visible && sold_at(image, intent.rect);
+    const auto wallet = buying && !confirmation_visible
+                            ? RoguelikeParameterAnalyzer::read_number(image, std::string(ScrapTradeWalletTask))
+                            : std::nullopt;
+    const auto state =
+        m_purchase.observe({ buying, confirmation_visible, sold ? intent.name : std::string {}, wallet });
+    if (state == ScrapPurchaseState::Confirmed) {
+        const auto receipt = m_purchase.take_confirmed();
+        apply_purchase(*receipt);
+        return false;
+    }
+    if (state == ScrapPurchaseState::Failed) {
+        abort_trade("purchase_receipt_unconfirmed", intent.name);
+    }
+    else {
+        set_action(ScrapTradeReceiptWaitTask);
+    }
+    return true;
+}
+
+bool BlackFlowScrapTradeTaskPlugin::on_buying_page(const cv::Mat& image) const
+{
+    Matcher matcher(image);
+    matcher.set_task_info(std::string(ScrapTradeBuyingFlagTask));
+    return matcher.analyze().has_value();
+}
+
+bool BlackFlowScrapTradeTaskPlugin::sold_at(const cv::Mat& image, const Rect& title) const
+{
+    const auto region = scrap_purchase_sold_region(title, image.cols, image.rows);
+    if (!region) {
+        return false;
+    }
+    Matcher matcher(image);
+    matcher.set_task_info(std::string(ScrapTradeSoldBadgeTask));
+    matcher.set_roi(*region);
+    return matcher.analyze().has_value();
+}
+
+void BlackFlowScrapTradeTaskPlugin::apply_purchase(const ScrapPurchaseReceipt& receipt)
+{
+    const ScrapPurchaseIntent& purchase = receipt.intent;
     m_purchased_rects.emplace_back(purchase.rect);
     const auto item = BlackFlowScrapMarket.find(purchase.name);
     if (!item) {
@@ -474,9 +548,9 @@ void BlackFlowScrapTradeTaskPlugin::on_purchase_confirmed()
             m_sell_backs.insert(m_sell_backs.end(), static_cast<std::size_t>(count), name);
         }
     }
-    LogInfo << __FUNCTION__ << "BlackFlow scrap trade purchase confirmed" << purchase.name << "keep" << purchase.keep
-            << "held" << m_ledger.held(purchase.name) << "growth" << m_ledger.growth(BlackFlowScrapMarket)
-            << "pending sell backs" << m_sell_backs.size();
+    LogInfo << __FUNCTION__ << "BlackFlow scrap trade purchase confirmed" << purchase.name << "spent" << receipt.paid
+            << "keep" << purchase.keep << "held" << m_ledger.held(purchase.name) << "growth"
+            << m_ledger.growth(BlackFlowScrapMarket) << "pending sell backs" << m_sell_backs.size();
 }
 
 void BlackFlowScrapTradeTaskPlugin::click_at_most()
