@@ -1,10 +1,10 @@
 {
     "stage_name": "进退趋同",
     "doc": [
-        "仅隔离候选：先双路7,1/7,6拦截，EW6,2Right负责7,1/9,1；下副输出8,5Down需实际覆盖7,6/9,6。",
-        "能力组地面阻挡优先且同组按实际已知费用；机械师仅后备组，避免跨组rank压过已知低费先锋。本机制不是所有组间全局最便宜保证。",
-        "不在buildable0蓝门8,1/8,6放人。左向双挡不能拦传送门后9,1/9,6，必须实际输出资格。DPS/承伤/初始费用/中间怪提前激活风险待实测。",
-        "输出后上奶4,2Right覆盖7,1/6,2，下奶6,5Right覆盖7,6/8,5。全部用真实精英范围门禁；不持有两奶不假设同时治疗。旧6,5Right副输出拒卡达作为反例保留，8,2旧奶位有魂占格风险。"
+        "阶段124隔离候选：上路合格核心6,2Right先于下挡7,6Left、上挡7,1Left，再下副输出8,5Down及双奶。未证明DPS/承伤/零漏。",
+        "沿用现有能力组、精英和实际射程门禁，不新增干员名单。单挡自然先占下路；两挡第二名在核心之后补上。核心资格未知或未达原E2/射程条件时，不宣称上路有足够输出。",
+        "保留蓝门禁放和后传送9,1/9,6覆盖约束。有限费用反事实只比较相同已读价格之先后，不预测实际费用恢复或动作秒数。",
+        "run73 B6单挡损11；B8双挡上路首只掠食者打掉清道夫后、核心才落地。新顺序需实测起技/敌方首波，普通攻击覆盖不是单守能力证明。"
     ],
     "replacement_home": [
         {
@@ -21,11 +21,14 @@
     "reserve_starting_core_groups": ["益达"],
     "deploy_plan": [
         {
-            "groups": ["地面阻挡", "机械师"],
-            "location": [7, 1],
-            "direction": "left",
-            "minimum_elite": 1,
-            "require_persistent_blocking": true
+            "groups": ["益达"],
+            "location": [6, 2],
+            "direction": "right",
+            "minimum_elite": 2,
+            "required_attack_tiles": [
+                [7, 1],
+                [9, 1]
+            ]
         },
         {
             "groups": ["地面阻挡", "机械师"],
@@ -35,14 +38,11 @@
             "require_persistent_blocking": true
         },
         {
-            "groups": ["益达"],
-            "location": [6, 2],
-            "direction": "right",
-            "minimum_elite": 2,
-            "required_attack_tiles": [
-                [7, 1],
-                [9, 1]
-            ]
+            "groups": ["地面阻挡", "机械师"],
+            "location": [7, 1],
+            "direction": "left",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true
         },
         {
             "groups": ["狙击", "高台输出", "术师"],
