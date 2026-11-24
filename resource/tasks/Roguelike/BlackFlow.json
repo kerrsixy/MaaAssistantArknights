@@ -2065,7 +2065,7 @@
         "baseTask": "BlackFlow@Roguelike@RecoveryFailed"
     },
     "BlackFlow@Roguelike@ScrapTradeBuyConfirm": {
-        "Doc": "BlackFlowScrapTradeTaskPlugin 监听完成回调，记入本次买入。（去掉 #self：行商页面上｢购买｣页签常驻，带 #self 会无限点页签、永远不往下走）",
+        "Doc": "This input and BuyDialog both notify the plugin; neither updates the ledger. The next decision requires a positive buying page, the selected sold slot and a verified wallet debit.",
         "baseTask": "BlackFlow@Roguelike@CultivateBuyConfirm",
         "algorithm": "OcrDetect",
         "action": "ClickSelf",
@@ -2074,17 +2074,17 @@
         "next": ["BlackFlow@Roguelike@ScrapTradeBuyDialog", "BlackFlow@Roguelike@ScrapTradeDecision"]
     },
     "BlackFlow@Roguelike@ScrapTradeBuyDialog": {
-        "Doc": "行商点｢购买｣后弹出的二次确认框（是否消耗源石锭购买 XX）：点确认购买完成交易，再交回决策。",
+        "Doc": "Explicit purchase confirmation input. Preserve the pending SKU until its shelf and wallet receipt is verified; never count this click as ownership.",
         "algorithm": "OcrDetect",
         "action": "ClickSelf",
         "roi": [700, 440, 520, 110],
         "text": ["确认购买"],
         "postDelay": 500,
-        "next": ["#self", "BlackFlow@Roguelike@ScrapTradeDecision"]
+        "next": ["BlackFlow@Roguelike@ScrapTradeDecision"]
     },
     "BlackFlow@Roguelike@ScrapTradeBuyConfirm-Enter": {
         "algorithm": "JustReturn",
-        "next": ["BlackFlow@Roguelike@ScrapTradeBuyConfirm"]
+        "next": ["BlackFlow@Roguelike@ScrapTradeBuyDialog", "BlackFlow@Roguelike@ScrapTradeBuyConfirm"]
     },
     "BlackFlow@Roguelike@ScrapTradeContinue": {
         "algorithm": "JustReturn",
@@ -3769,5 +3769,25 @@
         "roi": [986, 174, 42, 27],
         "withoutDet": true,
         "action": "DoNothing"
+    },
+    "BlackFlow@Roguelike@ScrapTradeBuyingFlag": {
+        "algorithm": "MatchTemplate",
+        "action": "DoNothing",
+        "template": "BlackFlow@Roguelike@ScrapTradeBuyingFlag.png",
+        "roi": [1080, 105, 160, 65],
+        "templThreshold": 0.95
+    },
+    "BlackFlow@Roguelike@ScrapTradeSoldBadge": {
+        "algorithm": "MatchTemplate",
+        "action": "DoNothing",
+        "template": "BlackFlow@Roguelike@ScrapTradeSoldBadge.png",
+        "templThreshold": 0.9
+    },
+    "BlackFlow@Roguelike@ScrapTradeReceiptWait": {
+        "Doc": "Wait for the owned purchase receipt. The plugin allows at most three observations before an explicit abort.",
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "postDelay": 600,
+        "next": ["BlackFlow@Roguelike@ScrapTradeDecision"]
     }
 }
