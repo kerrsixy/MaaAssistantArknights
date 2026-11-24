@@ -10,6 +10,8 @@
 #include "Task/ProcessTask.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowScrapTrade.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowSession.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowShopPriority.h"
+#include "Task/Roguelike/RoguelikeRecruitPolicy.h"
 #include "Utils/Logger.hpp"
 #include "Utils/StringMisc.hpp"
 #include "Vision/Matcher.h"
@@ -186,6 +188,7 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
     bool no_longer_buy = m_config->status().trader_no_longer_buy;
 
     std::unordered_map<battle::Role, size_t> map_roles_count;
+    std::unordered_map<battle::Role, std::size_t> trained_roles;
     std::unordered_map<battle::Role, std::array<size_t, 6>> map_wait_promotion;
     size_t total_wait_promotion = 0;
     std::unordered_set<std::string> chars_list;
@@ -193,6 +196,9 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
         int elite = oper.elite;
         int level = oper.level;
         Log.info(name, elite, level);
+        if (is_recruitment_strength_sufficient(elite, level)) {
+            ++trained_roles[BattleData.get_first_role(name)];
+        }
 
         // 等级太低的干员没必要为他专门买收藏品什么的
         if (level < 60) {
@@ -262,11 +268,11 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
     }
 
     // bool bought = false;
-    const auto all_goods = strategy_shopping ? RoguelikeShopping.get_shop_goods(
-                                                   theme,
-                                                   m_config->status().shopping_buy_table,
-                                                   m_blackflow_session ? m_blackflow_session->profile() : std::string())
-                                             : RoguelikeShopping.get_goods(theme);
+    auto all_goods = strategy_shopping ? RoguelikeShopping.get_shop_goods(
+                                             theme,
+                                             m_config->status().shopping_buy_table,
+                                             m_blackflow_session ? m_blackflow_session->profile() : std::string())
+                                       : RoguelikeShopping.get_goods(theme);
     // 钱包对所有主题都读：用户要求「商店购买顺序应先看手里有多少钱」。
     // 旧实现把 read_wallet 只在 strategy_shopping（仅 BlackFlow）下调用，傀影/水月等
     // 主题既不读余额也不校验价格，于是会出现「点开确认框才发现买不起」的死循环。
@@ -292,6 +298,9 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
     else {
         shopping_hope = m_config->status().hope;
     }
+    if (strategy_shopping) {
+        blackflow::prioritize_first_medic(all_goods, trained_roles, shopping_hope);
+    }
     const int reserved = strategy_shopping && m_blackflow_session ? m_blackflow_session->reserved_amount("ingots") : 0;
     if (strategy_shopping) {
         m_config->status().shopping_reserved_ingots = reserved;
@@ -308,6 +317,8 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
         info["details"]["reserved"] = reserved;
         info["details"]["hope"] = shopping_hope.value_or(-1);
         info["details"]["buy_table"] = m_config->status().shopping_buy_table;
+        const auto medic = trained_roles.find(battle::Role::Medic);
+        info["details"]["trained_medics"] = medic == trained_roles.end() ? 0 : medic->second;
         callback(AsstMsg::SubTaskExtraInfo, info);
         LogInfo << __FUNCTION__ << "BlackFlow shop offer" << name << "reason" << reason << "price" << price << "wallet"
                 << wallet.value_or(-1) << "reserved" << reserved << "hope" << shopping_hope.value_or(-1);
@@ -463,7 +474,12 @@ bool asst::RoguelikeShoppingTaskPlugin::buy_once()
         // 的，保证不会点出去 即 ProcessTask 多点的那一下会点到不影响的地方 然后继续走 next 里确认
         // or 取消等等的逻辑
         Log.info("Ready to buy", goods.name);
-        report_offer(goods.name, "selected_by_existing_priority_and_team_filters", price.value_or(-1));
+        report_offer(
+            goods.name,
+            blackflow::prioritizes_first_medic(goods, trained_roles, shopping_hope)
+                ? "selected_for_missing_medic"
+                : "selected_by_existing_priority_and_team_filters",
+            price.value_or(-1));
         Rect click_rect = find_it->rect;
         if (shelf) {
             const auto offer = std::ranges::find_if(shelf->offers, [&](const auto& entry) {
