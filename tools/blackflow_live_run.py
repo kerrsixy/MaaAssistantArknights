@@ -374,13 +374,18 @@ class LiveDriver:
         if seconds is not None and seconds < 0:
             raise ValueError("Wait limit cannot be negative")
         deadline = None if seconds is None else time.monotonic() + seconds
+        observer = getattr(self, "_observation", None)
         while deadline is None or time.monotonic() < deadline:
             if not self.running():
+                if observer is not None:
+                    observer.poll(self.snapshot, final=True)
                 return True
             # Cooperative diagnostic stops retain the normal final screenshot,
             # callback save and handle cleanup instead of killing Python.
             if (self.out_dir / "stop.request").is_file():
                 print("Stop requested; stopping native task in place", flush=True)
+                if observer is not None:
+                    observer.close()
                 self.stop()
                 return False
             observer = getattr(self, "_observation", None)
@@ -391,8 +396,12 @@ class LiveDriver:
             # on an already-set event or reporting this short race as a timeout.
             if self._done.is_set():
                 time.sleep(0.05)
+            elif observer is not None:
+                observer.wait_for_due(timeout=2.0)
             else:
                 self._done.wait(timeout=2.0)
+        if observer is not None:
+            observer.close()
         return False
 
     def save(self):
@@ -405,6 +414,9 @@ class LiveDriver:
         return path, len(records)
 
     def close(self):
+        observer = getattr(self, "_observation", None)
+        if observer is not None:
+            observer.close()
         try:
             if self.running():
                 self.stop()

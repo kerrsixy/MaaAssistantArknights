@@ -1,0 +1,47 @@
+[
+  {
+    "t": 1795554620.0695794,
+    "msg": 20001,
+    "details": "{\"class\":\"asst::ProcessTask\",\"details\":{\"action\":\"DoNothing\",\"algorithm\":\"JustReturn\",\"exec_times\":1,\"max_times\":2147483647,\"page_id\":\"BlackFlow@Roguelike@SettlementStatistics-Enter#1183\",\"required_page\":\"\",\"result\":{},\"task\":\"SettlementStatistics-Enter\"},\"first\":[\"BlackFlow@Roguelike@SettlementStatistics-Enter\"],\"pre_task\":\"\",\"subtask\":\"ProcessTask\",\"taskchain\":\"Roguelike\",\"taskid\":2,\"uuid\":\"39a9d2c95612f402\"}"
+  },
+  {
+    "t": 1795554620.070122,
+    "msg": 20002,
+    "details": "{\"class\":\"asst::ProcessTask\",\"details\":{\"action\":\"DoNothing\",\"algorithm\":\"JustReturn\",\"exec_times\":1,\"max_times\":2147483647,\"page_id\":\"BlackFlow@Roguelike@SettlementStatistics-Enter#1183\",\"required_page\":\"\",\"result\":{},\"task\":\"SettlementStatistics-Enter\"},\"first\":[\"BlackFlow@Roguelike@SettlementStatistics-Enter\"],\"pre_task\":\"\",\"subtask\":\"ProcessTask\",\"taskchain\":\"Roguelike\",\"taskid\":2,\"uuid\":\"39a9d2c95612f402\"}"
+  },
+  {
+    "t": 1795554620.8229954,
+    "msg": 20001,
+    "details": "{\"class\":\"asst::ProcessTask\",\"details\":{\"action\":\"ClickSelf\",\"algorithm\":\"MatchTemplate\",\"exec_times\":1,\"max_times\":3,\"page_id\":\"BlackFlow@Roguelike@SettlementStatistics-Next#1184\",\"required_page\":\"\",\"result\":{\"rect\":[1190,292,72,84],\"score\":1.000000,\"template\":\"BlackFlow@Roguelike@SettlementNext.png\"},\"task\":\"SettlementStatistics-Next\"},\"first\":[\"BlackFlow@Roguelike@SettlementStatistics-Enter\"],\"pre_task\":\"BlackFlow@Roguelike@SettlementStatistics-Enter\",\"subtask\":\"ProcessTask\",\"taskchain\":\"Roguelike\",\"taskid\":2,\"uuid\":\"39a9d2c95612f402\"}"
+  },
+  {
+    "t": 1795554621.9273612,
+    "msg": 20002,
+    "details": "{\"class\":\"asst::ProcessTask\",\"details\":{\"action\":\"ClickSelf\",\"algorithm\":\"MatchTemplate\",\"exec_times\":1,\"max_times\":3,\"page_id\":\"BlackFlow@Roguelike@SettlementStatistics-Next#1184\",\"required_page\":\"\",\"result\":{\"rect\":[1190,292,72,84],\"score\":1.000000,\"template\":\"BlackFlow@Roguelike@SettlementNext.png\"},\"task\":\"SettlementStatistics-Next\"},\"first\":[\"BlackFlow@Roguelike@SettlementStatistics-Enter\"],\"pre_task\":\"BlackFlow@Roguelike@SettlementStatistics-Enter\",\"subtask\":\"ProcessTask\",\"taskchain\":\"Roguelike\",\"taskid\":2,\"uuid\":\"39a9d2c95612f402\"}"
+  },
+  {
+    "t": 1795554627.3254712,
+    "msg": 20001,
+    "details": "{\"class\":\"asst::ProcessTask\",\"details\":{\"action\":\"DoNothing\",\"algorithm\":\"MatchTemplate\",\"exec_times\":1,\"max_times\":2147483647,\"page_id\":\"BlackFlow@Roguelike@SettlementStatistics-Ready#1185\",\"required_page\":\"\",\"result\":{\"rect\":[612,628,56,54],\"score\":0.998677,\"template\":\"BlackFlow@Roguelike@GamePassTheEndConfirm.png\"},\"task\":\"SettlementStatistics-Ready\"},\"first\":[\"BlackFlow@Roguelike@SettlementStatistics-Enter\"],\"pre_task\":\"BlackFlow@Roguelike@SettlementStatistics-Next\",\"subtask\":\"ProcessTask\",\"taskchain\":\"Roguelike\",\"taskid\":2,\"uuid\":\"39a9d2c95612f402\"}"
+  },
+  {
+    "t": 1795554627.3254712,
+    "msg": 20002,
+    "details": "{\"class\":\"asst::ProcessTask\",\"details\":{\"action\":\"DoNothing\",\"algorithm\":\"MatchTemplate\",\"exec_times\":1,\"max_times\":2147483647,\"page_id\":\"BlackFlow@Roguelike@SettlementStatistics-Ready#1185\",\"required_page\":\"\",\"result\":{\"rect\":[612,628,56,54],\"score\":0.998677,\"template\":\"BlackFlow@Roguelike@GamePassTheEndConfirm.png\"},\"task\":\"SettlementStatistics-Ready\"},\"first\":[\"BlackFlow@Roguelike@SettlementStatistics-Enter\"],\"pre_task\":\"BlackFlow@Roguelike@SettlementStatistics-Next\",\"subtask\":\"ProcessTask\",\"taskchain\":\"Roguelike\",\"taskid\":2,\"uuid\":\"39a9d2c95612f402\"}"
+  },
+  {
+    "t": 1795554633.108859,
+    "msg": 20003,
+    "details": "{\"class\":\"asst::RoguelikeSettlementTaskPlugin\",\"details\":{\"boss\":1,\"collection\":26,\"combat\":3,\"difficulty\":9,\"emergency\":1,\"exp\":\"MAX\",\"floor\":3,\"game_pass\":false,\"recruit\":6,\"score\":569,\"skill\":\"MAX\",\"step\":21},\"subtask\":\"RoguelikeSettlementTask\",\"taskchain\":\"Roguelike\",\"taskid\":2,\"uuid\":\"39a9d2c95612f402\",\"what\":\"RoguelikeSettlement\"}"
+  },
+  {
+    "t": 1795554636.2932467,
+    "msg": 10002,
+    "details": "{\"taskchain\":\"Roguelike\",\"taskid\":2,\"uuid\":\"39a9d2c95612f402\"}"
+  },
+  {
+    "t": 1795554636.2932467,
+    "msg": 3,
+    "details": "{\"finished_tasks\":[1,2],\"taskchain\":\"Roguelike\",\"taskid\":2,\"uuid\":\"39a9d2c95612f402\"}"
+  }
+]

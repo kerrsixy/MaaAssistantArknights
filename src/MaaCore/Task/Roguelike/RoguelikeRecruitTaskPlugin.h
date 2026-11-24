@@ -7,6 +7,11 @@
 
 namespace asst
 {
+namespace blackflow
+{
+struct RecruitmentDutyOffer;
+}
+
 // 干员招募信息
 struct RoguelikeRecruitInfo
 {
@@ -51,7 +56,11 @@ private:
     //   is_rtl: 滑动方向 (true: 从右向左; false: 从左向右，需要先滑动到最左侧)
     //   require_strength: 是否应用自有干员的练度门槛
     // 返回值: 招募结果 (true: 成功; false: 失败)
-    bool recruit_appointed_char(const std::string& char_name, bool is_rtl = false, bool require_strength = false);
+    bool recruit_appointed_char(
+        const std::string& char_name,
+        bool is_rtl = false,
+        bool require_strength = false,
+        const blackflow::RecruitmentDutyOffer* duty_intent = nullptr);
     // 选择干员
     bool select_oper(const battle::roguelike::Recruitment& oper);
     int read_current_hope(const cv::Mat& image);
