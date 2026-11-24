@@ -51,6 +51,7 @@ private:
     std::optional<json::object> m_lifecycle_solo_result;
     bool m_prefer_unclaimed = true;
     bool m_schedule_strategy_badges = false;
+    bool m_schedule_silver_strategy_badges = false;
     bool m_strategy_catalogue_complete = false;
     std::string m_next_strategy_badge_hint;
     std::string m_client_type;

@@ -486,11 +486,10 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                                { "search_time_exhausted", std::chrono::steady_clock::now() >= deadline },
                                { "unlock_requirement", unlock ? std::string(unlock->description) : std::string() },
                                { "fallback", "default" },
-                               { "badge_priority", false },
+                               { "badge_priority", m_prefer_unclaimed },
                                { "run_abandoned", false } };
             callback(AsstMsg::SubTaskExtraInfo, fallback);
             m_requested_strategy.clear();
-            m_prefer_unclaimed = false;
             requested_search_fell_back = requested_probes > 0 || requested_scrolls > 0;
             // Restore by thumb position when available instead of replaying
             // every swipe from a deep viewport.
@@ -562,7 +561,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         std::vector<std::optional<int>> viewport_scrollbars;
         json::array card_evidence;
         cv::Mat last_marker;
-        const int max_viewports = requested_search_fell_back ? 1 : m_prefer_unclaimed ? 7 : 4;
+        const int max_viewports = m_prefer_unclaimed ? 7 : requested_search_fell_back ? 1 : 4;
         for (int page = 0; page < max_viewports && !need_exit(); ++page) {
             image = ctrler()->get_image();
             const auto marker = viewport_marker(image);

@@ -75,6 +75,7 @@ struct AcquiredEffect
 // Catalogue facts are not proof that the current unit, trait or skill can be triggered.
 // Shop-dependent effects stay unknown until the shop level is observed.
 std::optional<std::vector<AcquiredEffect>> acquired_effects(const std::string& name, bool elite, int shop_level = 0);
+int investor_acquisition_repeats(int distinct_investors, std::optional<int> observed_layers);
 std::vector<std::string> acquired_operator_names();
 // Guaranteed named gifts only; these are discovery hints, never inventory
 // counts. Random quality, random names and stateful effects stay unasserted.

@@ -158,6 +158,14 @@ std::optional<std::vector<asst::spa::AcquiredEffect>>
     return found == fixed.end() ? std::nullopt : std::optional(found->second);
 }
 
+int asst::spa::investor_acquisition_repeats(int distinct_investors, std::optional<int> observed_layers)
+{
+    if (distinct_investors < 3 || !observed_layers || *observed_layers < 0 || *observed_layers > 999) {
+        return 1;
+    }
+    return *observed_layers >= 100 ? 3 : 2;
+}
+
 std::vector<std::string> asst::spa::acquired_operator_names()
 {
     return { "灰喉",   "摆渡人", "霜叶",     "拜松",       "褐果",   "拉普兰德", "雪猎", "锡人", "宴",

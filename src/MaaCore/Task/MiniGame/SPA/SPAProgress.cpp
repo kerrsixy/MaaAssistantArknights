@@ -25,7 +25,12 @@ std::optional<asst::spa::StrategyProgress>
         if (result || (wins_known && (!wins || *wins < 0)) || !entry.get("unlocked_verified", false)) {
             return std::nullopt;
         }
-        result = StrategyProgress { id, wins, true, entry.get("badge_verified", false), rule->independent_available };
+        result = StrategyProgress { id,
+                                    wins,
+                                    true,
+                                    entry.get("badge_verified", false),
+                                    rule->independent_available,
+                                    entry.get("silver_badge_verified", false) };
     }
     return result;
 }
@@ -39,7 +44,8 @@ asst::spa::ProgressStore::ProgressStore(std::string account, std::string season)
 bool asst::spa::ProgressStore::reconcile(const StrategyProgress& observed)
 {
     if (m_account.empty() || m_season.empty() || observed.band_id.empty() || (observed.wins && *observed.wins < 0) ||
-        (observed.badge_verified && (!observed.unlocked || !observed.wins || *observed.wins < 3))) {
+        (observed.badge_verified && !ProgressLedger::complete(observed)) ||
+        (observed.silver_badge_verified && !ProgressLedger::silver_complete(observed))) {
         return false;
     }
     // A fresh game report is authoritative, including corrections to an earlier observation.
@@ -70,7 +76,8 @@ json::value asst::spa::ProgressStore::snapshot() const
                             { "wins", progress.wins.value_or(0) },
                             { "unlocked", progress.unlocked },
                             { "badge_verified", progress.badge_verified },
-                            { "solo_eligible_verified", progress.solo_eligible_verified } };
+                            { "solo_eligible_verified", progress.solo_eligible_verified },
+                            { "silver_badge_verified", progress.silver_badge_verified } };
         strategies.emplace_back(std::move(item));
     }
     json::array credited;
@@ -113,7 +120,8 @@ bool asst::spa::ProgressStore::restore(const json::value& value)
             (!*known && *wins != 0)) {
             return false;
         }
-        StrategyProgress progress { *id, *known ? std::optional(*wins) : std::nullopt, *unlocked, *badge, *solo };
+        StrategyProgress progress { *id,   *known ? std::optional(*wins) : std::nullopt, *unlocked, *badge,
+                                    *solo, item.get("silver_badge_verified", false) };
         if (!pending.reconcile(progress)) {
             return false;
         }

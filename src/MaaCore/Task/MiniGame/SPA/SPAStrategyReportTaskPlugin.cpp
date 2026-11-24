@@ -279,9 +279,15 @@ bool StrategyReportTaskPlugin::_run()
                 locked.erase(id);
                 const bool badge_verified = wins && observation.get("badge_verified", false) &&
                                             observation.get("strategy_report_evidence_saved", false);
-                StrategyProgress result { id, wins, true, badge_verified, rule->independent_available };
+                const bool silver_verified =
+                    badge_verified && *wins >= 6 && observation.get("strategy_badge_tier", std::string()) == "silver";
+                StrategyProgress result {
+                    id, wins, true, badge_verified, rule->independent_available, silver_verified
+                };
                 const auto previous = progress.find(id);
-                if (previous == progress.end() || badge_verified || (wins && !previous->second.badge_verified)) {
+                if (previous == progress.end() || silver_verified ||
+                    (!previous->second.silver_badge_verified &&
+                     (badge_verified || (wins && !previous->second.badge_verified)))) {
                     progress.insert_or_assign(id, std::move(result));
                 }
                 if (!m_target.empty() && progress.contains(m_target)) {
@@ -320,7 +326,8 @@ bool StrategyReportTaskPlugin::_run()
                            { "wins_known", record.wins.has_value() },
                            { "wins", record.wins.value_or(0) },
                            { "unlocked_verified", record.unlocked },
-                           { "badge_verified", record.badge_verified } });
+                           { "badge_verified", record.badge_verified },
+                           { "silver_badge_verified", record.silver_badge_verified } });
     }
     json::array locked_entries;
     for (const auto& [id, entry] : locked) {
@@ -342,7 +349,11 @@ bool StrategyReportTaskPlugin::_run()
                        { "all_strategy_badges_verified",
                          progress.size() == StrategyUnlockCatalogue.size() &&
                              std::all_of(ranked.begin(), ranked.end(), ProgressLedger::complete) },
-                       { "next_independent_strategy", ProgressLedger::next_solo(ranked).value_or("") } };
+                       { "all_strategy_silver_badges_verified",
+                         progress.size() == StrategyUnlockCatalogue.size() &&
+                             std::all_of(ranked.begin(), ranked.end(), ProgressLedger::silver_complete) },
+                       { "next_independent_strategy", ProgressLedger::next_solo(ranked).value_or("") },
+                       { "next_independent_silver_strategy", ProgressLedger::next_solo(ranked, true).value_or("") } };
     callback(AsstMsg::SubTaskExtraInfo, info);
     return !need_exit();
 }

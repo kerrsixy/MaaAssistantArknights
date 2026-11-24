@@ -4068,6 +4068,17 @@ int main()
     after_report.wins = 3;
     after_report.badge_verified = true;
     assert(ProgressLedger::complete(after_report));
+    assert(!ProgressLedger::silver_complete(after_report));
+    assert(!ProgressLedger::can_schedule_solo(after_report));
+    assert(ProgressLedger::can_schedule_solo(after_report, true));
+    assert(ProgressLedger::next_solo({ after_report }, true) == after_report.band_id);
+    assert(ProgressLedger::next_solo({ after_report, near_orange }, true) == near_orange.band_id);
+    auto completed_silver_progress = after_report;
+    completed_silver_progress.wins = 6;
+    assert(!ProgressLedger::silver_complete(completed_silver_progress));
+    completed_silver_progress.silver_badge_verified = true;
+    assert(ProgressLedger::silver_complete(completed_silver_progress));
+    assert(!ProgressLedger::next_solo({ completed_silver_progress }, true));
     settlement = { "run-3", "band-4", true, false, true };
     assert(!ledger.apply(settlement, partial));
     settlement.victory = true;
@@ -4229,6 +4240,17 @@ int main()
     assert(acquired_effects("凯瑟琳", true)->at(0).randomized_quality);
     assert(acquired_effects("乌有", false)->at(0).kind == AcquiredEffectKind::Equipment);
     assert(acquired_effects("摆渡人", false)->size() == 2);
+    assert(investor_acquisition_repeats(2, 100) == 1);
+    assert(investor_acquisition_repeats(3, std::nullopt) == 1);
+    assert(investor_acquisition_repeats(3, 0) == 2);
+    assert(investor_acquisition_repeats(3, 99) == 2);
+    assert(investor_acquisition_repeats(3, 100) == 3);
+    const auto& guides = strategy_guide_routes();
+    const auto reverse = std::ranges::find(guides, "reverse", &StrategyGuideRoute::guide_id);
+    assert(reverse != guides.end() && guide_pacts_available(*reverse, {}));
+    for (const auto* disabled : { "炎", "奇迹", "远见", "投资人" }) {
+        assert(!guide_pacts_available(*reverse, { disabled }));
+    }
     for (const auto& [name, gift] : std::vector<std::pair<std::string, std::string>> { { "承曦格雷伊", "精准狙击镜" },
                                                                                        { "车尔尼", "莱塔尼亚小鼓" },
                                                                                        { "卡涅利安", "迅捷作战粮" },

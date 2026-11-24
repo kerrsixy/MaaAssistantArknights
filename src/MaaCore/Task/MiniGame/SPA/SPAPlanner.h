@@ -155,6 +155,7 @@ struct StrategyProgress
     bool unlocked = false;
     bool badge_verified = false;
     bool solo_eligible_verified = false;
+    bool silver_badge_verified = false;
 };
 
 // An observed result is not a badge; only a subsequent game report confirms completion.
@@ -172,8 +173,10 @@ class ProgressLedger
 public:
     bool apply(const Settlement& settlement, StrategyProgress& progress);
     static bool complete(const StrategyProgress& progress);
-    static bool can_schedule_solo(const StrategyProgress& progress);
-    static std::optional<std::string> next_solo(const std::vector<StrategyProgress>& progress);
+    static bool silver_complete(const StrategyProgress& progress);
+    static bool can_schedule_solo(const StrategyProgress& progress, bool require_silver = false);
+    static std::optional<std::string>
+        next_solo(const std::vector<StrategyProgress>& progress, bool require_silver = false);
     static bool next_report_confirms_win(
         const StrategyProgress& before,
         const StrategyProgress& after,

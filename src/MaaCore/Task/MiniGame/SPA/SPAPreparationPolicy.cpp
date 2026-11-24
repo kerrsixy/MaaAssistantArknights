@@ -1272,7 +1272,10 @@ static std::optional<SameShopPromotionPurchase> affordable_same_shop_promotion(
     return best;
 }
 
-static int known_primary_acquisition_layers(const PreparationPolicy& policy, const std::string& name)
+static int known_primary_acquisition_layers(
+    const PreparationPolicy& policy,
+    const std::string& name,
+    const std::map<std::string, std::vector<std::string>>& pacts)
 {
     const auto observed = policy.observed_pact_layers.find(policy.primary_pact);
     if (!policy.growth_primary_active_verified || observed == policy.observed_pact_layers.end() ||
@@ -1288,6 +1291,17 @@ static int known_primary_acquisition_layers(const PreparationPolicy& policy, con
                 layers += effect.amount;
             }
         }
+    }
+    const auto investor_layers = policy.observed_pact_layers.find("投资人");
+    if (layers > 0 && investor_layers != policy.observed_pact_layers.end() &&
+        !contains(policy.disabled_pacts, "投资人")) {
+        const auto distinct_investors = std::ranges::count_if(policy.owned, [&](const auto& entry) {
+            const auto& [owned_name, unit] = entry;
+            const auto traits = pacts.find(owned_name);
+            return unit.copies > 0 && owned_form_counts(unit).has_value() && traits != pacts.end() &&
+                   contains(traits->second, "投资人");
+        });
+        layers *= investor_acquisition_repeats(static_cast<int>(distinct_investors), investor_layers->second);
     }
     return std::min(layers, 999 - observed->second);
 }
@@ -1614,7 +1628,10 @@ static std::optional<ShopUpgradeHold> plan_shop_upgrade_hold(
                                  std::max(0, upgrade_price - 1) };
     }
     if (!purchase.is_equipment && purchase.selected_pact == policy.primary_pact &&
-        first_fitting_growth_purchase(policy, purchase.name, known_primary_acquisition_layers(policy, purchase.name))) {
+        first_fitting_growth_purchase(
+            policy,
+            purchase.name,
+            known_primary_acquisition_layers(policy, purchase.name, pacts))) {
         // This card improves the field and has a deterministic on-acquisition
         // effect. It can justify buying before a paid upgrade independently
         // of the one-round discount decision already taken at this book.
@@ -2617,7 +2634,7 @@ asst::spa::PreparationChoice asst::spa::choose_preparation(
         // must not silently replace phase-two role scoring with cheap-card
         // selection; the actual phase-one policy already returned above.
         const int promotion_bonus = completes_promotion ? 1400 : 0;
-        const int acquisition_layers = primary ? known_primary_acquisition_layers(resolved, offer.name) : 0;
+        const int acquisition_layers = primary ? known_primary_acquisition_layers(resolved, offer.name, pacts) : 0;
         const int first_growth_recruit_bonus =
             first_fitting_growth_purchase(resolved, offer.name, acquisition_layers) ? 450 : 0;
         const bool enables_sale_growth =

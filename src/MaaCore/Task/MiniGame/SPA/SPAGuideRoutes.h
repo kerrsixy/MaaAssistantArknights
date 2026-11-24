@@ -41,7 +41,7 @@ inline const std::vector<StrategyGuideRoute>& strategy_guide_routes()
         { "preci-arcane", "精准", { "band_mech" }, false, { "奥术", "远见", "灵巧", "聚合", "奇迹" } },
         { "preci-russo", "精准", { "band_ioleta" }, false, { "灵巧", "坚守" } },
         { "preci-anaconda", "精准", { "band_mech" }, false, { "奥术", "协防干员" } },
-        { "reverse", "奇迹", { "band_sell", "band_bonus" }, false, { "投资人", "远见" } },
+        { "reverse", "奇迹", { "band_sell", "band_bonus" }, false, { "投资人", "远见" }, { "炎", "投资人", "远见" } },
         { "skland-lethania-arcane",
           "莱塔尼亚",
           { "band_weakness", "band_transfer", "band_bonus" },

@@ -107,6 +107,11 @@ bool asst::spa::ProgressLedger::complete(const StrategyProgress& progress)
     return progress.unlocked && progress.wins && *progress.wins >= 3 && progress.badge_verified;
 }
 
+bool asst::spa::ProgressLedger::silver_complete(const StrategyProgress& progress)
+{
+    return complete(progress) && *progress.wins >= 6 && progress.silver_badge_verified;
+}
+
 bool asst::spa::ProgressLedger::next_report_confirms_win(
     const StrategyProgress& before,
     const StrategyProgress& after,
@@ -118,9 +123,10 @@ bool asst::spa::ProgressLedger::next_report_confirms_win(
            *before.wins >= 0 && *before.wins < std::numeric_limits<int>::max() && *after.wins == *before.wins + 1;
 }
 
-bool asst::spa::ProgressLedger::can_schedule_solo(const StrategyProgress& progress)
+bool asst::spa::ProgressLedger::can_schedule_solo(const StrategyProgress& progress, bool require_silver)
 {
-    if (progress.band_id.empty() || !progress.unlocked || !progress.solo_eligible_verified || complete(progress)) {
+    const bool badge_complete = require_silver ? silver_complete(progress) : complete(progress);
+    if (progress.band_id.empty() || !progress.unlocked || !progress.solo_eligible_verified || badge_complete) {
         return false;
     }
     if (progress.wins) {
@@ -134,7 +140,8 @@ bool asst::spa::ProgressLedger::can_schedule_solo(const StrategyProgress& progre
            });
 }
 
-std::optional<std::string> asst::spa::ProgressLedger::next_solo(const std::vector<StrategyProgress>& progress)
+std::optional<std::string>
+    asst::spa::ProgressLedger::next_solo(const std::vector<StrategyProgress>& progress, bool require_silver)
 {
     // Finish nearby marks first. An unverified three-win mark stays
     // eligible for the six-win threshold and is three wins away again.
@@ -144,7 +151,7 @@ std::optional<std::string> asst::spa::ProgressLedger::next_solo(const std::vecto
     };
     const StrategyProgress* best = nullptr;
     for (const auto& item : progress) {
-        if (!can_schedule_solo(item)) {
+        if (!can_schedule_solo(item, require_silver)) {
             continue;
         }
         if (!best || priority(item) > priority(*best)) {
