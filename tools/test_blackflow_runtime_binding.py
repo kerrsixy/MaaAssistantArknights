@@ -16,6 +16,7 @@ import blackflow_auto_rounds as rounds
 import blackflow_live_run as live
 import blackflow_pick as pick
 import blackflow_state_check as state
+from test_blackflow_terminal_batch import terminal_outcome
 
 
 class RuntimeBindingTests(unittest.TestCase):
@@ -138,7 +139,16 @@ class RuntimeBindingTests(unittest.TestCase):
             pick.load_account("1", "Official")
 
     def test_round_precheck_and_runner_share_target(self):
+        def write_outcome(command, **kwargs):
+            out = Path(command[command.index("--out") + 1])
+            out.mkdir()
+            (out / "outcome.json").write_text(
+                json.dumps(terminal_outcome()), encoding="utf-8"
+            )
+            return 0
+
         with (
+            patch.object(rounds, "LOG_ROOT", self.root),
             patch(
                 "sys.argv",
                 [
@@ -154,9 +164,15 @@ class RuntimeBindingTests(unittest.TestCase):
             patch.object(
                 rounds,
                 "check_state",
-                return_value={"ok": True, "best": {"template": "lobby", "score": 1}},
+                return_value={
+                    "ok": True,
+                    "best": {
+                        "template": "BlackFlow@Roguelike@StartExplore.png",
+                        "score": 1,
+                    },
+                },
             ) as precheck,
-            patch.object(rounds.subprocess, "call", return_value=0) as run,
+            patch.object(rounds.subprocess, "call", side_effect=write_outcome) as run,
             contextlib.redirect_stdout(io.StringIO()),
         ):
             self.assertEqual(rounds.main(), 0)
@@ -166,15 +182,16 @@ class RuntimeBindingTests(unittest.TestCase):
         self.assertEqual(command[command.index("--client") + 1], "Official")
 
     def test_unsupported_page_never_appends_or_starts(self):
+        out = self.root / "run"
+        out.mkdir()
         image = self.root / "blank.png"
         cv2.imencode(".png", np.zeros((720, 1280, 3), dtype=np.uint8))[1].tofile(image)
         driver = Mock()
-        driver.snapshot.return_value = image
+        driver.result_summary.return_value = {}
+        driver.fresh_snapshot.return_value = image
         driver.save.return_value = (self.root / "callbacks.jsonl", 0)
         with (
-            patch(
-                "sys.argv", ["live", "--out", str(self.root), "--address", "device-1"]
-            ),
+            patch("sys.argv", ["live", "--out", str(out), "--address", "device-1"]),
             patch.object(live, "LiveDriver", return_value=driver),
             contextlib.redirect_stdout(io.StringIO()),
         ):
@@ -182,7 +199,7 @@ class RuntimeBindingTests(unittest.TestCase):
         driver.connect.assert_called_once_with("Official", "device-1")
         driver.append_task.assert_not_called()
         driver.start.assert_not_called()
-        self.assertFalse(json.loads((self.root / "preflight.json").read_text())["ok"])
+        self.assertFalse(json.loads((out / "preflight.json").read_text())["ok"])
 
     def test_state_capture_routes_to_requested_device(self):
         with patch.object(
@@ -200,15 +217,18 @@ class RuntimeBindingTests(unittest.TestCase):
         cv2.imencode(".png", np.zeros((720, 1280, 3), dtype=np.uint8))[1].tofile(image)
         for scan in (True, False):
             with self.subTest(scan=scan):
+                out = self.root / f"run-{scan}"
+                out.mkdir()
                 driver = Mock()
-                driver.snapshot.return_value = image
+                driver.result_summary.return_value = {}
+                driver.fresh_snapshot.return_value = image
                 driver.save.return_value = (self.root / "callbacks.jsonl", 0)
                 driver.wait.return_value = True
                 driver.completion_exit_code.return_value = 0
                 args = [
                     "live",
                     "--out",
-                    str(self.root),
+                    str(out),
                     "--account-cache-file",
                     "same-uid.json",
                 ]
@@ -217,7 +237,16 @@ class RuntimeBindingTests(unittest.TestCase):
                 with (
                     patch("sys.argv", args),
                     patch.object(live, "LiveDriver", return_value=driver),
-                    patch.object(state, "check", return_value={"ok": True}),
+                    patch.object(
+                        state,
+                        "check",
+                        return_value={
+                            "ok": True,
+                            "best": {
+                                "template": "BlackFlow@Roguelike@StartExplore.png"
+                            },
+                        },
+                    ),
                     contextlib.redirect_stdout(io.StringIO()),
                 ):
                     self.assertEqual(live.main(), 0)
@@ -225,6 +254,7 @@ class RuntimeBindingTests(unittest.TestCase):
                 self.assertEqual(task, "Roguelike")
                 self.assertEqual(params["scan_account_modules"], scan)
                 self.assertEqual(params["account_cache_file"], "same-uid.json")
+                driver.wait.assert_called_once_with(None)
                 driver.completion_exit_code.assert_called_once_with(
                     True, require_settlement=True, lobby_verified=True
                 )
