@@ -11,6 +11,7 @@
 #include "Config/Miscellaneous/BattleDataConfig.h"
 #include "Config/Roguelike/BlackFlow/BlackFlowAccountProfile.h"
 #include "Utils/Platform.hpp"
+#include "Vision/Roguelike/BlackFlow/BlackFlowDetailStrengthAnalyzer.h"
 
 namespace asst::blackflow
 {
@@ -101,12 +102,12 @@ std::optional<json::value> BlackFlowAccountSnapshotStore::merge(
     for (const auto& [name, fresh] : observed.verified_strengths) {
         const auto& value = fresh.observation;
         const auto canonical = BattleData.find_oper_by_id(value.operator_id);
+        const auto expected_labels = BlackFlowDetailStrengthAnalyzer::expected_labels(value.operator_id, name);
         const auto image = strength_images.find(name);
         if (!canonical || canonical->role == battle::Role::Drone || !value.operator_id.starts_with("char_") ||
             canonical->name != name || value.operator_name != name || value.elite < 0 || value.elite > 2 ||
             value.level < 1 || value.maximum_level < value.level || value.maximum_level > 90 ||
-            (value.recognized_name != name &&
-             (canonical->name_en.empty() || value.recognized_name != canonical->name_en)) ||
+            std::ranges::find(expected_labels, value.recognized_name) == expected_labels.end() ||
             image == strength_images.end() || image->second.empty() || fresh.source_image.empty() ||
             fresh.source_image.cols != 1280 || fresh.source_image.rows != 720 || !staged["operators"].contains(name) ||
             staged["operators"][name].get("id", "") != value.operator_id) {

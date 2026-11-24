@@ -1,5 +1,6 @@
 #include "BlackFlowDetailStrengthAnalyzer.h"
 
+#include <algorithm>
 #include <charconv>
 
 #include "Config/Miscellaneous/BattleDataConfig.h"
@@ -10,13 +11,26 @@
 
 namespace asst::blackflow
 {
+std::vector<std::string>
+    BlackFlowDetailStrengthAnalyzer::expected_labels(const std::string& operator_id, const std::string& operator_name)
+{
+    const auto canonical = BattleData.find_oper_by_id(operator_id);
+    if (!operator_id.starts_with("char_") || !canonical || canonical->name != operator_name ||
+        canonical->role == battle::Role::Drone) {
+        return {};
+    }
+    std::vector<std::string> labels { operator_name };
+    if (!canonical->name_en.empty() && canonical->name_en != operator_name) {
+        labels.push_back(canonical->name_en);
+    }
+    return labels;
+}
+
 std::optional<DetailStrengthObservation>
     BlackFlowDetailStrengthAnalyzer::analyze(const std::string& operator_id, const std::string& operator_name) const
 {
-    const auto canonical = BattleData.find_oper_by_id(operator_id);
-    if (m_image.empty() || m_image.cols != 1280 || m_image.rows != 720 || m_image.type() != CV_8UC3 ||
-        !operator_id.starts_with("char_") || !canonical || canonical->name != operator_name ||
-        canonical->role == battle::Role::Drone) {
+    const auto labels = expected_labels(operator_id, operator_name);
+    if (m_image.empty() || m_image.cols != 1280 || m_image.rows != 720 || m_image.type() != CV_8UC3 || labels.empty()) {
         return std::nullopt;
     }
     const auto detail_task = Task.get<MatchTaskInfo>("BlackFlowAccount@StrengthDetail");
@@ -33,18 +47,30 @@ std::optional<DetailStrengthObservation>
     if (!page.analyze()) {
         return std::nullopt;
     }
-    OCRer name(m_image);
-    name.set_task_info(name_task);
-    name.set_required({ operator_name, canonical->name_en });
-    const auto names = name.analyze();
-    std::optional<OCRer::Result> identity;
-    if (names) {
-        for (const auto& match : *names) {
-            if ((match.text == operator_name || (!canonical->name_en.empty() && match.text == canonical->name_en)) &&
-                match.score >= 0.95 && (!identity || match.score > identity->score)) {
-                identity = match;
+    const auto read_identity = [&](const std::shared_ptr<OcrTaskInfo>& task) -> std::optional<OCRer::Result> {
+        if (!task || !inside(task->roi)) {
+            return std::nullopt;
+        }
+        OCRer name(m_image);
+        name.set_task_info(task);
+        name.set_required(labels);
+        std::optional<OCRer::Result> result;
+        if (const auto names = name.analyze()) {
+            for (const auto& match : *names) {
+                if (std::ranges::find(labels, match.text) != labels.end() && match.score >= 0.95 &&
+                    (!result || match.score > result->score)) {
+                    result = match;
+                }
             }
         }
+        return result;
+    };
+    auto identity = read_identity(name_task);
+    if (!identity) {
+        // Short titles can be missed when the narrow crop changes OCR detection
+        // scale. Reuse the detail gate's broader region on this same frame,
+        // keeping exact canonical labels and the original confidence floor.
+        identity = read_identity(Task.get<OcrTaskInfo>("BlackFlowAccountScan@DetailName"));
     }
     if (!identity) {
         return std::nullopt;
