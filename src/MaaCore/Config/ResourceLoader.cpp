@@ -21,6 +21,7 @@
 #include "Roguelike/BlackFlow/BlackFlowMapPerceptionResource.h"
 #include "Roguelike/BlackFlow/BlackFlowMapTemplateConfig.h"
 #include "Roguelike/BlackFlow/BlackFlowNodeExecutionConfig.h"
+#include "Roguelike/BlackFlow/BlackFlowOpeningDutyCatalog.h"
 #include "Roguelike/BlackFlow/BlackFlowScrapMarketConfig.h"
 #include "Roguelike/BlackFlow/BlackFlowStrategyConfig.h"
 #include "Roguelike/JieGarden/RoguelikeCoppersConfig.h"
@@ -230,6 +231,19 @@ bool asst::ResourceLoader::load(const std::filesystem::path& path)
     else {
         RoguelikeTraining.clear();
         LogWarn << __FUNCTION__ << "Operator training rules unavailable; preserve unknown preparation fields";
+    }
+
+    // Optional reviewed base-skill duties are loaded once, against the same
+    // effective training/battle metadata as the existing custom-resource chain.
+    const auto duty_path = roguelike_path("BlackFlow", "opening_duty.json"_p);
+    const auto duty_custom = path / "opening_duty_custom.json"_p;
+    const auto training_custom = path / "operator_training_custom.json"_p;
+    const auto battle_custom = path / "battle_data_custom.json"_p;
+    if (!blackflow::opening_duty_catalog().load(
+            std::filesystem::exists(duty_custom) ? duty_custom : path / duty_path,
+            std::filesystem::exists(training_custom) ? training_custom : path / training_path,
+            std::filesystem::exists(battle_custom) ? battle_custom : path / "battle_data.json"_p)) {
+        LogWarn << __FUNCTION__ << "Opening duty facts unavailable or incompatible; preserve unknown duties";
     }
 
     // Shopping Config
