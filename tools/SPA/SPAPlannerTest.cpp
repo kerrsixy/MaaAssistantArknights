@@ -6567,6 +6567,27 @@ int main()
     assert(active_pivot.valid && active_pivot.primary_pact == "维多利亚");
     assert(choose_dynamic_primary_pact(active_transition, funded_transition, catalog, 2).primary_pact == "萨尔贡");
 
+    // Live regulation 7, round 11. The funded Kazimierz package was entirely
+    // off the field when Sargon already had three deployed members and 29 layers.
+    auto late_sargon = active_transition;
+    late_sargon.enabled_core_pacts = { "萨尔贡", "卡西米尔" };
+    late_sargon.owned.erase("慕斯");
+    late_sargon.owned.erase("涤火杰西卡");
+    late_sargon.owned["历阵锐枪芬"] = { 1, false, false };
+    late_sargon.observed_pact_layers["萨尔贡"] = 29;
+    late_sargon.deployed_population = 8;
+    late_sargon.bench_occupied = 4;
+    late_sargon.growth_scenario_horizon_round = 14;
+    const std::vector<ShopOffer> kazimierz_quotes { { "玛恩纳", 3, 0 }, { "砾", 3, 2 }, { "瑕光", 3, 3 } };
+    late_sargon.round = 10;
+    assert(choose_dynamic_primary_pact(late_sargon, kazimierz_quotes, catalog, 6).primary_pact == "卡西米尔");
+    late_sargon.round = 11;
+    const auto retained_sargon = choose_dynamic_primary_pact(late_sargon, kazimierz_quotes, catalog, 6);
+    assert(retained_sargon.primary_pact == "萨尔贡");
+    assert(retained_sargon.ranking.front().pact == "卡西米尔");
+    late_sargon.disabled_pacts = { "萨尔贡" };
+    assert(choose_dynamic_primary_pact(late_sargon, kazimierz_quotes, catalog, 6).primary_pact == "卡西米尔");
+
     // In regulation 5 R9, purchasing 乌啾 used the last bench slot.
     // The quote was affordable, but three battles started before the
     // selected challenger ever activated. Preserve the current route here.

@@ -5730,6 +5730,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         m_policy.round = round;
         m_policy.current_life = state.get("life_known", false) ? state.get("life", -1) : -1;
         m_policy.boss_preparation = boss_preparation;
+        m_policy.growth_scenario_horizon_round = m_expected_boss_round;
         m_policy.allow_freeze = !boss_preparation;
         // Freeze persists in the game UI across observations and may carry
         // into the next round.  The observer's generic preparation payload
@@ -6329,7 +6330,6 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         m_policy.growth_primary_active_verified = primary_active_verified && field_poses_complete &&
                                                   !m_field_checkpoint_loaded && !m_bench_recount_pending &&
                                                   !m_pending_field_replacement && !m_pending_spatial_orientation;
-        m_policy.growth_scenario_horizon_round = m_expected_boss_round;
         // Banking a spare coin is a purchase of an intentionally idle body,
         // not a deployment or an assumed future credit. Keep it out of an
         // incomplete/recovered board and out of a presently visible boss round.

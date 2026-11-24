@@ -1011,6 +1011,13 @@ asst::spa::DynamicPactChoice asst::spa::choose_dynamic_primary_pact(
             return result;
         }
         const auto& challenger = result.ranking.front();
+        const bool closing_rounds =
+            policy.boss_preparation || (policy.round > 0 && policy.growth_scenario_horizon_round > 0 &&
+                                        policy.growth_scenario_horizon_round - policy.round <= 3);
+        if (closing_rounds && layers->second > 0 && challenger.deployed_members < challenger.required_members) {
+            keep_current("Keep the growing faction near the boss while the alternative still needs deployment");
+            return result;
+        }
         const int activation_recruits = std::max(0, challenger.required_members - challenger.owned_members);
         // On a full field an incoming unit must leave room for the outgoing
         // unit. A funded quote that fills the last bench slot cannot put an
