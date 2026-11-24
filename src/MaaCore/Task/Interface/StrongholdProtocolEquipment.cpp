@@ -8,12 +8,15 @@
 #include "Task/MiniGame/SPA/SPADirectPromotionPolicy.h"
 #include "Task/MiniGame/SPA/SPAFormation.h"
 #include "Task/MiniGame/SPA/SPAGrowth.h"
+#include "Task/MiniGame/SPA/SPAImageEvidence.h"
+#include "Task/MiniGame/SPA/SPANumberOcr.h"
 #include "Task/MiniGame/SPA/SPAOperatorCatalogue.h"
 #include "Task/MiniGame/SPA/SPAPlanner.h"
 #include "Task/MiniGame/SPA/SPAStrategyEligibility.h"
 #include "Task/MiniGame/SPA/SPASummonPolicy.h"
 #include "Task/MiniGame/SPA/SPASwapTaskPlugin.h"
 #include "Task/MiniGame/SPA/SPATerrainModel.h"
+#include "Vision/OCRer.h"
 #include <algorithm>
 #include <iterator>
 #include <utility>
@@ -229,16 +232,121 @@ bool asst::StrongholdProtocolTask::handle_strategy_copy(const json::value& state
     return true;
 }
 
+bool asst::StrongholdProtocolTask::handle_ursus_strategy_recruitment(const json::value& state, bool primary_active)
+{
+    const int round = state.get("round", -1), funds = state.get("funds", -1);
+    const int remaining = state.get("remaining_deployment", -1);
+    if (m_mode != "independent" || m_selected_strategy_id != "band_ursus" || m_policy.primary_pact != "乌萨斯" ||
+        state.get("page", std::string()) != "preparation" || round < 1 || round > 20 || funds < 0 ||
+        m_policy.shop_level < 1 || m_policy.shop_level > 6 || !state.get("round_known", false) ||
+        !state.get("funds_known", false) || !state.get("remaining_deployment_known", false) ||
+        state.get("remaining_deployment_inferred", false) || remaining < 0 || remaining > 8 ||
+        m_preparation_instruction_attempts.contains(round) || !m_pending_tactical_recruitment.empty() ||
+        !m_pending_pact_recruitment.empty() || !m_pending_promotion.empty() || m_pending_promotion_reward ||
+        m_pending_spatial_orientation || m_pending_field_replacement || m_pending_direct_promotion ||
+        m_pending_cash_equipment || m_pending_delayed_cash_equipment || m_field_checkpoint_loaded ||
+        m_bench_recount_pending || !m_unreconciled_sale.empty() || m_policy.bench_occupied < 0 ||
+        m_policy.bench_occupied >= 10 || m_auto_deploy_positions.size() != static_cast<size_t>(8 - remaining)) {
+        return false;
+    }
+    int bench_count = 0;
+    for (const auto& [name, owned] : m_policy.owned) {
+        const auto forms = spa::owned_form_counts(owned);
+        const int deployed = static_cast<int>(m_auto_deploy_positions.count(name));
+        if (!forms || deployed > forms->initial + forms->elite || owned.deployed != (deployed > 0)) {
+            return false;
+        }
+        bench_count += forms->initial + forms->elite - deployed;
+    }
+    if (bench_count != m_policy.bench_occupied || !std::ranges::all_of(m_auto_deploy_positions, [&](const auto& unit) {
+            return m_policy.owned.contains(unit.first) && m_verified_field_pose_points.contains(unit.second);
+        })) {
+        return false;
+    }
+    const auto read_price = [](const cv::Mat& frame) -> std::optional<int> {
+        if (!spa::active_strategy_ready(frame)) {
+            return std::nullopt;
+        }
+        return spa::shop_number(frame, Rect(1220, 185, 23, 22), .72);
+    };
+    const auto opening = ctrler()->get_image();
+    const auto price = read_price(opening);
+    // Preserve most of a developed lineup's budget for known recruits and
+    // equipment. An unformed Ursus board can use a full-price grant.
+    if (!price || *price < 0 || *price > (primary_active ? 2 : 5) || *price > funds ||
+        spa::preparation_round_number(opening, round, .80) != round ||
+        spa::shop_number(opening, Rect(1180, 510, 45, 40), .72) != funds) {
+        return false;
+    }
+    const Point view(1155, 235);
+    m_preparation_instruction_attempts.insert(round);
+    if (!ctrler()->click(view) || !sleep(450)) {
+        return true;
+    }
+    std::string description;
+    const auto description_frame = ctrler()->get_image();
+    OCRer panel(description_frame, Rect(750, 145, 390, 240));
+    if (const auto read = panel.analyze()) {
+        for (const auto& text : *read) {
+            if (text.score >= .85) {
+                description += text.text;
+            }
+        }
+    }
+    const bool panel_observed =
+        description.find("无惧风雪") != std::string::npos || description.find("怒潮凛冬") != std::string::npos;
+    const bool identity =
+        description.find("无惧风雪") != std::string::npos && description.find("怒潮凛冬") != std::string::npos &&
+        description.find("乌萨斯") != std::string::npos && description.find("调度中心") != std::string::npos;
+    if (!panel_observed || !ctrler()->click(view) || !sleep(350) || !identity) {
+        spa::save_evidence(description_frame, utils::path("debug/SPA/ursus_recruitment_description_unverified"), false);
+        return true;
+    }
+    const auto ready = ctrler()->get_image();
+    if (read_price(ready) != price || spa::preparation_round_number(ready, round, .80) != round ||
+        spa::shop_number(ready, Rect(1180, 510, 45, 40), .72) != funds) {
+        return true;
+    }
+    m_pending_tactical_recruitment = "乌萨斯";
+    m_pending_tactical_recruitment_round = round;
+    m_strategy_recruitment_expected_funds = funds - *price;
+    m_tactical_recruitment_probes = 0;
+    auto pending = basic_info_with_what("SPAStrategyRecruitmentPending");
+    pending["details"] =
+        json::object { { "run_id", m_run_id },
+                       { "strategy_id", m_selected_strategy_id },
+                       { "selected_strategy_id", m_selected_strategy_id },
+                       { "round", round },
+                       { "resume_after_round", round },
+                       { "shop_level", m_policy.shop_level },
+                       { "funds_before", funds },
+                       { "price_verified", *price },
+                       { "strategy_recruitment_expected_funds", m_strategy_recruitment_expected_funds },
+                       { "tactical_recruitment_pending", m_pending_tactical_recruitment },
+                       { "tactical_recruitment_round", round },
+                       { "bench_occupied", m_policy.bench_occupied },
+                       { "field_positions", field_position_snapshot() },
+                       { "used_deploy_points", deployment_point_snapshot() },
+                       { "roster", roster_snapshot() } };
+    callback(AsstMsg::SubTaskExtraInfo, pending);
+    if (ctrler()->click(Point(1235, 235))) {
+        static_cast<void>(sleep(550));
+    }
+    return true;
+}
+
 bool asst::StrongholdProtocolTask::reconcile_tactical_recruitment(const json::value& state)
 {
     const int round = state.get("round", -1);
     const int funds = state.get("funds", -1);
     const int remaining = state.get("remaining_deployment", -1);
+    const bool from_strategy = m_strategy_recruitment_expected_funds >= 0;
     if (round != m_pending_tactical_recruitment_round || funds < 0 || remaining < 0 || remaining > 8 ||
-        !state.get("round_known", false) || !state.get("funds_known", false) ||
-        !state.get("remaining_deployment_known", false) || state.get("remaining_deployment_inferred", false) ||
-        m_pending_field_replacement || m_pending_spatial_orientation || m_bench_recount_pending ||
-        !m_pending_promotion.empty() || !m_pending_pact_recruitment.empty()) {
+        (from_strategy && funds != m_strategy_recruitment_expected_funds) || !state.get("round_known", false) ||
+        !state.get("funds_known", false) || !state.get("remaining_deployment_known", false) ||
+        state.get("remaining_deployment_inferred", false) || m_pending_field_replacement ||
+        m_pending_spatial_orientation || m_bench_recount_pending || !m_pending_promotion.empty() ||
+        !m_pending_pact_recruitment.empty()) {
         return false;
     }
 
@@ -389,11 +497,17 @@ bool asst::StrongholdProtocolTask::reconcile_tactical_recruitment(const json::va
     m_unavailable_replacement_sources.erase(name);
     const auto pact = std::exchange(m_pending_tactical_recruitment, {});
     m_pending_tactical_recruitment_round = 0;
+    m_strategy_recruitment_expected_funds = -1;
+    if (from_strategy) {
+        m_preparation_instruction_attempts.erase(round);
+    }
     auto receipt = basic_info_with_what("SPATacticalRecruitmentReconciled");
     receipt["details"] = json::object { { "run_id", m_run_id },
                                         { "round", round },
                                         { "pact", pact },
                                         { "name", name },
+                                        { "strategy_recruitment_payment_verified", from_strategy },
+                                        { "strategy_recruitment_expected_funds", -1 },
                                         { "automatic_synthesis_observed", promoted },
                                         { "tactical_recruitment_pending", std::string() },
                                         { "tactical_recruitment_round", 0 },

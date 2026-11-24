@@ -238,7 +238,9 @@ private:
     std::string m_pending_pact_recruitment;
     std::string m_pending_tactical_recruitment;
     int m_pending_tactical_recruitment_round = 0;
+    int m_strategy_recruitment_expected_funds = -1;
     int m_tactical_recruitment_probes = 0;
+    bool handle_ursus_strategy_recruitment(const json::value& state, bool primary_active);
     bool reconcile_tactical_recruitment(const json::value& state);
     bool reconcile_deferred_opening_gifts(const json::value& state);
     int m_cash_equipment_acquired_round = -1;

@@ -323,7 +323,14 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_pending_promotion = params.get("promotion_pending", std::string());
     m_pending_tactical_recruitment = params.get("tactical_recruitment_pending", std::string());
     m_pending_tactical_recruitment_round = params.get("tactical_recruitment_round", 0);
+    m_strategy_recruitment_expected_funds = params.get("strategy_recruitment_expected_funds", -1);
     m_tactical_recruitment_probes = 0;
+    if (m_strategy_recruitment_expected_funds < -1 || m_strategy_recruitment_expected_funds > 999 ||
+        (m_strategy_recruitment_expected_funds >= 0 &&
+         (m_mode != "independent" || m_pending_tactical_recruitment != "乌萨斯" ||
+          params.get("selected_strategy_id", std::string()) != "band_ursus"))) {
+        return false;
+    }
     if (!m_pending_tactical_recruitment.empty()) {
         const auto pacts = spa::pact_requirements();
         if (m_pending_tactical_recruitment_round < 1 || m_pending_tactical_recruitment_round > 20 ||
@@ -3771,6 +3778,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                                    { "round", state.get("round", -1) },
                                    { "tactical_recruitment_pending", m_pending_tactical_recruitment },
                                    { "tactical_recruitment_round", m_pending_tactical_recruitment_round },
+                                   { "strategy_recruitment_expected_funds", m_strategy_recruitment_expected_funds },
                                    { "resume_after_round", m_pending_tactical_recruitment_round },
                                    { "bench_occupied", m_policy.bench_occupied },
                                    { "roster", roster_snapshot() },
@@ -6913,6 +6921,16 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
         callback(AsstMsg::SubTaskExtraInfo, info);
         if (m_decision_only) {
             return true;
+        }
+        if (m_auto_run && !resume_funded_purchase && !resume_funding_pair &&
+            (decision.action == spa::PreparationAction::Review ||
+             (decision.action == spa::PreparationAction::Refresh && !decision.free_refresh)) &&
+            handle_ursus_strategy_recruitment(
+                state,
+                std::ranges::find(modeled_formation.active_pacts, m_policy.primary_pact) !=
+                    modeled_formation.active_pacts.end())) {
+            observer.expect_unchanged_preparation(round);
+            continue;
         }
         if (decision.action == spa::PreparationAction::Review) {
             const auto modeled_current = spa::evaluate_formation(

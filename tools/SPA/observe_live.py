@@ -452,6 +452,7 @@ def main():
             "SPAAutomationRewardSelected",
             "SPATacticalRecruitmentDeferred",
             "SPATacticalRecruitmentReconciled",
+            "SPAStrategyRecruitmentPending",
             "SPAStrategyCopyDeferred",
             "SPAStrategyCopyVerified",
             "SPAStrategyCopyUnchanged",
