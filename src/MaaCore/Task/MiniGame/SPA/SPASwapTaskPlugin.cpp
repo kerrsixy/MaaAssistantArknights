@@ -1932,8 +1932,10 @@ std::optional<std::vector<std::pair<std::string, bool>>> asst::spa::SwapTaskPlug
         if (need_exit()) {
             return std::nullopt;
         }
+        const auto contact = bench_inventory_inspection_point(frame, { centre.x, centre.y });
         cv::Mat panel;
-        const auto name = bench_identity(Point(centre.x, centre.y + 30), false, {}, nullptr, &panel);
+        const auto name =
+            contact ? bench_identity(Point(contact->x, contact->y), false, {}, nullptr, &panel) : std::nullopt;
         std::optional<bool> elite;
         if (name && catalogue.contains(*name)) {
             const auto unchanged = unchanged_forms.find(*name);
@@ -1964,7 +1966,7 @@ std::optional<std::vector<std::pair<std::string, bool>>> asst::spa::SwapTaskPlug
                  return equipment_title_matches(profile.name, *name);
              }));
         if (!non_operator) {
-            save_evidence(panel, utils::path("debug/SPA/bench_form_unverified"), false);
+            save_evidence(panel.empty() ? frame : panel, utils::path("debug/SPA/bench_form_unverified"), false);
             LogWarn << "SPA initial/elite form unverified during bench reconciliation" << round << centre.x << centre.y
                     << name.value_or("");
             return std::nullopt;

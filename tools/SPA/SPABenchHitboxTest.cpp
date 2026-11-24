@@ -17,6 +17,9 @@ int main()
     assert(bench_inspection_panel_absent(failed));
     assert(!bench_inspection_panel_absent(selected));
     assert(exposed_bench_head(failed, source) == exposed);
+    assert(bench_inventory_inspection_point(failed, source) == exposed);
+    assert(bench_inventory_inspection_point(failed, cv::Point(883, 450)) == cv::Point(883, 480));
+    assert(!bench_inventory_inspection_point(failed, cv::Point(1040, 450)));
     // Identical-frame replay proves the geometry and unchanged-panel gates,
     // not that the live game has accepted any click or sold this operator.
     assert(bench_head_retry_target(failed, failed, source, false) == exposed);

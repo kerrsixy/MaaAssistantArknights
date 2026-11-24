@@ -43,6 +43,17 @@ inline std::optional<cv::Point> exposed_bench_head(const cv::Mat& image, cv::Poi
     return cv::Point(source.x, 420);
 }
 
+// Use an exposed head only on the clean preparation frame that already
+// established the bench positions. The resulting click still needs a title.
+inline std::optional<cv::Point> bench_inventory_inspection_point(const cv::Mat& frame, cv::Point centre)
+{
+    const auto foot = centre + cv::Point(0, 30);
+    if (!overlaps_expanded_shop_controls(foot)) {
+        return foot;
+    }
+    return exposed_bench_head(frame, centre);
+}
+
 inline bool bench_inspection_panel_absent(const cv::Mat& image)
 {
     if (image.type() != CV_8UC3 || image.size() != cv::Size(1280, 720)) {
