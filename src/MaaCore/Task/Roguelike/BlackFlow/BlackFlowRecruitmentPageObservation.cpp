@@ -185,4 +185,107 @@ json::value make_recruitment_page_observation(
         { "gameplay_inputs", 0 },
     };
 }
+
+json::value make_recruitment_page_observation(
+    const cv::Mat& frame,
+    const RoguelikeRecruitImageAnalyzer& analyzer,
+    const RecruitmentPageObservationContext& context)
+{
+    using recruitment_page_observation_detail::rect_json;
+    auto page =
+        make_recruitment_page_observation(frame, analyzer.get_result(), analyzer.get_hope_cost_evidence(), context);
+    const auto& observations = analyzer.get_candidate_evidence();
+    const auto& prices = analyzer.get_hope_cost_evidence();
+    std::vector<json::array> named_links(prices.size()), usable_links(prices.size());
+    json::array links;
+    for (const auto& observed : observations) {
+        const auto exact = analyzer.resolve_candidate_hope_cost(observed);
+        const bool operation_known = exact && exact->get().operation_score >= 0.9 &&
+                                     (exact->get().operation == "招募" || exact->get().operation == "进阶");
+        const bool cost_known = exact && exact->get().hope_cost && *exact->get().hope_cost >= 0;
+        links.emplace_back(
+            json::object {
+                { "analysis_id", observed.analysis_id },
+                { "candidate_observation_index", observed.observation_index },
+                { "usable_result_index",
+                  observed.usable_result_index ? json::value(*observed.usable_result_index) : json::value(nullptr) },
+                { "name", observed.name },
+                { "name_rect", rect_json(observed.name_rect) },
+                { "name_OCR_score", observed.name_score },
+                { "currency_flag_rect", rect_json(observed.currency_flag_rect) },
+                { "currency_flag_score", observed.currency_flag_score },
+                { "price_evidence_index",
+                  observed.hope_cost_evidence_index ? json::value(*observed.hope_cost_evidence_index)
+                                                    : json::value(nullptr) },
+                { "exact_same_analysis_price_link", exact.has_value() },
+                { "price_link_reason", observed.price_link_reason },
+                { "raw_elite", observed.elite },
+                { "raw_level", observed.level },
+                { "card_operation", operation_known ? json::value(exact->get().operation) : json::value(nullptr) },
+                { "hope_cost", cost_known ? json::value(*exact->get().hope_cost) : json::value(nullptr) },
+                { "temporary", observed.temporary ? json::value(*observed.temporary) : json::value(nullptr) },
+                { "temporary_reason", observed.temporary_reason },
+                { "temporary_search_roi", rect_json(observed.temporary_search_roi) },
+                { "temporary_badge_rect",
+                  observed.temporary_badge_rect ? json::value(rect_json(*observed.temporary_badge_rect))
+                                                : json::value(nullptr) },
+                { "temporary_badge_score",
+                  observed.temporary_badge_score ? json::value(*observed.temporary_badge_score)
+                                                 : json::value(nullptr) },
+                { "negative_temporary_rule_source", nullptr },
+                { "usability_reason", observed.usability_reason },
+            });
+        if (exact) {
+            named_links[*observed.hope_cost_evidence_index].emplace_back(observed.observation_index);
+            if (observed.usable_result_index) {
+                usable_links[*observed.hope_cost_evidence_index].emplace_back(*observed.usable_result_index);
+            }
+        }
+        auto& usable = page["usable_candidates_before_consumer_filters"].as_array();
+        if (observed.usable_result_index && *observed.usable_result_index < usable.size()) {
+            auto& row = usable[*observed.usable_result_index];
+            row["analysis_id"] = observed.analysis_id;
+            row["candidate_evidence_index"] = observed.observation_index;
+            row["price_evidence_index"] = observed.hope_cost_evidence_index
+                                              ? json::value(*observed.hope_cost_evidence_index)
+                                              : json::value(nullptr);
+            row["currency_flag_rect"] = rect_json(observed.currency_flag_rect);
+            row["currency_flag_score"] = observed.currency_flag_score;
+            row["name_OCR_score"] = observed.name_score;
+            row["exact_same_analysis_price_link"] = exact.has_value();
+            row["card_operation"] = operation_known ? json::value(exact->get().operation) : json::value(nullptr);
+            row["card_operation_source"] = "same_analysis_exact_currency_flag_and_price_evidence_index";
+            row["temporary"] = observed.temporary ? json::value(*observed.temporary) : json::value(nullptr);
+            row["temporary_source"] = observed.temporary_reason;
+            row["temporary_search_roi"] = rect_json(observed.temporary_search_roi);
+            row["temporary_badge_rect"] = observed.temporary_badge_rect
+                                              ? json::value(rect_json(*observed.temporary_badge_rect))
+                                              : json::value(nullptr);
+            row["temporary_badge_score"] =
+                observed.temporary_badge_score ? json::value(*observed.temporary_badge_score) : json::value(nullptr);
+            row["negative_temporary_rule_source"] = nullptr;
+        }
+    }
+    auto& raw_prices = page["raw_price_evidence_including_unpaired"].as_array();
+    std::size_t no_named_link = 0, no_usable_link = 0;
+    for (std::size_t index = 0; index < raw_prices.size(); ++index) {
+        auto& row = raw_prices[index];
+        row["linked_candidate_observation_indexes"] = named_links[index];
+        row["linked_usable_result_indexes"] = usable_links[index];
+        row["exact_usable_pairing_verified"] = usable_links[index].size() == 1;
+        row["unpaired_with_usable_result"] = usable_links[index].empty();
+        row["pairing_limit"] = "exact_same_analysis_currency_flag_and_index_or_unpaired_no_name_fallback";
+        no_named_link += named_links[index].empty() ? 1 : 0;
+        no_usable_link += usable_links[index].empty() ? 1 : 0;
+    }
+    page["analysis_id"] = analyzer.get_analysis_id();
+    page["candidate_evidence_count"] = observations.size();
+    page["candidate_price_links"] = std::move(links);
+    page["price_evidence_without_exact_named_link_count"] = no_named_link;
+    page["unpaired_price_evidence_count"] = no_usable_link;
+    page["unpaired_price_evidence_count_source"] = "same_analysis_exact_usable_links";
+    page["same_analysis_sidecar_used"] = true;
+    return page;
+}
+
 }

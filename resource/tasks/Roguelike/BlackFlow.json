@@ -3692,6 +3692,7 @@
         "baseTask": "Terminal-Entry",
         "onErrorNext": [
             "BlackFlow@Roguelike@TerminalDailySupplyDismiss",
+            "BlackFlow@Roguelike@TerminalMonthlySignInDismiss",
             "BlackFlow@Roguelike@TerminalAnnouncementDismiss",
             "BlackFlow@Terminal-Entry@SwitchTheme@ToggleSettingsMenu"
         ]
@@ -3700,6 +3701,14 @@
         "Doc": "终端子流程等待时，日切配给可能延迟遮挡主页。仅在识别到完整标题后确认配给，再重试终端；两次后停止恢复。",
         "baseTask": "BlackFlow@Roguelike@BeginRecovery_DailySupply",
         "fullMatch": true,
+        "maxTimes": 2,
+        "postDelay": 500,
+        "next": ["BlackFlow@Terminal-Entry"],
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
+    },
+    "BlackFlow@Roguelike@TerminalMonthlySignInDismiss": {
+        "Doc": "配给确认后可能继续出现月签到。复用标题与常规配给双重门禁，关闭后重试待执行终端；两次后停止恢复。",
+        "baseTask": "BlackFlow@Roguelike@AccountMonthlySignInClose",
         "maxTimes": 2,
         "postDelay": 500,
         "next": ["BlackFlow@Terminal-Entry"],

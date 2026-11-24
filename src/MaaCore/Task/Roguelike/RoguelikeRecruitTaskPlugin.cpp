@@ -342,11 +342,7 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                 .legacy_filter_hope = cur_hope >= 0 ? std::optional<int>(cur_hope) : std::nullopt,
                 .initial_recruitment = m_initail_recruit,
             };
-            observation["details"] = blackflow::make_recruitment_page_observation(
-                image,
-                analyzer.get_result(),
-                analyzer.get_hope_cost_evidence(),
-                context);
+            observation["details"] = blackflow::make_recruitment_page_observation(image, analyzer, context);
             callback(AsstMsg::SubTaskExtraInfo, observation);
         }
         if (!analyzed) {

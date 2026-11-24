@@ -32,4 +32,12 @@ struct RecruitmentPageObservationContext
     const std::vector<battle::roguelike::Recruitment>& usable,
     const std::vector<RoguelikeRecruitHopeCostEvidence>& price_evidence,
     const RecruitmentPageObservationContext& context);
+
+// Use one analyzer's same-analysis sidecar. The explicit-vector overload remains
+// available for legacy callers and deterministic helper fixtures.
+[[nodiscard]] json::value make_recruitment_page_observation(
+    const cv::Mat& frame,
+    const RoguelikeRecruitImageAnalyzer& analyzer,
+    const RecruitmentPageObservationContext& context);
+
 }
