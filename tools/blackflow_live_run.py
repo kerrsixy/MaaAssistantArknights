@@ -38,6 +38,7 @@ ADB_CONFIG = "MuMuEmulator12"
 
 MSG_CONNECTION_INFO = 2
 MSG_ALL_TASKS_COMPLETED = 3
+MSG_ASYNC_CALL_INFO = 4
 MSG_INTERNAL_ERROR = 0
 MSG_TASK_CHAIN_ERROR = 10_000
 MSG_TASK_CHAIN_COMPLETED = 10_002
@@ -60,6 +61,17 @@ KEEP_MSGS = {
 def default_out_dir():
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     return LOG_ROOT / f"blackflow_live_{stamp}"
+
+
+def is_fresh_lobby(state):
+    """A saved exploration is not a permitted fresh-sample entry point."""
+    if not isinstance(state, dict) or state.get("ok") is not True:
+        return False
+    best = state.get("best")
+    return (
+        isinstance(best, dict)
+        and best.get("template") == "BlackFlow@Roguelike@StartExplore.png"
+    )
 
 
 class LiveDriver:
@@ -123,6 +135,8 @@ class LiveDriver:
         lib.AsstStop.argtypes, lib.AsstStop.restype = [handle], ctypes.c_bool
         lib.AsstRunning.argtypes, lib.AsstRunning.restype = [handle], ctypes.c_bool
         lib.AsstConnected.argtypes, lib.AsstConnected.restype = [handle], ctypes.c_bool
+        lib.AsstAsyncScreencap.argtypes = [handle, ctypes.c_bool]
+        lib.AsstAsyncScreencap.restype = ctypes.c_int
         lib.AsstGetImage.argtypes = [handle, ctypes.c_void_p, ctypes.c_size_t]
         lib.AsstGetImage.restype = ctypes.c_size_t
 
@@ -265,9 +279,102 @@ class LiveDriver:
         path.write_bytes(buf.raw[:size])
         return path
 
-    def wait(self, seconds):
-        deadline = time.monotonic() + seconds
+    def fresh_snapshot(self, name="snapshot.png"):
+        """Read the cache only after this capture has a positive native receipt."""
+        with self._lock:
+            start = len(self._records)
+        call_id = self._lib.AsstAsyncScreencap(self._handle, True)
+        if call_id <= 0:
+            return None
+        # A positive ID only means the call was queued. Even block=True may
+        # finish before the callback thread delivers the actual result.
+        deadline = time.monotonic() + 2
         while time.monotonic() < deadline:
+            with self._lock:
+                records = self._records[start:]
+                start = len(self._records)
+            for record in records:
+                if record.get("msg") != MSG_ASYNC_CALL_INFO:
+                    continue
+                try:
+                    payload = json.loads(record.get("details", ""))
+                except (ValueError, TypeError):
+                    continue
+                if not isinstance(payload, dict):
+                    continue
+                if (
+                    payload.get("what") != "Screencap"
+                    or payload.get("async_call_id") != call_id
+                ):
+                    continue
+                details = payload.get("details")
+                if isinstance(details, dict) and details.get("ret") is True:
+                    return self.snapshot(name)
+                return None
+            time.sleep(0.01)
+        return None
+
+    def result_summary(self):
+        """Return native receipts; these do not independently prove an ending."""
+        with self._lock:
+            records = list(self._records)
+        settlements, bindings, stages = [], [], []
+        pauses = 0
+        exploration_starts = 0
+        roster_restorations = 0
+        for record in records:
+            try:
+                payload = json.loads(record.get("details", ""))
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+            what = payload.get("what")
+            details = payload.get("details")
+            pauses += what == "BlackFlowBattlePaused"
+            if not isinstance(details, dict):
+                continue
+            if (
+                record.get("msg") == MSG_SUBTASK_COMPLETED
+                and payload.get("subtask") == "ProcessTask"
+            ):
+                task = details.get("task")
+                exploration_starts += (
+                    isinstance(task, str) and task.rsplit("@", 1)[-1] == "StartExplore"
+                )
+            if record.get("msg") != MSG_SUBTASK_EXTRA_INFO:
+                continue
+            if what == "RoguelikeSettlement" and type(details.get("game_pass")) is bool:
+                settlements.append(details)
+            elif what == "BlackFlowAccountBound":
+                bindings.append(
+                    {key: details.get(key) for key in ("uid", "client", "cache_file")}
+                )
+            elif what == "StageInfo":
+                stages.append(details.get("name"))
+            elif what == "BlackFlowRosterRestored":
+                roster_restorations += 1
+        return {
+            "settlements": settlements,
+            "account_bindings": bindings,
+            "battle_stages": stages,
+            "pause_callbacks": pauses,
+            "fresh_exploration_starts": exploration_starts,
+            "assisted_roster_restorations": roster_restorations,
+            "workflow_error_callbacks": sum(
+                record.get("msg")
+                in {MSG_INTERNAL_ERROR, MSG_TASK_CHAIN_ERROR, MSG_SUBTASK_ERROR}
+                for record in records
+            ),
+            "native_game_pass": settlements[-1]["game_pass"] if settlements else None,
+            "unattended_first_ending_proven": False,
+        }
+
+    def wait(self, seconds=None):
+        if seconds is not None and seconds < 0:
+            raise ValueError("Wait limit cannot be negative")
+        deadline = None if seconds is None else time.monotonic() + seconds
+        while deadline is None or time.monotonic() < deadline:
             if not self.running():
                 return True
             # Cooperative diagnostic stops retain the normal final screenshot,
@@ -318,7 +425,7 @@ def main():
     )
     parser.add_argument("--probe", action="store_true", help="只连接并截图，不跑任务")
     parser.add_argument(
-        "--seconds", type=int, default=600, help="跑任务的最长秒数，默认 600"
+        "--seconds", type=int, default=0, help="单轮时限秒数；默认 0 等待原生任务结束"
     )
     parser.add_argument(
         "--mode", type=int, default=0, help="Roguelike 模式，0=刷经验，默认 0"
@@ -386,8 +493,13 @@ def main():
         "--core-char", default="维什戴尔", help="开局招募干员，空串表示不指定"
     )
     args = parser.parse_args()
+    if args.seconds < 0:
+        parser.error("--seconds must be nonnegative; 0 waits for native completion")
 
     out_dir = pathlib.Path(args.out) if args.out else default_out_dir()
+    if out_dir.exists() and (not out_dir.is_dir() or any(out_dir.iterdir())):
+        print(f"Preserve existing run evidence: {out_dir}", file=sys.stderr)
+        return 2
     observer = None
     if args.battle_observation_interval != 0:
         from blackflow_battle_observation import BattleObservationRecorder
@@ -411,9 +523,9 @@ def main():
             driver.connect(args.client, args.address)
         print("connected", flush=True)
         if args.probe:
-            path = driver.snapshot()
+            path = driver.fresh_snapshot()
             print(f"snapshot: {path}", flush=True)
-            return 0
+            return 0 if path else 4
 
         # A tiny map control can match an ordinary battle. Require the large,
         # theme-specific lobby anchor before handing control to Begin.
@@ -421,22 +533,25 @@ def main():
         import cv2
         import numpy as np
 
-        initial = driver.snapshot("initial_screen.png")
+        initial = driver.fresh_snapshot("initial_screen.png")
         screen = (
             cv2.imdecode(np.fromfile(initial, dtype=np.uint8), cv2.IMREAD_COLOR)
             if initial
             else None
         )
         if screen is None:
-            raise RuntimeError("Initial screenshot unavailable; no task was started")
+            print("Initial screenshot unavailable; no task was started", flush=True)
+            return 4
         preflight = check_state(screen)
         preflight.update(address=args.address, client=args.client)
         (out_dir / "preflight.json").write_text(
             json.dumps(preflight, ensure_ascii=False, indent=2), encoding="utf-8"
         )
-        if not preflight["ok"]:
+        if not preflight["ok"] or (
+            args.mode == 0 and args.starts > 0 and not is_fresh_lobby(preflight)
+        ):
             print(
-                "Preflight rejected: open the BlackFlow lobby before starting; no task was started",
+                "Preflight rejected: fresh samples require StartExplore; saved exploration is preserved",
                 flush=True,
             )
             return 4
@@ -470,8 +585,8 @@ def main():
             print("AsstStart failed", flush=True)
             return 2
         print("task started", flush=True)
-        finished = driver.wait(args.seconds)
-        path = driver.snapshot("final_screen.png")
+        finished = driver.wait(None if args.seconds == 0 else args.seconds)
+        path = driver.fresh_snapshot("final_screen.png")
         print(f"final snapshot: {path}", flush=True)
         require_settlement = args.mode == 0 and args.starts > 0
         final_lobby = None
@@ -484,9 +599,13 @@ def main():
         exit_code = driver.completion_exit_code(
             finished,
             require_settlement=require_settlement,
-            lobby_verified=bool(final_lobby and final_lobby["ok"]),
+            lobby_verified=is_fresh_lobby(final_lobby),
         )
         outcome = {
+            **driver.result_summary(),
+            "finished": finished,
+            "stop_requested": (out_dir / "stop.request").is_file(),
+            "wait_limit_seconds": args.seconds,
             "task_exit_code": exit_code,
             "settlement_required": require_settlement,
             "final_lobby": final_lobby,
