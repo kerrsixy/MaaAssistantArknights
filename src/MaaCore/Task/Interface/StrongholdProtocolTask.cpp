@@ -2341,7 +2341,7 @@ void asst::StrongholdProtocolTask::commit_full_field_replacement(
     callback(AsstMsg::SubTaskExtraInfo, receipt);
 }
 
-bool asst::StrongholdProtocolTask::handle_promotion_page()
+bool asst::StrongholdProtocolTask::handle_promotion_page(bool tactical_synthesis_reward)
 {
     const bool source_known = !m_pending_promotion.empty();
     const bool pact_recruitment = !m_pending_pact_recruitment.empty();
@@ -2391,7 +2391,7 @@ bool asst::StrongholdProtocolTask::handle_promotion_page()
         // cards can contain the same operator names, so require at least two
         // independently read zero-price badges before treating the page as a
         // promotion transition.
-        if (free_price_slots.size() < (pact_recruitment ? 1U : 2U)) {
+        if (free_price_slots.size() < (tactical_synthesis_reward ? 3U : pact_recruitment ? 1U : 2U)) {
             return false;
         }
 
@@ -2409,6 +2409,7 @@ bool asst::StrongholdProtocolTask::handle_promotion_page()
             }
             const int slot = static_cast<int>(std::lround((995 - text.rect.x - text.rect.width / 2) / 162.0));
             if (!free_price_slots.contains(slot) ||
+                (tactical_synthesis_reward && spa::promotion_reward_starts_chain(m_policy, text.text)) ||
                 (pact_recruitment &&
                  !spa::pact_recruitment_offer_eligible(text.text, m_pending_pact_recruitment, m_policy.shop_level))) {
                 continue;
@@ -2419,7 +2420,7 @@ bool asst::StrongholdProtocolTask::handle_promotion_page()
                 candidates.push_back({ text.text, text.rect });
             }
         }
-        if (candidates.empty()) {
+        if (candidates.size() < (tactical_synthesis_reward ? 2U : 1U)) {
             return false;
         }
 
@@ -2460,6 +2461,7 @@ bool asst::StrongholdProtocolTask::handle_promotion_page()
                                            { "pact_recruitment", pact_recruitment },
                                            { "recruitment_pact", m_pending_pact_recruitment },
                                            { "source_known", source_known },
+                                           { "tactical_synthesis_reward", tactical_synthesis_reward },
                                            { "name", selected.name },
                                            { "choice_count", static_cast<int>(candidates.size()) },
                                            { "free_selection", true },
@@ -2686,7 +2688,10 @@ bool asst::StrongholdProtocolTask::handle_promotion_page()
     record_acquired_equipment_hints(selected_name, false, m_policy.round);
     m_recent_bench_acquisition = selected_name;
     m_unavailable_replacement_sources.erase(selected_name);
-    m_bench_recount_pending = true;
+    // The separately confirmed reward becomes part of the prior snapshot
+    // for the one-copy grant. Its expected bench count still includes the
+    // pre-synthesis bodies, so the next inventory scan can prove their delta.
+    m_bench_recount_pending = !tactical_synthesis_reward;
     if (pact_recruitment) {
         // A recovered offer can settle without a post-contact inventory
         // receipt. Retire the pre-contact hint only after the recruit lands.
@@ -2717,8 +2722,9 @@ bool asst::StrongholdProtocolTask::handle_promotion_page()
                        { "bench_occupied", m_policy.bench_occupied },
                        { "cash_equipment_pending",
                          m_pending_cash_equipment ? json::value(*m_pending_cash_equipment) : json::value(nullptr) },
-                       { "bench_recount_pending", true },
+                       { "bench_recount_pending", m_bench_recount_pending },
                        { "bench_population_verified", false },
+                       { "tactical_synthesis_reward", tactical_synthesis_reward },
                        { "returned_to_preparation", !chain_observed },
                        { "short_title_confirmed_on_two_frames", short_title_confirmed },
                        { "promotion_pending", chain_observed ? selected_name : std::string() },
@@ -3775,6 +3781,31 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             // issued swap and never sends another drag.
             if (m_pending_field_replacement && handle_full_field_replacement(state)) {
                 continue;
+            }
+            const int pending_round = state.get("round", -1);
+            if (m_strategy_recruitment_expected_funds >= 0 && pending_round == m_pending_tactical_recruitment_round &&
+                state.get("round_known", false) && state.get("funds_known", false) &&
+                state.get("funds", -1) == m_strategy_recruitment_expected_funds && m_pending_promotion.empty() &&
+                m_pending_pact_recruitment.empty() &&
+                (m_pending_promotion_reward ||
+                 spa::tactical_grant_can_synthesize(m_policy, m_pending_tactical_recruitment, catalog))) {
+                // A completed set can keep the temporary zero-price shop open.
+                // Reconcile that separately confirmed reward before scanning the
+                // ordinary bench, where the identity of the fused source is read.
+                m_policy.round = pending_round;
+                const bool reward_observed = handle_promotion_page(true);
+                if (reward_observed || m_pending_promotion_reward) {
+                    if (!reward_observed && ++m_promotion_retry_count >= 4) {
+                        if (lifecycle) {
+                            lifecycle->note_input_reconciliation("SPATacticalSynthesisRewardDeferred");
+                        }
+                        return false;
+                    }
+                    if (reward_observed) {
+                        m_promotion_retry_count = 0;
+                    }
+                    continue;
+                }
             }
             if (reconcile_tactical_recruitment(state)) {
                 continue;

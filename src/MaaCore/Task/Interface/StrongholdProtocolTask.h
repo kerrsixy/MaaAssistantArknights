@@ -99,7 +99,7 @@ private:
     bool m_equipment_inventory_dirty = true;
     std::set<int> m_equipment_inventory_scan_rounds;
     std::vector<spa::InventoryOperatorHint> m_inventory_operator_hints;
-    bool handle_promotion_page();
+    bool handle_promotion_page(bool tactical_synthesis_reward = false);
     bool handle_full_field_replacement(const json::value& state);
     spa::ReplacementMember replacement_member(
         const std::string& name,

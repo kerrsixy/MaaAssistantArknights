@@ -164,6 +164,10 @@ std::vector<std::string> planning_support_pacts(
     const std::map<std::string, std::vector<std::string>>& pacts);
 
 bool ordinary_purchase_completes_promotion(const PreparationPolicy& policy, const std::string& name);
+bool tactical_grant_can_synthesize(
+    const PreparationPolicy& policy,
+    const std::string& pact,
+    const std::map<std::string, std::vector<std::string>>& pacts);
 int boss_promotion_attack_gain(const PreparationPolicy& policy, const std::string& name);
 
 // The original operator becomes elite; the separate free higher-tier reward

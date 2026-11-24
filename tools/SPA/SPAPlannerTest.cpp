@@ -189,6 +189,31 @@ int main()
     assert(elite_ghost && elite_ghost->elite);
     const ObservedOperatorInventory phone_before { true, { { "幽灵鲨", { 2, 1 } }, { "斯卡蒂", { 1, 0 } } } };
     const ObservedOperatorInventory phone_after { true, { { "幽灵鲨", { 0, 2 } }, { "斯卡蒂", { 1, 0 } } } };
+    // Regulation 7 round 14: the paid grant opened a three-card free
+    // shop before the bench could be read. The bonus is separately acquired.
+    PreparationPolicy grant_with_bonus;
+    grant_with_bonus.shop_level = 5;
+    grant_with_bonus.bench_occupied = 9;
+    grant_with_bonus.owned = { { "折桠", { 2, false, true } },
+                               { "烈夏", { 2, false, false } },
+                               { "乌啾", { 2, true, true, OperatorFormCounts { 1, 1 } } } };
+    const auto bonus_memberships = operator_pacts();
+    assert(tactical_grant_can_synthesize(grant_with_bonus, "乌萨斯", bonus_memberships));
+    assert(!tactical_grant_can_synthesize(grant_with_bonus, "阿戈尔", bonus_memberships));
+    assert(promotion_reward_starts_chain(grant_with_bonus, "烈夏"));
+    assert(!promotion_reward_starts_chain(grant_with_bonus, "魔王"));
+    assert(reconcile_promotion_reward(grant_with_bonus, "", "魔王"));
+    assert(grant_with_bonus.bench_occupied == 10);
+    ObservedOperatorInventory reward_baseline { true, {} };
+    for (const auto& [name, owned] : grant_with_bonus.owned) {
+        reward_baseline.members.emplace(name, *owned_form_counts(owned));
+    }
+    auto after_ursus_bonus = reward_baseline;
+    after_ursus_bonus.members.at("烈夏") = { 0, 1 };
+    const auto paid_synthesis = verify_pact_recruitment_delta(reward_baseline, after_ursus_bonus, "乌萨斯", 1);
+    assert(paid_synthesis.verified && paid_synthesis.promoted_operators == std::vector<std::string> { "烈夏" });
+    reward_baseline.members.erase("魔王");
+    assert(!verify_pact_recruitment_delta(reward_baseline, after_ursus_bonus, "乌萨斯", 1).verified);
     const auto promoted_phone = verify_pact_recruitment_delta(phone_before, phone_after, "阿戈尔", 1);
     assert(promoted_phone.verified);
     assert((promoted_phone.gained_initial_operators == std::vector<std::string> { "幽灵鲨" }));

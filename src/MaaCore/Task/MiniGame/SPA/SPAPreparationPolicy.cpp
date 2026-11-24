@@ -266,6 +266,31 @@ json::object asst::spa::owned_operator_snapshot(const std::string& name, const O
     return row;
 }
 
+bool asst::spa::tactical_grant_can_synthesize(
+    const PreparationPolicy& policy,
+    const std::string& pact,
+    const std::map<std::string, std::vector<std::string>>& pacts)
+{
+    if (policy.bench_occupied < 0 || policy.bench_occupied >= 10 || policy.shop_level < 1 || policy.shop_level > 6 ||
+        pact.empty()) {
+        return false;
+    }
+    return std::ranges::any_of(OperatorCatalogue, [&](const auto& card) {
+        if (card.tier > policy.shop_level) {
+            return false;
+        }
+        const auto name = std::string(card.name);
+        const auto owned = policy.owned.find(name);
+        const auto traits = pacts.find(name);
+        if (owned == policy.owned.end() || traits == pacts.end() ||
+            std::ranges::find(traits->second, pact) == traits->second.end()) {
+            return false;
+        }
+        const auto forms = owned_form_counts(owned->second);
+        return forms && forms->initial + 1 == promotion_copies_required(name);
+    });
+}
+
 bool asst::spa::reconcile_promotion_reward(
     PreparationPolicy& policy,
     const std::string& source,
