@@ -1,0 +1,64 @@
+{
+    "stage_name": "恶意讨薪",
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true,
+    "doc": [
+        "阶段97实测作业：机械师4,3左→宽范围医疗3,2右→EW5,4左→提丰5,2右；真实射程门禁保留。",
+        "医疗必须实际基础射程同时覆盖Mech、EW、提丰，不把所有普通单奶视为等价。3,2是Mech4,3的斜格，不在以主挡为中心的十字溅射；首手占位早于EW完整魂域。",
+        "提丰5,2仍可能被EW魂占位，只能沿用既有同格身份验证回收，不盲撤、不延长500/1500ms。未证明狂暴承伤、首波费用、技能启动与新位置通关。",
+        "第一批真/伪骑士、解除伪装强化另一方、延迟爆炸箭及目标变化均保留风险；2.5圆外不是技能绝对免疫。没有合格宽范围医疗时，不能把计划看成完整有奶队。",
+        "不再把可选Carda3,4当作治疗替代；卡达增伤与普通双奶补位未在本候选自动引入。"
+    ],
+    "deploy_plan": [
+        {
+            "groups": ["机械师"],
+            "operator_names": ["机械师"],
+            "location": [4, 3],
+            "direction": "left",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true,
+            "required_attack_tiles": [
+                [3, 3],
+                [2, 3]
+            ]
+        },
+        {
+            "groups": ["元素奶", "单奶"],
+            "location": [3, 2],
+            "direction": "right",
+            "minimum_elite": 1,
+            "required_range_tiles": [
+                [4, 3],
+                [5, 4],
+                [5, 2]
+            ],
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["益达", "维什戴尔"],
+            "operator_names": ["维什戴尔"],
+            "location": [5, 4],
+            "direction": "left",
+            "minimum_elite": 2,
+            "required_attack_tiles": [
+                [4, 3],
+                [3, 3],
+                [5, 3],
+                [5, 5]
+            ]
+        },
+        {
+            "groups": ["提丰", "狙击"],
+            "operator_names": ["提丰"],
+            "location": [5, 2],
+            "direction": "right",
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [8, 1],
+                [9, 1],
+                [8, 3],
+                [7, 3]
+            ]
+        }
+    ]
+}
