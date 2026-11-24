@@ -55,6 +55,8 @@ protected:
     bool parse(const json::value& value) override;
 
 private:
+    bool identity_coverage_complete(const std::string& name) const;
+
     std::unordered_map<std::string, std::vector<OperatorTrainingRule>> m_by_name;
     std::size_t m_operator_count = 0;
 };

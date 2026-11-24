@@ -3848,7 +3848,7 @@
     },
     "BlackFlowPreparationSelected": {
         "rectMove": [173, 2, 48, 2],
-        "specialParams": [58, 220, 90],
+        "specialParams": [58, 220, 90, 1],
         "baseTask": "RoguelikeSkillSelectionFlag",
         "template": "RoguelikeSkillSelectionFlag.png"
     }

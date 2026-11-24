@@ -155,7 +155,12 @@ std::vector<asst::PreparationOperatorObservation> asst::RoguelikePreparationAnal
     const auto basic_task = Task.get("BlackFlowPreparationBasicSkill");
     const auto selected_task = Task.get("BlackFlowPreparationSelected");
     if (!elite_task || !level_task || !training_task || !basic_task || !selected_task ||
-        training_task->special_params.empty() || selected_task->special_params.size() != 3) {
+        training_task->special_params.empty() ||
+        (selected_task->special_params.size() != 3 && selected_task->special_params.size() != 4)) {
+        return observations;
+    }
+    const int vertical_tolerance = selected_task->special_params.size() == 4 ? selected_task->special_params[3] : 0;
+    if (vertical_tolerance < 0 || vertical_tolerance >= selected_task->rect_move.height) {
         return observations;
     }
     for (const auto& card : cards) {
@@ -205,15 +210,20 @@ std::vector<asst::PreparationOperatorObservation> asst::RoguelikePreparationAnal
                 auto marker = selected_task->rect_move;
                 marker.x += static_cast<int>(skill) * selected_task->special_params[0];
                 marker = card.flag.move(marker);
-                if (preparation::inside(m_image, marker)) {
+                for (int delta = -vertical_tolerance; delta <= vertical_tolerance; ++delta) {
+                    const Rect candidate { marker.x, marker.y + delta, marker.width, marker.height };
+                    if (!preparation::inside(m_image, candidate)) {
+                        continue;
+                    }
                     cv::Mat white;
                     cv::inRange(
-                        m_image(make_rect<cv::Rect>(marker)),
+                        m_image(make_rect<cv::Rect>(candidate)),
                         cv::Scalar::all(selected_task->special_params[1]),
                         cv::Scalar::all(255),
                         white);
-                    observation.selected_marker_scores[skill] =
-                        static_cast<double>(cv::countNonZero(white)) / white.total();
+                    observation.selected_marker_scores[skill] = std::max(
+                        observation.selected_marker_scores[skill],
+                        static_cast<double>(cv::countNonZero(white)) / white.total());
                 }
             }
         }
