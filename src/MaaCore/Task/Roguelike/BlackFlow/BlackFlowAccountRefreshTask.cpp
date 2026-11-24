@@ -12,7 +12,7 @@
 #include "Task/ProcessTask.h"
 #include "Utils/Logger.hpp"
 #include "Utils/WorkingDir.hpp"
-#include "Vision/OCRer.h"
+#include "Vision/Roguelike/BlackFlow/BlackFlowAccountTargetLocator.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowAccountTrainingAnalyzer.h"
 
 namespace asst::blackflow
@@ -26,6 +26,7 @@ public:
     {
         m_id = std::move(id);
         m_name = std::move(name);
+        m_observation.reset();
         set_retry_times(0);
     }
 
@@ -44,12 +45,11 @@ protected:
     {
         const auto image = get_hit_image();
         if (image) {
-            const auto strength = BlackFlowDetailStrengthAnalyzer(*image).analyze(m_id, m_name);
-            if (strength) {
-                m_observation =
-                    FreshAccountDetailStrength { *strength,
-                                                 image->clone(),
-                                                 BlackFlowAccountTrainingAnalyzer(*image).analyze(m_id, m_name) };
+            auto detail = BlackFlowAccountTrainingAnalyzer(*image).analyze_detail(m_id, m_name);
+            if (detail) {
+                m_observation = FreshAccountDetailStrength { std::move(detail->strength),
+                                                             image->clone(),
+                                                             std::move(detail->training) };
             }
         }
         return true;
@@ -70,6 +70,7 @@ void BlackFlowAccountRefreshTask::configure(
     m_targets = std::move(targets);
     m_opening_training_names = std::move(opening_training_names);
     m_attempted.clear();
+    m_verified_page.clear();
     m_observation = {};
     m_observation.client = std::move(client);
     m_observation.uid = std::move(uid);
@@ -98,6 +99,9 @@ bool BlackFlowAccountRefreshTask::action(const std::string& task, const std::sha
 
 bool BlackFlowAccountRefreshTask::visit_page(const std::vector<OperBoxInfo>& page)
 {
+    // Scanner pages are multi-frame unions. Only a full verified single frame
+    // from this visit may become reusable geometry; no page cache crosses a swipe.
+    m_verified_page.clear();
     for (const auto& oper : page) {
         if (m_attempted.contains(oper.name)) {
             continue;
@@ -123,27 +127,6 @@ bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const Ac
 {
     const auto& oper_id = oper.id;
     const auto& oper_name = oper.name;
-    // Re-read after every prior visit; page callback coordinates are never
-    // reused.
-    const auto current_image = ctrler()->get_image();
-    OperBoxImageAnalyzer fresh(current_image);
-    if (!fresh.analyze()) {
-        return false;
-    }
-    const auto& page = fresh.get_result();
-    const auto hits = std::ranges::count_if(page, [&](const auto& oper) {
-        return oper.id == oper_id && oper.name == oper_name && !oper.rect.empty();
-    });
-    if (hits != 1) {
-        // Still in the list, with no input sent; keep this target unknown.
-        return true;
-    }
-    const auto found =
-        std::ranges::find_if(page, [&](const auto& oper) { return oper.id == oper_id && oper.name == oper_name; });
-    std::set<std::string> before;
-    for (const auto& oper : page) {
-        before.insert(oper.id);
-    }
     const std::string selection_task = module ? "BlackFlowAccountScan@Select" : "BlackFlowAccountScan@TrainingSelect";
     auto select = Task.get(selection_task);
     auto identity = Task.get<OcrTaskInfo>("BlackFlowAccountScan@DetailName");
@@ -156,20 +139,19 @@ bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const Ac
     if (expected_labels.empty()) {
         return true;
     }
-    auto name_region = found->rect.move(select->specific_rect);
-    if (name_region.empty() || name_region.x < 0 || name_region.y < 0 || name_region.x >= current_image.cols ||
-        name_region.y >= current_image.rows) {
+    const auto current_image = ctrler()->get_image();
+    const auto located =
+        BlackFlowAccountTargetLocator(current_image).locate(oper_id, oper_name, m_verified_page, previous_rect);
+    if (!located.list_verified) {
+        m_verified_page.clear();
+        return false;
+    }
+    if (!located.target) {
         return true;
     }
-    name_region.width = std::min(name_region.width, current_image.cols - name_region.x);
-    name_region.height = std::min(name_region.height, current_image.rows - name_region.y);
-    OCRer name(current_image);
-    name.set_task_info(identity);
-    name.set_roi(name_region);
-    name.set_required({ oper_name });
-    const auto labels = name.analyze();
-    if (!labels || labels->size() != 1 || labels->front().score < 0.95) {
-        return true;
+    std::set<std::string> before;
+    for (const auto& item : located.page) {
+        before.insert(item.id);
     }
     const auto directory = UserDir.get() / "BlackFlowEvidence" / "account_refresh" / utils::path(oper_id);
     std::error_code directory_error;
@@ -182,7 +164,7 @@ bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const Ac
     persist_frame("list-before.png", current_image);
     // The portrait is not a reliable activation surface. Click the exact name
     // recognized in this card's footer, rather than a random portrait offset.
-    const auto& label_rect = labels->front().rect;
+    const auto& label_rect = located.target->name_rect;
     select->specific_rect = { label_rect.x + label_rect.width / 2, label_rect.y + label_rect.height / 2, 1, 1 };
     identity->text = expected_labels;
     m_attempted.insert(oper_name);
@@ -194,6 +176,41 @@ bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const Ac
     if (const auto& strength = strength_observer->observation(); strength) {
         m_observation.verified_strengths.emplace(oper_name, *strength);
         persist_frame("detail-strength.png", strength->source_image);
+    }
+    if (!module && opened) {
+        const auto& observed = strength_observer->observation();
+        int unknown_mastery = 0;
+        int unknown_availability = 0;
+        bool base_known = false;
+        if (observed && observed->training) {
+            base_known = observed->training->base_skill_level > 0;
+            for (int slot = 0; slot < 3; ++slot) {
+                unknown_availability += observed->training->availability[slot] == SkillAvailability::Unknown ? 1 : 0;
+                unknown_mastery += observed->training->availability[slot] == SkillAvailability::Available &&
+                                           observed->training->mastery_levels[slot] < 0
+                                       ? 1
+                                       : 0;
+            }
+        }
+        auto quality = basic_info_with_what("BlackFlowAccountTrainingDataQuality");
+        quality["details"] = json::object {
+            { "client", m_observation.client },
+            { "uid", m_observation.uid },
+            { "operator_id", oper_id },
+            { "operator_name", oper_name },
+            { "detail_page_anchor_verified", true },
+            { "exact_detail_strength_verified", observed.has_value() },
+            { "same_frame_strength_and_training", observed.has_value() },
+            { "base_skill_known", base_known },
+            { "available_mastery_unknown_count", observed ? json::value(unknown_mastery) : json::value(nullptr) },
+            { "availability_unknown_count", observed ? json::value(unknown_availability) : json::value(nullptr) },
+            { "status",
+              !observed                                                        ? "identity_or_strength_unknown"
+              : !base_known || unknown_mastery > 0 || unknown_availability > 0 ? "training_partial"
+                                                                               : "training_observed" },
+            { "cached_strength_or_training_substituted", false },
+        };
+        callback(AsstMsg::SubTaskExtraInfo, quality);
     }
     persist_frame("selection-result.png", ctrler()->get_image());
     select->specific_rect = previous_rect;
@@ -227,8 +244,14 @@ bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const Ac
     for (const auto& oper : restored.get_result()) {
         after.insert(oper.id);
     }
-    // Conservative same-page guard: OCR changes stop; no old geometry is trusted.
-    return before == after;
+    // Preserve the existing strict same-page membership guard. Only its freshly
+    // reanalyzed coordinates may be considered by the next target's fresh crop.
+    if (before != after) {
+        m_verified_page.clear();
+        return false;
+    }
+    m_verified_page = restored.get_result();
+    return true;
 }
 
 bool BlackFlowAccountRefreshTask::_run()
