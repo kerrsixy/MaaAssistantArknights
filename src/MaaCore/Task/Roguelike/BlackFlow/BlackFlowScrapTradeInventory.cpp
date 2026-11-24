@@ -30,6 +30,7 @@ constexpr int MaxCardClickAttempts = 3;
 constexpr std::string_view SaleReadyTask = "BlackFlow@Roguelike@ScrapTradeSaleReady";
 constexpr std::string_view SaleConfirmTask = "BlackFlow@Roguelike@ScrapTradeSellConfirm";
 constexpr std::string_view SoldTask = "ScrapTradeSold";
+constexpr std::string_view SellingFlagTask = "BlackFlow@Roguelike@CultivateSellingFlag";
 
 void set_error(std::string* error, std::string message)
 {
@@ -38,6 +39,21 @@ void set_error(std::string* error, std::string message)
     }
 }
 } // namespace
+
+std::optional<Rect> scrap_trade_sale_click_rect(const Rect& title, const Rect& titles_roi)
+{
+    if (title.width <= 0 || title.height <= 0 || titles_roi.width < 20 || titles_roi.height < 80 ||
+        title.x < titles_roi.x || title.y < titles_roi.y || title.x + title.width > titles_roi.x + titles_roi.width ||
+        title.y + title.height > titles_roi.y + titles_roi.height) {
+        return std::nullopt;
+    }
+    // Titles can sit beside the bulk-sale control after an upward scroll.
+    // Use the card interior; keep the entire click above the leave overlay.
+    const int center_x = std::clamp(title.x + title.width / 2, titles_roi.x + 8, titles_roi.x + titles_roi.width - 8);
+    const int center_y =
+        std::clamp(title.y + title.height + 40, titles_roi.y + 60, titles_roi.y + titles_roi.height - 4);
+    return Rect { center_x - 8, center_y - 4, 16, 8 };
+}
 
 void ScrapTradeInventoryModel::reset(std::vector<std::string> names)
 {
@@ -509,6 +525,12 @@ bool BlackFlowScrapTradeInventory::sell(
         analyzer.set_task_info(std::string(SaleReadyTask));
         return analyzer.analyze().has_value();
     };
+    const auto task = Task.get<OcrTaskInfo>(std::string(ItemsTask));
+    const auto click_rect = task == nullptr ? std::nullopt : scrap_trade_sale_click_rect(target.text.rect, task->roi);
+    if (!click_rect) {
+        set_error(error, "scrap trade sale target is outside the inventory viewport");
+        return false;
+    }
     bool opened = false;
     for (int attempt = 0; attempt < MaxCardClickAttempts; ++attempt) {
         if (context.interrupted()) {
@@ -520,7 +542,18 @@ bool BlackFlowScrapTradeInventory::sell(
             opened = true;
             break;
         }
-        if (context.interrupted() || !context.click(target.text.rect)) {
+        const cv::Mat image = context.capture();
+        if (image.empty()) {
+            set_error(error, "scrap trade sale page image is unavailable");
+            return false;
+        }
+        Matcher selling(image);
+        selling.set_task_info(std::string(SellingFlagTask));
+        if (!selling.analyze()) {
+            set_error(error, "scrap trade sale page changed before item selection");
+            return false;
+        }
+        if (context.interrupted() || !context.click(*click_rect)) {
             set_error(error, "scrap trade inventory could not click the sale item");
             return false;
         }
