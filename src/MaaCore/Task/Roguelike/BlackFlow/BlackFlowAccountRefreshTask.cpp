@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "Config/Roguelike/RoguelikeRecruitConfig.h"
 #include "Config/TaskData.h"
 #include "Controller/Controller.h"
 #include "MaaUtils/ImageIo.h"
@@ -12,6 +13,7 @@
 #include "Utils/Logger.hpp"
 #include "Utils/WorkingDir.hpp"
 #include "Vision/OCRer.h"
+#include "Vision/Roguelike/BlackFlow/BlackFlowAccountTrainingAnalyzer.h"
 
 namespace asst::blackflow
 {
@@ -31,7 +33,8 @@ public:
     {
         const auto process = dynamic_cast<const ProcessTask*>(m_task_ptr);
         return msg == AsstMsg::SubTaskCompleted && details.get("subtask", "") == "ProcessTask" && process &&
-               process->get_last_task_name() == "BlackFlowAccountScan@Detail";
+               (process->get_last_task_name() == "BlackFlowAccountScan@Detail" ||
+                process->get_last_task_name() == "BlackFlowAccountScan@TrainingDetail");
     }
 
     const std::optional<FreshAccountDetailStrength>& observation() const noexcept { return m_observation; }
@@ -43,7 +46,10 @@ protected:
         if (image) {
             const auto strength = BlackFlowDetailStrengthAnalyzer(*image).analyze(m_id, m_name);
             if (strength) {
-                m_observation = FreshAccountDetailStrength { *strength, image->clone() };
+                m_observation =
+                    FreshAccountDetailStrength { *strength,
+                                                 image->clone(),
+                                                 BlackFlowAccountTrainingAnalyzer(*image).analyze(m_id, m_name) };
             }
         }
         return true;
@@ -58,9 +64,11 @@ private:
 void BlackFlowAccountRefreshTask::configure(
     std::string client,
     std::string uid,
-    std::vector<AccountModuleScanTarget> targets)
+    std::vector<AccountModuleScanTarget> targets,
+    std::set<std::string> opening_training_names)
 {
     m_targets = std::move(targets);
+    m_opening_training_names = std::move(opening_training_names);
     m_attempted.clear();
     m_observation = {};
     m_observation.client = std::move(client);
@@ -90,24 +98,31 @@ bool BlackFlowAccountRefreshTask::action(const std::string& task, const std::sha
 
 bool BlackFlowAccountRefreshTask::visit_page(const std::vector<OperBoxInfo>& page)
 {
-    for (const auto& target : m_targets) {
-        if (m_attempted.contains(target.operator_name)) {
+    for (const auto& oper : page) {
+        if (m_attempted.contains(oper.name)) {
             continue;
         }
-        const bool visible = std::ranges::any_of(page, [&](const auto& oper) {
+        const auto module = std::ranges::find_if(m_targets, [&](const auto& target) {
             return oper.id == target.operator_id && oper.name == target.operator_name;
         });
-        if (visible) {
-            if (!visit_target(target)) {
-                return false;
-            }
+        const auto& recruit = RoguelikeRecruit.get_oper_info("BlackFlow", oper.name);
+        const bool relevant =
+            !RoguelikeRecruit.is_oper_excluded("BlackFlow", oper.name) && !recruit.is_alternate &&
+            (recruit.recruit_priority > 0 || recruit.start_priority > 0 || recruit.promote_priority > 0);
+        if (module == m_targets.end() && !relevant && !m_opening_training_names.contains(oper.name)) {
+            continue;
+        }
+        if (!visit_target(oper, module == m_targets.end() ? nullptr : &*module)) {
+            return false;
         }
     }
     return true;
 }
 
-bool BlackFlowAccountRefreshTask::visit_target(const AccountModuleScanTarget& target)
+bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const AccountModuleScanTarget* module)
 {
+    const auto& oper_id = oper.id;
+    const auto& oper_name = oper.name;
     // Re-read after every prior visit; page callback coordinates are never
     // reused.
     const auto current_image = ctrler()->get_image();
@@ -117,20 +132,20 @@ bool BlackFlowAccountRefreshTask::visit_target(const AccountModuleScanTarget& ta
     }
     const auto& page = fresh.get_result();
     const auto hits = std::ranges::count_if(page, [&](const auto& oper) {
-        return oper.id == target.operator_id && oper.name == target.operator_name && !oper.rect.empty();
+        return oper.id == oper_id && oper.name == oper_name && !oper.rect.empty();
     });
     if (hits != 1) {
         // Still in the list, with no input sent; keep this target unknown.
         return true;
     }
-    const auto found = std::ranges::find_if(page, [&](const auto& oper) {
-        return oper.id == target.operator_id && oper.name == target.operator_name;
-    });
+    const auto found =
+        std::ranges::find_if(page, [&](const auto& oper) { return oper.id == oper_id && oper.name == oper_name; });
     std::set<std::string> before;
     for (const auto& oper : page) {
         before.insert(oper.id);
     }
-    auto select = Task.get("BlackFlowAccountScan@Select");
+    const std::string selection_task = module ? "BlackFlowAccountScan@Select" : "BlackFlowAccountScan@TrainingSelect";
+    auto select = Task.get(selection_task);
     auto identity = Task.get<OcrTaskInfo>("BlackFlowAccountScan@DetailName");
     if (!select || !identity) {
         return false;
@@ -147,12 +162,12 @@ bool BlackFlowAccountRefreshTask::visit_target(const AccountModuleScanTarget& ta
     OCRer name(current_image);
     name.set_task_info(identity);
     name.set_roi(name_region);
-    name.set_required({ target.operator_name });
+    name.set_required({ oper_name });
     const auto labels = name.analyze();
     if (!labels || labels->size() != 1 || labels->front().score < 0.95) {
         return true;
     }
-    const auto directory = UserDir.get() / "BlackFlowEvidence" / "account_refresh" / utils::path(target.operator_id);
+    const auto directory = UserDir.get() / "BlackFlowEvidence" / "account_refresh" / utils::path(oper_id);
     std::error_code directory_error;
     std::filesystem::create_directories(directory, directory_error);
     const auto persist_frame = [&](const std::string& filename, const cv::Mat& image) {
@@ -165,33 +180,33 @@ bool BlackFlowAccountRefreshTask::visit_target(const AccountModuleScanTarget& ta
     // recognized in this card's footer, rather than a random portrait offset.
     const auto& label_rect = labels->front().rect;
     select->specific_rect = { label_rect.x + label_rect.width / 2, label_rect.y + label_rect.height / 2, 1, 1 };
-    identity->text = { target.operator_name };
-    m_attempted.insert(target.operator_name);
+    identity->text = { oper_name };
+    m_attempted.insert(oper_name);
     // Select -> detail identity -> exact Manage OCR -> module-page anchor is one
     // resource chain.
     auto strength_observer = std::make_shared<AccountDetailStrengthObserver>(m_callback, m_inst, m_task_chain);
-    strength_observer->configure(target.operator_id, target.operator_name);
-    const bool opened = action("BlackFlowAccountScan@Select", strength_observer);
+    strength_observer->configure(oper_id, oper_name);
+    const bool opened = action(selection_task, strength_observer);
     if (const auto& strength = strength_observer->observation(); strength) {
-        m_observation.verified_strengths.emplace(target.operator_name, *strength);
+        m_observation.verified_strengths.emplace(oper_name, *strength);
         persist_frame("detail-strength.png", strength->source_image);
     }
     persist_frame("selection-result.png", ctrler()->get_image());
     select->specific_rect = previous_rect;
     identity->text = previous_names;
-    if (opened) {
+    if (module && opened) {
         for (int page_no = 0; page_no < 5 && !need_exit(); ++page_no) {
             auto image = ctrler()->get_image();
             persist_frame("page-" + std::to_string(page_no) + ".png", image);
-            const auto result = BlackFlowModulePanelAnalyzer(image).analyze(target.panel);
+            const auto result = BlackFlowModulePanelAnalyzer(image).analyze(module->panel);
             if (result) {
-                m_observation.modules.push_back({ target.operator_name, *result, image.clone() });
-                m_observation.unknown_targets.erase(target.operator_name);
+                m_observation.modules.push_back({ oper_name, *result, image.clone() });
+                m_observation.unknown_targets.erase(oper_name);
                 break;
             }
             // Optional, bounded scrolling stays guarded by the module-page anchors.
             if (!Task.get("BlackFlowAccountScan@ModuleNext") || !action("BlackFlowAccountScan@ModuleNext")) {
-                LogWarn << __FUNCTION__ << "Required module remains unknown" << target.operator_name;
+                LogWarn << __FUNCTION__ << "Required module remains unknown" << oper_name;
                 break;
             }
         }
@@ -222,7 +237,8 @@ bool BlackFlowAccountRefreshTask::_run()
     scanner.set_retry_times(0);
     scanner.set_page_guard([this] { return action("OperProgress@ReturnToOperBox"); });
     scanner.set_page_visitor([this](const auto& page) { return visit_page(page); });
-    scanner.set_stop_after_page([this] { return m_attempted.size() == m_targets.size(); });
+    // Continue the normal roster pass after the module watchlist: relevant
+    // recruitment and configured opening operators also need outside training.
     const bool scanned = scanner.run();
     for (const auto& [name, oper] : scanner.own_operators()) {
         m_observation.strengths.emplace(name, oper);

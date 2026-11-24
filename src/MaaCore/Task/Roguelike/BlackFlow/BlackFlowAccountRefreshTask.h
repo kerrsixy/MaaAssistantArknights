@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "Config/Roguelike/BlackFlow/BlackFlowAccountScanCatalog.h"
+#include "Config/Roguelike/BlackFlow/BlackFlowAccountTraining.h"
 #include "MaaUtils/NoWarningCVMat.hpp"
 #include "Task/AbstractTask.h"
 #include "Vision/Oper/OperBoxImageAnalyzer.h"
@@ -25,6 +26,7 @@ struct FreshAccountDetailStrength
 {
     DetailStrengthObservation observation;
     cv::Mat source_image;
+    std::optional<AccountTrainingEvidence> training;
 };
 
 struct AccountRefreshObservation
@@ -47,7 +49,11 @@ class BlackFlowAccountRefreshTask final : public AbstractTask
 {
 public:
     using AbstractTask::AbstractTask;
-    void configure(std::string client, std::string uid, std::vector<AccountModuleScanTarget> targets);
+    void configure(
+        std::string client,
+        std::string uid,
+        std::vector<AccountModuleScanTarget> targets,
+        std::set<std::string> opening_training_names = {});
 
     [[nodiscard]] const AccountRefreshObservation& observation() const noexcept { return m_observation; }
 
@@ -56,10 +62,11 @@ protected:
 
 private:
     bool visit_page(const std::vector<OperBoxInfo>& page);
-    bool visit_target(const AccountModuleScanTarget& target);
+    bool visit_target(const OperBoxInfo& oper, const AccountModuleScanTarget* module);
     bool action(const std::string& task, const std::shared_ptr<AbstractTaskPlugin>& observer = nullptr);
     std::vector<AccountModuleScanTarget> m_targets;
     std::set<std::string> m_attempted;
+    std::set<std::string> m_opening_training_names;
     AccountRefreshObservation m_observation;
 };
 }

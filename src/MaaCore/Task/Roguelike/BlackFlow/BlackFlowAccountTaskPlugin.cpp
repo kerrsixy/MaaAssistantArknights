@@ -84,7 +84,13 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
         }
         BlackFlowAccountRefreshTask refresh(m_callback, m_inst, m_task_chain);
         refresh.set_retry_times(0);
-        refresh.configure(client, account.uid(), catalog->targets());
+        std::set<std::string> opening_training_names;
+        for (const auto& oper : m_config->get_start_opers()) {
+            if (!oper.use_support) {
+                opening_training_names.insert(oper.name);
+            }
+        }
+        refresh.configure(client, account.uid(), catalog->targets(), std::move(opening_training_names));
         if (!refresh.run()) {
             LogError << __FUNCTION__ << "Account refresh could not return to the same UID home screen";
             m_task_ptr->set_enable(false);
@@ -150,9 +156,11 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
     }
     const bool cache_loaded = profile.has_value();
     size_t cached_operator_count = 0;
+    size_t cached_training_count = 0;
     bool cached_roster_complete = false;
     if (profile) {
         cached_operator_count = profile->operator_count();
+        cached_training_count = profile->training_operator_count();
         cached_roster_complete = profile->roster_complete();
         if (!m_config->bind_account_profile(std::make_shared<BlackFlowAccountProfile>(std::move(*profile)))) {
             return false;
@@ -196,6 +204,8 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
                                      { "cache_loaded", cache_loaded },
                                      { "cache_file", utils::path_to_utf8_string(cache_path) },
                                      { "cached_operator_count", cached_operator_count },
+                                     { "cached_training_operator_count", cached_training_count },
+                                     { "full_skill_training_scan_complete", false },
                                      { "cached_roster_complete", cached_roster_complete },
                                      { "fresh_scan_complete", false },
                                      { "fresh_roster_complete", false },

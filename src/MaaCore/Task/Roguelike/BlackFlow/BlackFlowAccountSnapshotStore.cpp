@@ -69,6 +69,8 @@ std::optional<json::value> BlackFlowAccountSnapshotStore::merge(
                     retained["elite"] = 0;
                     retained["level"] = 0;
                     retained["module_slots"] = json::array {};
+                    retained.as_object().erase("skill_training");
+                    retained.as_object().erase("skill_training_latest_attempt");
                     retained["legacy_identifier_repair"] =
                         json::object { { "previous", legacy },
                                        { "observed_at", stamp },
@@ -117,6 +119,58 @@ std::optional<json::value> BlackFlowAccountSnapshotStore::merge(
         oper["elite"] = value.elite;
         oper["level"] = value.level;
         oper["operator_observed_at"] = stamp;
+        bool complete_training = fresh.training && fresh.training->base_skill_level > 0;
+        if (fresh.training) {
+            const auto& training = *fresh.training;
+            if (training.operator_id != value.operator_id || training.operator_name != name ||
+                training.elite != value.elite || training.level != value.level) {
+                return fail("Account training does not belong to the verified detail strength");
+            }
+            for (int slot = 0; slot < 3; ++slot) {
+                complete_training &=
+                    training.availability[slot] != SkillAvailability::Unknown &&
+                    (training.availability[slot] != SkillAvailability::Available || training.mastery_levels[slot] >= 0);
+            }
+        }
+        const auto previous_training = oper.contains("skill_training") ? account_training_from_json(
+                                                                             oper.at("skill_training"),
+                                                                             observed.client,
+                                                                             observed.uid,
+                                                                             value.operator_id,
+                                                                             name)
+                                                                       : std::nullopt;
+        const bool compatible_previous =
+            previous_training && previous_training->elite <= value.elite &&
+            (previous_training->elite != value.elite || previous_training->level <= value.level);
+        const bool retain_previous = !complete_training && compatible_previous;
+        if (!retain_previous && fresh.training) {
+            oper["skill_training"] = account_training_to_json(
+                *fresh.training,
+                observed.client,
+                observed.uid,
+                stamp,
+                utils::path_to_utf8_string(image->second));
+        }
+        else if (!retain_previous) {
+            oper.as_object().erase("skill_training");
+        }
+        oper["skill_training_latest_attempt"] = json::object {
+            { "observed_at", stamp },
+            { "evidence_file", utils::path_to_utf8_string(image->second) },
+            { "state",
+              complete_training ? "complete"
+              : fresh.training  ? "partial"
+                                : "unreadable" },
+            { "retained_previous_source", retain_previous },
+        };
+        if (fresh.training) {
+            oper["skill_training_latest_attempt"]["observed_training"] = account_training_to_json(
+                *fresh.training,
+                observed.client,
+                observed.uid,
+                stamp,
+                utils::path_to_utf8_string(image->second));
+        }
         oper["strength_evidence"] =
             json::object { { "source_kind", "exact_same_uid_operator_detail" },
                            { "recognized_name", value.recognized_name },

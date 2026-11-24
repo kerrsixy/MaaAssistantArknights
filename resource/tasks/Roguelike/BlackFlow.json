@@ -3607,6 +3607,17 @@
         "postDelay": 800,
         "next": ["BlackFlowAccountScan@Detail"]
     },
+    "BlackFlowAccountScan@TrainingSelect": {
+        "Doc": "Read outside training without entering module management or any upgrade action.",
+        "baseTask": "BlackFlowAccountScan@Select",
+        "next": ["BlackFlowAccountScan@TrainingDetail"]
+    },
+    "BlackFlowAccountScan@TrainingDetail": {
+        "baseTask": "BlackFlowAccountScan@Detail",
+        "template": "OperInformationMenu.png",
+        "requiredPage": "BlackFlowAccountScan@DetailName",
+        "next": []
+    },
     "BlackFlowAccountScan@DetailName": {
         "algorithm": "OcrDetect",
         "roi": [0, 80, 850, 620],
