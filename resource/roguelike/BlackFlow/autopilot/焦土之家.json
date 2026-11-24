@@ -1,13 +1,15 @@
 {
     "stage_name": "焦土之家",
     "doc": [
-        "ro6_n_3_5，11x7，初始10费。真实蓝门5,0，红门0,1及10,1。WAIT位置字段0,6不是额外红门。",
+        "阶段97实测作业：正常5,1右主挡；主挡格占用或隔离时，6,1左与5,2上分别守两条来路，沿用既有互斥占位。",
         "右路10,1沿y=1到5,1进门；左路0,1经3,1、3,3、5,3、5,1进门。门前5,1需持续阻挡，EW6,2朝上延长右路攻击，6,3朝上副输出补左路5,3/5,2。",
         "run44机械师5,1朝下、EW6,2朝左、蜜莓4,1朝右之后，机械师普通31费卡返回手牌而旧占位未清，未再部署，第三层自然败北284分。卡达6,4朝上缺5,1，原范围检查拒绝合理，改6,3朝上；不放宽范围或把蜜莓当输出。",
         "首次阻挡会吞噬干员并锁卡的萨卡兹枯朽吞噬者/吸纳者有3至4次独立吞噬；卡返手牌可清原物理占位，不等于已解锁。原生可用性、足费、实际空格和部署回执仍须满足，不按时间猜解锁。",
         "5,1朝右重装/可持续阻挡近卫；6,2朝上EW或实际范围合格输出；4,1朝右医疗覆盖门前与EW；6,3朝上卡达或实际范围合格副输出。蜜莓实际覆盖副输出，但其它医疗不能假定也覆盖。",
         "启用核心预算预留与仅既定部署。真实主位均非岩浆；7,1随机物可能是普通/畸变/箱型恶笼草或丰饶树冢，尚未认证形态。三攻击位均可能触及7,1，未识别不等于反伤已证，也不等于绝对安全。",
-        "原生离线范围与生命周期验证另见阶段73证据；本候选尚未实机通关，不能将几何成立当作伤害、吞噬解锁或N8胜利证明。"
+        "原生离线范围与生命周期验证另见阶段73证据；本候选尚未实机通关，不能将几何成立当作伤害、吞噬解锁或N8胜利证明。",
+        "Private run63 follow-up candidate only: retain normal main5,1; when it is quarantined as unavailable, fallback6,1 and left5,2 intercept distinct lanes. Existing exclusive_locations prevents redundant fallback roles while5,1 is occupied. No new timeout or fake vacancy.",
+        "EW6,2Up covers both fallback guards5,2 and6,1; med4,1Right must cover both guards andEW. No medic or insufficient surviving blockers remains a live risk. Geometry qualification is not a victory."
     ],
     "deploy_plan_only": true,
     "reserve_deploy_cost": true,
@@ -18,7 +20,27 @@
             "direction": "right",
             "minimum_elite": 1,
             "required_attack_tiles": [[6, 1]],
-            "require_persistent_blocking": true
+            "require_persistent_blocking": true,
+            "exclusive_locations": [[6, 1]]
+        },
+        {
+            "groups": ["机械师", "重装", "铁卫", "奶盾", "近卫", "领主", "挡人先锋", "地面阻挡"],
+            "location": [6, 1],
+            "direction": "left",
+            "minimum_elite": 1,
+            "required_attack_tiles": [[5, 1]],
+            "require_persistent_blocking": true,
+            "exclusive_locations": [[5, 1]]
+        },
+        {
+            "groups": ["挡人先锋", "情报官", "地面阻挡", "近卫", "重装", "机械师"],
+            "location": [5, 2],
+            "direction": "up",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true,
+            "required_attack_tiles": [[5, 1]],
+            "exclusive_locations": [[5, 1]],
+            "exclude_starting_core": true
         },
         {
             "groups": ["益达", "术师", "高台输出", "速狙", "狙击", "群法", "高台法术"],
@@ -44,6 +66,8 @@
             "exclude_starting_core": true,
             "required_range_tiles": [
                 [5, 1],
+                [5, 2],
+                [6, 1],
                 [6, 2]
             ]
         },
