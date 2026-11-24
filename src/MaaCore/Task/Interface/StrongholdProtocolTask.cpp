@@ -161,6 +161,7 @@ bool asst::StrongholdProtocolTask::set_params(const json::value& params)
     m_current_strategy_inspected = false;
     m_temporary_elite_description_verified = false;
     m_preparation_instruction_attempts.clear();
+    m_ursus_recruitment_space_attempt_round = -1;
     m_deferred_opening_gift_scan_attempts = 0;
     m_strategy_copy_target = params.get("strategy_copy_target", std::string());
     m_strategy_copy_unverified = params.get("strategy_copy_unverified", false);
@@ -1388,7 +1389,8 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
     int funding_deficit,
     const spa::BenchCapacityTrade* capacity_trade,
     const spa::ReplacementChoice* replacement_to_enable,
-    const spa::ShopOffer* funding_offer)
+    const spa::ShopOffer* funding_offer,
+    const std::vector<std::string>* planned_support_pacts)
 {
     const int remaining_deployment = state.get("remaining_deployment", -1);
     if (!m_policy.dynamic_decision_mode || m_decision_only || (m_policy.bench_occupied < 10 && funding_deficit <= 0) ||
@@ -1404,6 +1406,12 @@ bool asst::StrongholdProtocolTask::handle_full_bench_sale(
         return false;
     }
     auto candidates = m_policy;
+    if (planned_support_pacts) {
+        // Judge the bench against the existing shopping plan rather than
+        // treating each possible seller as a new offer for a different route.
+        candidates.support_pacts = *planned_support_pacts;
+        candidates.derive_support_pacts = false;
+    }
     for (const auto& [failed_round, name] : m_failed_bench_sales) {
         if (failed_round == round) {
             candidates.owned.erase(name);
@@ -6865,6 +6873,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 };
             }
         }
+        const auto planned_support_pacts = spa::planning_support_pacts(m_policy, offers, catalog);
         auto info = basic_info_with_what("SPAAutomationDecision");
         info["details"] = json::object {
             { "run_id", m_run_id },
@@ -6876,7 +6885,7 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
             { "next_round_interest_if_ready", balance_retention ? balance_retention->interest : -1 },
             { "primary_pact", m_policy.primary_pact },
             { "selected_pact", decision.selected_pact },
-            { "planned_support_pacts", spa::planning_support_pacts(m_policy, offers, catalog) },
+            { "planned_support_pacts", planned_support_pacts },
             { "dynamic_primary_pact", m_dynamic_primary_pact },
             { "primary_locked_after_activation", m_policy.primary_locked_after_activation },
             { "committed_joint_primary_pact", m_policy.committed_joint_primary_pact },
@@ -6938,7 +6947,8 @@ bool asst::StrongholdProtocolTask::run_session(spa::LifecycleTaskPlugin* lifecyc
                 handle_ursus_strategy_recruitment(
                     state,
                     primary_active,
-                    competing_transition_recruit ? std::optional(decision.price) : std::nullopt)) {
+                    competing_transition_recruit ? std::optional(decision.price) : std::nullopt,
+                    planned_support_pacts)) {
                 observer.expect_unchanged_preparation(round);
                 continue;
             }

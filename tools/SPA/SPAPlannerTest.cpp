@@ -1644,6 +1644,38 @@ int main()
                          { "波登可", { 1, false, false } }, { "伊桑", { 1, false, false } },
                          { "深巡", { 1, false, false } } };
     assert(choose_full_bench_sale(full_bench) == "深巡");
+    // Regulation 7 round 14 had the free Ursus command ready with ten
+    // physical bench bodies. A sale should come from a single off-field body.
+    PreparationPolicy ursus_command_full;
+    ursus_command_full.primary_pact = "乌萨斯";
+    ursus_command_full.selected_strategy_id = "band_ursus";
+    ursus_command_full.primary_locked_after_activation = true;
+    ursus_command_full.derive_support_pacts = true;
+    ursus_command_full.boss_preparation = true;
+    ursus_command_full.shop_level = 5;
+    ursus_command_full.bench_occupied = 10;
+    ursus_command_full.deployed_population = 8;
+    ursus_command_full.disabled_pacts = { "萨尔贡", "卡西米尔", "莱塔尼亚", "谢拉格", "伊比利亚",
+                                          "助力",   "灵巧",     "奇迹",     "不屈",   "奥术" };
+    ursus_command_full.owned = {
+        { "W", { 1, false, false } },      { "乌啾", { 1, false, true } },    { "冻河", { 1, false, true } },
+        { "奥尔佳", { 1, true, true } },   { "安哲拉", { 1, false, true } },  { "寒檀", { 1, false, false } },
+        { "波登可", { 1, false, false } }, { "渡桥", { 2, false, false } },   { "烈夏", { 1, true, true } },
+        { "真理", { 1, false, false } },   { "空弦", { 1, false, false } },   { "维伊", { 1, false, true } },
+        { "褐果", { 1, false, true } },    { "赫德雷", { 1, false, false } }, { "赫拉格", { 1, false, true } },
+        { "铸铁", { 1, false, false } },   { "陨星", { 1, false, false } }
+    };
+    assert(!choose_full_bench_sale(ursus_command_full));
+    ursus_command_full.support_pacts = { "突袭", "远见" };
+    ursus_command_full.derive_support_pacts = false;
+    const auto ursus_command_sale = choose_full_bench_sale(ursus_command_full);
+    assert(ursus_command_sale);
+    assert(!ursus_command_full.owned.at(*ursus_command_sale).deployed);
+    assert(ursus_command_sale == "陨星");
+    assert(choose_full_bench_sale(ursus_command_full, { "陨星", "W" }) != "真理");
+    assert(choose_full_bench_sale(ursus_command_full, { "陨星", "W" }) != "渡桥");
+    assert(choose_full_bench_sale(ursus_command_full, { *ursus_command_sale }) != ursus_command_sale);
+
     PreparationPolicy victoria_full;
     victoria_full.primary_pact = "维多利亚";
     victoria_full.primary_locked_after_activation = true;

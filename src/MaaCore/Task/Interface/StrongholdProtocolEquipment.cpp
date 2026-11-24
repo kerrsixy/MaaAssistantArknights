@@ -235,7 +235,8 @@ bool asst::StrongholdProtocolTask::handle_strategy_copy(const json::value& state
 bool asst::StrongholdProtocolTask::handle_ursus_strategy_recruitment(
     const json::value& state,
     bool primary_active,
-    std::optional<int> competing_recruit_price)
+    std::optional<int> competing_recruit_price,
+    const std::vector<std::string>& planned_support_pacts)
 {
     const int round = state.get("round", -1), funds = state.get("funds", -1);
     const int remaining = state.get("remaining_deployment", -1);
@@ -249,7 +250,12 @@ bool asst::StrongholdProtocolTask::handle_ursus_strategy_recruitment(
         m_pending_spatial_orientation || m_pending_field_replacement || m_pending_direct_promotion ||
         m_pending_cash_equipment || m_pending_delayed_cash_equipment || m_field_checkpoint_loaded ||
         m_bench_recount_pending || !m_unreconciled_sale.empty() || m_policy.bench_occupied < 0 ||
-        m_policy.bench_occupied >= 10 || m_auto_deploy_positions.size() != static_cast<size_t>(8 - remaining)) {
+        m_policy.bench_occupied > 10 || m_auto_deploy_positions.size() != static_cast<size_t>(8 - remaining)) {
+        return false;
+    }
+    const bool bench_full = m_policy.bench_occupied == 10;
+    if (bench_full && (!primary_active || !m_policy.primary_locked_after_activation || remaining != 0 ||
+                       competing_recruit_price || m_ursus_recruitment_space_attempt_round == round)) {
         return false;
     }
     int bench_count = 0;
@@ -272,14 +278,37 @@ bool asst::StrongholdProtocolTask::handle_ursus_strategy_recruitment(
         }
         return spa::shop_number(frame, Rect(1220, 185, 23, 22), .72);
     };
+    const auto same_preparation = [&](const cv::Mat& frame) {
+        return spa::preparation_round_number(frame, round, .80) == round &&
+               spa::shop_number(frame, Rect(1180, 510, 45, 40), .72) == funds;
+    };
     const auto opening = ctrler()->get_image();
     const auto price = read_price(opening);
     // Preserve most of a developed lineup's budget for known recruits and
     // equipment. An unformed Ursus board can use a full-price grant.
     if (!price || *price < 0 || *price > (primary_active ? 2 : 5) || *price > funds ||
-        (competing_recruit_price && *competing_recruit_price <= funds - *price) ||
-        spa::preparation_round_number(opening, round, .80) != round ||
-        spa::shop_number(opening, Rect(1180, 510, 45, 40), .72) != funds) {
+        (competing_recruit_price && *competing_recruit_price <= funds - *price) || !same_preparation(opening)) {
+        return false;
+    }
+    if (bench_full) {
+        // A second live quote must still be free before releasing a bench-only
+        // body. The sale executor keeps the usual pact and roster protections.
+        if (*price != 0) {
+            return false;
+        }
+        const auto before_sale = ctrler()->get_image();
+        if (read_price(before_sale) != 0 || !same_preparation(before_sale)) {
+            return false;
+        }
+        m_ursus_recruitment_space_attempt_round = round;
+        if (handle_full_bench_sale(state, 0, nullptr, nullptr, nullptr, &planned_support_pacts)) {
+            auto decision = basic_info_with_what("SPAUrsusRecruitmentBenchSpace");
+            decision["details"] = json::object { { "round", round },
+                                                 { "free_command_verified", true },
+                                                 { "bench_slot_freed", m_policy.bench_occupied < 10 } };
+            callback(AsstMsg::SubTaskExtraInfo, decision);
+            return true;
+        }
         return false;
     }
     const Point view(1155, 235);
@@ -307,8 +336,7 @@ bool asst::StrongholdProtocolTask::handle_ursus_strategy_recruitment(
         return true;
     }
     const auto ready = ctrler()->get_image();
-    if (read_price(ready) != price || spa::preparation_round_number(ready, round, .80) != round ||
-        spa::shop_number(ready, Rect(1180, 510, 45, 40), .72) != funds) {
+    if (read_price(ready) != price || !same_preparation(ready)) {
         return true;
     }
     m_pending_tactical_recruitment = "乌萨斯";
