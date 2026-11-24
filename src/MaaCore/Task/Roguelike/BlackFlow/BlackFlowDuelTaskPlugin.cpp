@@ -16,6 +16,7 @@
 #include "Controller/Controller.h"
 #include "MaaUtils/NoWarningCV.hpp"
 #include "Task/ProcessTask.h"
+#include "Task/Roguelike/RoguelikeOperEvidence.h"
 #include "Utils/DebugImageHelper.hpp"
 #include "Utils/Logger.hpp"
 #include "Vision/Battle/BattlefieldMatcher.h"
@@ -657,13 +658,15 @@ bool asst::blackflow::BlackFlowDuelTaskPlugin::run_blackflow_duel_opponent_selec
     auto& opers = m_config->status().opers;
     for (const auto& detail : operator_details) {
         if (!detail.name.empty() && detail.level > 0) {
-            opers[detail.name] = { .elite = detail.elite >= 0 ? detail.elite : 0, .level = detail.level };
+            merge_current_run_operator(opers, detail.name, detail.elite, detail.level);
         }
     }
     const bool detail_power_available = std::ranges::any_of(operator_details, [](const auto& detail) {
         return detail.level > 0 || detail.attack > 0 || detail.defense > 0 || detail.hp > 0;
     });
-    const bool team_power_available = detail_power_available || !opers.empty();
+    const bool roster_power_available =
+        std::ranges::any_of(opers, [](const auto& entry) { return entry.second.elite >= 0 || entry.second.level > 0; });
+    const bool team_power_available = detail_power_available || roster_power_available;
     std::vector<double> operator_power;
     if (detail_power_available) {
         operator_power.reserve(operator_details.size());
@@ -687,7 +690,10 @@ bool asst::blackflow::BlackFlowDuelTaskPlugin::run_blackflow_duel_opponent_selec
         operator_power.reserve(opers.size());
         for (const auto& [name, oper] : opers) {
             static_cast<void>(name);
-            operator_power.emplace_back(30.0 + oper.elite * 25.0 + oper.level * 0.30);
+            if (oper.elite < 0 && oper.level <= 0) {
+                continue;
+            }
+            operator_power.emplace_back(30.0 + std::max(0, oper.elite) * 25.0 + oper.level * 0.30);
         }
     }
     std::ranges::sort(operator_power, std::greater {});
@@ -712,6 +718,10 @@ bool asst::blackflow::BlackFlowDuelTaskPlugin::run_blackflow_duel_opponent_selec
                 { "skill_text", detail.skill_text },
                 { "elite", detail.elite },
                 { "level", detail.level },
+                { "elite_observed", detail.elite >= 0 },
+                { "level_observed", detail.level > 0 },
+                { "current_run_elite", opers.contains(detail.name) ? opers.at(detail.name).elite : -1 },
+                { "account_strength_used", false },
                 { "hp", detail.hp },
                 { "attack", detail.attack },
                 { "defense", detail.defense },

@@ -1,6 +1,7 @@
 #include "RoguelikeRecruitTaskPlugin.h"
 #include "Config/Miscellaneous/BattleDataConfig.h"
 #include "Config/Roguelike/BlackFlow/BlackFlowAccountProfile.h"
+#include "RoguelikeOperEvidence.h"
 
 #include <cctype>
 #include <utility>
@@ -231,6 +232,11 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                 const int max_refresh = Task.get("RoguelikeRefreshSupportBtnOcr")->special_params.front();
                 const bool recruited = start_oper->use_support ? recruit_support_char(start_oper->name, max_refresh)
                                                                : recruit_own_char(start_oper->name);
+                if (m_task_ptr != nullptr && !m_task_ptr->get_enable()) {
+                    // The owner was deliberately interrupted; do not fall through
+                    // into generic recruitment or a confirmation task.
+                    return true;
+                }
                 if (recruited) {
                     if (m_pending_recruitment) {
                         m_pending_recruitment->advance_start = true;
@@ -674,7 +680,8 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
         }
     }
 
-    return recruit_appointed_char(char_name, is_rtl);
+    const bool recruited = recruit_appointed_char(char_name, is_rtl);
+    return (m_task_ptr != nullptr && !m_task_ptr->get_enable()) || recruited;
 }
 
 bool asst::RoguelikeRecruitTaskPlugin::finish_without_recruitment()
@@ -797,6 +804,42 @@ bool asst::RoguelikeRecruitTaskPlugin::lazy_recruit()
     return true;
 }
 
+bool asst::RoguelikeRecruitTaskPlugin::resolve_elite_two_start_observation(Recruitment& selected)
+{
+    if (selected.elite >= 0) {
+        return true;
+    }
+    // Reobserve the same card once without navigating. A failed reading is
+    // neither a positive non-E2 result nor permission to abandon exploration.
+    if (!sleep(Task.get("RoguelikeCustom-HijackCoChar")->post_delay)) {
+        return false;
+    }
+    RoguelikeRecruitImageAnalyzer refreshed(ctrler()->get_image());
+    if (refreshed.analyze()) {
+        const auto candidate = std::ranges::find_if(refreshed.get_result(), [&](const auto& value) {
+            return value.name == selected.name && value.rect == selected.rect && value.elite >= 0;
+        });
+        if (candidate != refreshed.get_result().end()) {
+            selected = *candidate;
+            return true;
+        }
+    }
+    auto incomplete = basic_info_with_what("RoguelikeRecruitmentIncomplete");
+    incomplete["details"] = json::object {
+        { "name", selected.name },
+        { "elite", -1 },
+        { "reason", "elite_two_start_observation_unresolved" },
+        { "same_card_reobservations", 1 },
+        { "recruited", false },
+        { "abandon_requested", false },
+    };
+    callback(AsstMsg::SubTaskExtraInfo, incomplete);
+    if (m_task_ptr != nullptr) {
+        m_task_ptr->set_enable(false);
+    }
+    return false;
+}
+
 bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
     const std::string& char_name,
     bool is_rtl,
@@ -836,15 +879,22 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
             Log.info(__FUNCTION__, "| Oper list:", oper_names);
 
             if (it != chars.cend()) {
-                if (require_strength && !is_recruitment_strength_sufficient(it->elite, it->level)) {
+                auto selected = *it;
+                const bool requires_elite_two_observation =
+                    start_with_elite_two && (!m_config->get_run_for_collectible() || only_start_with_elite_two) &&
+                    m_recruit_count == 1;
+                if (requires_elite_two_observation && !resolve_elite_two_start_observation(selected)) {
+                    return false;
+                }
+                if (require_strength && !is_recruitment_strength_sufficient(selected.elite, selected.level)) {
                     Log.info(
                         __FUNCTION__,
                         "| Own oper does not meet recruitment strength gate:",
-                        it->name,
+                        selected.name,
                         "elite",
-                        it->elite,
+                        selected.elite,
                         "level",
-                        it->level);
+                        selected.level);
                     return false;
                 }
                 // !get_run_for_collectible() 即当前没有在烧开水/水已经烧好了
@@ -852,9 +902,9 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
                 // 凹直升只对第一位招募的干员生效
                 if (start_with_elite_two && (!m_config->get_run_for_collectible() || only_start_with_elite_two) &&
                     m_recruit_count == 1) {
-                    if (it->elite == 2) {
+                    if (selected.elite == 2) {
                         if (m_config->get_first_floor_foldartal()) {
-                            return select_oper(*it); // Continue only after a candidate was actually selected.
+                            return select_oper(selected); // Continue only after a candidate was actually selected.
                         }
                         else {
                             m_task_ptr->set_enable(false); // 仅当之后没有东西要凹了才停止
@@ -869,7 +919,7 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
                     }
                 }
                 else {
-                    return select_oper(*it);
+                    return select_oper(selected);
                 }
                 return true;
             }
@@ -1117,12 +1167,31 @@ bool asst::RoguelikeRecruitTaskPlugin::commit_pending_recruitment()
     }
     const auto pending = std::exchange(m_pending_recruitment, std::nullopt);
     const auto& oper = pending->oper;
-    if (oper.name.empty() || oper.elite < 0 || oper.elite > 2 || oper.level <= 0) {
-        LogWarn << __FUNCTION__ << "Recruitment receipt has no verified strength" << oper.name << oper.elite
-                << oper.level;
+    if (!merge_current_run_operator(m_config->status().opers, oper.name, oper.elite, oper.level)) {
+        LogWarn << __FUNCTION__ << "Invalid confirmed recruitment observation" << oper.name << oper.elite << oper.level;
         return true;
     }
-    m_config->status().opers[oper.name] = { .elite = oper.elite, .level = oper.level };
+    if (oper.elite < 0 || oper.level <= 0) {
+        LogWarn << __FUNCTION__ << "Confirmed recruitment has incomplete strength" << oper.name << oper.elite
+                << oper.level;
+    }
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+        auto receipt = basic_info_with_what("BlackFlowRecruitmentObserved");
+        const auto& stored = m_config->status().opers.at(oper.name);
+        receipt["details"] = json::object {
+            { "run_id", m_config->status().run_id },
+            { "name", oper.name },
+            { "candidate_elite", oper.elite },
+            { "candidate_level", oper.level },
+            { "candidate_elite_known", oper.elite >= 0 },
+            { "candidate_level_known", oper.level > 0 },
+            { "current_run_elite", stored.elite },
+            { "current_run_level", stored.level },
+            { "account_strength_used", false },
+            { "confirmed", true },
+        };
+        callback(AsstMsg::SubTaskExtraInfo, receipt);
+    }
     if (pending->advance_start) {
         m_config->advance_start_oper_index();
         m_starts_complete = true;

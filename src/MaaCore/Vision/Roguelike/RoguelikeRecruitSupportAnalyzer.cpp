@@ -1,4 +1,5 @@
 #include "RoguelikeRecruitSupportAnalyzer.h"
+#include "RoguelikeRecruitEvidence.h"
 
 #include <algorithm>
 #include <boost/regex.hpp>
@@ -155,8 +156,7 @@ int asst::RoguelikeRecruitSupportAnalyzer::match_elite(const Rect& roi, const in
         { "RoguelikeRecruitSupportElite2", 2 },
     };
 
-    int elite_result = 0;
-    double max_score = 0;
+    RecruitEliteEvidence elite_result;
 
     // 二值化，避免干员立绘影响识别，精英化标识主体颜色是纯白色
     cv::Mat bin_img;
@@ -173,15 +173,11 @@ int asst::RoguelikeRecruitSupportAnalyzer::match_elite(const Rect& roi, const in
             continue;
         }
 
-        double score = analyzer.get_result().score;
-        if (score > max_score) {
-            max_score = score;
-            elite_result = elite;
-        }
+        elite_result.consider(elite, analyzer.get_result().score);
     }
 
-    Log.info(__FUNCTION__, "| ", roi, elite_result, max_score);
-    return elite_result;
+    LogInfo << __FUNCTION__ << roi << elite_result.elite() << elite_result.score();
+    return elite_result.elite();
 }
 
 int asst::RoguelikeRecruitSupportAnalyzer::judge_is_friend(const Rect& roi, const double threshold)

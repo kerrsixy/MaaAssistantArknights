@@ -58,6 +58,7 @@ private:
     bool can_afford(const battle::roguelike::Recruitment& oper, int hope) const;
     void discard_pending_recruitment(std::string_view reason);
     bool commit_pending_recruitment();
+    bool resolve_elite_two_start_observation(battle::roguelike::Recruitment& selected);
 
     enum class RecruitmentEvent
     {
