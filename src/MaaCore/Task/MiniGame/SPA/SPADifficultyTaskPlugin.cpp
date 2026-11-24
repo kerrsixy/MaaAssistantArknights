@@ -111,6 +111,11 @@ bool asst::spa::DifficultyTaskPlugin::_run()
                                                  { "simulation_started", false } };
             callback(AsstMsg::SubTaskExtraInfo, selected);
             if (!m_start) {
+                if (auto* process = dynamic_cast<ProcessTask*>(m_task_ptr); process && !m_recovery_task.empty()) {
+                    // A previous failed scan redirected this step to the dispatcher.
+                    // A verified selection can continue to the separate start check.
+                    process->override_next("MiniGame@SPA@SelectDifficulty", { "MiniGame@SPA@StartIndependent" });
+                }
                 return true;
             }
             if ((m_mode == "joint" && (!joint || personal)) || (m_mode != "joint" && (!personal || joint))) {
@@ -176,7 +181,7 @@ bool asst::spa::DifficultyTaskPlugin::_run()
         for (const auto& text : *recognized) {
             add_difficulty_row(text);
         }
-        if (joint_mode && !find_max && !selection_input_issued && !visible.contains(desired)) {
+        if (!find_max && !selection_input_issued && !visible.contains(desired)) {
             OCRer rows(frame, Rect(850, 65, 430, 505));
             if (const auto recognized_rows = rows.analyze()) {
                 for (const auto& text : *recognized_rows) {
