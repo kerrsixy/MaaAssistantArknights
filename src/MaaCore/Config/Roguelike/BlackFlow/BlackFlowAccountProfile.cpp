@@ -67,6 +67,13 @@ std::optional<BlackFlowAccountProfile> BlackFlowAccountProfile::parse(
                 return reject("account snapshot repeats a verified module slot: " + name);
             }
         }
+        if (value.contains("skill_training")) {
+            oper.training = account_training_from_json(value.at("skill_training"), client, uid, oper.id, name);
+            if (!oper.training || oper.training->elite > oper.elite ||
+                (oper.training->elite == oper.elite && oper.training->level > oper.level)) {
+                return reject("account skill training identity or strength is invalid: " + name);
+            }
+        }
         profile.m_operators.emplace(name, std::move(oper));
     }
     if (profile.m_operators.empty()) {
@@ -113,6 +120,26 @@ std::optional<AccountModuleEvidence>
         return std::nullopt;
     }
     return found->second;
+}
+
+std::optional<int> BlackFlowAccountProfile::skill_level_for_run(
+    const std::string& name,
+    int skill,
+    int current_run_elite,
+    int current_run_level) const
+{
+    const auto oper = find_operator(name);
+    if (!oper || !oper->get().training) {
+        return std::nullopt;
+    }
+    return account_skill_level_for_run(*oper->get().training, skill, current_run_elite, current_run_level);
+}
+
+std::size_t BlackFlowAccountProfile::training_operator_count() const noexcept
+{
+    return static_cast<std::size_t>(std::ranges::count_if(m_operators, [](const auto& entry) {
+        return entry.second.training && entry.second.training->base_skill_level > 0;
+    }));
 }
 
 bool BlackFlowAccountProfile::module_available(const std::string& name, const std::string& module_id, int minimum_level)

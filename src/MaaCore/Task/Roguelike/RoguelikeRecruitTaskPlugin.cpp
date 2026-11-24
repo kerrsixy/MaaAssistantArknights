@@ -548,6 +548,38 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                 callback(AsstMsg::SubTaskExtraInfo, decision);
             }
 
+            if (theme == RoguelikeTheme::BlackFlow) {
+                const auto& account = m_config->account_profile();
+                const auto owned = account ? account->find_operator(oper_info.name) : std::nullopt;
+                const auto training = owned && owned->get().training ? &*owned->get().training : nullptr;
+                const auto effective_level = [&](int skill) {
+                    if (!account || oper_info.temporary) {
+                        return -1;
+                    }
+                    return account->skill_level_for_run(oper_info.name, skill, oper_info.elite, oper_info.level)
+                        .value_or(-1);
+                };
+                auto observed = basic_info_with_what("BlackFlowRecruitmentTrainingObserved");
+                observed["details"] = json::object {
+                    { "client", m_config->account_client() },
+                    { "uid", m_config->account_uid() },
+                    { "operator", oper_info.name },
+                    { "temporary_offer", oper_info.temporary },
+                    { "observed_offer_elite", oper_info.elite },
+                    { "observed_offer_level", oper_info.level },
+                    { "account_training_known", training != nullptr },
+                    { "account_base_skill_level", training ? training->base_skill_level : -1 },
+                    { "configured_skill", recruit_info.skill },
+                    { "configured_skill_effective_level", effective_level(recruit_info.skill) },
+                    { "alternate_skill", recruit_info.alternate_skill },
+                    { "alternate_skill_effective_level", effective_level(recruit_info.alternate_skill) },
+                    { "temporary_offer_uses_account_training", false },
+                    { "priority_adjusted", false },
+                    { "unknown_is_not_maximum_training", true },
+                };
+                callback(AsstMsg::SubTaskExtraInfo, observed);
+            }
+
             const auto tier = classify_recruit_candidate(
                 oper_info.elite == 2,
                 priority > 0,

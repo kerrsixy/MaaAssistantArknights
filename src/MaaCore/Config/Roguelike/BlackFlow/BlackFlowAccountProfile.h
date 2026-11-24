@@ -8,6 +8,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "BlackFlowAccountTraining.h"
+
 namespace asst::blackflow
 {
 struct AccountModuleEvidence
@@ -25,6 +27,7 @@ struct AccountOperatorProfile
     int level = 0;
     bool strength_verified = false;
     std::unordered_map<std::string, AccountModuleEvidence> modules;
+    std::optional<AccountTrainingEvidence> training;
 };
 
 // Account strength is separate from operators recruited into the current exploration.
@@ -45,6 +48,11 @@ public:
         module_evidence(const std::string& name, const std::string& module_id) const;
 
     [[nodiscard]] bool module_available(const std::string& name, const std::string& module_id, int minimum_level) const;
+
+    [[nodiscard]] std::optional<int>
+        skill_level_for_run(const std::string& name, int skill, int current_run_elite, int current_run_level) const;
+
+    [[nodiscard]] std::size_t training_operator_count() const noexcept;
 
     [[nodiscard]] const std::string& uid() const noexcept { return m_uid; }
 
