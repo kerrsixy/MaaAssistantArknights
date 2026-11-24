@@ -2156,7 +2156,8 @@
     },
     "BlackFlow@Roguelike@ScrapTradeLeave-Enter": {
         "algorithm": "JustReturn",
-        "next": ["BlackFlow@Roguelike@StageTraderLeave"]
+        "next": ["BlackFlow@Roguelike@ScrapTradeBulkSelectionFlag", "BlackFlow@Roguelike@StageTraderLeave"],
+        "Doc": "离店前先识别批量出售页并取消；不在未知页面点击确认出售。"
     },
     "BlackFlow@Roguelike@ScrapTradeRefresh": {
         "baseTask": "BlackFlow@Roguelike@CultivateRefresh",
@@ -3789,5 +3790,22 @@
         "action": "DoNothing",
         "postDelay": 600,
         "next": ["BlackFlow@Roguelike@ScrapTradeDecision"]
+    },
+    "BlackFlow@Roguelike@ScrapTradeBulkSelectionFlag": {
+        "algorithm": "OcrDetect",
+        "text": ["确认出售"],
+        "fullMatch": true,
+        "roi": [1090, 568, 170, 65],
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@ScrapTradeBulkSelectionCancel"]
+    },
+    "BlackFlow@Roguelike@ScrapTradeBulkSelectionCancel": {
+        "algorithm": "OcrDetect",
+        "text": ["取消"],
+        "fullMatch": true,
+        "roi": [870, 565, 135, 65],
+        "action": "ClickSelf",
+        "postDelay": 400,
+        "next": ["BlackFlow@Roguelike@StageTraderLeave"]
     }
 }
