@@ -7,6 +7,7 @@
             "name": "Lancet-2",
             "profession": "MEDIC",
             "max_levels": [30],
+            "base_block_counts": [1],
             "base_skill_max": 1,
             "skills": []
         },
@@ -14,6 +15,7 @@
             "name": "Castle-3",
             "profession": "WARRIOR",
             "max_levels": [30],
+            "base_block_counts": [1],
             "base_skill_max": 1,
             "skills": []
         },
@@ -21,6 +23,7 @@
             "name": "虎狼丸",
             "profession": "WARRIOR",
             "max_levels": [30],
+            "base_block_counts": [2],
             "base_skill_max": 1,
             "skills": []
         },
@@ -28,6 +31,7 @@
             "name": "THRM-EX",
             "profession": "SPECIAL",
             "max_levels": [30],
+            "base_block_counts": [0],
             "base_skill_max": 1,
             "skills": []
         },
@@ -35,6 +39,7 @@
             "name": "正义骑士号",
             "profession": "SNIPER",
             "max_levels": [30],
+            "base_block_counts": [1],
             "base_skill_max": 1,
             "skills": []
         },
@@ -42,6 +47,7 @@
             "name": "泰拉大陆调查团",
             "profession": "SNIPER",
             "max_levels": [30],
+            "base_block_counts": [1],
             "base_skill_max": 1,
             "skills": []
         },
@@ -49,6 +55,7 @@
             "name": "U-Official",
             "profession": "SUPPORT",
             "max_levels": [30],
+            "base_block_counts": [1],
             "base_skill_max": 1,
             "skills": []
         },
@@ -56,6 +63,7 @@
             "name": "Friston-3",
             "profession": "TANK",
             "max_levels": [30],
+            "base_block_counts": [3],
             "base_skill_max": 1,
             "skills": []
         },
@@ -63,6 +71,7 @@
             "name": "PhonoR-0",
             "profession": "SUPPORT",
             "max_levels": [30],
+            "base_block_counts": [1],
             "base_skill_max": 1,
             "skills": []
         },
@@ -70,6 +79,7 @@
             "name": "CONFESS-47",
             "profession": "PIONEER",
             "max_levels": [30],
+            "base_block_counts": [2],
             "base_skill_max": 1,
             "skills": []
         },
@@ -77,6 +87,7 @@
             "name": "GALLUS²",
             "profession": "CASTER",
             "max_levels": [30],
+            "base_block_counts": [1],
             "base_skill_max": 1,
             "skills": []
         },
@@ -84,6 +95,7 @@
             "name": "罗德岛隐秘队",
             "profession": "PIONEER",
             "max_levels": [30],
+            "base_block_counts": [1],
             "base_skill_max": 1,
             "skills": []
         },
@@ -91,6 +103,7 @@
             "name": "夜刀",
             "profession": "PIONEER",
             "max_levels": [30],
+            "base_block_counts": [2],
             "base_skill_max": 1,
             "skills": []
         },
@@ -98,6 +111,7 @@
             "name": "黑角",
             "profession": "TANK",
             "max_levels": [30],
+            "base_block_counts": [3],
             "base_skill_max": 1,
             "skills": []
         },
@@ -105,6 +119,7 @@
             "name": "巡林者",
             "profession": "SNIPER",
             "max_levels": [30],
+            "base_block_counts": [1],
             "base_skill_max": 1,
             "skills": []
         },
@@ -112,6 +127,7 @@
             "name": "杜林",
             "profession": "CASTER",
             "max_levels": [30],
+            "base_block_counts": [1],
             "base_skill_max": 1,
             "skills": []
         },
@@ -119,6 +135,7 @@
             "name": "12F",
             "profession": "CASTER",
             "max_levels": [30],
+            "base_block_counts": [1],
             "base_skill_max": 1,
             "skills": []
         },
@@ -126,6 +143,7 @@
             "name": "芬",
             "profession": "PIONEER",
             "max_levels": [40, 55],
+            "base_block_counts": [2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -142,6 +160,7 @@
             "name": "香草",
             "profession": "PIONEER",
             "max_levels": [40, 55],
+            "base_block_counts": [2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -158,6 +177,7 @@
             "name": "预备干员-近战",
             "profession": "PIONEER",
             "max_levels": [40, 55],
+            "base_block_counts": [2, 2],
             "base_skill_max": 1,
             "skills": []
         },
@@ -165,6 +185,7 @@
             "name": "翎羽",
             "profession": "PIONEER",
             "max_levels": [40, 55],
+            "base_block_counts": [1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -181,6 +202,7 @@
             "name": "玫兰莎",
             "profession": "WARRIOR",
             "max_levels": [40, 55],
+            "base_block_counts": [1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -197,6 +219,7 @@
             "name": "泡普卡",
             "profession": "WARRIOR",
             "max_levels": [40, 55],
+            "base_block_counts": [2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -213,6 +236,7 @@
             "name": "卡缇",
             "profession": "TANK",
             "max_levels": [40, 55],
+            "base_block_counts": [3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -229,6 +253,7 @@
             "name": "米格鲁",
             "profession": "TANK",
             "max_levels": [40, 55],
+            "base_block_counts": [3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -245,6 +270,7 @@
             "name": "预备干员-重装",
             "profession": "TANK",
             "max_levels": [40, 55],
+            "base_block_counts": [3, 3],
             "base_skill_max": 1,
             "skills": []
         },
@@ -252,6 +278,7 @@
             "name": "斑点",
             "profession": "TANK",
             "max_levels": [40, 55],
+            "base_block_counts": [2, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -268,6 +295,7 @@
             "name": "克洛丝",
             "profession": "SNIPER",
             "max_levels": [40, 55],
+            "base_block_counts": [1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -284,6 +312,7 @@
             "name": "安德切尔",
             "profession": "SNIPER",
             "max_levels": [40, 55],
+            "base_block_counts": [1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -300,6 +329,7 @@
             "name": "预备干员-狙击",
             "profession": "SNIPER",
             "max_levels": [40, 55],
+            "base_block_counts": [1, 1],
             "base_skill_max": 1,
             "skills": []
         },
@@ -307,6 +337,7 @@
             "name": "炎熔",
             "profession": "CASTER",
             "max_levels": [40, 55],
+            "base_block_counts": [1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -323,6 +354,7 @@
             "name": "芙蓉",
             "profession": "MEDIC",
             "max_levels": [40, 55],
+            "base_block_counts": [1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -339,6 +371,7 @@
             "name": "安赛尔",
             "profession": "MEDIC",
             "max_levels": [40, 55],
+            "base_block_counts": [1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -355,6 +388,7 @@
             "name": "预备干员-后勤",
             "profession": "MEDIC",
             "max_levels": [40, 55],
+            "base_block_counts": [1, 1],
             "base_skill_max": 1,
             "skills": []
         },
@@ -362,6 +396,7 @@
             "name": "史都华德",
             "profession": "CASTER",
             "max_levels": [40, 55],
+            "base_block_counts": [1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -378,6 +413,7 @@
             "name": "预备干员-术师",
             "profession": "CASTER",
             "max_levels": [40, 55],
+            "base_block_counts": [1, 1],
             "base_skill_max": 1,
             "skills": []
         },
@@ -385,6 +421,7 @@
             "name": "梓兰",
             "profession": "SUPPORT",
             "max_levels": [40, 55],
+            "base_block_counts": [1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -401,6 +438,7 @@
             "name": "夜烟",
             "profession": "CASTER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -425,6 +463,7 @@
             "name": "预备干员-术师",
             "profession": "CASTER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -457,6 +496,7 @@
             "name": "远山",
             "profession": "CASTER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -481,6 +521,7 @@
             "name": "格雷伊",
             "profession": "CASTER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -505,6 +546,7 @@
             "name": "协律",
             "profession": "CASTER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -529,6 +571,7 @@
             "name": "卡达",
             "profession": "CASTER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -553,6 +596,7 @@
             "name": "深靛",
             "profession": "CASTER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -577,6 +621,7 @@
             "name": "布丁",
             "profession": "CASTER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -601,6 +646,7 @@
             "name": "杰西卡",
             "profession": "SNIPER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -625,6 +671,7 @@
             "name": "流星",
             "profession": "SNIPER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -649,6 +696,7 @@
             "name": "红云",
             "profession": "SNIPER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -673,6 +721,7 @@
             "name": "梅",
             "profession": "SNIPER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -697,6 +746,7 @@
             "name": "预备干员-狙击",
             "profession": "SNIPER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -729,6 +779,7 @@
             "name": "白雪",
             "profession": "SNIPER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -753,6 +804,7 @@
             "name": "松果",
             "profession": "SNIPER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -777,6 +829,7 @@
             "name": "安比尔",
             "profession": "SNIPER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -801,6 +854,7 @@
             "name": "酸糖",
             "profession": "SNIPER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -825,6 +879,7 @@
             "name": "铅踝",
             "profession": "SNIPER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -849,6 +904,7 @@
             "name": "跃跃",
             "profession": "SNIPER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -873,6 +929,7 @@
             "name": "讯使",
             "profession": "PIONEER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -897,6 +954,7 @@
             "name": "清道夫",
             "profession": "PIONEER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -921,6 +979,7 @@
             "name": "预备干员-先锋",
             "profession": "PIONEER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -953,6 +1012,7 @@
             "name": "红豆",
             "profession": "PIONEER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -977,6 +1037,7 @@
             "name": "桃金娘",
             "profession": "PIONEER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1001,6 +1062,7 @@
             "name": "豆苗",
             "profession": "PIONEER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1025,6 +1087,7 @@
             "name": "冬时",
             "profession": "PIONEER",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1049,6 +1112,7 @@
             "name": "杜宾",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1073,6 +1137,7 @@
             "name": "缠丸",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1097,6 +1162,7 @@
             "name": "断罪者",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1121,6 +1187,7 @@
             "name": "预备干员-近卫",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1153,6 +1220,7 @@
             "name": "霜叶",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1177,6 +1245,7 @@
             "name": "艾丝黛尔",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1201,6 +1270,7 @@
             "name": "慕斯",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1225,6 +1295,7 @@
             "name": "刻刀",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1249,6 +1320,7 @@
             "name": "宴",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1273,6 +1345,7 @@
             "name": "芳汀",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1297,6 +1370,7 @@
             "name": "罗小黑",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1321,6 +1395,7 @@
             "name": "石英",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1345,6 +1420,7 @@
             "name": "休谟斯",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1369,6 +1445,7 @@
             "name": "骋风",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1393,6 +1470,7 @@
             "name": "砾",
             "profession": "SPECIAL",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1417,6 +1495,7 @@
             "name": "预备干员-特种",
             "profession": "SPECIAL",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1449,6 +1528,7 @@
             "name": "孑",
             "profession": "SPECIAL",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1473,6 +1553,7 @@
             "name": "暗索",
             "profession": "SPECIAL",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1497,6 +1578,7 @@
             "name": "行铃",
             "profession": "SPECIAL",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1521,6 +1603,7 @@
             "name": "末药",
             "profession": "MEDIC",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1545,6 +1628,7 @@
             "name": "嘉维尔",
             "profession": "MEDIC",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1569,6 +1653,7 @@
             "name": "苏苏洛",
             "profession": "MEDIC",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1593,6 +1678,7 @@
             "name": "预备干员-医疗",
             "profession": "MEDIC",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1625,6 +1711,7 @@
             "name": "调香师",
             "profession": "MEDIC",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1649,6 +1736,7 @@
             "name": "清流",
             "profession": "MEDIC",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1673,6 +1761,7 @@
             "name": "褐果",
             "profession": "MEDIC",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1697,6 +1786,7 @@
             "name": "角峰",
             "profession": "TANK",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1721,6 +1811,7 @@
             "name": "蛇屠箱",
             "profession": "TANK",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1745,6 +1836,7 @@
             "name": "泡泡",
             "profession": "TANK",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1769,6 +1861,7 @@
             "name": "预备干员-重装",
             "profession": "TANK",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1801,6 +1894,7 @@
             "name": "露托",
             "profession": "TANK",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1825,6 +1919,7 @@
             "name": "古米",
             "profession": "TANK",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1849,6 +1944,7 @@
             "name": "坚雷",
             "profession": "TANK",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1873,6 +1969,7 @@
             "name": "深海色",
             "profession": "SUPPORT",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1897,6 +1994,7 @@
             "name": "地灵",
             "profession": "SUPPORT",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1921,6 +2019,7 @@
             "name": "波登可",
             "profession": "SUPPORT",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1945,6 +2044,7 @@
             "name": "预备干员-辅助",
             "profession": "SUPPORT",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -1977,6 +2077,7 @@
             "name": "罗比菈塔",
             "profession": "SUPPORT",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2001,6 +2102,7 @@
             "name": "盟约·辅助干员",
             "profession": "SUPPORT",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2017,6 +2119,7 @@
             "name": "伊桑",
             "profession": "SPECIAL",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [0, 0, 0],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2041,6 +2144,7 @@
             "name": "阿消",
             "profession": "SPECIAL",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2065,6 +2169,7 @@
             "name": "维荻",
             "profession": "SPECIAL",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2089,6 +2194,7 @@
             "name": "云迹",
             "profession": "SPECIAL",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2113,6 +2219,7 @@
             "name": "白面鸮",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2137,6 +2244,7 @@
             "name": "微风",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2161,6 +2269,7 @@
             "name": "瑰盐",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2185,6 +2294,7 @@
             "name": "凛冬",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2209,6 +2319,7 @@
             "name": "德克萨斯",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2233,6 +2344,7 @@
             "name": "贾维",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2257,6 +2369,7 @@
             "name": "青枳",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2281,6 +2394,7 @@
             "name": "郁金香",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2297,6 +2411,7 @@
             "name": "红隼",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2321,6 +2436,7 @@
             "name": "松桐",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2345,6 +2461,7 @@
             "name": "苇草",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2369,6 +2486,7 @@
             "name": "野鬃",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2393,6 +2511,7 @@
             "name": "历阵锐枪芬",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2417,6 +2536,7 @@
             "name": "极境",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2441,6 +2561,7 @@
             "name": "万顷",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2465,6 +2586,7 @@
             "name": "嘉辛塔",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2489,6 +2611,7 @@
             "name": "夜半",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2513,6 +2636,7 @@
             "name": "渡桥",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2537,6 +2661,7 @@
             "name": "晓歌",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2561,6 +2686,7 @@
             "name": "谜图",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2585,6 +2711,7 @@
             "name": "齐尔查克",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2609,6 +2736,7 @@
             "name": "寻澜",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2633,6 +2761,7 @@
             "name": "诗怀雅",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2657,6 +2786,7 @@
             "name": "鞭刃",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2681,6 +2811,7 @@
             "name": "苍苔",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2705,6 +2836,7 @@
             "name": "医生",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2729,6 +2861,7 @@
             "name": "奥尔佳",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2753,6 +2886,7 @@
             "name": "芙兰卡",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2777,6 +2911,7 @@
             "name": "炎客",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2801,6 +2936,7 @@
             "name": "摩根",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2825,6 +2961,7 @@
             "name": "Sharp",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2841,6 +2978,7 @@
             "name": "莱欧斯",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2865,6 +3003,7 @@
             "name": "因陀罗",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2889,6 +3028,7 @@
             "name": "燧石",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2913,6 +3053,7 @@
             "name": "达格达",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2937,6 +3078,7 @@
             "name": "拉普兰德",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2961,6 +3103,7 @@
             "name": "断崖",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -2985,6 +3128,7 @@
             "name": "烈夏",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3009,6 +3153,7 @@
             "name": "铎铃",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3033,6 +3178,7 @@
             "name": "柏喙",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3057,6 +3203,7 @@
             "name": "战车",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3081,6 +3228,7 @@
             "name": "幽灵鲨",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3105,6 +3253,7 @@
             "name": "布洛卡",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3129,6 +3278,7 @@
             "name": "导火索",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3153,6 +3303,7 @@
             "name": "摆渡人",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3177,6 +3328,7 @@
             "name": "星极",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3201,6 +3353,7 @@
             "name": "铸铁",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3225,6 +3378,7 @@
             "name": "赤冬",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3249,6 +3403,7 @@
             "name": "火龙S黑角",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3273,6 +3428,7 @@
             "name": "羽毛笔",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3297,6 +3453,7 @@
             "name": "海沫",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3321,6 +3478,7 @@
             "name": "龙舌兰",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3345,6 +3503,7 @@
             "name": "奥达",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3369,6 +3528,7 @@
             "name": "聆音",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3393,6 +3553,7 @@
             "name": "祐天寺若麦",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3417,6 +3578,7 @@
             "name": "哈蒂娅",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3441,6 +3603,7 @@
             "name": "雷狼龙S空爆",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3465,6 +3628,7 @@
             "name": "蓝毒",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3489,6 +3653,7 @@
             "name": "白金",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3513,6 +3678,7 @@
             "name": "灰喉",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3537,6 +3703,7 @@
             "name": "Stormeye",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3553,6 +3720,7 @@
             "name": "四月",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3577,6 +3745,7 @@
             "name": "寒芒克洛丝",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3601,6 +3770,7 @@
             "name": "隐现",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3625,6 +3795,7 @@
             "name": "陨星",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3649,6 +3820,7 @@
             "name": "慑砂",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3673,6 +3845,7 @@
             "name": "截云",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3697,6 +3870,7 @@
             "name": "送葬人",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3721,6 +3895,7 @@
             "name": "奥斯塔",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3745,6 +3920,7 @@
             "name": "吉星",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3769,6 +3945,7 @@
             "name": "天空盒",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3793,6 +3970,7 @@
             "name": "埃癸斯",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3817,6 +3995,7 @@
             "name": "阿米娅",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3849,6 +4028,7 @@
             "name": "苦艾",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3873,6 +4053,7 @@
             "name": "特米米",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3897,6 +4078,7 @@
             "name": "雪绒",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3921,6 +4103,7 @@
             "name": "天火",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3945,6 +4128,7 @@
             "name": "Pith",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3961,6 +4145,7 @@
             "name": "惊蛰",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -3985,6 +4170,7 @@
             "name": "星源",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4009,6 +4195,7 @@
             "name": "蜜蜡",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4033,6 +4220,7 @@
             "name": "莱恩哈特",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4057,6 +4245,7 @@
             "name": "寒檀",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4081,6 +4270,7 @@
             "name": "复奏",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4105,6 +4295,7 @@
             "name": "薄绿",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4129,6 +4320,7 @@
             "name": "爱丽丝",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4153,6 +4345,7 @@
             "name": "和弦",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4177,6 +4370,7 @@
             "name": "戴菲恩",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4201,6 +4395,7 @@
             "name": "炎狱炎熔",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4225,6 +4420,7 @@
             "name": "蚀清",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4249,6 +4445,7 @@
             "name": "阿罗玛",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4273,6 +4470,7 @@
             "name": "耶拉",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4297,6 +4495,7 @@
             "name": "洛洛",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4321,6 +4520,7 @@
             "name": "至简",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4345,6 +4545,7 @@
             "name": "时隙",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4369,6 +4570,7 @@
             "name": "折光",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4393,6 +4595,7 @@
             "name": "温米",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4417,6 +4620,7 @@
             "name": "Miss.Christine",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4441,6 +4645,7 @@
             "name": "特克诺",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4465,6 +4670,7 @@
             "name": "梅尔",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4489,6 +4695,7 @@
             "name": "稀音",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4513,6 +4720,7 @@
             "name": "衡沙",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4537,6 +4745,7 @@
             "name": "赫默",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4561,6 +4770,7 @@
             "name": "华法琳",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4585,6 +4795,7 @@
             "name": "亚叶",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4609,6 +4820,7 @@
             "name": "Touch",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4625,6 +4837,7 @@
             "name": "录武官",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4649,6 +4862,7 @@
             "name": "锡兰",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4673,6 +4887,7 @@
             "name": "絮雨",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4697,6 +4912,7 @@
             "name": "诺威尔",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4721,6 +4937,7 @@
             "name": "图耶",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4745,6 +4962,7 @@
             "name": "桑葚",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4769,6 +4987,7 @@
             "name": "蜜莓",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4793,6 +5012,7 @@
             "name": "哈洛德",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4817,6 +5037,7 @@
             "name": "濯尘芙蓉",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4841,6 +5062,7 @@
             "name": "刺玫",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4865,6 +5087,7 @@
             "name": "明椒",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4889,6 +5112,7 @@
             "name": "莎草",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4913,6 +5137,7 @@
             "name": "乌啾",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4937,6 +5162,7 @@
             "name": "风絮",
             "profession": "MEDIC",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4961,6 +5187,7 @@
             "name": "临光",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -4985,6 +5212,7 @@
             "name": "吽",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5009,6 +5237,7 @@
             "name": "深律",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5033,6 +5262,7 @@
             "name": "森西",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5057,6 +5287,7 @@
             "name": "红",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5081,6 +5312,7 @@
             "name": "槐琥",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5105,6 +5337,7 @@
             "name": "卡夫卡",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5129,6 +5362,7 @@
             "name": "乌有",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5153,6 +5387,7 @@
             "name": "裁度",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5177,6 +5412,7 @@
             "name": "雷蛇",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5201,6 +5437,7 @@
             "name": "深巡",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5225,6 +5462,7 @@
             "name": "可颂",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5249,6 +5487,7 @@
             "name": "拜松",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5273,6 +5512,7 @@
             "name": "火神",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5297,6 +5537,7 @@
             "name": "折桠",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5321,6 +5562,7 @@
             "name": "石棉",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5345,6 +5587,7 @@
             "name": "暮落",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5361,6 +5604,7 @@
             "name": "暮落",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5385,6 +5629,7 @@
             "name": "车尔尼",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5409,6 +5654,7 @@
             "name": "闪击",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5433,6 +5679,7 @@
             "name": "暴雨",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5457,6 +5704,7 @@
             "name": "灰毫",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5481,6 +5729,7 @@
             "name": "火哨",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5505,6 +5754,7 @@
             "name": "极光",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5529,6 +5779,7 @@
             "name": "洋灰",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5553,6 +5804,7 @@
             "name": "菲莱",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5577,6 +5829,7 @@
             "name": "裂响",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5601,6 +5854,7 @@
             "name": "镜匠",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5625,6 +5879,7 @@
             "name": "普罗旺斯",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5649,6 +5904,7 @@
             "name": "玫拉",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5673,6 +5929,7 @@
             "name": "守林人",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5697,6 +5954,7 @@
             "name": "安哲拉",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5721,6 +5979,7 @@
             "name": "子月",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5745,6 +6004,7 @@
             "name": "熔泉",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5769,6 +6029,7 @@
             "name": "埃拉托",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5793,6 +6054,7 @@
             "name": "矩",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5817,6 +6079,7 @@
             "name": "承曦格雷伊",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5841,6 +6104,7 @@
             "name": "冰酿",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5865,6 +6129,7 @@
             "name": "雪猎",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5889,6 +6154,7 @@
             "name": "水灯心",
             "profession": "SNIPER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5913,6 +6179,7 @@
             "name": "空构",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5937,6 +6204,7 @@
             "name": "崖心",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5961,6 +6229,7 @@
             "name": "雪雉",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -5985,6 +6254,7 @@
             "name": "杏仁",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6009,6 +6279,7 @@
             "name": "初雪",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6033,6 +6304,7 @@
             "name": "巫恋",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6057,6 +6329,7 @@
             "name": "海霓",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6081,6 +6354,7 @@
             "name": "德·托莱多",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6105,6 +6379,7 @@
             "name": "真理",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6129,6 +6404,7 @@
             "name": "格劳克斯",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6153,6 +6429,7 @@
             "name": "但书",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6177,6 +6454,7 @@
             "name": "小满",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6201,6 +6479,7 @@
             "name": "掠风",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6225,6 +6504,7 @@
             "name": "凯瑟琳",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6249,6 +6529,7 @@
             "name": "阿兰娜",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6273,6 +6554,7 @@
             "name": "空",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6297,6 +6579,7 @@
             "name": "海蒂",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6321,6 +6604,7 @@
             "name": "三角初华",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6345,6 +6629,7 @@
             "name": "月禾",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6369,6 +6654,7 @@
             "name": "九色鹿",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6393,6 +6679,7 @@
             "name": "夏栎",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6417,6 +6704,7 @@
             "name": "行箸",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6441,6 +6729,7 @@
             "name": "撷英调香师",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6465,6 +6754,7 @@
             "name": "凛视",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6489,6 +6779,7 @@
             "name": "波卜",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6513,6 +6804,7 @@
             "name": "伯塔尼",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6537,6 +6829,7 @@
             "name": "岳羽由加莉",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6561,6 +6854,7 @@
             "name": "佩德洛",
             "profession": "SUPPORT",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6585,6 +6879,7 @@
             "name": "冻河",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6617,6 +6912,7 @@
             "name": "狮蝎",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [0, 0, 0],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6641,6 +6937,7 @@
             "name": "绮良",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [0, 0, 0],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6665,6 +6962,7 @@
             "name": "八幡海铃",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [0, 0, 0],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6689,6 +6987,7 @@
             "name": "食铁兽",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6713,6 +7012,7 @@
             "name": "见行者",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6737,6 +7037,7 @@
             "name": "罗宾",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6761,6 +7062,7 @@
             "name": "霜华",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6785,6 +7087,7 @@
             "name": "钼铅",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6809,6 +7112,7 @@
             "name": "贝娜",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6833,6 +7137,7 @@
             "name": "风丸",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6857,6 +7162,7 @@
             "name": "双月",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6881,6 +7187,7 @@
             "name": "若叶睦",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6905,6 +7212,7 @@
             "name": "锡人",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6929,6 +7237,7 @@
             "name": "旅骨",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6953,6 +7262,7 @@
             "name": "蒂比",
             "profession": "SPECIAL",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -6977,6 +7287,7 @@
             "name": "能天使",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7009,6 +7320,7 @@
             "name": "空弦",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7041,6 +7353,7 @@
             "name": "灰烬",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7073,6 +7386,7 @@
             "name": "Stormeye",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7105,6 +7419,7 @@
             "name": "黑",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7137,6 +7452,7 @@
             "name": "鸿雪",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7169,6 +7485,7 @@
             "name": "焰狐龙梓兰",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7201,6 +7518,7 @@
             "name": "远牙",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7233,6 +7551,7 @@
             "name": "蕾缪安",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7265,6 +7584,7 @@
             "name": "W",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7297,6 +7617,7 @@
             "name": "菲亚梅塔",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7329,6 +7650,7 @@
             "name": "早露",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7361,6 +7683,7 @@
             "name": "提丰",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7393,6 +7716,7 @@
             "name": "迷迭香",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7425,6 +7749,7 @@
             "name": "维什戴尔",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7457,6 +7782,7 @@
             "name": "假日威龙陈",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7489,6 +7815,7 @@
             "name": "莱伊",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7521,6 +7848,7 @@
             "name": "娜仁图亚",
             "profession": "SNIPER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7553,6 +7881,7 @@
             "name": "推进之王",
             "profession": "PIONEER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7585,6 +7914,7 @@
             "name": "风笛",
             "profession": "PIONEER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7617,6 +7947,7 @@
             "name": "嵯峨",
             "profession": "PIONEER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7649,6 +7980,7 @@
             "name": "忍冬",
             "profession": "PIONEER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7681,6 +8013,7 @@
             "name": "琴柳",
             "profession": "PIONEER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7713,6 +8046,7 @@
             "name": "焰尾",
             "profession": "PIONEER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7745,6 +8079,7 @@
             "name": "郁金香",
             "profession": "PIONEER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7777,6 +8112,7 @@
             "name": "伺夜",
             "profession": "PIONEER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7809,6 +8145,7 @@
             "name": "缪尔赛思",
             "profession": "PIONEER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7841,6 +8178,7 @@
             "name": "可露希尔",
             "profession": "PIONEER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7873,6 +8211,7 @@
             "name": "凛御银灰",
             "profession": "PIONEER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7905,6 +8244,7 @@
             "name": "伊内丝",
             "profession": "PIONEER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7937,6 +8277,7 @@
             "name": "伊芙利特",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -7969,6 +8310,7 @@
             "name": "谬因",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8001,6 +8343,7 @@
             "name": "莫斯提马",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8033,6 +8376,7 @@
             "name": "艾雅法拉",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8065,6 +8409,7 @@
             "name": "刻俄柏",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8097,6 +8442,7 @@
             "name": "霍尔海雅",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8129,6 +8475,7 @@
             "name": "逻各斯",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8161,6 +8508,7 @@
             "name": "夕",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8193,6 +8541,7 @@
             "name": "玛露西尔",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8225,6 +8574,7 @@
             "name": "Pith",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8257,6 +8607,7 @@
             "name": "异客",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8289,6 +8640,7 @@
             "name": "卡涅利安",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8321,6 +8673,7 @@
             "name": "林",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8353,6 +8706,7 @@
             "name": "圣聆初雪",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8385,6 +8739,7 @@
             "name": "澄闪",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8417,6 +8772,7 @@
             "name": "荒芜拉普兰德",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8449,6 +8805,7 @@
             "name": "黑键",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8481,6 +8838,7 @@
             "name": "维伊",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8513,6 +8871,7 @@
             "name": "妮芙",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8545,6 +8904,7 @@
             "name": "烛煌",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8577,6 +8937,7 @@
             "name": "真言",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8609,6 +8970,7 @@
             "name": "死芒",
             "profession": "CASTER",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8641,6 +9003,7 @@
             "name": "灵知",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8673,6 +9036,7 @@
             "name": "安洁莉娜",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8705,6 +9069,7 @@
             "name": "铃兰",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8737,6 +9102,7 @@
             "name": "Raidian",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8769,6 +9135,7 @@
             "name": "溯光星源",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8801,6 +9168,7 @@
             "name": "麦哲伦",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8833,6 +9201,7 @@
             "name": "电弧",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8865,6 +9234,7 @@
             "name": "浊心斯卡蒂",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8897,6 +9267,7 @@
             "name": "魔王",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8929,6 +9300,7 @@
             "name": "淬羽赫默",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8961,6 +9333,7 @@
             "name": "遥",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -8993,6 +9366,7 @@
             "name": "令",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9025,6 +9399,7 @@
             "name": "白铁",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9057,6 +9432,7 @@
             "name": "娜斯提",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9089,6 +9465,7 @@
             "name": "塑心",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9121,6 +9498,7 @@
             "name": "酒神",
             "profession": "SUPPORT",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9153,6 +9531,7 @@
             "name": "傀影",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9185,6 +9564,7 @@
             "name": "缄默德克萨斯",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9217,6 +9597,7 @@
             "name": "麒麟R夜刀",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9249,6 +9630,7 @@
             "name": "弑君者",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9281,6 +9663,7 @@
             "name": "Misery",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9313,6 +9696,7 @@
             "name": "老鲤",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9345,6 +9729,7 @@
             "name": "琳琅诗怀雅",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9377,6 +9762,7 @@
             "name": "温蒂",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9409,6 +9795,7 @@
             "name": "阿",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9441,6 +9828,7 @@
             "name": "新约能天使",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9473,6 +9861,7 @@
             "name": "歌蕾蒂娅",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9505,6 +9894,7 @@
             "name": "水月",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [0, 0, 0],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9537,6 +9927,7 @@
             "name": "阿斯卡纶",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [0, 0, 0],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9569,6 +9960,7 @@
             "name": "国度",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [0, 0, 0],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9601,6 +9993,7 @@
             "name": "归溟幽灵鲨",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9633,6 +10026,7 @@
             "name": "结城理",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9665,6 +10059,7 @@
             "name": "多萝西",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9697,6 +10092,7 @@
             "name": "艾拉",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9729,6 +10125,7 @@
             "name": "望",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9761,6 +10158,7 @@
             "name": "引星棘刺",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9793,6 +10191,7 @@
             "name": "予愿安洁莉娜",
             "profession": "SPECIAL",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9825,6 +10224,7 @@
             "name": "闪灵",
             "profession": "MEDIC",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9857,6 +10257,7 @@
             "name": "Touch",
             "profession": "MEDIC",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9889,6 +10290,7 @@
             "name": "夜莺",
             "profession": "MEDIC",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9921,6 +10323,7 @@
             "name": "凯尔希",
             "profession": "MEDIC",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9953,6 +10356,7 @@
             "name": "流明",
             "profession": "MEDIC",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -9985,6 +10389,7 @@
             "name": "纯烬艾雅法拉",
             "profession": "MEDIC",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10017,6 +10422,7 @@
             "name": "焰影苇草",
             "profession": "MEDIC",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10049,6 +10455,7 @@
             "name": "缇缇",
             "profession": "MEDIC",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10081,6 +10488,7 @@
             "name": "Mon3tr",
             "profession": "MEDIC",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10113,6 +10521,7 @@
             "name": "凯尔希·思衡托",
             "profession": "MEDIC",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10145,6 +10554,7 @@
             "name": "星熊",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10177,6 +10587,7 @@
             "name": "Mechanist",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10209,6 +10620,7 @@
             "name": "塞雷娅",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10241,6 +10653,7 @@
             "name": "瑕光",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10273,6 +10686,7 @@
             "name": "黍",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10305,6 +10719,7 @@
             "name": "年",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10337,6 +10752,7 @@
             "name": "泥岩",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10369,6 +10785,7 @@
             "name": "斥罪",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10401,6 +10818,7 @@
             "name": "森蚺",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10433,6 +10851,7 @@
             "name": "号角",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10465,6 +10884,7 @@
             "name": "涤火杰西卡",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10497,6 +10917,7 @@
             "name": "信仰搅拌机",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10529,6 +10950,7 @@
             "name": "机械师",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10561,6 +10983,7 @@
             "name": "余",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10593,6 +11016,7 @@
             "name": "珊比",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10625,6 +11049,7 @@
             "name": "斩业星熊",
             "profession": "TANK",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10657,6 +11082,7 @@
             "name": "山",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10689,6 +11115,7 @@
             "name": "重岳",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10721,6 +11148,7 @@
             "name": "贝洛内",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10753,6 +11181,7 @@
             "name": "银灰",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10785,6 +11214,7 @@
             "name": "棘刺",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10817,6 +11247,7 @@
             "name": "仇白",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10849,6 +11280,7 @@
             "name": "丰川祥子",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10881,6 +11313,7 @@
             "name": "领主·Sharp",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10897,6 +11330,7 @@
             "name": "赫德雷",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10929,6 +11363,7 @@
             "name": "乌尔比安",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10961,6 +11396,7 @@
             "name": "佩佩",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -10993,6 +11429,7 @@
             "name": "怒潮凛冬",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11025,6 +11462,7 @@
             "name": "陈",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11057,6 +11495,7 @@
             "name": "艾丽妮",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11089,6 +11528,7 @@
             "name": "锏",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11121,6 +11561,7 @@
             "name": "煌",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11153,6 +11594,7 @@
             "name": "百炼嘉维尔",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11185,6 +11627,7 @@
             "name": "史尔特尔",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11217,6 +11660,7 @@
             "name": "薇薇安娜",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11249,6 +11693,7 @@
             "name": "维娜·维多利亚",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11281,6 +11726,7 @@
             "name": "赤刃明霄陈",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11313,6 +11759,7 @@
             "name": "赫拉格",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11345,6 +11792,7 @@
             "name": "左乐",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11377,6 +11825,7 @@
             "name": "帕拉斯",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11409,6 +11858,7 @@
             "name": "耀骑士临光",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11441,6 +11891,7 @@
             "name": "止颂",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11473,6 +11924,7 @@
             "name": "Sharp",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11505,6 +11957,7 @@
             "name": "圣约送葬人",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11537,6 +11990,7 @@
             "name": "隐德来希",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11569,6 +12023,7 @@
             "name": "玛恩纳",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11601,6 +12056,7 @@
             "name": "司霆惊蛰",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11633,6 +12089,7 @@
             "name": "塔露拉",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11665,6 +12122,7 @@
             "name": "克莱门莎",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [2, 2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11697,6 +12155,7 @@
             "name": "响石",
             "profession": "TANK",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [3, 3, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11721,6 +12180,7 @@
             "name": "暴行",
             "profession": "WARRIOR",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [2, 2, 3],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11745,6 +12205,7 @@
             "name": "空爆",
             "profession": "SNIPER",
             "max_levels": [40, 55],
+            "base_block_counts": [1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11761,6 +12222,7 @@
             "name": "月见夜",
             "profession": "WARRIOR",
             "max_levels": [40, 55],
+            "base_block_counts": [2, 2],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11777,6 +12239,7 @@
             "name": "猎蜂",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11801,6 +12264,7 @@
             "name": "杰克",
             "profession": "WARRIOR",
             "max_levels": [45, 60, 70],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11825,6 +12289,7 @@
             "name": "夜魔",
             "profession": "CASTER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11849,6 +12314,7 @@
             "name": "格拉尼",
             "profession": "PIONEER",
             "max_levels": [50, 70, 80],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -11873,6 +12339,7 @@
             "name": "斯卡蒂",
             "profession": "WARRIOR",
             "max_levels": [50, 80, 90],
+            "base_block_counts": [1, 1, 1],
             "base_skill_max": 7,
             "skills": [
                 {
@@ -12364,5 +12831,6 @@
     },
     "issues": [],
     "account_training_included": false,
-    "current_equipment_included": false
+    "current_equipment_included": false,
+    "base_block_scope": "Unmodified character phase only; excludes skills, equipment, buffs, debuffs and occupied capacity"
 }

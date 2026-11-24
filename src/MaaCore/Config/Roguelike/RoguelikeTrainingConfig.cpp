@@ -65,11 +65,52 @@ bool asst::RoguelikeTrainingConfig::parse(const json::value& value)
             }
             rule.skills.push_back(slot);
         }
+        rule.base_block_counts.assign(rule.maximum_levels.size(), -1);
+        if (entry.contains("base_block_counts")) {
+            const auto blocks = entry.find<json::array>("base_block_counts");
+            if (!blocks || blocks->size() != rule.maximum_levels.size()) {
+                LogError << __FUNCTION__ << "Invalid base block phase count" << id;
+                return false;
+            }
+            for (size_t index = 0; index < blocks->size(); ++index) {
+                const auto& count = (*blocks)[index];
+                if (count.is_null()) {
+                    continue;
+                }
+                if (!count.is_number() || !std::isfinite(count.as_double()) || count.as_double() < 0 ||
+                    count.as_double() > std::numeric_limits<int>::max() ||
+                    std::floor(count.as_double()) != count.as_double()) {
+                    LogError << __FUNCTION__ << "Invalid base block capacity" << id;
+                    return false;
+                }
+                rule.base_block_counts[index] = static_cast<int>(count.as_double());
+            }
+        }
         by_name[*name].push_back(std::move(rule));
     }
     m_by_name = std::move(by_name);
     m_operator_count = entries->size();
     return true;
+}
+
+std::optional<int> asst::RoguelikeTrainingConfig::base_block_count(const std::string& name, int elite, int level) const
+{
+    const auto found = m_by_name.find(name);
+    if (found == m_by_name.end() || elite < 0 || level < 1 || !identity_coverage_complete(name)) {
+        return std::nullopt;
+    }
+    std::optional<int> capacity;
+    for (const auto& rule : found->second) {
+        if (elite >= static_cast<int>(rule.maximum_levels.size()) || rule.maximum_levels[elite] < level ||
+            rule.base_block_counts[elite] < 0) {
+            return std::nullopt;
+        }
+        if (capacity && *capacity != rule.base_block_counts[elite]) {
+            return std::nullopt;
+        }
+        capacity = rule.base_block_counts[elite];
+    }
+    return capacity;
 }
 
 std::string asst::RoguelikeTrainingConfig::unique_identity(const std::string& name) const

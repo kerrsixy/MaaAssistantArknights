@@ -1,5 +1,7 @@
 #include "RoguelikeCopilotConfig.h"
 
+#include <cmath>
+#include <limits>
 #include <meojson/json.hpp>
 
 #include "Utils/Logger.hpp"
@@ -242,6 +244,16 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
                 return false;
             }
             info.require_persistent_blocking = deploy_info.get("require_persistent_blocking", false);
+            if (deploy_info.contains("minimum_base_block_count")) {
+                const auto& minimum = deploy_info.at("minimum_base_block_count");
+                if (!minimum.is_number() || !std::isfinite(minimum.as_double()) || minimum.as_double() < 0 ||
+                    minimum.as_double() > std::numeric_limits<int>::max() ||
+                    std::floor(minimum.as_double()) != minimum.as_double()) {
+                    LogError << __FUNCTION__ << "Invalid base blocking requirement" << stage_name;
+                    return false;
+                }
+                info.minimum_base_block_count = static_cast<int>(minimum.as_double());
+            }
             const auto read_tile_locations = [&](const std::string& key, std::vector<Point>& result) {
                 if (!deploy_info.contains(key)) {
                     return true;

@@ -940,4 +940,14 @@ The initial probe still failed three checks because fixing only the outer gate d
 
 Do not hot-swap run71's active phase108. Its outside scan is ongoing; a complete same-UID cache transaction, recruitment receipts and live retry of this correction remain unverified. Training receipts still do not change recruitment priorities. General damage/task decisions, unattended first ending and stableN10 remain incomplete.
 
+## 2026-11-25: Phase 110, phase-aware base blocking and budget-veto fallback
+
+Extend the existing generator using the same Nov1 character table. Accept base blocking only from complete ordered integer keyframes that cover the phase and remain constant. Missing, varying or invalid data stays unknown; use neither name lists nor profession defaults. Gummy changes from2 at E0 to3 at E1, while Specter changes from2 at E1 to3 at E2. Optional minimum_base_block_count uses observed run phase/level and rejects conflicting phase. Base capacity does not include current skills, equipment, relics, debuffs or occupied slots.
+
+Keep the taught9,4 Left core and5,2 Down bait. Add7,4 as a mutually exclusive main-blocker fallback to7,5; every preset7,4 blocker requires persistent blocking and base3. Require relevant route coverage for bait/core, keep healing groups in the medic slot, and reserve DP in blocker/bait/core/medic/filler order. Reject impossible targets before cost waiting. Facilities still rely on existing failed-deployment quarantine: positive pre-drag occupancy detection, effective current3-block and a live clear remain unproven.
+
+All43 new Debug native and11 generator checks pass, including actual phase differences, native consumers, unknown/conflicting input, Liberators, legacy defaults and invalid numeric constraints. Rebuild all88 affected consumers in the308-object cohort. Preparation161, account training88 and storage924 regressions pass; final resources and both scan-flag factories pass with zero connections/inputs. Preserve the initial two test compilation errors from const JSON accessors and the successful correction.
+
+Actual phase108 run71 committed and reloaded181 training records under the same UID, retaining438 operators. EW's original and persisted frames have identical hashes. Fifteen recruitment receipts prove effective training consumption, while priority_adjusted remains false. Horn's module is unknown this refresh; neither full module refresh nor current equipment is claimed, and blue-gate capability stays disabled. Do not hot-swap the active exploration. General damage/task scoring, unattended first ending and stableN10 remain unfinished.
+
 Publication check: actual run71 naturally failed at floor5 过度繁殖 and returned to the lobby, settling N9 at752 points with four floors completed. All29 initial account-scan errors and one pause receipt of unknown origin remain preserved; strict acceptance still rejects this sample. An unattended first ending, N10 unlock and stable clears remain unproven.

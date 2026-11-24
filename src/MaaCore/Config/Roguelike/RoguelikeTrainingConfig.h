@@ -30,6 +30,7 @@ struct OperatorTrainingRule
     std::string id;
     std::string name;
     std::vector<int> maximum_levels;
+    std::vector<int> base_block_counts;
     int base_skill_max = -1;
     std::vector<OperatorSkillRule> skills;
 };
@@ -45,6 +46,8 @@ public:
     std::optional<int> maximum_level(const std::string& name, int elite) const;
     std::optional<int> maximum_base_skill(const std::string& name) const;
     std::optional<int> maximum_training(const std::string& name, int skill) const;
+    // Unmodified phase capacity, not current free blocking slots or active effects.
+    std::optional<int> base_block_count(const std::string& name, int elite, int level) const;
     SkillAvailability skill_availability(const std::string& name, int skill, int elite, int level) const;
 
     std::size_t operator_count() const noexcept { return m_operator_count; }

@@ -7,7 +7,12 @@
         "坑：(7,1)(8,1)(9,1)。瞬移怪会自动走向 (0,1)；(0,1) 出沙滩车，把瞬移怪引上车后会在 (7,1) 掉坑自杀。",
         "第 1 手 (7,5) 盾朝上：蓝门前最后一道拦截。第 2 手 (5,2) 远程朝下：引怪位，位置偏、一般不吃伤害，主力不要放这一格。",
         "第 3 手 (8,5) 医疗朝左管 (7,5)；第 4 手 (9,4) 主 C 朝左扫 y=4 走廊；第 5 手 (7,4) 近卫朝上做二道防线；第 6 手 (6,4) 其他地面朝上补线。",
-        "坐标口径：作业 y = tiles 行号（y=0 最上），与 evidence 一致；v2 的 (8,4)/(8,5)/(7,4)(6,5)/(7,5)(5,4) 旧六手已作废。"
+        "坐标口径：作业 y = tiles 行号（y=0 最上），与 evidence 一致；v2 的 (8,4)/(8,5)/(7,4)(6,5)/(7,5)(5,4) 旧六手已作废。",
+        "v4：门前 (7,5) 与备用 (7,4) 主阻挡互斥，要求本轮阶段基础挡三及持续阻挡；不以便宜或职业代替容量。",
+        "基础阻挡由同版原始角色阶段数据生成，不包含技能、模组、藏品、负面效果和已占用容量；不宣称已读出本场剩余挡数。",
+        "(7,5) 可能生成丰饶树冢；现有两次未确认部署后的格子隔离仍生效，不把历史失败自动标成设施识别成功。",
+        "预留部署费用，顺序为有效主阻挡、引怪位、主输出、医疗、补线；保留原教程主输出 (9,4) 朝左。",
+        "备用阻挡已守 (7,4) 时原该格近卫补线自动跳过；没有基础挡三人选不伪称先锋能挡沙滩车，仍允许其余输出方案。"
     ],
     "deploy_plan": [
         {
@@ -32,11 +37,39 @@
                 "伊内丝",
                 "玛恩纳"
             ],
-            "location": [
-                7,
-                5
+            "location": [7, 5],
+            "direction": "up",
+            "minimum_base_block_count": 3,
+            "require_persistent_blocking": true,
+            "exclusive_locations": [[7, 4]]
+        },
+        {
+            "groups": [
+                "重装",
+                "机械师",
+                "奶盾",
+                "挡人先锋",
+                "铁卫",
+                "近卫",
+                "领主",
+                "处决者",
+                "史尔特尔",
+                "地面阻挡",
+                "其他地面",
+                "投锋",
+                "回费",
+                "情报官",
+                "炮灰",
+                "地刺",
+                "地面远程",
+                "伊内丝",
+                "玛恩纳"
             ],
-            "direction": "up"
+            "location": [7, 4],
+            "direction": "up",
+            "minimum_base_block_count": 3,
+            "require_persistent_blocking": true,
+            "exclusive_locations": [[7, 5]]
         },
         {
             "groups": [
@@ -59,38 +92,10 @@
                 "凯尔希",
                 "玛恩纳"
             ],
-            "location": [
-                5,
-                2
-            ],
-            "direction": "down"
-        },
-        {
-            "groups": [
-                "单奶",
-                "群奶",
-                "奶",
-                "医疗",
-                "元素奶",
-                "益达",
-                "高台输出",
-                "狙击",
-                "速狙",
-                "提丰",
-                "术师",
-                "盾法",
-                "元素",
-                "召唤",
-                "辅助",
-                "其他高台",
-                "凯尔希",
-                "玛恩纳"
-            ],
-            "location": [
-                8,
-                5
-            ],
-            "direction": "left"
+            "location": [5, 2],
+            "direction": "down",
+            "exclude_starting_core": true,
+            "required_attack_tiles": [[5, 4]]
         },
         {
             "groups": [
@@ -117,11 +122,15 @@
                 "元素奶",
                 "玛恩纳"
             ],
-            "location": [
-                9,
-                4
-            ],
-            "direction": "left"
+            "location": [9, 4],
+            "direction": "left",
+            "required_attack_tiles": [[7, 4]]
+        },
+        {
+            "groups": ["单奶", "群奶", "奶", "医疗", "元素奶", "凯尔希"],
+            "location": [8, 5],
+            "direction": "left",
+            "exclude_starting_core": true
         },
         {
             "groups": [
@@ -144,11 +153,10 @@
                 "伊内丝",
                 "玛恩纳"
             ],
-            "location": [
-                7,
-                4
-            ],
-            "direction": "up"
+            "location": [7, 4],
+            "direction": "up",
+            "minimum_base_block_count": 3,
+            "require_persistent_blocking": true
         },
         {
             "groups": [
@@ -174,11 +182,9 @@
                 "领主",
                 "挡人先锋"
             ],
-            "location": [
-                6,
-                4
-            ],
+            "location": [6, 4],
             "direction": "up"
         }
-    ]
+    ],
+    "reserve_deploy_cost": true
 }
