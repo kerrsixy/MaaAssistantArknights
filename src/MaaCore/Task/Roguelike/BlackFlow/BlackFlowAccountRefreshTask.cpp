@@ -1,6 +1,11 @@
 #include "BlackFlowAccountRefreshTask.h"
+#include "BlackFlowRequiredModuleRepair.h"
 
 #include <algorithm>
+#include <chrono>
+#include <exception>
+#include <fstream>
+#include <string_view>
 
 #include "Config/Roguelike/RoguelikeRecruitConfig.h"
 #include "Config/TaskData.h"
@@ -256,6 +261,9 @@ bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const Ac
 
 bool BlackFlowAccountRefreshTask::_run()
 {
+    const auto scan_started_us =
+        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+            .count();
     if (m_observation.uid.empty() || m_targets.empty() || ctrler()->get_client_type() != m_observation.client ||
         !action("BlackFlowAccountScan@Enter")) {
         return false;
@@ -263,7 +271,17 @@ bool BlackFlowAccountRefreshTask::_run()
     OperBoxRecognitionTask scanner(m_callback, m_inst, m_task_chain);
     scanner.set_retry_times(0);
     scanner.set_page_guard([this] { return action("OperProgress@ReturnToOperBox"); });
-    scanner.set_page_visitor([this](const auto& page) { return visit_page(page); });
+    std::set<std::string> primary_seen_required_ids;
+    scanner.set_page_visitor([this, &primary_seen_required_ids](const auto& page) {
+        for (const auto& oper : page) {
+            for (const auto& target : m_targets) {
+                if (oper.id == target.operator_id && oper.name == target.operator_name) {
+                    primary_seen_required_ids.insert(oper.id);
+                }
+            }
+        }
+        return visit_page(page);
+    });
     // Continue the normal roster pass after the module watchlist: relevant
     // recruitment and configured opening operators also need outside training.
     const bool scanned = scanner.run();
@@ -274,6 +292,132 @@ bool BlackFlowAccountRefreshTask::_run()
     // Repeated pages can also mean a stalled swipe in the middle. Without a
     // positive boundary/count observation, fresh full-roster coverage is unknown.
     m_observation.roster_complete = false;
+
+    std::vector<RequiredRepairTarget> required;
+    for (const auto& target : m_targets) {
+        required.push_back({ target.operator_id, target.operator_name });
+    }
+    const auto missing =
+        required_module_repair_targets(required, m_observation.unknown_targets, primary_seen_required_ids, m_attempted);
+    const auto repair_scanner_budget = required_repair_scanner_budget(missing.size());
+    if (scanned && !missing.empty() && repair_scanner_budget > 0 && !need_exit()) {
+        // A second pass locates only required targets never admitted by the first
+        // list pass. It does not repeat relevant/opening training visits.
+        std::set<std::string> encountered;
+        OperBoxRecognitionTask locating(m_callback, m_inst, m_task_chain);
+        locating.set_retry_times(0);
+        locating.set_page_guard([this] { return action("OperProgress@ReturnToOperBox"); });
+        locating.set_page_visitor([this, &missing, &encountered](const auto& page) {
+            std::vector<OperBoxInfo> selected;
+            for (const auto& oper : page) {
+                for (const auto& target : missing) {
+                    if (oper.id == target.id && oper.name == target.name && encountered.insert(oper.id).second) {
+                        selected.push_back(oper);
+                    }
+                }
+            }
+            return visit_page(selected);
+        });
+        locating.set_stop_after_page([&] { return encountered.size() == missing.size(); });
+        const auto evidence_root = UserDir.get() / utils::path("BlackFlowEvidence/account_required_repair");
+        std::error_code directory_error;
+        std::filesystem::create_directories(evidence_root, directory_error);
+        std::filesystem::path directory;
+        bool directory_created = false;
+        for (int sequence = 0; !directory_error && sequence < 16; ++sequence) {
+            directory =
+                evidence_root /
+                utils::path(m_observation.uid + "_" + std::to_string(scan_started_us) + "_" + std::to_string(sequence));
+            directory_created = std::filesystem::create_directory(directory, directory_error);
+            if (directory_created) {
+                break;
+            }
+        }
+        if (!directory_created && !directory_error) {
+            directory_error = std::make_error_code(std::errc::file_exists);
+        }
+        if (directory_error) {
+            LogWarn << __FUNCTION__ << "Required repair evidence directory unavailable" << directory_error.message();
+        }
+        std::size_t diagnostic = 0;
+        OperBoxRecognitionTask::TraversalProfile traversal;
+        traversal.forward_task = "BlackFlowAccountScan@RequiredRepairForward";
+        traversal.backtrack_task = "BlackFlowAccountScan@RequiredRepairBacktrack";
+        traversal.maximum_page_analyses = repair_scanner_budget;
+        traversal.maximum_backtracks = 1;
+        traversal.emit_roster_callbacks = false;
+        traversal.evidence = [&](const cv::Mat& frame,
+                                 const auto& frame_opers,
+                                 const auto& page_union,
+                                 const auto& previous_ids,
+                                 const char* reason) {
+            if (std::string_view(reason) == "page_observed" ||
+                (std::string_view(reason) == "scan_finished" && encountered.size() == missing.size())) {
+                return;
+            }
+            json::array frame_ids, union_ids, eligible_ids, encountered_ids, previous;
+            for (const auto& oper : frame_opers) {
+                frame_ids.emplace_back(oper.id);
+            }
+            for (const auto& oper : page_union) {
+                union_ids.emplace_back(oper.id);
+            }
+            for (const auto& target : missing) {
+                eligible_ids.emplace_back(target.id);
+            }
+            for (const auto& id : encountered) {
+                encountered_ids.emplace_back(id);
+            }
+            for (const auto& id : previous_ids) {
+                previous.emplace_back(id);
+            }
+            const auto stem = std::to_string(++diagnostic);
+            const auto image_path = directory / utils::path(stem + ".png");
+            bool saved = false;
+            try {
+                saved = !directory_error && !frame.empty() && MAA_NS::imwrite(image_path, frame);
+            }
+            catch (const std::exception& error) {
+                LogWarn << __FUNCTION__ << "Required repair image evidence unavailable" << error.what();
+            }
+            const json::value evidence =
+                json::object { { "reason", reason },
+                               { "client", m_observation.client },
+                               { "uid", m_observation.uid },
+                               { "scan_started_us", scan_started_us },
+                               { "source_kind", "required_repair_single_list_frame" },
+                               { "frame_ids", std::move(frame_ids) },
+                               { "page_union_ids", std::move(union_ids) },
+                               { "previous_union_ids", std::move(previous) },
+                               { "eligible_ids", std::move(eligible_ids) },
+                               { "encountered_ids", std::move(encountered_ids) },
+                               { "coverage_complete", false },
+                               { "unseen_target_success_inferred", false },
+                               { "image_saved", saved },
+                               { "image", saved ? utils::path_to_utf8_string(image_path) : "" } };
+            if (!directory_error) {
+                std::ofstream stream(directory / utils::path(stem + ".json"));
+                stream << evidence.to_string();
+                if (!stream || !saved) {
+                    LogWarn << __FUNCTION__ << "Required repair evidence incomplete" << reason;
+                }
+            }
+        };
+        locating.set_traversal_profile(std::move(traversal));
+        const bool located = locating.run();
+        for (const auto& [name, oper] : locating.own_operators()) {
+            if (std::ranges::any_of(missing, [&](const auto& target) {
+                    return oper.id == target.id && name == target.name;
+                })) {
+                m_observation.strengths.emplace(name, oper);
+            }
+        }
+        // Failed optional locating preserves the initial verified observations;
+        // publication still requires the same positive home UID below.
+        LogInfo << __FUNCTION__ << "Required locating pass finished" << located << "eligible" << missing.size()
+                << "encountered" << encountered.size() << "unknown" << m_observation.unknown_targets.size()
+                << "total list frame cap" << 128 << "scanner frame cap" << repair_scanner_budget;
+    }
     // Always recover to a positive home terminal, never AccountHome ->
     // AccountRead recursion.
     if (need_exit() || !action("BlackFlowAccountScan@ReturnHome")) {
