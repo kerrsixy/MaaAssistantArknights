@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import subprocess
 import sys
@@ -123,6 +124,18 @@ def main() -> int:
         "--life-game", action=argparse.BooleanOptionalAction, default=True
     )
     parser.add_argument("--mumu-extras", action="store_true")
+    parser.add_argument(
+        "--battle-observation-interval",
+        type=float,
+        default=1.0,
+        help="只读缓存帧采样间隔；验证批次默认1秒，0关闭，不发出游戏输入",
+    )
+    parser.add_argument(
+        "--battle-observation-limit",
+        type=int,
+        default=1200,
+        help="每场采样次数上限，默认1200；缓存采样时间不是游戏帧时间",
+    )
     parser.add_argument("--gap", type=int, default=0, help="轮间等待秒数，0 至 60")
     parser.add_argument("--tag", help="本批次唯一日志标记")
     parser.add_argument(
@@ -134,9 +147,12 @@ def main() -> int:
         or args.seconds < 0
         or args.difficulty < 0
         or not 0 <= args.gap <= 60
+        or not math.isfinite(args.battle_observation_interval)
+        or args.battle_observation_interval < 0
+        or args.battle_observation_limit < 1
     ):
         parser.error(
-            "rounds must be positive; seconds/difficulty nonnegative; gap in0..60"
+            "rounds/observation limit must be positive; seconds/difficulty/finite observation interval nonnegative; gap in0..60"
         )
     tag = args.tag or f"auto_{datetime.now():%Y%m%d_%H%M%S}"
     if not re.fullmatch(r"[\w.-]+", tag):
@@ -155,6 +171,13 @@ def main() -> int:
         "requested_rounds": args.rounds,
         "requested_difficulty": args.difficulty,
         "wait_limit_seconds": args.seconds,
+        "battle_observation": {
+            "enabled": args.battle_observation_interval > 0,
+            "interval": args.battle_observation_interval,
+            "limit": args.battle_observation_limit,
+            "capture_source": "AsstGetImage cached frame; not engine frame time or scene classification",
+            "gameplay_control_inputs": 0,
+        },
         "samples": [],
         "status": "running",
         "unattended_first_ending_proven": False,
@@ -216,6 +239,10 @@ def main() -> int:
             args.core_dir,
             "--core-char",
             args.core_char,
+            "--battle-observation-interval",
+            str(args.battle_observation_interval),
+            "--battle-observation-limit",
+            str(args.battle_observation_limit),
             "--scan-account-modules"
             if index == 1 and args.scan_account_modules
             else "--no-scan-account-modules",
