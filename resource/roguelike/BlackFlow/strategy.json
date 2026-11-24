@@ -801,18 +801,6 @@
                     }
                 },
                 {
-                    "id": "ending1_floor1_hidden",
-                    "description": "第一层在核心节点之外尽量探索未知事件",
-                    "kind": "preferred",
-                    "floor_window": [1, 1],
-                    "rank": 0,
-                    "count": 99,
-                    "weight": 3,
-                    "selector": {
-                        "node_types": ["hide_invisible"]
-                    }
-                },
-                {
                     "id": "ending1_floor2_expedition",
                     "description": "第二层优先经过先行一步",
                     "kind": "preferred",
@@ -822,18 +810,6 @@
                     "weight": 6,
                     "selector": {
                         "node_types": ["expedition"]
-                    }
-                },
-                {
-                    "id": "ending1_floor2_hidden",
-                    "description": "第二层在核心节点之外尽量探索未知事件",
-                    "kind": "preferred",
-                    "floor_window": [2, 2],
-                    "rank": 0,
-                    "count": 99,
-                    "weight": 3,
-                    "selector": {
-                        "node_types": ["hide_invisible"]
                     }
                 },
                 {
@@ -952,18 +928,6 @@
                     }
                 },
                 {
-                    "id": "ending1_late_hidden",
-                    "description": "第三至第五层在核心节点之外探索未知事件",
-                    "kind": "preferred",
-                    "floor_window": [3, 5],
-                    "rank": 0,
-                    "count": 99,
-                    "weight": 3,
-                    "selector": {
-                        "node_types": ["hide_invisible"]
-                    }
-                },
-                {
                     "id": "ending1_late_incident",
                     "description": "第三至第五层尽量经过常规事件",
                     "kind": "preferred",
@@ -977,14 +941,14 @@
                 },
                 {
                     "id": "ending1_late_combat",
-                    "description": "第三至第五层作战具有收益，同时低于同数量常规事件",
+                    "description": "第三至第五层普通作战与狭路相逢均有成长收益；需与完整路线消耗比较",
                     "kind": "preferred",
                     "floor_window": [3, 5],
                     "rank": 0,
                     "count": 99,
                     "weight": 3,
                     "selector": {
-                        "node_types": ["hide_battle", "battle_normal", "battle_elite"]
+                        "node_types": ["hide_battle", "battle_normal", "battle_elite", "duel"]
                     }
                 },
                 {
