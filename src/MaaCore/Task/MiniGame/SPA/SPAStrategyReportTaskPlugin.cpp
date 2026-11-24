@@ -5,6 +5,7 @@
 #include "MaaUtils/NoWarningCV.hpp"
 #include "SPAImageEvidence.h"
 #include "SPAObserverTaskPlugin.h"
+#include "SPAOpeningControls.h"
 #include "SPAPlanner.h"
 #include "SPAStrategyEligibility.h"
 #include "SPAStrategyReportScroll.h"
@@ -268,6 +269,12 @@ bool StrategyReportTaskPlugin::_run()
                 if (!wins && rule->kind != StrategyUnlockKind::Default &&
                     !observation.get("strategy_report_unlock_verified", false)) {
                     continue;
+                }
+                if (m_portrait_sink) {
+                    auto portrait = strategy_portrait(image, cv::Rect(column, row, 120, 120));
+                    if (!portrait.empty()) {
+                        m_portrait_sink(id, std::move(portrait));
+                    }
                 }
                 locked.erase(id);
                 const bool badge_verified = wins && observation.get("badge_verified", false) &&

@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "MaaUtils/NoWarningCV.hpp"
+#include <opencv2/imgproc.hpp>
 
 namespace asst::spa
 {
@@ -87,6 +88,42 @@ inline std::vector<int> opening_strategy_probe_order(int visible_slots, int pref
         }
     }
     return slots;
+}
+
+inline constexpr double StrategyPortraitHintThreshold = .68;
+
+inline cv::Mat strategy_portrait(const cv::Mat& frame, const cv::Rect& tile)
+{
+    // Exclude the frame, selection outline and medal corner. The report
+    // and opening tiles render the same portrait at different sizes.
+    const cv::Rect center(
+        tile.x + tile.width * 15 / 100,
+        tile.y + tile.height * 28 / 100,
+        tile.width * 70 / 100,
+        tile.height * 60 / 100);
+    if (frame.type() != CV_8UC3 || center.empty() || (center & cv::Rect(0, 0, frame.cols, frame.rows)) != center) {
+        return {};
+    }
+    cv::Mat gray, portrait;
+    cv::cvtColor(frame(center), gray, cv::COLOR_BGR2GRAY);
+    cv::resize(gray, portrait, cv::Size(24, 24), 0, 0, cv::INTER_AREA);
+    return portrait;
+}
+
+inline double strategy_portrait_similarity(const cv::Mat& reference, const cv::Mat& candidate)
+{
+    if (reference.empty() || candidate.empty() || reference.size() != candidate.size()) {
+        return 0.0;
+    }
+    cv::Scalar mean, reference_deviation, candidate_deviation;
+    cv::meanStdDev(reference, mean, reference_deviation);
+    cv::meanStdDev(candidate, mean, candidate_deviation);
+    if (reference_deviation[0] < 4 || candidate_deviation[0] < 4) {
+        return 0.0;
+    }
+    cv::Mat score;
+    cv::matchTemplate(candidate, reference, score, cv::TM_CCOEFF_NORMED);
+    return score.at<float>(0, 0);
 }
 
 inline int opening_strategy_scrollbar_x(bool details_open)

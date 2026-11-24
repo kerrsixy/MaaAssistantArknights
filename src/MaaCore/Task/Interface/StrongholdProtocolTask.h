@@ -10,6 +10,7 @@
 #include "Task/MiniGame/SPA/SPAProjection.h"
 #include "Task/MiniGame/SPA/SPAReplacementPolicy.h"
 #include "Task/MiniGame/SPA/SPAStrategyEligibility.h"
+#include <map>
 #include <memory>
 #include <optional>
 #include <set>
@@ -38,7 +39,8 @@ protected:
 
 private:
     bool run_single();
-    std::optional<json::object> scan_strategy_progress(const std::string& target = {});
+    std::optional<json::object>
+        scan_strategy_progress(const std::string& target = {}, std::map<std::string, cv::Mat>* portraits = nullptr);
     int m_run_count = 1;
     json::value m_initial_parameters;
     bool run_session(spa::LifecycleTaskPlugin* lifecycle = nullptr);

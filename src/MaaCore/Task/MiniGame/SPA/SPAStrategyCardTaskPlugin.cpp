@@ -308,6 +308,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         callback(AsstMsg::SubTaskExtraInfo, info);
     };
     std::map<int, std::pair<std::string, bool>> first_page_observations;
+    bool requested_search_fell_back = false;
     if (!m_requested_strategy.empty()) {
         const auto identities = strategy_identities();
         const auto wanted = std::find_if(identities.begin(), identities.end(), [&](const auto& identity) {
@@ -315,17 +316,21 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         });
         const auto opening_context = m_context_provider ? m_context_provider() : OpeningStrategyContext {};
         const bool requested_mode_available = strategy_available_in_mode(m_requested_strategy, opening_context.mode);
+        const bool portrait_available = !m_requested_portrait.empty();
+        const auto initial_scrollbar = opening_strategy_scrollbar_center(image, details_open);
         int requested_scrolls = 0;
         int requested_probes = 0;
         const int catalogue_hint =
             wanted == identities.end() ? -1 : static_cast<int>(std::distance(identities.begin(), wanted));
-        // Leave time for the default chooser if the requested card cannot be
-        // verified. Within this budget, finish a visible viewport before panning.
-        const auto deadline = inspection_deadline - std::chrono::seconds(5);
+        // Keep enough time to restore the first viewport, inspect a fallback
+        // card, and confirm it even when the requested strategy is absent.
+        const auto deadline = inspection_deadline - std::chrono::seconds(12);
+        const int max_viewports = portrait_available ? 12 : 7;
         cv::Mat last_marker;
         bool requested_unavailable = false;
-        for (int page = 0; wanted != identities.end() && requested_mode_available && page < 7 && !need_exit() &&
-                           std::chrono::steady_clock::now() < deadline && !specific_selected && !requested_unavailable;
+        for (int page = 0;
+             wanted != identities.end() && requested_mode_available && page < max_viewports && !need_exit() &&
+             std::chrono::steady_clock::now() < deadline && !specific_selected && !requested_unavailable;
              ++page) {
             image = ctrler()->get_image();
             const auto marker = viewport_marker(image);
@@ -337,12 +342,32 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                 break;
             }
             const int slots = rows.empty() ? 16 : std::min(16, static_cast<int>(rows.size()) * 4);
-            for (const int index : opening_strategy_probe_order(slots, page == 0 ? catalogue_hint : -1)) {
+            auto probes = opening_strategy_probe_order(slots, page == 0 ? catalogue_hint : -1);
+            if (portrait_available) {
+                std::vector<std::pair<double, int>> matches;
+                for (const int index : probes) {
+                    const auto slot = slot_at(index, rows, details_open);
+                    if (slot.height < 116) {
+                        continue;
+                    }
+                    const auto portrait = strategy_portrait(image, cv::Rect(slot.x - 1, slot.y, 128, 128));
+                    const double score = strategy_portrait_similarity(m_requested_portrait, portrait);
+                    if (score >= StrategyPortraitHintThreshold) {
+                        matches.emplace_back(score, index);
+                    }
+                }
+                std::ranges::sort(matches, std::greater {});
+                probes.clear();
+                for (std::size_t i = 0; i < std::min<std::size_t>(2, matches.size()); ++i) {
+                    probes.push_back(matches[i].second);
+                }
+            }
+            for (const int index : probes) {
                 if (need_exit() || std::chrono::steady_clock::now() >= deadline) {
                     break;
                 }
                 const auto slot = slot_at(index, rows, details_open);
-                if (!ctrler()->click(slot) || !sleep(100)) {
+                if (!ctrler()->click(Point(slot.x + slot.width / 2, slot.y + slot.height / 2)) || !sleep(150)) {
                     return false;
                 }
                 ++requested_probes;
@@ -361,6 +386,9 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                         confirmation = confirmation || value.find("确认选择") != std::string::npos;
                         unavailable = unavailable || strategy_unavailable_label(value);
                         occupied = occupied || (text.score >= .9 && value == "已被选择");
+                        if (text.rect.y < 345 || text.rect.y >= 455) {
+                            continue;
+                        }
                         for (const auto& known : identities) {
                             if (value == known.name || value == known.leader) {
                                 observed_identity = known;
@@ -414,6 +442,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                                                       { "viewport", page },
                                                       { "slot", index },
                                                       { "probed_cards", requested_probes },
+                                                      { "report_portrait_available", portrait_available },
                                                       { "countdown_seconds", countdown_seconds.value_or(-1) },
                                                       { "selection_reobserved", selection_reobserved },
                                                       { "confirmation_issued", false } };
@@ -421,7 +450,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                     break;
                 }
             }
-            if (!specific_selected && !requested_unavailable && page < 6 &&
+            if (!specific_selected && !requested_unavailable && page + 1 < max_viewports &&
                 std::chrono::steady_clock::now() < deadline && !need_exit()) {
                 last_marker = viewport_marker(ctrler()->get_image());
                 if (!scroll(true)) {
@@ -441,6 +470,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
                                      : "Requested strategy is unavailable in this simulation mode" },
                                { "requested_mode", opening_context.mode },
                                { "probed_cards", requested_probes },
+                               { "report_portrait_available", portrait_available },
                                { "viewport_scrolls", requested_scrolls },
                                { "countdown_seconds", countdown_seconds.value_or(-1) },
                                { "explicitly_unavailable", requested_unavailable },
@@ -452,10 +482,23 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
             callback(AsstMsg::SubTaskExtraInfo, fallback);
             m_requested_strategy.clear();
             m_prefer_unclaimed = false;
-            // Return to the top before the default chooser inspects portraits.
-            for (int page = 0; page < requested_scrolls; ++page) {
-                if (!scroll(false)) {
-                    return false;
+            requested_search_fell_back = true;
+            // Restore by thumb position when available instead of replaying
+            // every swipe from a deep viewport.
+            if (requested_scrolls > 0) {
+                image = ctrler()->get_image();
+                const auto current = opening_strategy_scrollbar_center(image, details_open);
+                if (initial_scrollbar && current && std::abs(*initial_scrollbar - *current) > 2) {
+                    const int x = opening_strategy_scrollbar_x(details_open);
+                    if (!ctrler()->swipe(Point(x, *current), Point(x, *initial_scrollbar), 430) || !sleep(420)) {
+                        return false;
+                    }
+                }
+                const auto landed = opening_strategy_scrollbar_center(ctrler()->get_image(), details_open);
+                if (!initial_scrollbar || !landed || std::abs(*initial_scrollbar - *landed) > 2) {
+                    first_page_observations.clear();
+                    // Even when scrolling cannot be verified, the fallback
+                    // may choose from the current screen after its own OCR.
                 }
             }
             image = ctrler()->get_image();
@@ -510,7 +553,7 @@ bool asst::spa::StrategyCardTaskPlugin::_run()
         std::vector<std::optional<int>> viewport_scrollbars;
         json::array card_evidence;
         cv::Mat last_marker;
-        const int max_viewports = m_prefer_unclaimed ? 7 : 4;
+        const int max_viewports = requested_search_fell_back ? 1 : m_prefer_unclaimed ? 7 : 4;
         for (int page = 0; page < max_viewports && !need_exit(); ++page) {
             image = ctrler()->get_image();
             const auto marker = viewport_marker(image);

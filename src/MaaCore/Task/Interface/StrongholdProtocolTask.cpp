@@ -2846,7 +2846,9 @@ bool asst::StrongholdProtocolTask::_run()
     return !need_exit();
 }
 
-std::optional<json::object> asst::StrongholdProtocolTask::scan_strategy_progress(const std::string& target)
+std::optional<json::object> asst::StrongholdProtocolTask::scan_strategy_progress(
+    const std::string& target,
+    std::map<std::string, cv::Mat>* portraits)
 {
     spa::ObserverTaskPlugin observer(m_callback, m_inst, TaskType);
     observer.set_retry_times(0);
@@ -2879,6 +2881,10 @@ std::optional<json::object> asst::StrongholdProtocolTask::scan_strategy_progress
         if (scan) {
             const auto plugin = task.register_plugin<spa::StrategyReportTaskPlugin>();
             plugin->set_target(target);
+            if (portraits) {
+                plugin->set_portrait_sink(
+                    [&](const std::string& id, cv::Mat portrait) { portraits->try_emplace(id, std::move(portrait)); });
+            }
             plugin->set_retry_times(0);
         }
         return task.run();
@@ -3052,11 +3058,12 @@ bool asst::StrongholdProtocolTask::run_single()
         return run_session();
     }
     std::optional<spa::StrategyProgress> scheduled;
+    std::map<std::string, cv::Mat> strategy_portraits;
     if (m_schedule_strategy_badges) {
         const std::string priority = m_requested_strategy_id;
         std::optional<json::object> report;
         if (!priority.empty()) {
-            report = scan_strategy_progress(priority);
+            report = scan_strategy_progress(priority, &strategy_portraits);
             if (report && report->get("target_band_id", std::string()) == priority) {
                 auto record = spa::find_strategy_report_progress(*report, priority);
                 if (record && spa::ProgressLedger::can_schedule_solo(*record)) {
@@ -3066,7 +3073,7 @@ bool asst::StrongholdProtocolTask::run_single()
         }
         const bool priority_verified = scheduled.has_value();
         if (!priority_verified && !need_exit()) {
-            report = scan_strategy_progress();
+            report = scan_strategy_progress({}, &strategy_portraits);
             if (report) {
                 scheduled = spa::find_strategy_report_progress(
                     *report,
@@ -3203,6 +3210,9 @@ bool asst::StrongholdProtocolTask::run_single()
     start_simulation = flow.register_plugin<spa::DifficultyTaskPlugin>();
     auto setup = flow.register_plugin<spa::SetupTaskPlugin>();
     auto strategy = flow.register_plugin<spa::StrategyCardTaskPlugin>();
+    if (const auto portrait = strategy_portraits.find(m_requested_strategy_id); portrait != strategy_portraits.end()) {
+        strategy->set_requested_portrait(portrait->second);
+    }
     strategy->set_context_provider([&] {
         return spa::OpeningStrategyContext { opening_pacts_known,
                                              m_policy.disabled_pacts,

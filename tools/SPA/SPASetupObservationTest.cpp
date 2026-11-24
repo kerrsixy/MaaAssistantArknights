@@ -1,4 +1,5 @@
 #include "Task/MiniGame/SPA/SPAObservation.h"
+#include "Task/MiniGame/SPA/SPAOpeningControls.h"
 #include "Task/MiniGame/SPA/SPAProjection.h"
 #include "Task/MiniGame/SPA/SPASetupSelection.h"
 #include <algorithm>
@@ -49,6 +50,24 @@ cv::Mat read_image(const std::string& filename)
 int main()
 {
     using namespace spa_setup_test;
+    const auto portraits = read_image("strategy_report_opening_portraits.png");
+    check(!portraits.empty(), "strategy report and opening portraits were captured on device");
+    const auto strategy = strategy_portrait(portraits, { 0, 0, 120, 120 });
+    const auto opening = strategy_portrait(portraits, { 120, 0, 128, 128 });
+    const auto detail = strategy_portrait(portraits, { 248, 0, 128, 128 });
+    const auto unrelated = strategy_portrait(portraits, { 376, 0, 128, 128 });
+    check(
+        strategy_portrait_similarity(strategy, opening) >= StrategyPortraitHintThreshold,
+        "selected report portrait finds the same opening tile");
+    check(
+        strategy_portrait_similarity(strategy, detail) >= StrategyPortraitHintThreshold,
+        "opening detail panel translation preserves the portrait");
+    check(
+        strategy_portrait_similarity(strategy, unrelated) < StrategyPortraitHintThreshold,
+        "unrelated opening portrait does not receive the same hint");
+    check(
+        strategy_portrait_similarity(strategy, cv::Mat::zeros(24, 24, CV_8UC1)) == 0.0,
+        "blank locked portrait cannot rank as a visual hint");
     const auto fixture = json::open(std::filesystem::current_path() / "setup_scrolled_archived.json");
     check(fixture.has_value(), "actual native OCR fixture loads");
     std::vector<TextObservation> split;

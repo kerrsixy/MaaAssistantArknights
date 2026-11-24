@@ -385,6 +385,7 @@ if(SPA_WITH_IMAGE_TESTS)
     configure_file(fixtures/setup_selected_top.png setup_selected_top.png COPYONLY)
     configure_file(fixtures/setup_selected_clipped.png setup_selected_clipped.png COPYONLY)
     configure_file(fixtures/setup_scrolled_banned.png setup_scrolled_banned.png COPYONLY)
+    configure_file(fixtures/strategy_report_opening_portraits.png strategy_report_opening_portraits.png COPYONLY)
     add_test(NAME SPASetupScrolledSelection COMMAND SPASetupObservationTest)
     set_tests_properties(SPASetupScrolledSelection PROPERTIES
         WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"

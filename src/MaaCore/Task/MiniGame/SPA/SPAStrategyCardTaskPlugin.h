@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MaaUtils/NoWarningCV.hpp"
 #include "SPAStrategyEligibility.h"
 #include "Task/AbstractTaskPlugin.h"
 #include <functional>
@@ -15,6 +16,8 @@ public:
 
     void set_recovery_task(std::string task) { m_recovery_task = std::move(task); }
 
+    void set_requested_portrait(cv::Mat portrait) { m_requested_portrait = std::move(portrait); }
+
     void set_context_provider(std::function<OpeningStrategyContext()> provider)
     {
         m_context_provider = std::move(provider);
@@ -27,6 +30,7 @@ protected:
 private:
     std::string m_recovery_task;
     std::string m_requested_strategy;
+    cv::Mat m_requested_portrait;
     std::function<OpeningStrategyContext()> m_context_provider;
     int m_strategy_index = 0;
     int m_selected_strategy_index = -1;
