@@ -1,0 +1,31 @@
+{
+    "schema": 1,
+    "catalog_binding": {
+        "game_data_revision": "2026-11-01",
+        "character_table_sha256": "ab3aa4cda8293c8eb7563fd2a7fe8aee2940ef0e90e1f6bf8a2df20d67876423"
+    },
+    "reviewed_source": {
+        "public_revision": "08ba2aea0e8dba88eff0ec0d2c87e24b4db626f8",
+        "skill_table_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+        "scope": "Source hashes are provenance, not runtime raw-skill SHA verification; local clientNov1/publicNov1/Nov16 reviewed semantic equivalence recorded separately."
+    },
+    "rules": [
+        {
+            "operator_id": "char_1016_agoat2",
+            "selected_skill": 1,
+            "skill_id": "skchr_agoat2_1",
+            "duty": "base_healing_only",
+            "review_status": "reviewed",
+            "minimum_elite": 0,
+            "reviewed_skill_levels": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "all_skill_levels": true,
+            "expected_runtime_definition": {
+                "profession": "MEDIC",
+                "subProfessionId": "wandermedic",
+                "rangeId": ["3-3", "3-17", "3-17"],
+                "tokens": []
+            },
+            "reason": "Wander trait and S1 at all10 ranks restore friendlyHP/elemental damage; reviewed talents and skill token references contain no immediateoffense/summon. Does not prove absenceofallcollection/module effects; explicit nonhealing duty can override."
+        }
+    ]
+}

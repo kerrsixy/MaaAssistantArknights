@@ -12,6 +12,7 @@
 #include "Config/GeneralConfig.h"
 #include "Config/Miscellaneous/BattleDataConfig.h"
 #include "Config/Miscellaneous/TilePack.h"
+#include "Config/Roguelike/BlackFlow/BlackFlowOpeningDutyCatalog.h"
 #include "Config/Roguelike/RoguelikeCopilotConfig.h"
 #include "Config/Roguelike/RoguelikeRecruitConfig.h"
 #include "Config/Roguelike/RoguelikeTrainingConfig.h"
@@ -1605,6 +1606,60 @@ std::optional<size_t> asst::RoguelikeBattleTaskPlugin::check_urgent(
 std::optional<asst::battle::DeploymentOper>
     asst::RoguelikeBattleTaskPlugin::calc_best_oper(bool urgent_home, bool cost_observed) const
 {
+    // Only the reviewed base-skill duty may be deferred. Authored or uncertain
+    // placement paths keep their existing behavior; this does not classify all Medics.
+    const auto defer_idle_opening_healing = [&](const DeploymentOper& oper) {
+        if (m_config->get_theme() != RoguelikeTheme::BlackFlow || !m_deploy_plan.empty() || !m_first_deploy) {
+            return false;
+        }
+        const auto prepared = m_config->status().opers.find(oper.name);
+        const auto props = BattleData.find_first_oper(oper.role, oper.name);
+        if (prepared == m_config->status().opers.end() || !props) {
+            return false;
+        }
+        const auto identity = RoguelikeTraining.unique_identity(oper.name);
+        const auto& evidence = prepared->second.preparation;
+        const int skill = evidence.selected_skill;
+        blackflow::OpeningDutyRuntime current;
+        current.unique_operator_id = identity;
+        current.prepared_operator_id = evidence.operator_id;
+        current.properties_operator_id = props->id;
+        current.selected_skill = skill;
+        current.elite = prepared->second.elite;
+        current.displayed_skill_level = skill >= 1 && skill <= 3 ? evidence.displayed_skill_levels[skill - 1] : -1;
+        current.selection_sequence = evidence.selection_sequence;
+        current.training_sequence = evidence.training_sequence;
+        current.properties_known = true;
+        current.medic_role = oper.role == Role::Medic && props->role == Role::Medic;
+        current.wander_subrole = props->sub_role == SubRole::Medic_WanderMedic;
+        current.ranges = props->ranges;
+        current.tokens = BattleData.get_tokens(oper.role, oper.name);
+        if (blackflow::opening_duty_catalog().resolve(current) != blackflow::BaseOpeningDuty::HealingOnly) {
+            return false;
+        }
+        blackflow::OpeningDutyContext context;
+        context.uncertain_placement =
+            !m_unverified_deployment_attempts.empty() || !m_unverified_deployment_tiles.empty();
+        if (m_battlefield_opers.empty() && m_used_tiles.empty() && !context.uncertain_placement) {
+            context.patient = blackflow::HealingPatientState::NoneCovered;
+        }
+        else if (!context.uncertain_placement) {
+            // A known covered ally retains healing. No guessed incoming task or
+            // absence claim is manufactured from a failed/unverified placement.
+            if (const auto where = calc_best_loc(oper)) {
+                const auto range = get_attack_range(oper, where->direction);
+                if (std::ranges::any_of(m_battlefield_opers, [&](const auto& ally) {
+                        return ally.first.role != Role::Drone &&
+                               std::ranges::find(range, ally.second - where->placed) != range.end();
+                    })) {
+                    context.patient = blackflow::HealingPatientState::Covered;
+                }
+            }
+        }
+        return blackflow::opening_duty_catalog().choose(current, context) ==
+               blackflow::OpeningDutyChoice::DeferIdleHealing;
+    };
+
     // Authored mechanics retain their own order and budget. For unplanned
     // BlackFlow stages, the configured starting core must precede filler roles.
     if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_deploy_plan.empty() && !urgent_home) {
@@ -1614,7 +1669,7 @@ std::optional<asst::battle::DeploymentOper>
                    !RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name) &&
                    !m_battlefield_opers.contains({ oper.role, oper.name });
         });
-        if (core != m_cur_deployment_opers.end()) {
+        if (core != m_cur_deployment_opers.end() && !defer_idle_opening_healing(*core)) {
             const bool initial_blocking = std::ranges::any_of(m_battlefield_opers, [&](const auto& entry) {
                 return persistent_blocking_available(entry.first);
             });
@@ -1641,7 +1696,7 @@ std::optional<asst::battle::DeploymentOper>
     bool has_air_defense = false;
     for (const auto& oper : m_cur_deployment_opers) {
         if (!oper.available || oper.cooling || DiceSet.contains(oper.name) ||
-            RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name)) {
+            RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name) || defer_idle_opening_healing(oper)) {
             continue;
         }
         const auto& role = oper.role;
@@ -1686,7 +1741,8 @@ std::optional<asst::battle::DeploymentOper>
 
     std::vector<DeploymentOper> cur_available;
     for (const auto& oper : m_cur_deployment_opers) {
-        if (oper.available && !RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name)) {
+        if (oper.available && !RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name) &&
+            !defer_idle_opening_healing(oper)) {
             cur_available.emplace_back(oper);
         }
     }
