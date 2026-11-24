@@ -3085,6 +3085,7 @@ bool asst::StrongholdProtocolTask::run_single()
         return run_session();
     }
     std::optional<spa::StrategyProgress> scheduled;
+    std::optional<json::object> opening_report;
     std::map<std::string, cv::Mat> strategy_portraits;
     if (m_schedule_strategy_badges) {
         const std::string priority = m_requested_strategy_id;
@@ -3132,6 +3133,7 @@ bool asst::StrongholdProtocolTask::run_single()
         if (!selected) {
             return m_strategy_catalogue_complete;
         }
+        opening_report = std::move(report);
         m_requested_strategy_id = scheduled->band_id;
     }
     std::shared_ptr<spa::LifecycleTaskPlugin> lifecycle;
@@ -3313,14 +3315,19 @@ bool asst::StrongholdProtocolTask::run_single()
     }
     if (scheduled && executed && settled_return_verified && !need_exit()) {
         const bool matching_strategy = m_selected_strategy_id == scheduled->band_id;
+        const auto before = matching_strategy ? scheduled
+                            : opening_report
+                                ? spa::find_strategy_report_progress(*opening_report, m_selected_strategy_id)
+                                : std::nullopt;
         const auto report =
-            matching_strategy && m_run_victory_verified ? scan_strategy_progress(scheduled->band_id) : std::nullopt;
-        const auto after = report ? spa::find_strategy_report_progress(*report, scheduled->band_id) : std::nullopt;
-        const bool credited = after && spa::ProgressLedger::next_report_confirms_win(
-                                           *scheduled,
-                                           *after,
-                                           m_selected_strategy_id,
-                                           m_run_victory_verified);
+            before && m_run_victory_verified ? scan_strategy_progress(m_selected_strategy_id) : std::nullopt;
+        const auto after = report ? spa::find_strategy_report_progress(*report, m_selected_strategy_id) : std::nullopt;
+        const bool credited = before && after &&
+                              spa::ProgressLedger::next_report_confirms_win(
+                                  *before,
+                                  *after,
+                                  m_selected_strategy_id,
+                                  m_run_victory_verified);
         if (credited && spa::ProgressLedger::can_schedule_solo(*after, m_schedule_silver_strategy_badges)) {
             // The next batch child verifies the current report again before using this hint.
             m_next_strategy_badge_hint = after->band_id;
@@ -3331,7 +3338,8 @@ bool asst::StrongholdProtocolTask::run_single()
                            { "actual_strategy", m_selected_strategy_id },
                            { "same_strategy", matching_strategy },
                            { "settlement_victory_verified", m_run_victory_verified },
-                           { "report_wins_before", scheduled->wins.value_or(-1) },
+                           { "report_baseline_strategy", before ? before->band_id : "" },
+                           { "report_wins_before", before ? before->wins.value_or(-1) : -1 },
                            { "report_wins_after", after ? after->wins.value_or(-1) : -1 },
                            { "report_win_delta_verified", credited },
                            { "three_win_badge_verified", after && spa::ProgressLedger::complete(*after) },

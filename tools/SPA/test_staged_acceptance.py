@@ -497,6 +497,79 @@ class StagedAcceptanceTests(unittest.TestCase):
             swapped[-2], swapped[-3] = swapped[-3], swapped[-2]
             self.assertFalse(self.reviewed(swapped, policy)["strategy_badge_verified"])
 
+        fallback = copy.deepcopy(raw)
+        fallback[-2]["details"]["details"].update(
+            requested_strategy="band_amiya",
+            same_strategy=False,
+            report_baseline_strategy="band_weakness",
+        )
+        self.assertFalse(self.reviewed(fallback, policy)["strategy_badge_verified"])
+
+        def received(what, details, source, message=20003):
+            callback = event(what, details)
+            callback["message"] = message
+            callback["details"].update(
+                taskchain="StrongholdProtocol", **{"class": source}
+            )
+            return callback
+
+        scanner = "asst::spa::StrategyReportTaskPlugin"
+        observer = "asst::spa::ObserverTaskPlugin"
+        baseline = {
+            "band_id": "band_weakness",
+            "wins": wins - 1,
+            "wins_known": True,
+        }
+        fallback[1:1] = [
+            received("", {}, scanner, 20001),
+            received(
+                "SPAObservation",
+                {
+                    **baseline,
+                    "page": "strategy_report",
+                    "contradictory": False,
+                    "strategy_report_identity_verified": True,
+                    "strategy_progress_text_verified": True,
+                },
+                observer,
+            ),
+            received(
+                "SPAStrategyReportScan",
+                {
+                    "target_band_id": "",
+                    "strategies": [{**baseline, "unlocked_verified": True}],
+                },
+                scanner,
+            ),
+            received("", {}, scanner, 20002),
+            received(
+                "SPAObservation", {"page": "lobby", "contradictory": False}, observer
+            ),
+            received(
+                "SPAStrategyBadgeSchedule",
+                {
+                    "requested_strategy": "band_amiya",
+                    "report_and_lobby_verified": True,
+                    "simulation_start_issued": False,
+                },
+                "asst::StrongholdProtocolTask",
+            ),
+        ]
+        self.assertTrue(self.reviewed(fallback, policy)["strategy_badge_verified"])
+        for index, patch in (
+            (2, {"wins": wins - 2}),
+            (2, {"strategy_report_identity_verified": False}),
+            (3, {"target_band_id": "band_amiya"}),
+            (6, {"requested_strategy": "band_copy"}),
+            (-2, {"report_baseline_strategy": "band_amiya"}),
+        ):
+            with self.subTest(change=patch):
+                invalid = copy.deepcopy(fallback)
+                invalid[index]["details"]["details"].update(patch)
+                self.assertFalse(
+                    self.reviewed(invalid, policy)["strategy_badge_verified"]
+                )
+
     def test_hidden_core_requires_same_run_preparation_battle_and_saved_settlement(
         self,
     ):
@@ -1073,7 +1146,9 @@ class StagedAcceptanceTests(unittest.TestCase):
                 scanner,
             ),
             received("", {}, scanner, 20002),
-            received("SPAObservation", {"page": "lobby", "contradictory": False}, observer),
+            received(
+                "SPAObservation", {"page": "lobby", "contradictory": False}, observer
+            ),
         ]
         recovered = self.reviewed([*targeted_prefix, *raw], policy)
         self.assertEqual(
@@ -1085,7 +1160,8 @@ class StagedAcceptanceTests(unittest.TestCase):
         ]
         failed_target = self.reviewed([*failed_prefix, *raw], policy)
         self.assertEqual(
-            set(failed_target["strategy_catalogue_badge_evidence"]["badges"]), set(verified)
+            set(failed_target["strategy_catalogue_badge_evidence"]["badges"]),
+            set(verified),
         )
         no_completed_fallback = self.reviewed(targeted_prefix + [raw[-2]], policy)
         self.assertIsNone(no_completed_fallback["strategy_catalogue_badge_evidence"])

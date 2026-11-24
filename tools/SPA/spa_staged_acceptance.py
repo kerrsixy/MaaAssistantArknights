@@ -531,11 +531,9 @@ def strategy_badge_completion_evidence(events, strategy_indices):
             detail.get("report_wins_before"),
             detail.get("report_wins_after"),
         )
+        requested = detail.get("requested_strategy")
         if (
-            detail.get("requested_strategy")
-            == detail.get("actual_strategy")
-            == strategy
-            and detail.get("same_strategy") is True
+            detail.get("actual_strategy") == strategy
             and detail.get("settlement_victory_verified") is True
             and detail.get("report_win_delta_verified") is True
             and detail.get("three_win_badge_verified") is True
@@ -544,6 +542,17 @@ def strategy_badge_completion_evidence(events, strategy_indices):
             and before + 1 == after
             and after in saved_reports
         ):
+            if requested == strategy:
+                if detail.get("same_strategy") is not True:
+                    continue
+            elif not (
+                detail.get("same_strategy") is False
+                and detail.get("report_baseline_strategy") == strategy
+                and verified_fallback_strategy_baseline(
+                    events, requested, strategy, before, min(strategy_indices)
+                )
+            ):
+                continue
             report_event_index, tier = saved_reports[after]
             return {
                 "strategy_id": strategy,
@@ -594,7 +603,11 @@ def strategy_report_at_schedule(events):
             and message == 20003
             and name == "SPAObservation"
         ):
-            if active and scan_report is None and detail.get("page") == "strategy_report":
+            if (
+                active
+                and scan_report is None
+                and detail.get("page") == "strategy_report"
+            ):
                 identity = detail.get("band_id")
                 if isinstance(identity, str) and identity:
                     observed.setdefault(identity, []).append((index, detail))
@@ -619,6 +632,43 @@ def strategy_report_at_schedule(events):
     return None
 
 
+def verified_fallback_strategy_baseline(
+    events, requested, strategy, wins, selection_index
+):
+    scan = strategy_report_at_schedule(events)
+    if scan is None or not isinstance(requested, str) or not requested or wins < 0:
+        return False
+    report_index, report, observations, schedule_index, schedule = scan
+    if (
+        not report_index < schedule_index < selection_index
+        or schedule.get("requested_strategy") != requested
+        or report.get("target_band_id") != ""
+    ):
+        return False
+    rows = report.get("strategies")
+    if not isinstance(rows, list):
+        return False
+    matching = [
+        row for row in rows if isinstance(row, dict) and row.get("band_id") == strategy
+    ]
+    return (
+        len(matching) == 1
+        and matching[0].get("wins_known") is True
+        and matching[0].get("unlocked_verified") is True
+        and type(matching[0].get("wins")) is int
+        and matching[0]["wins"] == wins
+        and any(
+            detail.get("contradictory") is False
+            and detail.get("wins_known") is True
+            and detail.get("strategy_report_identity_verified") is True
+            and detail.get("strategy_progress_text_verified") is True
+            and type(detail.get("wins")) is int
+            and detail["wins"] == wins
+            for _, detail in observations.get(strategy, ())
+        )
+    )
+
+
 def verify_strategy_report_badges(report, observations, report_index, schedule_index):
     required = strategy_badge_requirements()
     rows = report.get("strategies")
@@ -636,7 +686,11 @@ def verify_strategy_report_badges(report, observations, report_index, schedule_i
         if not isinstance(row, dict):
             return None
         identity = row.get("band_id")
-        if not isinstance(identity, str) or identity not in required or identity in seen:
+        if (
+            not isinstance(identity, str)
+            or identity not in required
+            or identity in seen
+        ):
             return None
         seen.add(identity)
         if (
@@ -1004,7 +1058,9 @@ def audit_run(events, policy, provenance):
         and not combat_samples
         and lifecycle_count == 0
         and scope["boundaries_verified"]
-        and all(checks[key] for key in COMMON_CHECKS - {"execution_boundaries_verified"})
+        and all(
+            checks[key] for key in COMMON_CHECKS - {"execution_boundaries_verified"}
+        )
     )
     opening_badges, complete_report = (
         strategy_report_badge_evidence(events)
@@ -1106,7 +1162,8 @@ def replay_progress(reports):
             not requirement
             or type(wins) is not int
             or wins < requirement[0]
-            or record.get("badge_tier") != ("silver" if wins >= requirement[1] else "orange")
+            or record.get("badge_tier")
+            != ("silver" if wins >= requirement[1] else "orange")
             or type(record.get("observation_event_index")) is not int
             or record["observation_event_index"] < 0
         ):
