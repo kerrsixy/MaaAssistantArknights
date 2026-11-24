@@ -109,8 +109,7 @@ int asst::RoguelikeRecruitImageAnalyzer::match_elite(const Rect& raw_roi)
         { "RoguelikeRecruitElite2", 2 },
     };
 
-    int elite_result = 0;
-    double max_score = 0;
+    RecruitEliteEvidence elite_result;
 
     for (const auto& [task_name, elite] : EliteTaskName) {
         Matcher analyzer(m_image);
@@ -122,12 +121,9 @@ int asst::RoguelikeRecruitImageAnalyzer::match_elite(const Rect& raw_roi)
             continue;
         }
 
-        if (double score = analyzer.get_result().score; score > max_score) {
-            max_score = score;
-            elite_result = elite;
-        }
+        elite_result.consider(elite, analyzer.get_result().score);
     }
-    return elite_result;
+    return elite_result.elite();
 }
 
 int asst::RoguelikeRecruitImageAnalyzer::match_level(const cv::Mat& image, const Rect& raw_roi)
