@@ -131,8 +131,12 @@ std::int64_t route_penalty(const RouteMetric& metric) noexcept
     // in every complete route and therefore remains a constant; the extra
     // weight mainly removes optional combat chains when a non-combat branch
     // provides the same milestones.
+    // A processing move already reduces duration when it skips walk steps.
+    // Crediting its destination's hypothetical walking distance again rewards
+    // choosing a remote detour, even when an equally useful nearby route exists.
+    // Keep saved distance as evidence, never as additional resource income.
     return 2LL * metric.battles + metric.processing_moves + metric.duration + 2LL * metric.backtracking +
-           3LL * metric.rewardless_entries - metric.walk_distance_saved;
+           3LL * metric.rewardless_entries;
 }
 
 // 行动力残值为零，跨层保留的加工品残值为正，所以打平时先比后者。
