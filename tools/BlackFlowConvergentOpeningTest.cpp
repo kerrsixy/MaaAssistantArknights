@@ -66,8 +66,8 @@ int wmain(int argc, wchar_t** argv)
             std::cerr << "FAIL " << s << '\n';
         }
     };
-    const auto& upper = st->deploy_plan.at("地面阻挡").at(0);
-    const auto& lower = st->deploy_plan.at("地面阻挡").at(1);
+    const auto& upper = st->deploy_plan.at("地面阻挡").at(1);
+    const auto& lower = st->deploy_plan.at("地面阻挡").at(0);
     const auto& core = st->deploy_plan.at("益达").front();
     const auto& output = st->deploy_plan.at("高台输出").front();
     ck(st->deploy_plan_only && st->reserve_deploy_cost, "authored-only strict budget");
@@ -84,10 +84,11 @@ int wmain(int argc, wchar_t** argv)
         ck(level.get_item(pt.y, pt.x).buildableType == 1, "post portal lane is real road");
     }
     ck(upper.location == Point(7, 1) && lower.location == Point(7, 6), "distinct two front lanes");
-    ck(upper.rank < lower.rank && lower.rank < core.rank && core.rank < output.rank,
-       "both blockers before core and lower output");
+    ck(core.rank < lower.rank && lower.rank < upper.rank && upper.rank < output.rank,
+       "core before lower blocker before upper blocker before secondary output");
     ck(!upper.prefer_group_order, "blocker does not prefer expensive intra-group rank");
-    ck(upper.rank < st->deploy_plan.at("机械师").at(0).rank, "generic blocker beats mech fallback group");
+    ck(upper.rank < st->deploy_plan.at("机械师").at(1).rank,
+       "generic upper blocker beats same-cell mech fallback group");
     ck(core.location == Point(6, 2) && core.direction == DeployDirection::Right,
        "upper output faces rear portal segment");
     ck(output.location == Point(8, 5) && output.direction == DeployDirection::Down,
@@ -263,6 +264,24 @@ int wmain(int argc, wchar_t** argv)
        "Podenco healing-skill operator not routed to lower output by groups");
     ck(!routed("波登可", Role::Support, top_med.location), "unsupported healing-mode assumption does not enter slot");
 
+    json::array upper_ranges;
+    for (int e : { 0, 1, 2 }) {
+        probe.elite(ew.name, e);
+        const auto offsets = probe.get_attack_range(ew, core.direction);
+        const auto covers = [&](Point p) {
+            return std::ranges::find(offsets, p - core.location) != offsets.end();
+        };
+        upper_ranges.emplace_back(
+            json::object { { "elite", e },
+                           { "front7_1", covers({ 7, 1 }) },
+                           { "rear9_1", covers({ 9, 1 }) },
+                           { "existing_plan_accepts", probe.deployment_requirements_met(ew, core) } });
+        if (e == 1) {
+            ck(covers({ 7, 1 }) && covers({ 9, 1 }), "actual E1 range covers both; rejection is not smaller range");
+        }
+    }
+    std::ofstream upper_file(out / "upper_range_by_elite.json");
+    upper_file << json::value(upper_ranges).format();
     probe.elite(ew.name, 2);
     auto er = probe.get_attack_range(ew, DeployDirection::Right);
     const auto domain = [&](Point p) {
@@ -319,7 +338,133 @@ int wmain(int argc, wchar_t** argv)
             }
         }
     }
-    ck(spawns == 38, "raw spawn count matches actual38 HUD variant");
-    std::cout << "CONVERGENT checks=" << checks << " failures=" << failures << " device_inputs=0 live_pass=false\n";
+    ck(spawns == 38, "raw declares38 spawn instances; not asserted equal to actual34 HUD accounting");
+    // Compare exact observed card prices, never infer a deployment timestamp
+    // from regeneration or assume that an unavailable card became ready.
+    ck(!Probe::deployment_cost_wait_required(ew, 30), "observed30 can pay actual24 core");
+    ck(24 <= 30 && 10 + 24 > 30 && 21 + 24 > 30 && 10 + 21 + 24 > 30,
+       "core-first has no initial deficit; cheap-ground-first and old two-ground prefix do");
+    const auto trace = [&](std::vector<DeploymentOper> roster) {
+        std::vector<std::string> used_names;
+        std::vector<Point> used_tiles;
+        std::vector<Probe::DeployPlanInfo> selected;
+        for (int step = 0; step < 8; ++step) {
+            std::vector<Probe::DeployPlanInfo> candidates;
+            for (const auto& op : roster) {
+                if (op.cooling || std::ranges::find(used_names, op.name) != used_names.end()) {
+                    continue;
+                }
+                const auto& ri = RoguelikeRecruit.get_oper_info("BlackFlow", { op.role, op.name });
+                for (int id : RoguelikeRecruit.get_group_ids_of_oper("BlackFlow", { op.role, op.name })) {
+                    const auto found = st->deploy_plan.find(groups.at(id));
+                    if (found == st->deploy_plan.end()) {
+                        continue;
+                    }
+                    for (const auto& duty : found->second) {
+                        if (std::ranges::find(used_tiles, duty.location) != used_tiles.end() ||
+                            !probe.deployment_requirements_met(op, duty)) {
+                            continue;
+                        }
+                        Probe::DeployPlanInfo next;
+                        next.oper_name = op.name;
+                        next.role = op.role;
+                        next.cost = op.cost;
+                        next.rank = duty.rank;
+                        next.plan_index = duty.plan_index;
+                        next.placed = duty.location;
+                        next.direction = duty.direction;
+                        next.prefer_group_order = duty.prefer_group_order;
+                        next.oper_order_in_group = ri.order_in_group.empty() ? INT_MAX : ri.order_in_group.at(id);
+                        candidates.push_back(next);
+                    }
+                }
+            }
+            if (candidates.empty()) {
+                break;
+            }
+            std::stable_sort(candidates.begin(), candidates.end());
+            selected.push_back(candidates.front());
+            used_names.push_back(candidates.front().oper_name);
+            used_tiles.push_back(candidates.front().placed);
+        }
+        return selected;
+    };
+    auto carda = card(Role::Caster, "卡达", 18), shirayuki = card(Role::Sniper, "白雪", 25),
+         touch = card(Role::Medic, "Touch", 5), scavenger = card(Role::Pioneer, "清道夫", 10);
+    probe.elite(ew.name, 2);
+    probe.elite(mech.name, 2);
+    probe.elite(carda.name, 1);
+    probe.elite(shirayuki.name, 2);
+    probe.elite(touch.name, 2);
+    probe.elite(scavenger.name, 1);
+    const auto single = trace({ ew, mech, carda, shirayuki, touch });
+    const auto dual = trace({ ew, mech, carda, shirayuki, touch, scavenger });
+    ck(single.size() >= 2 && single[0].oper_name == ew.name && single[0].placed == Point(6, 2) &&
+           single[1].oper_name == mech.name && single[1].placed == Point(7, 6),
+       "actual battle6 roster puts core first and only permanent blocker lower");
+    ck(std::ranges::none_of(single, [](const auto& p) { return p.placed == Point(7, 1); }),
+       "single blocker cannot be duplicated into upper lane");
+    ck(dual.size() >= 3 && dual[0].oper_name == ew.name && dual[1].oper_name == scavenger.name &&
+           dual[1].placed == Point(7, 6) && dual[2].oper_name == mech.name && dual[2].placed == Point(7, 1),
+       "actual battle8 roster puts core before both cheap-lower and expensive-upper blockers");
+    auto absent_core = ew;
+    absent_core.cooling = true;
+    const auto unavailable_core = trace({ absent_core, mech, scavenger });
+    ck(std::ranges::none_of(unavailable_core, [&](const auto& p) { return p.oper_name == ew.name; }),
+       "cooling core not invented as already deployed");
+    probe.elite(ew.name, 1);
+    ck(!probe.deployment_requirements_met(ew, core),
+       "existing E2 upper duty still rejects E1 without fabricating coverage");
+    probe.elite(ew.name, 2);
+    auto skills = json::open(plans.parent_path() / "inputs/skill_wisdel_3_nov1.json");
+    auto preparation = json::open(plans.parent_path() / "inputs/run73_preparation.json");
+    if (!skills || !preparation) {
+        return 6;
+    }
+    auto character = json::open(plans.parent_path() / "inputs/wisdel_character_nov1.json");
+    if (!character) {
+        return 7;
+    }
+    ck(character->at("phases").at(1).at("rangeId").as_string() ==
+           character->at("phases").at(2).at("rangeId").as_string(),
+       "pinned E1 and E2 base range IDs equal");
+    ck(character->at("skills").at(2).at("skillId").as_string() == "skchr_wisdel_3" &&
+           character->at("skills").at(2).at("unlockCond").at("phase").as_string() == "PHASE_2",
+       "S3 unlock requires E2 despite same E1 base range");
+    ck(skills->at("skillId").as_string() == "skchr_wisdel_3", "pinned skill identity");
+    const auto& m3 = skills->at("levels").at(9).at("spData");
+    ck(m3.at("initSp").as_integer() == 40 && m3.at("spCost").as_integer() == 50,
+       "pinned M3 starts40 of50; deployment alone does not make skill ready");
+    for (const auto& p : preparation->as_array()) {
+        bool exact_skill = false;
+        for (const auto& op : p.at("details").at("current_run_preparation").as_array()) {
+            if (op.at("operator_id").as_string() == "char_1035_wisdel") {
+                exact_skill = op.at("elite").as_integer() == 2 && op.at("selected_skill").as_integer() == 3 &&
+                              op.at("displayed_skill_levels").at(2).as_integer() == 10;
+            }
+        }
+        ck(exact_skill, "actual battle6/8 preparation identifies E2 S3 M3, not a role-name assumption");
+    }
+    json::array order_results;
+    for (const auto& [label, order] : std::vector<std::pair<std::string, std::vector<Probe::DeployPlanInfo>>> {
+             { "actual_battle6_counterfactual", single },
+             { "actual_battle8_counterfactual", dual } }) {
+        json::array sequence;
+        for (const auto& p : order) {
+            sequence.emplace_back(
+                json::object { { "name", p.oper_name },
+                               { "tile", json::array { p.placed.x, p.placed.y } },
+                               { "cost", p.cost },
+                               { "rank", p.rank } });
+        }
+        order_results.emplace_back(
+            json::object { { "fixture", label },
+                           { "priority_only", true },
+                           { "time_or_success_predicted", false },
+                           { "sequence", sequence } });
+    }
+    std::ofstream order_file(out / "priority_counterfactual.json");
+    order_file << json::value(order_results).format();
+    std::cout << "CONVERGENT124 checks=" << checks << " failures=" << failures << " device_inputs=0 live_pass=false\n";
     return failures ? 1 : 0;
 }
