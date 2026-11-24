@@ -3688,12 +3688,22 @@
         "action": "DoNothing"
     },
     "BlackFlow@Terminal-Entry": {
-        "Doc": "仅黑流恢复分支：进入终端的子流程若被延迟出现的公告遮挡，先关闭已核验公告，再重试终端；保留原有设置菜单恢复。",
+        "Doc": "仅黑流恢复分支：进入终端的子流程若被延迟配给或公告遮挡，先处理已核验弹窗，再重试终端；保留原有设置菜单恢复。",
         "baseTask": "Terminal-Entry",
         "onErrorNext": [
+            "BlackFlow@Roguelike@TerminalDailySupplyDismiss",
             "BlackFlow@Roguelike@TerminalAnnouncementDismiss",
             "BlackFlow@Terminal-Entry@SwitchTheme@ToggleSettingsMenu"
         ]
+    },
+    "BlackFlow@Roguelike@TerminalDailySupplyDismiss": {
+        "Doc": "终端子流程等待时，日切配给可能延迟遮挡主页。仅在识别到完整标题后确认配给，再重试终端；两次后停止恢复。",
+        "baseTask": "BlackFlow@Roguelike@BeginRecovery_DailySupply",
+        "fullMatch": true,
+        "maxTimes": 2,
+        "postDelay": 500,
+        "next": ["BlackFlow@Terminal-Entry"],
+        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"]
     },
     "BlackFlow@Roguelike@TerminalAnnouncementDismiss": {
         "baseTask": "BlackFlow@Roguelike@BeginRecovery_Announcement",

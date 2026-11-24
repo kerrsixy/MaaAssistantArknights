@@ -8,8 +8,11 @@
 
 #include "Config/TaskData.h"
 #include "Controller/Controller.h"
+#include "MaaUtils/Time.hpp"
 #include "Task/ProcessTask.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowRecruitmentPageObservation.h"
 #include "Utils/Logger.hpp"
+#include "Utils/WorkingDir.hpp"
 #include "Vision/Matcher.h"
 #include "Vision/OCRer.h"
 #include "Vision/RegionOCRer.h"
@@ -322,7 +325,31 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
         }
         image = ctrler()->get_image();
         RoguelikeRecruitImageAnalyzer analyzer(image);
-        if (!analyzer.analyze()) {
+        const auto frame_read_completed_at = theme == RoguelikeTheme::BlackFlow ? MAA_NS::format_now() : std::string {};
+        const bool analyzed = analyzer.analyze();
+        if (theme == RoguelikeTheme::BlackFlow) {
+            auto observation = basic_info_with_what("BlackFlowRecruitmentPageObserved");
+            const blackflow::RecruitmentPageObservationContext context {
+                .client = m_config->account_client(),
+                .uid = m_config->account_uid(),
+                .run_id = m_config->status().run_id,
+                .frame_read_completed_at_local = frame_read_completed_at,
+                .evidence_directory = UserDir.empty() ? std::filesystem::path {}
+                                                      : UserDir.get() / utils::path("debug/blackflow/recruitment"),
+                .recruit_index = m_recruit_count,
+                .page_index = i,
+                .analysis_succeeded = analyzed,
+                .legacy_filter_hope = cur_hope >= 0 ? std::optional<int>(cur_hope) : std::nullopt,
+                .initial_recruitment = m_initail_recruit,
+            };
+            observation["details"] = blackflow::make_recruitment_page_observation(
+                image,
+                analyzer.get_result(),
+                analyzer.get_hope_cost_evidence(),
+                context);
+            callback(AsstMsg::SubTaskExtraInfo, observation);
+        }
+        if (!analyzed) {
             Log.trace(__FUNCTION__, "| Page", i, "recruit list analyse failed");
             // 还没滑动就识别失败，通常是招募界面为空，视为招募成功并退出
             if (i == 0) {
