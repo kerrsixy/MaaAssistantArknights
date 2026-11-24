@@ -22,8 +22,13 @@ public:
     {
     }
 
+    using RoguelikeBattleTaskPlugin::deployment_cost_wait_required;
     using RoguelikeBattleTaskPlugin::deployment_requirements_met;
     using RoguelikeBattleTaskPlugin::get_attack_range;
+    using RoguelikeBattleTaskPlugin::preferred_deployment_coverage;
+    using Plan = DeployPlanInfo;
+
+    void core(const std::string& name) { m_config->set_start_opers({ { name, false } }); }
 
     void elite(const std::string& name, int value) { m_oper_elite[name] = value; }
 
@@ -160,10 +165,86 @@ int wmain(int argc, wchar_t** argv)
     expect(
         std::ranges::find(medic.operator_names, pod.name) == medic.operator_names.end(),
         "conditional Pod is not mislabeled continuous healing");
-    // minimum_elite/operator_names are additional filters in do_best_deploy;
-    // deployment_requirements_met itself does not execute those outer filters.
-    // No assertion here pretends to prove blockCnt4, healing throughput, first
-    // enemy timing, exact selected skill, Soul occupancy or battle victory.
+    const auto& fallback = stage->deploy_plan.at("狙击").back();
+    expect(
+        fallback.plan_index == 5 && middle.rank < fallback.rank,
+        "complete middle duty remains earlier than the partial fallback");
+    expect(
+        fallback.location == middle.location && fallback.direction == DeployDirection::Down,
+        "fallback shares the existing middle tile and facing");
+    expect(
+        fallback.operator_names.empty() && fallback.exclude_starting_core && fallback.minimum_elite == 1,
+        "fallback uses real capabilities rather than a fixed operator name");
+    expect(fallback.prefer_group_order, "qualified sniper group order precedes cheap filler");
+    expect(
+        fallback.required_attack_tiles.size() == 3 && fallback.preferred_attack_tiles.size() == 1,
+        "three required tiles do not silently become four required tiles");
+    expect(terrain->at("tiles")[2][7].at("buildableType").as_integer() == 2, "middle fallback is real ranged terrain");
+    const auto snow = oper("白雪", Role::Sniper);
+    probe.elite(snow.name, 1);
+    expect(!probe.deployment_requirements_met(snow, middle), "actual E1 Shirayuki still fails complete old duty");
+    expect(probe.deployment_requirements_met(snow, fallback), "actual E1 Shirayuki reaches the partial lower duty");
+    expect(!has(snow, fallback, Point(9, 4)), "Shirayuki is not credited with the missing fourth target");
+    expect(
+        probe.preferred_deployment_coverage(snow, fallback) == 0,
+        "uncovered preferred tile contributes no coverage score");
+    expect(
+        probe.deployment_requirements_met(typhon, fallback) &&
+            probe.preferred_deployment_coverage(typhon, fallback) == 1,
+        "a real complete-range sniper retains the preferred tile advantage");
+    expect(has(goat, medic, fallback.location), "existing actual healer covers the fallback position");
+    const auto groups = RoguelikeRecruit.get_group_names("BlackFlow");
+    const auto reaches_fallback = [&](const DeploymentOper& unit) {
+        for (int id : RoguelikeRecruit.get_group_ids_of_oper("BlackFlow", OperNameTag { unit.role, unit.name })) {
+            const auto found = stage->deploy_plan.find(groups.at(id));
+            if (found != stage->deploy_plan.end() && std::ranges::any_of(found->second, [&](const auto& item) {
+                    return item.plan_index == fallback.plan_index && probe.deployment_requirements_met(unit, item);
+                })) {
+                return true;
+            }
+        }
+        return false;
+    };
+    expect(reaches_fallback(snow), "actual sniper membership reaches the parsed fallback");
+    const auto angel = oper("新约能天使", Role::Special);
+    probe.elite(angel.name, 2);
+    expect(probe.deployment_requirements_met(angel, fallback), "geek has the same partial geometric reach");
+    expect(!reaches_fallback(angel), "geometric reach alone does not admit the S2 attack-speed stealing geek");
+    expect(
+        !reaches_fallback(pod) && !reaches_fallback(goat),
+        "support and healing labels cannot replace the sniper duty");
+    probe.core(ew.name);
+    expect(!probe.deployment_requirements_met(ew, fallback), "starting EW remains reserved for its authored core tile");
+    probe.forget(snow.name);
+    expect(!probe.deployment_requirements_met(snow, fallback), "unknown elite cannot borrow fallback range");
+    probe.elite(snow.name, 0);
+    expect(!probe.deployment_requirements_met(snow, fallback), "E0 sniper cannot borrow E1 eligibility");
+    probe.elite(snow.name, 1);
+    auto backwards = fallback;
+    backwards.direction = DeployDirection::Up;
+    expect(!probe.deployment_requirements_met(snow, backwards), "wrong facing cannot meet lower-route duty");
+    Ending1Probe::Plan exact_order, fallback_order;
+    exact_order.rank = middle.rank;
+    exact_order.plan_index = middle.plan_index;
+    exact_order.cost = 30;
+    fallback_order.rank = fallback.rank;
+    fallback_order.plan_index = fallback.plan_index;
+    fallback_order.cost = 23;
+    expect(
+        exact_order < fallback_order && !(fallback_order < exact_order),
+        "actual ordering retains the complete duty before cheaper fallback");
+    auto pending = snow;
+    pending.cost = 23;
+    pending.available = false;
+    pending.cooling = false;
+    expect(
+        Ending1Probe::deployment_cost_wait_required(pending, 20),
+        "known insufficient cost waits for the selected sniper");
+    expect(!Ending1Probe::deployment_cost_wait_required(pending, 23), "sufficient observed cost releases the wait");
+    pending.cooling = true;
+    expect(!Ending1Probe::deployment_cost_wait_required(pending, 20), "cooling card is not a funding wait");
+    // These native eligibility, ordering and cost predicates do not execute
+    // Controller selection or certify block4, damage, survival or victory.
     std::cout << "ENDING1_CANDIDATE checks=" << checks << " failures=" << failures
               << " device_inputs=0 native_runtime_geometry=1 live_verified=0 block4_qualified=0\n";
     return failures ? 1 : 0;
