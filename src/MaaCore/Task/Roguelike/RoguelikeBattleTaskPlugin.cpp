@@ -13,6 +13,7 @@
 #include "Config/Miscellaneous/TilePack.h"
 #include "Config/Roguelike/RoguelikeCopilotConfig.h"
 #include "Config/Roguelike/RoguelikeRecruitConfig.h"
+#include "Config/Roguelike/RoguelikeTrainingConfig.h"
 #include "Config/TaskData.h"
 #include "Controller/Controller.h"
 #include "MaaUtils/ImageIo.h"
@@ -652,6 +653,18 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_requirements_met(
     if (plan.require_persistent_blocking && !persistent_blocking_available({ oper.role, oper.name })) {
         return false;
     }
+    if (plan.minimum_base_block_count > 0) {
+        const auto observed = m_config->status().opers.find(oper.name);
+        if (elite_status == m_oper_elite.end() || observed == m_config->status().opers.end() ||
+            observed->second.elite != elite_status->second) {
+            return false;
+        }
+        const auto capacity =
+            RoguelikeTraining.base_block_count(oper.name, elite_status->second, observed->second.level);
+        if (!capacity || *capacity < plan.minimum_base_block_count) {
+            return false;
+        }
+    }
     if (plan.required_attack_tiles.empty() && plan.required_range_tiles.empty()) {
         return true;
     }
@@ -961,6 +974,11 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
             if (oper_it == m_cur_deployment_opers.end()) {
                 continue;
             }
+            // An impossible target cannot reserve cost ahead of a viable fallback.
+            if (!deployment_target_allowed(*oper_it, deploy_plan.placed) &&
+                !is_nameless_deployable(deploy_plan.oper_name)) {
+                continue;
+            }
             if (!oper_it->available) {
                 const bool cost_wait = deployment_cost_wait_required(*oper_it, m_cost);
                 LogInfo << __FUNCTION__ << "Deployment card unavailable" << deploy_plan.oper_name << "rank"
@@ -969,10 +987,6 @@ bool asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
                 if (cost_wait && (best_waiting_plan == nullptr || deploy_plan < *best_waiting_plan)) {
                     best_waiting_plan = &deploy_plan;
                 }
-                continue;
-            }
-            if (!deployment_target_allowed(*oper_it, deploy_plan.placed) &&
-                !is_nameless_deployable(deploy_plan.oper_name)) {
                 continue;
             }
             // 但也不能一味等：场上人数不足 3 时先把人放下，否则前期就漏怪。

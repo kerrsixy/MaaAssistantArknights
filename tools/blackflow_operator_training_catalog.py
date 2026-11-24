@@ -26,6 +26,28 @@ def positive(value):
     return value if type(value) is int and value > 0 else None
 
 
+def base_block_count(raw_phase):
+    """Return a constant unmodified phase count only with complete keyframes."""
+    if not isinstance(raw_phase, dict):
+        return None
+    maximum = positive(raw_phase.get("maxLevel"))
+    points = raw_phase.get("attributesKeyFrames")
+    if maximum is None or not isinstance(points, list) or not points:
+        return None
+    counts, levels = set(), []
+    for point in points:
+        if not isinstance(point, dict) or not isinstance(point.get("data"), dict):
+            return None
+        level, count = positive(point.get("level")), point["data"].get("blockCnt")
+        if level is None or level > maximum or type(count) is not int or count < 0:
+            return None
+        counts.add(count)
+        levels.append(level)
+    if len(counts) != 1 or levels != sorted(set(levels)) or levels[0] != 1 or levels[-1] != maximum:
+        return None
+    return next(iter(counts))
+
+
 def build_catalog(characters, revision, digest):
     if not isinstance(characters, dict) or not revision or len(digest) != 64:
         raise ValueError("Expected original character table and source binding")
@@ -64,6 +86,7 @@ def build_catalog(characters, revision, digest):
         operators[identity] = {
             "name": name, "profession": raw.get("profession"),
             "max_levels": maximums,
+            "base_block_counts": [base_block_count(item) for item in (raw.get("phases") or [])],
             "base_skill_max": len(ordinary) + 1 if isinstance(ordinary, list) else None,
             "skills": slots,
         }
@@ -75,6 +98,7 @@ def build_catalog(characters, revision, digest):
         "operators": operators, "names": {name: sorted(ids) for name, ids in names.items()},
         "issues": issues,
         "account_training_included": False, "current_equipment_included": False,
+        "base_block_scope": "Unmodified character phase only; excludes skills, equipment, buffs, debuffs and occupied capacity",
     }
 
 

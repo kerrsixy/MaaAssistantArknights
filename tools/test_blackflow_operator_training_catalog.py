@@ -1,7 +1,7 @@
 import copy
 import unittest
 
-from blackflow_operator_training_catalog import build_catalog
+from blackflow_operator_training_catalog import base_block_count, build_catalog
 
 
 class TrainingCatalogTests(unittest.TestCase):
@@ -54,6 +54,41 @@ class TrainingCatalogTests(unittest.TestCase):
         result = self.build()["operators"]["char_test"]
         self.assertIsNone(result["max_levels"][0])
         self.assertIsNone(result["base_skill_max"])
+
+    def test_blocking_is_derived_for_each_phase(self):
+        for phase, count in zip(self.operator["phases"], [1, 2, 3]):
+            phase["attributesKeyFrames"] = [
+                {"level": 1, "data": {"blockCnt": count}},
+                {"level": phase["maxLevel"], "data": {"blockCnt": count}},
+            ]
+        result = self.build()["operators"]["char_test"]
+        self.assertEqual(result["base_block_counts"], [1, 2, 3])
+
+    def test_unreadable_blocking_is_unknown_without_a_role_default(self):
+        self.assertEqual(self.build()["operators"]["char_test"]["base_block_counts"], [None, None, None])
+
+    def test_blocking_requires_integral_nonnegative_complete_keyframes(self):
+        good = {"maxLevel": 50, "attributesKeyFrames": [
+            {"level": 1, "data": {"blockCnt": 3}}, {"level": 50, "data": {"blockCnt": 3}}]}
+        self.assertEqual(base_block_count(good), 3)
+        for value in [-1, True, 3.5, None]:
+            bad = copy.deepcopy(good)
+            bad["attributesKeyFrames"][0]["data"]["blockCnt"] = value
+            self.assertIsNone(base_block_count(bad))
+        for levels in [[1, 49], [2, 50], [50, 1], [1, 1]]:
+            bad = copy.deepcopy(good)
+            for frame, level in zip(bad["attributesKeyFrames"], levels):
+                frame["level"] = level
+            self.assertIsNone(base_block_count(bad))
+
+    def test_varying_blocking_is_not_silently_interpolated(self):
+        phase = {"maxLevel": 50, "attributesKeyFrames": [
+            {"level": 1, "data": {"blockCnt": 2}}, {"level": 50, "data": {"blockCnt": 3}}]}
+        self.assertIsNone(base_block_count(phase))
+
+    def test_zero_blocking_is_known_and_different_from_missing(self):
+        phase = {"maxLevel": 1, "attributesKeyFrames": [{"level": 1, "data": {"blockCnt": 0}}]}
+        self.assertEqual(base_block_count(phase), 0)
 
 
 if __name__ == "__main__":
