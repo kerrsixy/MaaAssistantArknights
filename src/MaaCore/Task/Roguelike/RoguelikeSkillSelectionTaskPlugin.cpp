@@ -96,6 +96,7 @@ bool asst::RoguelikeSkillSelectionTaskPlugin::_run()
 
 bool asst::RoguelikeSkillSelectionTaskPlugin::run_blackflow_preparation()
 {
+    const auto formation_role = take_prepared_formation_role();
     begin_prepared_primary_observation();
     auto image = ctrler()->get_image();
     const auto started = std::chrono::steady_clock::now();
@@ -319,7 +320,7 @@ bool asst::RoguelikeSkillSelectionTaskPlugin::run_blackflow_preparation()
     for (const auto& choice : choices) {
         selected_names.push_back(choice.name);
     }
-    publish_prepared_primary_observation(selected_names);
+    publish_prepared_primary_observation(selected_names, formation_role);
     m_config->status().team_full_without_rookie = team_full && !has_rookie;
     return true;
 }
@@ -331,6 +332,17 @@ bool asst::RoguelikeSkillSelectionTaskPlugin::interrupt_before_battle(std::strin
     callback(AsstMsg::SubTaskExtraInfo, incomplete);
     m_task_ptr->set_enable(false);
     return true;
+}
+
+std::optional<asst::blackflow::FormationRoleProposal>
+    asst::RoguelikeSkillSelectionTaskPlugin::take_prepared_formation_role()
+{
+    if (m_task_ptr) {
+        if (const auto battle = m_task_ptr->find_plugin<RoguelikeBattleTaskPlugin>()) {
+            return battle->take_formation_role();
+        }
+    }
+    return std::nullopt;
 }
 
 void asst::RoguelikeSkillSelectionTaskPlugin::begin_prepared_primary_observation()
@@ -346,12 +358,13 @@ void asst::RoguelikeSkillSelectionTaskPlugin::begin_prepared_primary_observation
     }
 }
 
-void
-    asst::RoguelikeSkillSelectionTaskPlugin::publish_prepared_primary_observation(const std::vector<std::string>& names)
+void asst::RoguelikeSkillSelectionTaskPlugin::publish_prepared_primary_observation(
+    const std::vector<std::string>& names,
+    const std::optional<blackflow::FormationRoleProposal>& proposal)
 {
     if (m_task_ptr) {
         if (const auto battle = m_task_ptr->find_plugin<RoguelikeBattleTaskPlugin>()) {
-            battle->prepare_primary_from_selection(names);
+            battle->prepare_primary_from_selection(names, proposal);
         }
     }
 }

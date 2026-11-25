@@ -493,6 +493,14 @@ struct MovePreview
     std::string ideal_source;
     std::string stage_title;
     std::optional<NodeOccupation> occupation;
+    // Exact existing preview frame; this is observation provenance, not a new capture.
+    std::string identity_client;
+    std::string identity_uid;
+    std::string identity_run_id;
+    std::string identity_frame_key;
+    std::string identity_frame_path;
+    bool identity_frame_saved = false;
+    bool identity_same_frame = false;
 };
 
 enum class MoveTransactionStage

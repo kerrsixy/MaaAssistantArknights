@@ -24,11 +24,20 @@ class Mat;
 namespace asst
 {
 class Assistant;
+class RoguelikeConfig;
 }
 
 namespace asst::blackflow
 {
 class BlackFlowInventoryCleanup;
+
+// Called on the original preview frame, never when a later consumer reads it.
+void bind_move_preview_identity_frame(
+    MovePreview& preview,
+    RoguelikeConfig* account,
+    std::string frame_key,
+    std::string frame_path,
+    bool saved);
 
 struct MovementPanelObservation
 {
@@ -200,7 +209,8 @@ public:
         const AsstCallback& callback,
         Assistant* inst,
         std::string_view task_chain,
-        std::shared_ptr<IBlackFlowMapObservationSource> map_source);
+        std::shared_ptr<IBlackFlowMapObservationSource> map_source,
+        std::shared_ptr<RoguelikeConfig> account_config = nullptr);
     ~BlackFlowTaskPort() override;
 
     bool refresh(const BlackFlowObservationRequest& request, BlackFlowPerceptionSnapshot& snapshot, std::string* error)
@@ -228,6 +238,7 @@ private:
     std::unique_ptr<ProcessTaskContext> m_task_context;
     std::unique_ptr<BlackFlowInventoryCleanup> m_inventory_cleanup;
     std::shared_ptr<IBlackFlowMapObservationSource> m_map_source;
+    std::shared_ptr<RoguelikeConfig> m_account_config;
 };
 
 enum class PreviewDisposition

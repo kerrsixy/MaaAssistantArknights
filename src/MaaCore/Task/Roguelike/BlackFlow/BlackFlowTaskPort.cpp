@@ -1,4 +1,5 @@
 #include "BlackFlowTaskPort.h"
+#include "Task/Roguelike/RoguelikeConfig.h"
 
 #include "BlackFlowInventoryCleanup.h"
 
@@ -222,14 +223,32 @@ private:
     std::shared_ptr<cv::Mat> m_last_image;
 };
 
+void bind_move_preview_identity_frame(
+    MovePreview& preview,
+    RoguelikeConfig* account,
+    std::string frame_key,
+    std::string frame_path,
+    bool saved)
+{
+    preview.identity_frame_key = std::move(frame_key);
+    preview.identity_frame_path = std::move(frame_path);
+    preview.identity_frame_saved = saved;
+    preview.identity_same_frame = !preview.identity_frame_key.empty();
+    preview.identity_client = account ? account->account_client() : std::string {};
+    preview.identity_uid = account ? account->account_uid() : std::string {};
+    preview.identity_run_id = account ? account->status().run_id : std::string {};
+}
+
 BlackFlowTaskPort::BlackFlowTaskPort(
     const AsstCallback& callback,
     Assistant* inst,
     std::string_view task_chain,
-    std::shared_ptr<IBlackFlowMapObservationSource> map_source) :
+    std::shared_ptr<IBlackFlowMapObservationSource> map_source,
+    std::shared_ptr<RoguelikeConfig> account_config) :
     m_task_context(std::make_unique<ProcessTaskContext>(callback, inst, task_chain)),
     m_inventory_cleanup(std::make_unique<BlackFlowInventoryCleanup>()),
-    m_map_source(std::move(map_source))
+    m_map_source(std::move(map_source)),
+    m_account_config(std::move(account_config))
 {
 }
 
@@ -369,6 +388,12 @@ bool BlackFlowTaskPort::preview(
     const auto frame_id = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
     const auto frame_path = preview_dir / utils::path("preview-" + frame_id + ".png");
     const bool frame_saved = !ec && MAA_NS::imwrite(frame_path, image);
+    bind_move_preview_identity_frame(
+        preview,
+        m_account_config.get(),
+        frame_id,
+        utils::path_to_utf8_string(frame_path),
+        frame_saved);
     const Rect clicked = shrink_to_center(*click_rect, 0.5);
     json::object facts {
         { "action_id", candidate.action_id },
@@ -385,6 +410,10 @@ bool BlackFlowTaskPort::preview(
         { "cleared_type", preview.occupation ? std::string(to_string(preview.occupation->cleared_type)) : "unknown" },
         { "exact_cost", preview.exact_action_point_cost },
         { "same_frame_kind_title_body", true },
+        { "identity_client", preview.identity_client },
+        { "identity_uid", preview.identity_uid },
+        { "identity_run_id", preview.identity_run_id },
+        { "identity_frame_key", preview.identity_frame_key },
         { "frame_saved", frame_saved },
         { "frame_path", utils::path_to_utf8_string(frame_path) }
     };

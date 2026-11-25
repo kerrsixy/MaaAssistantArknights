@@ -274,6 +274,19 @@ public:
     [[nodiscard]] std::vector<BlackFlowTelemetryEvent> take_telemetry_events();
     [[nodiscard]] std::vector<DiagnosticArtifactRequest> take_diagnostic_requests();
 
+    [[nodiscard]] std::optional<MoveTransaction> transaction_snapshot() const
+    {
+        // begin_transaction can replace the move while an older page still
+        // exists. Never publish their unrelated values as one scene context.
+        if (!m_transaction || !m_page_context || m_transaction_id.empty() ||
+            m_page_context->transaction_id != m_transaction_id || m_page_context->run_revision != m_run_revision ||
+            m_page_context->page_revision != m_page_revision || m_page_context->decision_id.empty() ||
+            m_page_context->decision_id != m_decision_id) {
+            return std::nullopt;
+        }
+        return m_transaction;
+    }
+
     [[nodiscard]] MoveTransaction* transaction() noexcept
     {
         return m_transaction.has_value() ? &*m_transaction : nullptr;
