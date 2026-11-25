@@ -50,6 +50,14 @@ struct RoguelikeRecruitCandidateEvidence
     std::string usability_reason;
 };
 
+// Geometry preserves named cards excluded from usable results and unmatched
+// currency anchors. It does not prove a physical endpoint or full-list coverage.
+struct RoguelikeRecruitPageGeometry
+{
+    std::vector<std::pair<std::string, Rect>> named_cards;
+    std::vector<Rect> currency_anchors;
+};
+
 class RoguelikeRecruitImageAnalyzer final : public VisionHelper
 {
 public:
@@ -65,6 +73,16 @@ public:
     const auto& get_candidate_evidence() const noexcept { return m_candidate_evidence; }
 
     std::uint64_t get_analysis_id() const noexcept { return m_analysis_id; }
+
+    RoguelikeRecruitPageGeometry paging_geometry() const;
+
+    // Empty means another bounded observation may be attempted. An unchanged
+    // signature may also be a failed swipe or stale image, never endpoint proof.
+    static std::string paging_stop_reason(
+        const RoguelikeRecruitPageGeometry& current,
+        const std::optional<RoguelikeRecruitPageGeometry>& previous,
+        int observation_step,
+        int max_observations);
 
     // Returns a reference only for an unambiguous same-analysis flag/index link.
     // Copies with a stale analysis ID or a different card/price index are rejected.
