@@ -350,6 +350,45 @@ bool MapSnapshot::validate(std::string* error) const
     return true;
 }
 
+std::optional<NodeOccupation> parse_rest_occupation_description(std::string text, std::string stage_title)
+{
+    std::erase_if(text, [](unsigned char c) { return c == ' ' || c == '\n' || c == '\r' || c == '\t'; });
+    for (const std::string token : { "“", "”", "\"" }) {
+        for (auto at = text.find(token); at != std::string::npos; at = text.find(token)) {
+            text.erase(at, token.size());
+        }
+    }
+    const bool supported = text == "居民占领了安全的角落节点，战胜后此节点将变为林间空地" ||
+                           text == "居民占领了安全的角落节点，战胜后此节点变为林间空地";
+    if (!supported || stage_title.empty()) {
+        return std::nullopt;
+    }
+    return NodeOccupation { NodeType::Rest,
+                            "安全的角落",
+                            NodeType::BattleNormal,
+                            NodeType::Empty,
+                            std::move(stage_title) };
+}
+
+void NormalizedMap::clear_occupations()
+{
+    std::vector<Node> changed;
+    for (const auto& [id, stored] : m_snapshot.nodes()) {
+        (void)id;
+        if (stored.occupation) {
+            Node node = stored;
+            node.type = node.occupation->base_type;
+            node.name = node.occupation->base_name;
+            node.traversal = default_traversal_for(node.type);
+            node.occupation.reset();
+            changed.emplace_back(std::move(node));
+        }
+    }
+    for (auto& node : changed) {
+        m_snapshot.upsert_node(std::move(node));
+    }
+}
+
 bool NormalizedMap::merge(const MapObservationBatch& batch, std::string* error)
 {
     if (batch.floor < 1) {
@@ -379,10 +418,19 @@ bool NormalizedMap::merge(const MapObservationBatch& batch, std::string* error)
                                             observed.type.has_value() && *observed.type != NodeType::Door;
         // Fate has no map glyph template yet; retain its verified preview
         // identity when a later map observation remains unclassified.
+        const bool still_occupied =
+            current != nullptr && current->occupation &&
+            (!observed.progress || *observed.progress == NodeProgress::Active) &&
+            (!observed.type || *observed.type == NodeType::Unknown ||
+             (*observed.type == current->occupation->base_type &&
+              (!observed.name || observed.name->empty() || *observed.name == current->occupation->base_name)));
         const bool preserve_identity =
-            preserve_door_identity ||
-            (current != nullptr && current->type == NodeType::Fate && observed.type == NodeType::Unknown);
+            preserve_door_identity || still_occupied ||
+            (current != nullptr && current->identity_revealed && observed.type == NodeType::Unknown);
         Node node = current == nullptr ? Node {} : *current;
+        if (node.occupation && !still_occupied) {
+            node.occupation.reset();
+        }
         if (current == nullptr) {
             node.id = *id;
             node.floor = batch.floor;
@@ -484,6 +532,7 @@ bool NormalizedMap::merge(const MapObservationBatch& batch, std::string* error)
         Node empty = *current;
         empty.type = NodeType::Empty;
         empty.name.clear();
+        empty.occupation.reset();
         empty.progress = NodeProgress::Active;
         empty.traversal = default_traversal_for(NodeType::Empty);
         empty.identity_state = NodeIdentityState::Classified;
@@ -591,6 +640,26 @@ bool NormalizedMap::accept_preview(NodeId target, const MovePreview& preview, bo
         return true;
     }
     Node node = *current;
+    if (preview.occupation) {
+        const NodeType visual_type = node.occupation ? node.occupation->base_type : node.type;
+        if ((visual_type != NodeType::Unknown && visual_type != preview.occupation->base_type) ||
+            preview.occupation->base_type != NodeType::Rest ||
+            preview.occupation->entry_type != NodeType::BattleNormal ||
+            preview.displayed_type != preview.occupation->entry_type ||
+            preview.occupation->cleared_type != NodeType::Empty || preview.occupation->stage_title.empty()) {
+            if (error) {
+                *error = "occupation description does not bind selected base node and battle entry";
+            }
+            return false;
+        }
+        node.occupation = preview.occupation;
+    }
+    else if (node.occupation && preview.displayed_type != node.occupation->entry_type) {
+        // A newly classified non-battle entry supersedes the old occupation.
+        // Missing description OCR alone does not negate a still-battle preview.
+        node.name = node.occupation->base_name;
+        node.occupation.reset();
+    }
     // Preview OCR returns configured category tokens, while the map can show
     // a more specific label. Replacing a known same-type name with that token
     // would make the next map refresh undo it and trigger endless replanning.
@@ -599,8 +668,11 @@ bool NormalizedMap::accept_preview(NodeId target, const MovePreview& preview, bo
         node.traversal = default_traversal_for(preview.displayed_type);
     }
     node.type = preview.displayed_type;
-    if (!preserve_map_name) {
-        node.name = preview.displayed_name;
+    if (node.occupation) {
+        node.name = node.occupation->stage_title;
+    }
+    else if (!preserve_map_name) {
+        node.name = preview.stage_title.empty() ? preview.displayed_name : preview.stage_title;
     }
     node.identity_state = NodeIdentityState::Classified;
     node.identity_revealed = true;

@@ -11,7 +11,11 @@
 #include <utility>
 #include <vector>
 
+#include "BlackFlowMovePreviewAnalyzer.h"
 #include "BlackFlowMovementRecognition.h"
+#include "MaaUtils/ImageIo.h"
+#include "Utils/WorkingDir.hpp"
+#include <fstream>
 
 #include "Vision/Roguelike/BlackFlow/BlackFlowFloor.h"
 
@@ -356,23 +360,40 @@ bool BlackFlowTaskPort::preview(
     }
     // 节点预览中，“作战－未知的凶戾”只识别“作战”。
     // 地图中已有的隐藏作战身份由 Session 保留，不依赖预览识别具体隐藏标题。
-    const auto displayed_name =
-        recognize_text(image, MovePreviewDisplayedNameTask, BlackFlowNodeExecution.preview_names());
-    if (!displayed_name.has_value()) {
-        set_error(error, "move preview displayed name OCR failed");
+    if (!recognize_move_preview_identity(image, preview, error)) {
         return false;
     }
-    const auto displayed_type = BlackFlowNodeExecution.preview_node_type(*displayed_name);
-    if (!displayed_type.has_value()) {
-        set_error(error, "move preview displayed name has no node type mapping: " + *displayed_name);
-        return false;
-    }
-
     preview.reachability = PreviewReachability::Reachable;
     preview.exact_action_point_cost = -*displayed_cost;
-    preview.displayed_type = *displayed_type;
-    preview.displayed_name = *displayed_name;
-    preview.identity_revealed = *displayed_type != NodeType::HideInvisible && *displayed_type != NodeType::HideBattle;
+    const auto displayed_type = std::optional<NodeType>(preview.displayed_type);
+    // Persist the exact panel frame, not the map-source's previous map frame.
+    const auto preview_dir = UserDir.get() / "debug/blackflow/preview";
+    std::error_code ec;
+    std::filesystem::create_directories(preview_dir, ec);
+    const auto frame_id = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+    const auto frame_path = preview_dir / ("preview-" + frame_id + ".png");
+    const bool frame_saved = !ec && MAA_NS::imwrite(frame_path, image);
+    const Rect clicked = shrink_to_center(*click_rect, 0.5);
+    json::object facts {
+        { "action_id", candidate.action_id },
+        { "source", candidate.source },
+        { "target", candidate.target },
+        { "map_revision", viewport.map_revision() },
+        { "viewport_revision", viewport.viewport_revision() },
+        { "clicked_rect", json::array { clicked.x, clicked.y, clicked.width, clicked.height } },
+        { "effective_entry_type", std::string(to_string(preview.displayed_type)) },
+        { "category", preview.displayed_name },
+        { "stage_title", preview.stage_title },
+        { "occupation_confirmed", preview.occupation.has_value() },
+        { "base_map_type", preview.occupation ? std::string(to_string(preview.occupation->base_type)) : "unknown" },
+        { "cleared_type", preview.occupation ? std::string(to_string(preview.occupation->cleared_type)) : "unknown" },
+        { "exact_cost", preview.exact_action_point_cost },
+        { "same_frame_kind_title_body", true },
+        { "frame_saved", frame_saved },
+        { "frame_path", utils::path_to_utf8_string(frame_path) }
+    };
+    std::ofstream(preview_dir / ("preview-" + frame_id + ".json")) << json::value(facts);
+    Log.info("BlackFlow move preview identity evidence", json::value(facts).to_string());
     // 理想源只在 Buff 范围内的普通作战节点有规划意义；险路恶敌明确跳过，
     // 避免把其详情页的相似文案误记成可收集目标。
     if (*displayed_type == NodeType::BattleNormal) {
