@@ -32,17 +32,25 @@ PauseTransitionFrame analyze_pause_transition_frame(
             result.total = total;
         }
     }
-    if (paused || normal_running || !result.hud_known || result.kills != result.total) {
+    if (paused || !result.hud_known || result.kills != result.total) {
         return result;
     }
     OCRer banner(image);
-    banner.set_roi({ 100, 180, 1100, 390 });
-    banner.set_required({ "任务", "完成", "MISSION", "ACCOMPLISHED" });
+    banner.set_roi({ 0, 180, 1280, 390 });
+    banner.set_required({ "任务", "完成", "MISSION", "ACCOMPLISHED", "CCOMPLISHED" });
     std::string text;
+    Rect left_mission;
+    Rect left_accomplished;
     if (const auto words = banner.analyze()) {
         for (const auto& word : *words) {
             if (word.score >= 0.95) {
                 text += word.text;
+                if (word.rect.x == 0 && word.text == "MISSION") {
+                    left_mission = word.rect;
+                }
+                else if (word.rect.x == 0 && word.text == "CCOMPLISHED") {
+                    left_accomplished = word.rect;
+                }
             }
         }
     }
@@ -51,6 +59,16 @@ PauseTransitionFrame analyze_pause_transition_frame(
     std::transform(english.begin(), english.end(), english.begin(), [](unsigned char c) { return std::tolower(c); });
     result.banner = (text.find("任务") != std::string::npos && text.find("完成") != std::string::npos) ||
                     (english.find("mission") != std::string::npos && english.find("accomplished") != std::string::npos);
+    // A sliding completion band can leave only its initial A outside the image.
+    // Accept that one exact clipped token only as a high-score two-line pair
+    // touching the physical left boundary while the normal HUD still exists.
+    const bool clipped_english = result.strong_running && !left_mission.empty() && !left_accomplished.empty() &&
+                                 left_accomplished.width >= left_mission.width &&
+                                 left_accomplished.height * 2 >= left_mission.height &&
+                                 left_mission.height * 2 >= left_accomplished.height &&
+                                 left_accomplished.y >= left_mission.y + left_mission.height / 2 &&
+                                 left_accomplished.y <= left_mission.y + left_mission.height * 3;
+    result.banner = result.banner || clipped_english;
     if (result.banner) {
         result.strong_running = false;
     }
