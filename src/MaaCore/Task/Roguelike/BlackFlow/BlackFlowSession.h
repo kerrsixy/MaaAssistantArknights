@@ -217,6 +217,16 @@ public:
     bool apply_shopping_purchase(std::string_view name, std::string* error = nullptr);
 
     bool mark_page_running(std::string* error = nullptr);
+#ifdef ASST_DEBUG
+    // A bounded assisted shop service is not a map move or a completed node.
+    bool begin_debug_shop_service(
+        int observed_floor,
+        bool fresh_account_verified,
+        bool shop_verified,
+        std::string* error = nullptr);
+    bool finish_debug_shop_service(bool map_verified, std::string* error = nullptr);
+#endif
+
     bool apply_node_task_result(
         const NodeTaskResult& result,
         const json::value& callback_details,
