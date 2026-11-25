@@ -35,6 +35,9 @@ class BlackFlowSoulObserver
 public:
     bool load(const std::filesystem::path& directory, std::string* error = nullptr);
     BossBodyEvidence boss(const cv::Mat& image, bool selection_view = false) const;
+    // A previous body rectangle proposes a search area only. This method still
+    // requires the current frame's complete body template and associated HP.
+    BossBodyEvidence boss_in_roi(const cv::Mat& image, Rect proposal) const;
     std::vector<Point> souls(const cv::Mat& normal_image, const std::vector<SoulSite>& legal_sites) const;
     bool paused(const cv::Mat& image) const;
     bool retreat_button(const cv::Mat& image, Point expected) const;
@@ -42,6 +45,8 @@ public:
     std::optional<std::string> battle_end_scene(const cv::Mat& image) const;
 
 private:
+    BossBodyEvidence boss_impl(const cv::Mat& image, Rect search, bool selection_view) const;
+
     struct Profile
     {
         cv::Mat image;

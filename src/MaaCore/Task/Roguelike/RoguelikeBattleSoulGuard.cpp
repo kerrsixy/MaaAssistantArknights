@@ -74,6 +74,7 @@ bool
             });
     };
     std::optional<BossBodyEvidence> diagnostic_boss;
+    json::value diagnostic_local_retry = json::object {};
     std::uint64_t diagnostic_boss_sequence = 0;
     std::size_t diagnostic_speculative_soul_count = 0;
     bool diagnostic_speculative_souls_discarded = false;
@@ -114,6 +115,7 @@ bool
         json::value details = json::object {
             { "reason", reason },
             { "input_authorization", authority_json() },
+            { "local_body_reobservation", diagnostic_local_retry },
             { "boss_execution_policy", "one const task, async or deferred; joined before permission" },
             { "speculative_soul_count", diagnostic_speculative_soul_count },
             { "speculative_souls_discarded", diagnostic_speculative_souls_discarded },
@@ -228,6 +230,7 @@ bool
                 { "intent", reclaim ? "reclaim_deployment_tile" : "protect_owner_from_boss" },
                 { "event", event },
                 { "input_authorization", authority_json() },
+                { "local_body_reobservation", diagnostic_local_retry },
                 { "sequence", observation.sequence },
                 { "observed_ms", observation.observed_ms },
                 { "received_ms", observation.received_ms },
@@ -251,7 +254,8 @@ bool
                              std::uint64_t captured,
                              bool selected,
                              bool cleanup,
-                             const std::vector<SoulSite>* normal_sites = nullptr) {
+                             const std::vector<SoulSite>* normal_sites = nullptr,
+                             std::optional<Rect> local_body_search = std::nullopt) {
         SummonRetreatObservation observation;
         observation.battle_key = key;
         observation.sequence = ++m_soul_sequence;
@@ -264,9 +268,11 @@ bool
         std::future<BossBodyEvidence> boss_future;
         if (!observation.user_paused && !cleanup && !reclaim && (selected || observation.normal_view)) {
             const auto* observer = m_soul_observer.get();
-            boss_future = std::async(std::launch::async | std::launch::deferred, [observer, frame, selected] {
-                return observer->boss(frame, selected);
-            });
+            boss_future =
+                std::async(std::launch::async | std::launch::deferred, [observer, frame, selected, local_body_search] {
+                    return !selected && local_body_search ? observer->boss_in_roi(frame, *local_body_search)
+                                                          : observer->boss(frame, selected);
+                });
         }
         if (!observation.user_paused && selected && !observation.normal_view) {
             observation.retreat_button_present = m_soul_observer->retreat_button(frame, m_retreat_button_pos);
@@ -386,9 +392,42 @@ bool
         }
         diagnostic_allowed_sites = allowed;
         diagnostic_allowed_sites_known = true;
-        const auto captured = timestamp();
-        const auto frame = ctrler()->get_image();
+        bool local_retry_used = false;
+        auto captured = timestamp();
+        auto frame = ctrler()->get_image();
         auto observation = observe(frame, captured, false, false, &sites);
+        if (!reclaim && !need_exit() && !observation.user_paused && observation.normal_view &&
+            observation.boss == BossVitalState::ConfirmedAlive && !observation.candidates.empty() &&
+            observation.received_ms >= observation.observed_ms &&
+            observation.received_ms - observation.observed_ms > 500 && diagnostic_boss &&
+            diagnostic_boss_sequence == observation.sequence) {
+            // Expired Alive evidence grants no permission. It only proposes a
+            // bounded search rectangle in one genuinely recaptured frame. All
+            // body/HP and Soul evidence below belongs to the new observation.
+            constexpr int Padding = 48;
+            const auto body = diagnostic_boss->body;
+            const Rect search(body.x - Padding, body.y - Padding, body.width + 2 * Padding, body.height + 2 * Padding);
+            diagnostic_local_retry = json::object {
+                { "source_sequence", observation.sequence },
+                { "source_observed_ms", observation.observed_ms },
+                { "source_received_ms", observation.received_ms },
+                { "source_age_ms", observation.received_ms - observation.observed_ms },
+                { "proposal_body", json::array { body.x, body.y, body.width, body.height } },
+                { "search_roi", json::array { search.x, search.y, search.width, search.height } },
+                { "source_alive_authorizes_input", false },
+                { "additional_get_image_calls", 1 },
+            };
+            local_retry_used = true;
+            captured = timestamp();
+            frame = ctrler()->get_image();
+            observation = observe(frame, captured, false, false, &sites, search);
+            diagnostic_local_retry["new_sequence"] = observation.sequence;
+            diagnostic_local_retry["new_observed_ms"] = observation.observed_ms;
+            diagnostic_local_retry["new_received_ms"] = observation.received_ms;
+            diagnostic_local_retry["new_age_ms"] = observation.received_ms - observation.observed_ms;
+            // No recursion or loop: a slow, paused, occluded, absent or moved
+            // Boss remains subject to the original policy and input deadline.
+        }
         if (observation.user_paused) {
             m_waiting_for_manual_resume = true;
             diagnose("normal_user_paused", observation, {}, frame);
@@ -396,7 +435,10 @@ bool
         }
         if (!observation.normal_view) {
             diagnose("normal_ui_unqualified", observation, {}, frame);
-            return false;
+            // The caller must not deploy with its older outer frame after this
+            // additional capture has observed selected or terminal UI. This
+            // owns no panel and performs no cleanup input.
+            return local_retry_used;
         }
         if (!reclaim && observation.boss != BossVitalState::ConfirmedAlive) {
             diagnose("normal_boss_not_confirmed_alive", observation, {}, frame);

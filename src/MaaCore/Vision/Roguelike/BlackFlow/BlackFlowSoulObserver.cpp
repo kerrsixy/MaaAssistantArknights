@@ -159,17 +159,36 @@ bool BlackFlowSoulObserver::paused(const cv::Mat& image) const
 
 BossBodyEvidence BlackFlowSoulObserver::boss(const cv::Mat& normal_image, bool selection_view) const
 {
+    return boss_impl(normal_image, selection_view ? Rect(380, 60, 770, 525) : Rect(0, 60, 1150, 525), selection_view);
+}
+
+BossBodyEvidence BlackFlowSoulObserver::boss_in_roi(const cv::Mat& normal_image, Rect proposal) const
+{
+    return boss_impl(normal_image, proposal, false);
+}
+
+BossBodyEvidence
+    BlackFlowSoulObserver::boss_impl(const cv::Mat& normal_image, Rect requested, bool selection_view) const
+{
     BossBodyEvidence best;
     if (!m_ready || normal_image.size() != cv::Size(1280, 720) || normal_image.type() != CV_8UC3) {
         return best;
     }
     cv::Mat gray;
     // A selected unit's portrait is not a visible battlefield Boss instance.
-    const cv::Rect search_rect = selection_view ? cv::Rect(380, 60, 770, 525) : cv::Rect(0, 60, 1150, 525);
+    const cv::Rect permitted = selection_view ? cv::Rect(380, 60, 770, 525) : cv::Rect(0, 60, 1150, 525);
+    const cv::Rect search_rect = cv::Rect(requested.x, requested.y, requested.width, requested.height) & permitted;
+    if (search_rect.width < 2 || search_rect.height < 2) {
+        return best;
+    }
     cv::cvtColor(normal_image(search_rect), gray, cv::COLOR_BGR2GRAY);
     cv::Mat coarse;
     cv::resize(gray, coarse, {}, 0.5, 0.5, cv::INTER_AREA);
     for (const auto& profile : selection_view ? m_selected_boss : m_boss) {
+        if (gray.cols < profile.image.cols || gray.rows < profile.image.rows ||
+            coarse.cols < profile.coarse_image.cols || coarse.rows < profile.coarse_image.rows) {
+            continue;
+        }
         cv::Mat scores;
         cv::matchTemplate(coarse, profile.coarse_image, scores, cv::TM_CCOEFF_NORMED, profile.coarse_mask);
         for (int row = 0; row < scores.rows; ++row) {
