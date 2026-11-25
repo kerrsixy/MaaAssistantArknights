@@ -1,0 +1,75 @@
+{
+    "stage_name": "丛林法则",
+    "doc": [
+        "run74机制候选：EW9,2向上直覆蓝门两侧8,1/10,1；右传送末段优先永久三挡10,1Right，再合格医疗10,2Left、左侧三挡8,1Left、副输出5,2Right。",
+        "三挡由本局已知精英基础挡数与永久阻挡能力联证，不能用临时技能加挡或召唤物冒充。未有两个合格挡时不声称两路完整。",
+        "不在蓝门9,1放人，不依赖号角蓝门模组。实际run74首14/51附近生命9至7时核心仍在；本候选修复直接覆盖缺口，尚未证明DPS/目标优先/战争术师护盾与锁攻、冲锋承伤或零漏。",
+        "EW精一/精二独立射程资格，普通范围相同不等于S3或强度相同。医疗技能/藏品变化与魂域占格仍需实机；不得把输入接受或计数当击杀证明。",
+        "机械师为现有专组、不在地面阻挡泛组。右槽先专组再能力组是显式主挡优先；组间优先级高于费用，不宣称跨组最低价。无机械师时仍按真实永久三挡门禁选其他地面干员。",
+        "医疗槽仅选既有元素奶/单奶组并核实际射程；群奶/泛奶含技能依赖者，不据普攻射程认治疗。本轮波登可实际S1已获证，但JSON无本场技能条件，故此候选不将其冒充常驻医疗，实际阵容反事实仅四职责。"
+    ],
+    "replacement_home": [
+        {
+            "location": [10, 1],
+            "direction": "right"
+        },
+        {
+            "location": [8, 1],
+            "direction": "left"
+        }
+    ],
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true,
+    "reserve_starting_core_groups": ["益达"],
+    "deploy_plan": [
+        {
+            "groups": ["益达"],
+            "location": [9, 2],
+            "direction": "up",
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [8, 1],
+                [10, 1]
+            ]
+        },
+        {
+            "groups": ["机械师", "地面阻挡"],
+            "location": [10, 1],
+            "direction": "right",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true,
+            "minimum_base_block_count": 3
+        },
+        {
+            "groups": ["元素奶", "单奶"],
+            "location": [10, 2],
+            "direction": "left",
+            "minimum_elite": 1,
+            "required_range_tiles": [
+                [9, 2],
+                [10, 1],
+                [8, 1]
+            ]
+        },
+        {
+            "groups": ["地面阻挡", "机械师"],
+            "location": [8, 1],
+            "direction": "left",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true,
+            "minimum_base_block_count": 3
+        },
+        {
+            "groups": ["术师", "高台输出", "狙击"],
+            "location": [5, 2],
+            "direction": "right",
+            "minimum_elite": 1,
+            "exclude_starting_core": true,
+            "required_attack_tiles": [
+                [6, 3],
+                [7, 1],
+                [7, 2]
+            ]
+        }
+    ]
+}
