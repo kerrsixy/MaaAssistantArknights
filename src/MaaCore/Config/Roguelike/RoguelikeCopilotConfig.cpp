@@ -1,7 +1,11 @@
 #include "RoguelikeCopilotConfig.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
+#include <unordered_set>
+
+#include "Task/Roguelike/BlackFlow/BlackFlowBattleVariant.h"
 #include <meojson/json.hpp>
 
 #include "Utils/Logger.hpp"
@@ -14,14 +18,82 @@ bool asst::RoguelikeCopilotConfig::load(const std::filesystem::path& path)
     LogTraceFunction;
 
     bool ret = true;
+    auto previous_stages = m_stage_data;
+    auto previous_openings = m_hunter_openings;
+    auto previous_reservations = m_reserved_core_groups;
+    using StageMap = decltype(m_stage_data);
+    using OpeningMap = decltype(m_hunter_openings);
+    using ReservationMap = decltype(m_reserved_core_groups);
+
+    struct LoadRollback
+    {
+        StageMap& stages;
+        StageMap& old_stages;
+        OpeningMap& openings;
+        OpeningMap& old_openings;
+        ReservationMap& reservations;
+        ReservationMap& old_reservations;
+        bool accepted = false;
+
+        ~LoadRollback()
+        {
+            Logger::level::trace.set_enabled(true);
+            if (!accepted) {
+                stages.swap(old_stages);
+                openings.swap(old_openings);
+                reservations.swap(old_reservations);
+            }
+        }
+    } rollback { m_stage_data,      previous_stages,        m_hunter_openings,
+                 previous_openings, m_reserved_core_groups, previous_reservations };
+
+    std::unordered_map<std::string, int> batch_names;
+    std::unordered_set<std::string> referenced_bases;
     Logger::level::trace.set_enabled(false);
     for (auto& entry : std::filesystem::recursive_directory_iterator(path)) {
         if (!entry.is_regular_file() || entry.path().extension() != ".json") {
             continue;
         }
+        if (const auto document = json::open(entry.path()); document && document->is_object()) {
+            const auto name = document->find<std::string>("stage_name");
+            if (name) {
+                ++batch_names[*name];
+                if (const auto variant = blackflow::parse_battle_variant_key(*name)) {
+                    referenced_bases.emplace(variant->first);
+                }
+            }
+        }
         ret &= AbstractConfig::load(entry.path());
     }
     Logger::level::trace.set_enabled(true);
+    // Existing variants also constrain a later batch that overlays only bases.
+    for (const auto& [key, data] : m_stage_data) {
+        if (const auto condition = blackflow::parse_battle_variant_key(key)) {
+            referenced_bases.emplace(condition->first);
+        }
+    }
+    for (const auto& [name, count] : batch_names) {
+        if (count > 1 && (referenced_bases.contains(name) || name.find("#total") != std::string::npos)) {
+            LogError << __FUNCTION__ << "Duplicate variant or referenced base in one load batch" << name;
+            ret = false;
+        }
+    }
+    for (const auto& [key, variant] : m_stage_data) {
+        const auto condition = blackflow::parse_battle_variant_key(key);
+        if (!condition) {
+            continue;
+        }
+        const auto base = m_stage_data.find(condition->first);
+        if (base == m_stage_data.end() || base->second.deploy_plan_only != variant.deploy_plan_only ||
+            base->second.reserve_deploy_cost != variant.reserve_deploy_cost ||
+            reserved_core_groups(base->first) != reserved_core_groups(key)) {
+            LogError << __FUNCTION__ << "Variant base or deployment budget rules conflict" << key;
+            ret = false;
+        }
+    }
+    // The guard also restores registry and trace state while DEBUG parse
+    // exceptions unwind; the original exception is deliberately not caught.
+    rollback.accepted = ret;
     return ret;
 }
 
@@ -32,6 +104,20 @@ std::optional<CombatData> asst::RoguelikeCopilotConfig::get_stage_data(const std
         return std::nullopt;
     }
     return it->second;
+}
+
+std::vector<std::pair<int, std::string>>
+    asst::RoguelikeCopilotConfig::get_stage_variant_keys(const std::string& base_stage) const
+{
+    std::vector<std::pair<int, std::string>> result;
+    for (const auto& [key, data] : m_stage_data) {
+        if (const auto condition = blackflow::parse_battle_variant_key(key);
+            condition && condition->first == base_stage) {
+            result.emplace_back(condition->second, key);
+        }
+    }
+    std::ranges::sort(result);
+    return result;
 }
 
 const std::vector<std::string>& asst::RoguelikeCopilotConfig::reserved_core_groups(const std::string& stage_name) const
@@ -55,6 +141,36 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
 #endif
 
     std::string stage_name = json.at("stage_name").as_string();
+    if (stage_name.find("#total") != std::string::npos || json.contains("variant_of") || json.contains("when")) {
+        const auto condition = blackflow::parse_battle_variant_key(stage_name);
+        const auto base = json.find<std::string>("variant_of");
+        const auto when = json.find<json::object>("when");
+        const auto plans = json.find<json::array>("deploy_plan");
+        const auto only = json.find<bool>("deploy_plan_only");
+        const auto reserve = json.find<bool>("reserve_deploy_cost");
+        const auto groups = json.find<json::array>("reserve_starting_core_groups");
+        if (!condition || !base || *base != condition->first || !when || when->size() != 1 ||
+            !when->contains("total_enemies") || !when->at("total_enemies").is_number() ||
+            when->at("total_enemies").as_double() != condition->second || !plans || plans->empty() || !only ||
+            !reserve || !groups) {
+            LogError << __FUNCTION__ << "Invalid explicit battle variant declaration" << stage_name;
+            return false;
+        }
+        const std::unordered_set<std::string> allowed { "stage_name",
+                                                        "variant_of",
+                                                        "when",
+                                                        "deploy_plan",
+                                                        "deploy_plan_only",
+                                                        "reserve_deploy_cost",
+                                                        "reserve_starting_core_groups",
+                                                        "doc" };
+        for (const auto& [key, value] : json.as_object()) {
+            if (!allowed.contains(key)) {
+                LogError << __FUNCTION__ << "Variant may override only deploy_plan" << stage_name << key;
+                return false;
+            }
+        }
+    }
     CombatData data;
     data.stage_name = stage_name;
     // clang-format off
