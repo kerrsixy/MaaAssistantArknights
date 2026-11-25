@@ -10,6 +10,7 @@
 
 #include <meojson/json.hpp>
 
+#include "BlackFlowHunterTaskPolicy.h"
 #include "Common/AsstBattleDef.h"
 #include "Config/Roguelike/BlackFlow/BlackFlowHunterOpening.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowHunterPreludeAnalyzer.h"
@@ -65,6 +66,9 @@ public:
 
     [[nodiscard]] bool attack_range_allowed(int plan_index, const battle::AttackRange& range) const;
     [[nodiscard]] bool bait_skill_allowed(const std::map<battle::OperNameTag, Point>& battlefield) const noexcept;
+    bool candidate_allowed(int plan_index, const HunterTaskCandidate& candidate);
+    bool skill_allowed(const HunterTaskCandidate& candidate) const;
+    std::optional<HunterTaskCandidate> active_task(const battle::OperNameTag& oper) const;
     void deployed(int plan_index, const battle::OperNameTag& oper, Point tile);
     [[nodiscard]] HunterPreludeDecision observe(
         const cv::Mat& image,
@@ -79,6 +83,13 @@ public:
 
 private:
     BlackFlowHunterPreludeAnalyzer m_analyzer;
+    BlackFlowHunterTaskPolicy m_task_policy;
+    HunterTaskWorld m_task_world;
+    std::map<std::pair<int, battle::OperNameTag>, HunterTaskCandidate> m_task_permissions;
+    std::map<battle::OperNameTag, std::pair<int, HunterTaskCandidate>> m_early_deployed;
+    std::vector<Point> m_lower_possible_tiles;
+    std::vector<Point> m_upper_ground_tiles;
+    json::array m_task_decisions;
     bool m_prepared = false;
     bool m_spawn_window_verified = false;
     bool m_frame_verified = false;

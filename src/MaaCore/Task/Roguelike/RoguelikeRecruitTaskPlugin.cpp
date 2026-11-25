@@ -1,4 +1,4 @@
-#include "RoguelikeRecruitTaskPlugin.h"
+#include "Task/Roguelike/RoguelikeRecruitTaskPlugin.h"
 #include "BlackFlow/BlackFlowRecruitmentTerminalDuty.h"
 #include "Config/Miscellaneous/BattleDataConfig.h"
 #include "Config/Roguelike/BlackFlow/BlackFlowAccountProfile.h"
@@ -6,6 +6,7 @@
 #include "Vision/Roguelike/RoguelikeParameterAnalyzer.h"
 
 #include <cctype>
+#include <limits>
 #include <utility>
 
 #include "Config/TaskData.h"
@@ -100,6 +101,14 @@ bool asst::RoguelikeRecruitTaskPlugin::verify(AsstMsg msg, const json::value& de
 bool asst::RoguelikeRecruitTaskPlugin::load_params(const json::value& params)
 {
     m_blackflow_strategy = params.get("blackflow_strategy", std::string());
+    const auto cache_file = params.get("account_cache_file", std::string());
+    m_quote_store_path = cache_file.empty() ? std::filesystem::path {} : utils::path(cache_file);
+    if (!m_quote_store_path.empty()) {
+        m_quote_store_path += utils::path(".blackflow-quotes.json");
+    }
+    m_quote_source_cohort =
+        ResDir.empty() ? std::string {} : blackflow::RecruitmentQuoteLedger::source_cohort(ResDir.get());
+    m_quote_loaded_scope.clear();
     return true;
 }
 
@@ -267,45 +276,7 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
     // 编队信息 (已有角色)
     const auto& chars_map = m_config->status().opers;
 
-    if (!m_starts_complete) {
-        for (const auto& oper : chars_map) {
-            auto& recruit_info = RoguelikeRecruit.get_oper_info(m_config->get_theme(), oper.first);
-            if (recruit_info.is_start) {
-                m_starts_complete = true;
-            }
-        }
-    }
-
-    if (!m_team_complete) {
-        bool complete = true;
-        int complete_count = 0;
-        const auto& team_complete_condition = RoguelikeRecruit.get_team_complete_info(m_config->get_theme());
-        for (const auto& condition : team_complete_condition) { // 每个完备度的策略组
-            std::unordered_set<std::string> opers =
-                calculate_condition_oper(condition, chars_map); // 符合这个策略组的干员
-
-            complete_count += int(opers.size());
-            if (int(opers.size()) < condition.threshold) {
-                complete = false;
-            }
-
-            Log.trace("__FUNCTION__", "groups:", condition.groups);
-            Log.trace("__FUNCTION__", "opers:", opers);
-        }
-        m_team_complete = complete;
-        if (complete_count <= RoguelikeRecruit.get_team_complete_require(m_config->get_theme()) / 2 &&
-            m_recruit_count >= 10) {
-            // 如果第10次招募还没拿到半队key干员，说明账号阵容不齐，放开招募限制，有啥用啥吧
-            m_team_complete = true;
-        }
-        Log.trace("__FUNCTION__", "complete_count:", complete_count, "m_team_complete:", m_team_complete);
-    }
-
-    if (m_recruit_count >= 3 && !m_starts_complete) {
-        // 如果第3次招募还没拿到start干员，说明账号练度低且阵容不齐，放开招募限制，有啥用啥吧
-        m_starts_complete = true;
-        m_team_complete = true;
-    }
+    refresh_recruitment_team_flags();
 
     // 候选干员
     std::vector<RoguelikeRecruitInfo> recruit_list;
@@ -359,6 +330,23 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
     }
     blackflow::BlackFlowRecruitmentDutyCatalog duty_catalog;
     std::vector<blackflow::RecruitmentDutyOffer> duty_offers;
+    std::vector<blackflow::RecruitmentObservedQuote> observed_quotes;
+    std::vector<blackflow::RecruitmentQuoteEligibility> quote_eligibility;
+    const auto quote_scope = recruitment_quote_scope();
+    // A later fresh valid context must reload persisted quotes after an unknown
+    // context cleared the in-memory binding. Never treat the old load key as proof.
+    if (!quote_scope.valid()) {
+        m_quote_loaded_scope.clear();
+    }
+    if (theme == RoguelikeTheme::BlackFlow && mode == RoguelikeMode::Exp && m_quote_ledger.bind(quote_scope)) {
+        const auto key = quote_scope.client + ":" + quote_scope.uid + ":" + quote_scope.source_cohort;
+        if (key != m_quote_loaded_scope) {
+            std::string diagnostic;
+            const bool loaded = !m_quote_store_path.empty() && m_quote_ledger.load(m_quote_store_path, &diagnostic);
+            LogInfo << __FUNCTION__ << "Native quote archive load" << loaded << diagnostic;
+            m_quote_loaded_scope = key;
+        }
+    }
     if (theme == RoguelikeTheme::BlackFlow && mode == RoguelikeMode::Exp) {
         duty_catalog.load(
             ResDir.get() / "roguelike/BlackFlow/recruitment_duties.json",
@@ -377,6 +365,7 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
         RoguelikeRecruitImageAnalyzer analyzer(image);
         const auto frame_read_completed_at = theme == RoguelikeTheme::BlackFlow ? MAA_NS::format_now() : std::string {};
         const bool analyzed = analyzer.analyze();
+        json::value quote_page_receipt = nullptr;
         if (theme == RoguelikeTheme::BlackFlow) {
             auto observation = basic_info_with_what("BlackFlowRecruitmentPageObserved");
             const blackflow::RecruitmentPageObservationContext context {
@@ -393,6 +382,7 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                 .initial_recruitment = m_initail_recruit,
             };
             observation["details"] = blackflow::make_recruitment_page_observation(image, analyzer, context);
+            quote_page_receipt = observation.at("details");
             callback(AsstMsg::SubTaskExtraInfo, observation);
         }
         if (!analyzed) {
@@ -465,6 +455,12 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                 chars_map,
                 context,
                 &m_origin_ledger);
+            auto page_quotes =
+                blackflow::RecruitmentQuoteLedger::capture(analyzer, page_offers, quote_page_receipt, quote_scope);
+            observed_quotes.insert(
+                observed_quotes.end(),
+                std::make_move_iterator(page_quotes.begin()),
+                std::make_move_iterator(page_quotes.end()));
             duty_offers.insert(
                 duty_offers.end(),
                 std::make_move_iterator(page_offers.begin()),
@@ -474,7 +470,6 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
         std::unordered_set<std::string> oper_names;
         const auto& oper_list = analyzer.get_result();
         bool stop_swipe = false;
-        const auto& owned_collection = m_config->status().collections;
 
         int max_oper_x = 0;
         for (const auto& oper_info : oper_list) {
@@ -510,239 +505,18 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                 rect_it->second = oper_info.rect;
             }
 
-            if (!can_afford(oper_info, cur_hope)) {
-                continue;
+            const auto assessed = assess_recruitment_candidate(
+                analyzer,
+                static_cast<std::size_t>(&oper_info - oper_list.data()),
+                i,
+                cur_hope,
+                team_full_without_rookie);
+            quote_eligibility.push_back(assessed.quote_eligibility);
+            append_payable_candidate(assessed, recruit_list);
+            if (assessed.eligible_without_budget && assessed.quote_eligibility.affordable) {
+                LogInfo << __FUNCTION__ << "| Operator" << assessed.eligible_without_budget->name
+                        << "priority:" << assessed.eligible_without_budget->priority;
             }
-            // 查询招募配置
-            if (RoguelikeRecruit.is_oper_excluded(theme, oper_info.name)) {
-                LogInfo << "Excluded roguelike recruitment candidate" << theme << oper_info.name;
-                continue;
-            }
-            const auto& recruit_info = RoguelikeRecruit.get_oper_info(m_config->get_theme(), oper_info.name);
-            int priority = 0;
-
-            // 查询编队是否已持有该干员
-            if (const auto& char_opt = chars_map.find(oper_info.name); char_opt != chars_map.end()) {
-                // 干员已在编队中，又出现在招募列表，只有待晋升和预备干员两种情况
-                if (recruit_info.is_alternate) {
-                    // 预备干员可以重复招募，但是最好不要重复招募预备干员占用编队位置
-                    priority = recruit_info.recruit_priority_when_team_full;
-                }
-                else {
-                    // 干员待晋升
-                    priority = team_full_without_rookie ? recruit_info.promote_priority_when_team_full
-                                                        : recruit_info.promote_priority;
-                    if (oper_info.elite < 2) { // 若未精二，则晋升无意义
-                        priority = 0;
-                    }
-                }
-            }
-            else {
-                // 干员待招募，检查练度
-                if (oper_info.elite == 2) {
-                    // 先判断新成员是否适合当前队伍，精二收益在条件修正后计入。
-                    priority = team_full_without_rookie ? recruit_info.recruit_priority_when_team_full
-                                                        : recruit_info.recruit_priority;
-                }
-                else if (is_recruitment_strength_sufficient(oper_info.elite, oper_info.level)) {
-                    // 精一55级以上
-                    // 等级是 0 一般是识别错了，多发生于外服，一般都是一错全错，先凑合着招一个吧，比不招人强 orz
-                    priority = team_full_without_rookie ? recruit_info.recruit_priority_when_team_full
-                                                        : recruit_info.recruit_priority;
-                }
-                else {
-                    // 精一55级以下，默认不招募
-                    Log.trace(
-                        __FUNCTION__,
-                        "| Ignored low level oper:",
-                        oper_info.name,
-                        oper_info.elite,
-                        oper_info.level);
-
-                    // REFACTOR ME: 不招募情况没有对 oper_list 进行处理
-                    // 若遇到 offset ，最终 priority 可能为正，会导致练度不够也招募 @Daydreamer114 @Saratoga-Official
-                    // 水月高难且招募机会少：低练度干员也强于空手，改为轻微惩罚而非直接放弃
-                    priority -= (theme == RoguelikeTheme::Mizuki) ? 300 : 114'514;
-                    // 水月：即使被扣成非正数，也保底可选中，避免"没人可招"直接把队伍停在 4 人
-                    if (theme == RoguelikeTheme::Mizuki && priority <= 0) {
-                        priority = 1;
-                    }
-                }
-
-                // 只在初始招募页面使用开局分，且沿用普通招募的练度门槛。
-                // 局内的前几次招募、低练度候选均不能被开局分覆盖。
-                const bool opening_eligible = is_recruitment_strength_sufficient(oper_info.elite, oper_info.level);
-                if (m_initail_recruit && opening_eligible && recruit_info.start_priority > 0) {
-                    Log.trace(
-                        __FUNCTION__,
-                        "| start phase: use start_priority",
-                        recruit_info.start_priority,
-                        "for",
-                        oper_info.name,
-                        "(was",
-                        priority,
-                        ")");
-                    priority = recruit_info.start_priority;
-                }
-
-                if (!recruit_info.is_alternate) {
-                    for (const auto& priority_offset : recruit_info.recruit_priority_offsets) {
-                        std::unordered_set<std::string> opers = // 符合这个策略组的干员
-                            calculate_condition_oper(priority_offset, chars_map);
-                        if (priority_offset.is_less) {
-                            if (int(opers.size()) <= priority_offset.threshold) {
-                                priority += priority_offset.offset;
-                            }
-                        }
-                        else {
-                            if (int(opers.size()) >= priority_offset.threshold) {
-                                priority += priority_offset.offset;
-                            }
-                        }
-                    }
-
-                    // 黑流树海第三层首领的持续伤害会迅速耗尽没有治疗的队伍。
-                    // 当队伍尚未拥有医疗干员时，提高所有医疗候选的优先级，
-                    // 让随机招募优先补齐最基本的续航能力。
-                    if (theme == RoguelikeTheme::BlackFlow &&
-                        BattleDataConfig::get_instance().get_first_role(oper_info.name) == battle::Role::Medic) {
-                        const bool has_medic = std::ranges::any_of(chars_map, [](const auto& entry) {
-                            return BattleDataConfig::get_instance().get_first_role(entry.first) == battle::Role::Medic;
-                        });
-                        if (!has_medic) {
-                            priority += 450;
-                            Log.trace(__FUNCTION__, "| BlackFlow no medic yet, boost", oper_info.name, priority);
-                        }
-                    }
-
-                    // 同理，队伍里一个地面阻挡都没有时（坦克/近卫/先锋都算），
-                    // 第一个阻挡阵亡就会变成「全员放高台、门口的怪直接走进去」，
-                    // 因此优先补齐能站在道路上的干员。
-                    if (theme == RoguelikeTheme::BlackFlow) {
-                        const auto is_blocker_role = [](battle::Role role) {
-                            return role == battle::Role::Tank || role == battle::Role::Warrior ||
-                                   role == battle::Role::Pioneer;
-                        };
-                        if (is_blocker_role(BattleDataConfig::get_instance().get_first_role(oper_info.name))) {
-                            const bool has_blocker = std::ranges::any_of(chars_map, [&](const auto& entry) {
-                                return is_blocker_role(BattleDataConfig::get_instance().get_first_role(entry.first));
-                            });
-                            if (!has_blocker) {
-                                priority += 450;
-                                Log.trace(__FUNCTION__, "| BlackFlow no blocker yet, boost", oper_info.name, priority);
-                            }
-                        }
-                    }
-
-                    for (const auto& priority_offset : recruit_info.collection_priority_offsets) {
-                        auto iter =
-                            std::find(owned_collection.begin(), owned_collection.end(), priority_offset.collection);
-                        if (iter != owned_collection.end()) {
-                            priority += priority_offset.offset;
-                        }
-                    }
-                    // 初始三张免费券由 start_priority 决定开局结构；不能再用 is_start/is_key
-                    // 把同一批候选全部扣成负分，否则会出现第一张招到人、第二张整券跳过。
-                    if (!m_initail_recruit && !m_starts_complete) {
-                        if (!recruit_info.is_start) {
-                            priority -= 1000;
-                        }
-                    }
-                    else if (!m_initail_recruit && !m_team_complete) {
-                        if (!recruit_info.is_key) {
-                            priority -= 1000;
-                        }
-                    }
-                }
-
-                // 晋升价值不能抵消当前队伍的招募否决；开局沿用独立的开局分。
-                if (oper_info.elite == 2 && !(m_initail_recruit && recruit_info.start_priority > 0)) {
-                    const int promotion_value = team_full_without_rookie ? recruit_info.promote_priority_when_team_full
-                                                                         : recruit_info.promote_priority;
-                    priority = score_elite_two_recruit(priority, promotion_value);
-                }
-            }
-
-            if (theme == RoguelikeTheme::BlackFlow && recruit_info.account_module && !recruit_info.is_alternate) {
-                const auto& policy = *recruit_info.account_module;
-                const auto& account = m_config->account_profile();
-                const auto evidence =
-                    account ? account->module_evidence(oper_info.name, policy.module_id) : std::nullopt;
-                const bool ready =
-                    account && account->module_available(oper_info.name, policy.module_id, policy.minimum_level);
-                const int before = priority;
-                priority = policy.adjust_priority(priority, chars_map.contains(oper_info.name), ready);
-                auto decision = basic_info_with_what("BlackFlowRecruitmentModuleGate");
-                decision["details"] = json::object {
-                    { "client", m_config->account_client() },
-                    { "uid", m_config->account_uid() },
-                    { "operator", oper_info.name },
-                    { "module_id", policy.module_id },
-                    { "known", evidence.has_value() },
-                    { "module_level", evidence ? evidence->level : -1 },
-                    { "ready", ready },
-                    { "priority_before", before },
-                    { "priority_after", priority },
-                };
-                callback(AsstMsg::SubTaskExtraInfo, decision);
-            }
-
-            if (theme == RoguelikeTheme::BlackFlow) {
-                const auto& account = m_config->account_profile();
-                const auto owned = account ? account->find_operator(oper_info.name) : std::nullopt;
-                const auto training = owned && owned->get().training ? &*owned->get().training : nullptr;
-                const auto effective_level = [&](int skill) {
-                    if (!account || oper_info.temporary) {
-                        return -1;
-                    }
-                    return account->skill_level_for_run(oper_info.name, skill, oper_info.elite, oper_info.level)
-                        .value_or(-1);
-                };
-                auto observed = basic_info_with_what("BlackFlowRecruitmentTrainingObserved");
-                observed["details"] = json::object {
-                    { "client", m_config->account_client() },
-                    { "uid", m_config->account_uid() },
-                    { "operator", oper_info.name },
-                    { "temporary_offer", oper_info.temporary },
-                    { "observed_offer_elite", oper_info.elite },
-                    { "observed_offer_level", oper_info.level },
-                    { "account_training_known", training != nullptr },
-                    { "account_base_skill_level", training ? training->base_skill_level : -1 },
-                    { "configured_skill", recruit_info.skill },
-                    { "configured_skill_effective_level", effective_level(recruit_info.skill) },
-                    { "alternate_skill", recruit_info.alternate_skill },
-                    { "alternate_skill_effective_level", effective_level(recruit_info.alternate_skill) },
-                    { "temporary_offer_uses_account_training", false },
-                    { "priority_adjusted", false },
-                    { "unknown_is_not_maximum_training", true },
-                };
-                callback(AsstMsg::SubTaskExtraInfo, observed);
-            }
-
-            const auto tier = classify_recruit_candidate(
-                oper_info.elite == 2,
-                priority > 0,
-                oper_info.hope_cost.has_value() && *oper_info.hope_cost == 0,
-                oper_info.temporary,
-                BattleData.get_rarity(battle::Role::Unknown, oper_info.name));
-            if (tier == RoguelikeRecruitTier::Skip) {
-                continue;
-            }
-
-            // 添加到候选名单
-            auto existing_it = std::ranges::find_if(recruit_list, [&](const RoguelikeRecruitInfo& pri) -> bool {
-                return pri.name == recruit_info.name;
-            });
-            if (existing_it == recruit_list.cend()) {
-                RoguelikeRecruitInfo info;
-                info.name = recruit_info.name;
-                info.priority = priority;
-                info.tier = tier;
-                info.is_alternate = recruit_info.is_alternate;
-                info.page_index = i;
-                recruit_list.emplace_back(info);
-            }
-            Log.info(__FUNCTION__, "| Operator", recruit_info.name, "priority:", priority);
         }
 
         Log.info(__FUNCTION__, "| Page", i, "oper list:", oper_names);
@@ -784,6 +558,31 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
     }
 
     report_scan();
+
+    if (theme == RoguelikeTheme::BlackFlow && mode == RoguelikeMode::Exp) {
+        const auto captured = observed_quotes.size();
+        const auto qualified_not_payable = std::ranges::count_if(quote_eligibility, [](const auto& proof) {
+            return proof.non_economic_eligible == std::optional<bool>(true) && !proof.affordable;
+        });
+        archive_assessed_quotes(std::move(observed_quotes), std::move(quote_eligibility), recruit_list);
+        std::string diagnostic;
+        const bool saved = !m_quote_store_path.empty() && m_quote_ledger.save(m_quote_store_path, &diagnostic);
+        auto receipt = basic_info_with_what("BlackFlowRecruitmentQuoteArchive");
+        receipt["details"] = json::object { { "captured_native_same_analysis", captured },
+                                            { "archived_entries", m_quote_ledger.entries().size() },
+                                            { "qualified_not_payable_now", qualified_not_payable },
+                                            { "non_economic_qualification_source",
+                                              "shared_native_candidate_assessment_excluding_current_balance" },
+                                            { "saved", saved },
+                                            { "diagnostic", diagnostic },
+                                            { "client", quote_scope.client },
+                                            { "uid", quote_scope.uid },
+                                            { "source_cohort", quote_scope.source_cohort },
+                                            { "price_context_complete", false },
+                                            { "historical_Python_imported", false },
+                                            { "gameplay_inputs", 0 } };
+        callback(AsstMsg::SubTaskExtraInfo, receipt);
+    }
 
     // 没有候选干员，进入后备逻辑
     if (recruit_list.empty()) {
@@ -934,6 +733,44 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
             { "click_attempted", false },
         };
         callback(AsstMsg::SubTaskExtraInfo, receipt);
+        if (!terminal_intent && !duty_intent) {
+            auto budget = blackflow::choose_terminal_hope_reservation(
+                duty_catalog,
+                chars_map,
+                context,
+                quote_scope,
+                m_quote_ledger.entries(),
+                duty_offers,
+                selected_oper->name,
+                selected_oper->page_index,
+                {});
+            cv::Mat before_image;
+            blackflow::VoucherStashObservation before;
+            if (budget.needs_stash_evidence) {
+                before_image = ctrler()->get_image();
+                auto reviewed = review_terminal_hope_budget(
+                    duty_catalog,
+                    duty_offers,
+                    selected_oper->name,
+                    selected_oper->page_index,
+                    before_image);
+                budget = std::move(reviewed.first);
+                before = std::move(reviewed.second);
+            }
+            auto budget_receipt = basic_info_with_what("BlackFlowRecruitmentHopeReservation");
+            budget_receipt["details"] =
+                json::object { { "reason", budget.reason },         { "request_stash", budget.request_stash },
+                               { "selected", selected_oper->name }, { "uid", context.uid },
+                               { "run_id", context.run_id },        { "forecast", budget.forecast.evidence },
+                               { "click_attempted", false } };
+            callback(AsstMsg::SubTaskExtraInfo, budget_receipt);
+            if (budget.request_stash) {
+                return start_voucher_stash_transaction(
+                    before_image,
+                    before,
+                    VoucherStashReason::PreserveExpectedOutputHope);
+            }
+        }
     }
 
     Log.info(
@@ -982,6 +819,390 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
     return duty_intent ? recruited : (m_task_ptr != nullptr && !m_task_ptr->get_enable()) || recruited;
 }
 
+void asst::RoguelikeRecruitTaskPlugin::refresh_recruitment_team_flags()
+{
+    const auto& chars_map = m_config->status().opers;
+    if (!m_starts_complete) {
+        for (const auto& oper : chars_map) {
+            auto& recruit_info = RoguelikeRecruit.get_oper_info(m_config->get_theme(), oper.first);
+            if (recruit_info.is_start) {
+                m_starts_complete = true;
+            }
+        }
+    }
+
+    if (!m_team_complete) {
+        bool complete = true;
+        int complete_count = 0;
+        const auto& team_complete_condition = RoguelikeRecruit.get_team_complete_info(m_config->get_theme());
+        for (const auto& condition : team_complete_condition) { // 每个完备度的策略组
+            std::unordered_set<std::string> opers =
+                calculate_condition_oper(condition, chars_map); // 符合这个策略组的干员
+
+            complete_count += int(opers.size());
+            if (int(opers.size()) < condition.threshold) {
+                complete = false;
+            }
+
+            LogTrace << __FUNCTION__ << "groups:" << condition.groups;
+            LogTrace << __FUNCTION__ << "opers:" << opers;
+        }
+        m_team_complete = complete;
+        if (complete_count <= RoguelikeRecruit.get_team_complete_require(m_config->get_theme()) / 2 &&
+            m_recruit_count >= 10) {
+            // 如果第10次招募还没拿到半队key干员，说明账号阵容不齐，放开招募限制，有啥用啥吧
+            m_team_complete = true;
+        }
+        LogTrace << __FUNCTION__ << "complete_count:" << complete_count << "m_team_complete:" << m_team_complete;
+    }
+
+    if (m_recruit_count >= 3 && !m_starts_complete) {
+        // 如果第3次招募还没拿到start干员，说明账号练度低且阵容不齐，放开招募限制，有啥用啥吧
+        m_starts_complete = true;
+        m_team_complete = true;
+    }
+}
+
+asst::RoguelikeRecruitTaskPlugin::CandidateAssessment asst::RoguelikeRecruitTaskPlugin::assess_recruitment_candidate(
+    const RoguelikeRecruitImageAnalyzer& analyzer,
+    std::size_t usable_index,
+    int page,
+    int cur_hope,
+    bool team_full_without_rookie)
+{
+    CandidateAssessment out;
+    if (usable_index >= analyzer.get_result().size()) {
+        return out;
+    }
+    const auto& oper_info = analyzer.get_result()[usable_index];
+    const auto& theme = m_config->get_theme();
+    const auto& chars_map = m_config->status().opers;
+    const auto& owned_collection = m_config->status().collections;
+    out.quote_eligibility.analysis_id = analyzer.get_analysis_id();
+    out.quote_eligibility.observation_index = std::numeric_limits<std::size_t>::max();
+    out.quote_eligibility.name = oper_info.name;
+    out.quote_eligibility.page_index = page;
+    out.quote_eligibility.affordable = can_afford(oper_info, cur_hope);
+    const auto raw = std::ranges::find_if(analyzer.get_candidate_evidence(), [&](const auto& row) {
+        return row.usable_result_index == std::optional<std::size_t>(usable_index);
+    });
+    if (raw != analyzer.get_candidate_evidence().end()) {
+        out.quote_eligibility.observation_index = raw->observation_index;
+    }
+    const bool evaluate_future =
+        theme == RoguelikeTheme::BlackFlow && m_config->get_mode() == RoguelikeMode::Exp && !m_initail_recruit;
+    if (!out.quote_eligibility.affordable && !evaluate_future) {
+        return out;
+    }
+    bool module_unknown = false;
+    // 查询招募配置
+    if (RoguelikeRecruit.is_oper_excluded(theme, oper_info.name)) {
+        LogInfo << "Excluded roguelike recruitment candidate" << theme << oper_info.name;
+        out.quote_eligibility.non_economic_eligible = false;
+        return out;
+    }
+    const auto& recruit_info = RoguelikeRecruit.get_oper_info(m_config->get_theme(), oper_info.name);
+    int priority = 0;
+
+    // 查询编队是否已持有该干员
+    if (const auto& char_opt = chars_map.find(oper_info.name); char_opt != chars_map.end()) {
+        // 干员已在编队中，又出现在招募列表，只有待晋升和预备干员两种情况
+        if (recruit_info.is_alternate) {
+            // 预备干员可以重复招募，但是最好不要重复招募预备干员占用编队位置
+            priority = recruit_info.recruit_priority_when_team_full;
+        }
+        else {
+            // 干员待晋升
+            priority =
+                team_full_without_rookie ? recruit_info.promote_priority_when_team_full : recruit_info.promote_priority;
+            if (oper_info.elite < 2) { // 若未精二，则晋升无意义
+                priority = 0;
+            }
+        }
+    }
+    else {
+        // 干员待招募，检查练度
+        if (oper_info.elite == 2) {
+            // 先判断新成员是否适合当前队伍，精二收益在条件修正后计入。
+            priority =
+                team_full_without_rookie ? recruit_info.recruit_priority_when_team_full : recruit_info.recruit_priority;
+        }
+        else if (is_recruitment_strength_sufficient(oper_info.elite, oper_info.level)) {
+            // 精一55级以上
+            // 等级是 0 一般是识别错了，多发生于外服，一般都是一错全错，先凑合着招一个吧，比不招人强 orz
+            priority =
+                team_full_without_rookie ? recruit_info.recruit_priority_when_team_full : recruit_info.recruit_priority;
+        }
+        else {
+            // 精一55级以下，默认不招募
+            LogTrace << __FUNCTION__ << "| Ignored low level oper:" << oper_info.name << oper_info.elite
+                     << oper_info.level;
+
+            // REFACTOR ME: 不招募情况没有对 oper_list 进行处理
+            // 若遇到 offset ，最终 priority 可能为正，会导致练度不够也招募 @Daydreamer114 @Saratoga-Official
+            // 水月高难且招募机会少：低练度干员也强于空手，改为轻微惩罚而非直接放弃
+            priority -= (theme == RoguelikeTheme::Mizuki) ? 300 : 114'514;
+            // 水月：即使被扣成非正数，也保底可选中，避免"没人可招"直接把队伍停在 4 人
+            if (theme == RoguelikeTheme::Mizuki && priority <= 0) {
+                priority = 1;
+            }
+        }
+
+        // 只在初始招募页面使用开局分，且沿用普通招募的练度门槛。
+        // 局内的前几次招募、低练度候选均不能被开局分覆盖。
+        const bool opening_eligible = is_recruitment_strength_sufficient(oper_info.elite, oper_info.level);
+        if (m_initail_recruit && opening_eligible && recruit_info.start_priority > 0) {
+            LogTrace << __FUNCTION__ << "| start phase: use start_priority" << recruit_info.start_priority << "for"
+                     << oper_info.name << "(was" << priority << ")";
+            priority = recruit_info.start_priority;
+        }
+
+        if (!recruit_info.is_alternate) {
+            for (const auto& priority_offset : recruit_info.recruit_priority_offsets) {
+                std::unordered_set<std::string> opers = // 符合这个策略组的干员
+                    calculate_condition_oper(priority_offset, chars_map);
+                if (priority_offset.is_less) {
+                    if (int(opers.size()) <= priority_offset.threshold) {
+                        priority += priority_offset.offset;
+                    }
+                }
+                else {
+                    if (int(opers.size()) >= priority_offset.threshold) {
+                        priority += priority_offset.offset;
+                    }
+                }
+            }
+
+            // 黑流树海第三层首领的持续伤害会迅速耗尽没有治疗的队伍。
+            // 当队伍尚未拥有医疗干员时，提高所有医疗候选的优先级，
+            // 让随机招募优先补齐最基本的续航能力。
+            if (theme == RoguelikeTheme::BlackFlow &&
+                BattleDataConfig::get_instance().get_first_role(oper_info.name) == battle::Role::Medic) {
+                const bool has_medic = std::ranges::any_of(chars_map, [](const auto& entry) {
+                    return BattleDataConfig::get_instance().get_first_role(entry.first) == battle::Role::Medic;
+                });
+                if (!has_medic) {
+                    priority += 450;
+                    LogTrace << __FUNCTION__ << "| BlackFlow no medic yet, boost" << oper_info.name << priority;
+                }
+            }
+
+            // 同理，队伍里一个地面阻挡都没有时（坦克/近卫/先锋都算），
+            // 第一个阻挡阵亡就会变成「全员放高台、门口的怪直接走进去」，
+            // 因此优先补齐能站在道路上的干员。
+            if (theme == RoguelikeTheme::BlackFlow) {
+                const auto is_blocker_role = [](battle::Role role) {
+                    return role == battle::Role::Tank || role == battle::Role::Warrior || role == battle::Role::Pioneer;
+                };
+                if (is_blocker_role(BattleDataConfig::get_instance().get_first_role(oper_info.name))) {
+                    const bool has_blocker = std::ranges::any_of(chars_map, [&](const auto& entry) {
+                        return is_blocker_role(BattleDataConfig::get_instance().get_first_role(entry.first));
+                    });
+                    if (!has_blocker) {
+                        priority += 450;
+                        LogTrace << __FUNCTION__ << "| BlackFlow no blocker yet, boost" << oper_info.name << priority;
+                    }
+                }
+            }
+
+            for (const auto& priority_offset : recruit_info.collection_priority_offsets) {
+                auto iter = std::find(owned_collection.begin(), owned_collection.end(), priority_offset.collection);
+                if (iter != owned_collection.end()) {
+                    priority += priority_offset.offset;
+                }
+            }
+            // 初始三张免费券由 start_priority 决定开局结构；不能再用 is_start/is_key
+            // 把同一批候选全部扣成负分，否则会出现第一张招到人、第二张整券跳过。
+            if (!m_initail_recruit && !m_starts_complete) {
+                if (!recruit_info.is_start) {
+                    priority -= 1000;
+                }
+            }
+            else if (!m_initail_recruit && !m_team_complete) {
+                if (!recruit_info.is_key) {
+                    priority -= 1000;
+                }
+            }
+        }
+
+        // 晋升价值不能抵消当前队伍的招募否决；开局沿用独立的开局分。
+        if (oper_info.elite == 2 && !(m_initail_recruit && recruit_info.start_priority > 0)) {
+            const int promotion_value =
+                team_full_without_rookie ? recruit_info.promote_priority_when_team_full : recruit_info.promote_priority;
+            priority = score_elite_two_recruit(priority, promotion_value);
+        }
+    }
+
+    if (theme == RoguelikeTheme::BlackFlow && recruit_info.account_module && !recruit_info.is_alternate) {
+        const auto& policy = *recruit_info.account_module;
+        const auto& account = m_config->account_profile();
+        const auto evidence = account ? account->module_evidence(oper_info.name, policy.module_id) : std::nullopt;
+        const bool ready = account && account->module_available(oper_info.name, policy.module_id, policy.minimum_level);
+        module_unknown = !evidence || !evidence->verified;
+        const int before = priority;
+        priority = policy.adjust_priority(priority, chars_map.contains(oper_info.name), ready);
+        auto decision = basic_info_with_what("BlackFlowRecruitmentModuleGate");
+        decision["details"] = json::object {
+            { "client", m_config->account_client() },
+            { "uid", m_config->account_uid() },
+            { "operator", oper_info.name },
+            { "module_id", policy.module_id },
+            { "known", evidence.has_value() },
+            { "module_level", evidence ? evidence->level : -1 },
+            { "ready", ready },
+            { "priority_before", before },
+            { "priority_after", priority },
+        };
+        callback(AsstMsg::SubTaskExtraInfo, decision);
+    }
+
+    if (theme == RoguelikeTheme::BlackFlow) {
+        const auto& account = m_config->account_profile();
+        const auto owned = account ? account->find_operator(oper_info.name) : std::nullopt;
+        const auto training = owned && owned->get().training ? &*owned->get().training : nullptr;
+        const auto effective_level = [&](int skill) {
+            if (!account || oper_info.temporary) {
+                return -1;
+            }
+            return account->skill_level_for_run(oper_info.name, skill, oper_info.elite, oper_info.level).value_or(-1);
+        };
+        auto observed = basic_info_with_what("BlackFlowRecruitmentTrainingObserved");
+        observed["details"] = json::object {
+            { "client", m_config->account_client() },
+            { "uid", m_config->account_uid() },
+            { "operator", oper_info.name },
+            { "temporary_offer", oper_info.temporary },
+            { "observed_offer_elite", oper_info.elite },
+            { "observed_offer_level", oper_info.level },
+            { "account_training_known", training != nullptr },
+            { "account_base_skill_level", training ? training->base_skill_level : -1 },
+            { "configured_skill", recruit_info.skill },
+            { "configured_skill_effective_level", effective_level(recruit_info.skill) },
+            { "alternate_skill", recruit_info.alternate_skill },
+            { "alternate_skill_effective_level", effective_level(recruit_info.alternate_skill) },
+            { "temporary_offer_uses_account_training", false },
+            { "priority_adjusted", false },
+            { "unknown_is_not_maximum_training", true },
+        };
+        callback(AsstMsg::SubTaskExtraInfo, observed);
+    }
+
+    const auto tier = classify_recruit_candidate(
+        oper_info.elite == 2,
+        priority > 0,
+        oper_info.hope_cost.has_value() && *oper_info.hope_cost == 0,
+        oper_info.temporary,
+        BattleData.get_rarity(battle::Role::Unknown, oper_info.name));
+    if (tier == RoguelikeRecruitTier::Skip) {
+        out.quote_eligibility.non_economic_eligible = module_unknown ? std::nullopt : std::optional<bool>(false);
+        return out;
+    }
+
+    RoguelikeRecruitInfo info;
+    info.name = recruit_info.name;
+    info.priority = priority;
+    info.tier = tier;
+    info.is_alternate = recruit_info.is_alternate;
+    info.page_index = page;
+    out.eligible_without_budget = std::move(info);
+    out.quote_eligibility.non_economic_eligible = module_unknown ? std::nullopt : std::optional<bool>(true);
+    out.quote_eligibility.selection_eligible = out.quote_eligibility.affordable;
+    return out;
+}
+
+void asst::RoguelikeRecruitTaskPlugin::append_payable_candidate(
+    const CandidateAssessment& assessment,
+    std::vector<RoguelikeRecruitInfo>& recruit_list)
+{
+    if (!assessment.eligible_without_budget || !assessment.quote_eligibility.affordable) {
+        return;
+    }
+    const auto& candidate = *assessment.eligible_without_budget;
+    if (std::ranges::none_of(recruit_list, [&](const auto& current) { return current.name == candidate.name; })) {
+        recruit_list.push_back(candidate);
+    }
+}
+
+void asst::RoguelikeRecruitTaskPlugin::archive_assessed_quotes(
+    std::vector<blackflow::RecruitmentObservedQuote> observations,
+    std::vector<blackflow::RecruitmentQuoteEligibility> eligibility,
+    const std::vector<RoguelikeRecruitInfo>& actual_candidates)
+{
+    for (auto& evidence : eligibility) {
+        evidence.selection_eligible =
+            evidence.affordable && std::ranges::any_of(actual_candidates, [&](const auto& candidate) {
+                return candidate.name == evidence.name && candidate.page_index == evidence.page_index;
+            });
+    }
+    m_quote_ledger.append_with_non_economic_eligibility(std::move(observations), eligibility);
+}
+
+asst::blackflow::RecruitmentQuoteScope asst::RoguelikeRecruitTaskPlugin::recruitment_quote_scope() const
+{
+    blackflow::RecruitmentQuoteScope out;
+    out.client = m_config->account_client();
+    out.uid = m_config->account_uid();
+    if (out.client == "Official") {
+        out.package = "com.hypergryph.arknights";
+    }
+    else if (out.client == "Bilibili") {
+        out.package = "com.hypergryph.arknights.bilibili";
+    }
+    // Config's squad is written by CustomStart only after same-frame unlocked
+    // card OCR + click, not copied directly from requested params. This is
+    // source-conditioned selection evidence, not an independent buff panel.
+    out.squad = m_config->get_squad();
+    if (!out.squad.empty() && !m_config->status().run_id.empty()) {
+        out.squad_source = "native_unlocked_squad_card_selection";
+    }
+    out.source_cohort = m_quote_source_cohort;
+    auto collections = m_config->status().collections;
+    std::ranges::sort(collections);
+    json::array names;
+    for (const auto& name : collections) {
+        names.emplace_back(name);
+    }
+    out.price_context = json::value(
+                            json::object { { "observed_collections_partial", names },
+                                           { "observed_difficulty", m_config->get_observed_difficulty().value_or(-1) },
+                                           { "all_price_modifiers_complete", false } })
+                            .to_string();
+    return out;
+}
+
+std::pair<asst::blackflow::TerminalHopeReservationDecision, asst::blackflow::VoucherStashObservation>
+    asst::RoguelikeRecruitTaskPlugin::review_terminal_hope_budget(
+        const blackflow::BlackFlowRecruitmentDutyCatalog& catalog,
+        const std::vector<blackflow::RecruitmentDutyOffer>& offers,
+        const std::string& selected,
+        int page,
+        const cv::Mat& fresh_image)
+{
+    const blackflow::TerminalDutyContext context {
+        .strategy = m_blackflow_strategy,
+        .client = m_config->account_client(),
+        .uid = m_config->account_uid(),
+        .run_id = m_config->status().run_id,
+        .core = m_config->get_core_char(),
+        .hope = read_current_hope(fresh_image),
+        .fixed_opening = m_initail_recruit,
+        .account = m_config->account_profile().get(),
+        .origins = &m_origin_ledger,
+    };
+    const auto observation = blackflow::BlackFlowVoucherStash(fresh_image).observe();
+    auto decision = blackflow::choose_terminal_hope_reservation(
+        catalog,
+        m_config->status().opers,
+        context,
+        recruitment_quote_scope(),
+        m_quote_ledger.entries(),
+        offers,
+        selected,
+        page,
+        observation);
+    return { std::move(decision), observation };
+}
+
 bool asst::RoguelikeRecruitTaskPlugin::finish_without_recruitment()
 {
     LogInfo << __FUNCTION__ << "No suitable recruitment candidate";
@@ -1005,9 +1226,21 @@ bool asst::RoguelikeRecruitTaskPlugin::finish_without_recruitment()
         return true;
     }
 
+    return start_voucher_stash_transaction(before_image, before, VoucherStashReason::NoSuitableCandidate);
+}
+
+bool asst::RoguelikeRecruitTaskPlugin::start_voucher_stash_transaction(
+    const cv::Mat& before_image,
+    const blackflow::VoucherStashObservation& before,
+    VoucherStashReason reason)
+{
+    if (!before.can_store()) {
+        return false;
+    }
     if (!m_voucher_stash.begin(before)) {
         return verify_voucher_stash();
     }
+    m_stash_reason = reason;
     // The resource chain owns the one button click and optional confirmation.
     // Completion is established below, never from ProcessTask returning true.
     ProcessTask request(*this, { "BlackFlow@Roguelike@ReserveRecruitmentVoucher" });
@@ -1040,7 +1273,10 @@ bool asst::RoguelikeRecruitTaskPlugin::verify_voucher_stash()
             auto info = basic_info_with_what("BlackFlowVoucherStashDecision");
             info["details"] = json::object {
                 { "status", "confirmed" },
-                { "reason", "no_suitable_candidate" },
+                { "reason",
+                  m_stash_reason == VoucherStashReason::PreserveExpectedOutputHope
+                      ? "preserve_expected_terminal_output_hope"
+                      : "no_suitable_candidate" },
                 { "proof",
                   proof == blackflow::VoucherStashProof::CounterIncreased ? "counter_increased" : "successor_page" },
                 { "stored_before", m_voucher_stash.before()->count->used },
@@ -1065,7 +1301,9 @@ bool asst::RoguelikeRecruitTaskPlugin::verify_voucher_stash()
     auto info = basic_info_with_what("BlackFlowVoucherStashDecision");
     info["details"] = json::object {
         { "status", "unconfirmed" },
-        { "reason", "no_suitable_candidate" },
+        { "reason",
+          m_stash_reason == VoucherStashReason::PreserveExpectedOutputHope ? "preserve_expected_terminal_output_hope"
+                                                                           : "no_suitable_candidate" },
         { "stored_before", m_voucher_stash.before()->count->used },
         { "capacity", m_voucher_stash.before()->count->capacity },
         { "repeat_click_permitted", false },
@@ -1089,6 +1327,7 @@ void asst::RoguelikeRecruitTaskPlugin::reset_in_run_variables()
     m_opening_roles.clear();
     m_voucher_stash.reset();
     m_stash_resume_source.clear();
+    m_stash_reason = VoucherStashReason::NoSuitableCandidate;
     discard_pending_recruitment("run_reset");
     m_origin_ledger.clear();
     m_recruitment_event = RecruitmentEvent::Select;

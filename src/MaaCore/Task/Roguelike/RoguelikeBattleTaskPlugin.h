@@ -21,6 +21,7 @@ namespace blackflow
 {
 class BlackFlowSession;
 class BlackFlowHunterPreludeController;
+struct HunterTaskCandidate;
 class BlackFlowSoulObserver;
 struct GoalLifeObservation;
 class BlackFlowSoulEvidenceBuffer;
@@ -168,7 +169,12 @@ protected:
     int preferred_deployment_coverage(
         const battle::DeploymentOper& oper,
         const battle::roguelike::DeployInfoWithRank& plan) const;
-    bool observe_hunter_prelude(const cv::Mat& image, bool normal_battle = true);
+    bool observe_hunter_prelude(const cv::Mat& image, bool normal_battle = true, bool allow_input = true);
+    blackflow::HunterTaskCandidate hunter_task_candidate(
+        const battle::DeploymentOper& oper,
+        Point location,
+        battle::DeployDirection direction) const;
+    void use_hunter_task_skills(const cv::Mat& image);
     bool observe_blackflow_souls(std::optional<Point> required_tile = std::nullopt, cv::Mat* handoff_frame = nullptr);
     bool calc_stage_info();
 

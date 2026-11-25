@@ -259,6 +259,9 @@ bool asst::blackflow::BlackFlowHunterPreludeController::prepare(
     if (!raw || !manifest) {
         return hunter_control::fail(error, m_failure_reason = "Hunter level or template manifest could not be read");
     }
+    if (manifest->contains("scoped_task_policy") && !m_task_policy.load(manifest->at("scoped_task_policy"), error)) {
+        return hunter_control::fail(error, "Hunter scoped task policy is invalid");
+    }
     const auto map_data = raw->find<json::object>("mapData");
     if (!map_data) {
         return hunter_control::fail(error, m_failure_reason = "Raw hunter mapData is missing");
@@ -293,9 +296,14 @@ bool asst::blackflow::BlackFlowHunterPreludeController::prepare(
                     m_failure_reason = "Hunter tile projection is outside the native image");
             }
             m_tile_pixels.emplace_back(pixel.x, pixel.y);
+            if (tile.tileKey == "tile_road" || tile.tileKey == "tile_start" || tile.tileKey == "tile_end" ||
+                tile.tileKey == "tile_telin" || tile.tileKey == "tile_telout" || tile.tileKey == "tile_hole") {
+                (native_row >= 4 ? m_lower_possible_tiles : m_upper_ground_tiles).emplace_back(column, native_row);
+            }
         }
     }
     m_preparation_evidence = {
+        { "scoped_task_policy_enabled", manifest->contains("scoped_task_policy") },
         { "raw_level_path", utils::path_to_utf8_string(raw_level_path) },
         { "template_manifest", utils::path_to_utf8_string(template_manifest) },
         { "native_level_id", current_level.key.levelId },
@@ -439,7 +447,13 @@ bool asst::blackflow::BlackFlowHunterPreludeController::allows_plan(int plan_ind
     if (m_main_released) {
         return !is_bait_plan(plan_index);
     }
-    if (!is_bait_plan(plan_index) || m_bait_attempts >= m_bait_attempt_limit) {
+    if (!is_bait_plan(plan_index)) {
+        // Potential-plan gate only. Exact identity/skill/effect permission is
+        // checked by candidate_allowed before a deployment can be attempted.
+        return m_task_policy.has_plan(plan_index) && m_task_world.normal_verified && m_task_world.first_bait_consumed &&
+               m_task_world.bait_removal_verified;
+    }
+    if (m_bait_attempts >= m_bait_attempt_limit) {
         return false;
     }
     if (m_bait_consumed && !m_replacement_bait_allowed) {
@@ -474,6 +488,72 @@ bool asst::blackflow::BlackFlowHunterPreludeController::bait_skill_allowed(
     return false;
 }
 
+bool asst::blackflow::BlackFlowHunterPreludeController::candidate_allowed(
+    int plan_index,
+    const HunterTaskCandidate& candidate)
+{
+    // Legacy manifests opt out of additional runtime identity/effect admission.
+    // Their static range qualification remains unchanged; live deployment still
+    // passes allows_plan through the existing plan-exhaustion gate.
+    if (m_prepared && !m_preparation_evidence.get("scoped_task_policy_enabled", false)) {
+        return true;
+    }
+    if (!m_prepared || m_contract_breached || !m_frame_verified || !m_task_world.normal_verified) {
+        return false;
+    }
+    if (m_main_released) {
+        return !is_bait_plan(plan_index);
+    }
+    if (is_bait_plan(plan_index)) {
+        return allows_plan(plan_index) && !m_task_policy.reserve_guard_identity(candidate);
+    }
+    const auto permit = m_task_policy.assess(plan_index, candidate, m_task_world);
+    if (m_task_decisions.size() < 24) {
+        m_task_decisions.emplace_back(
+            json::object { { "frame_sequence", m_sequence },
+                           { "plan_index", plan_index },
+                           { "operator_id", candidate.operator_id },
+                           { "elite", candidate.elite },
+                           { "selected_skill", candidate.selected_skill },
+                           { "allowed", permit.allowed },
+                           { "accepted_aoe_uncertainty", permit.accepted_aoe_uncertainty },
+                           { "reason", permit.reason },
+                           { "all_hunters_cleared_claimed", false } });
+    }
+    if (permit.allowed) {
+        m_task_permissions[{ plan_index, candidate.oper }] = candidate;
+    }
+    return permit.allowed;
+}
+
+std::optional<asst::blackflow::HunterTaskCandidate>
+    asst::blackflow::BlackFlowHunterPreludeController::active_task(const battle::OperNameTag& oper) const
+{
+    const auto found = m_early_deployed.find(oper);
+    return found == m_early_deployed.end() ? std::nullopt : std::optional(found->second.second);
+}
+
+bool asst::blackflow::BlackFlowHunterPreludeController::skill_allowed(const HunterTaskCandidate& candidate) const
+{
+    if (!m_prepared || m_contract_breached || !m_frame_verified || !m_task_world.normal_verified) {
+        return false;
+    }
+    if (m_main_released) {
+        return true;
+    }
+    const auto found = m_early_deployed.find(candidate.oper);
+    if (!m_task_world.normal_verified || found == m_early_deployed.end() ||
+        found->second.second.location != candidate.location || !m_task_policy.skill_known_allowed(candidate)) {
+        return false;
+    }
+    // Admission and servicing an already committed unit are different actions.
+    // Its own sprite may now occlude the scoped upper detector. Do not turn that
+    // expected self-occlusion into another permanent no-skill loop. Risk-tier
+    // service retains its explicit uncertainty; this never certifies clearance
+    // or authorizes another deployment, and ends on actual field departure.
+    return true;
+}
+
 void asst::blackflow::BlackFlowHunterPreludeController::deployed(
     int plan_index,
     const battle::OperNameTag& oper,
@@ -483,6 +563,14 @@ void asst::blackflow::BlackFlowHunterPreludeController::deployed(
         return;
     }
     if (!is_bait_plan(plan_index)) {
+        const auto permission = m_task_permissions.find({ plan_index, oper });
+        if (!m_main_released && permission != m_task_permissions.end() && permission->second.location == tile &&
+            m_task_world.normal_verified &&
+            m_task_policy.assess(plan_index, permission->second, m_task_world).allowed) {
+            m_early_deployed[oper] = { plan_index, permission->second };
+            m_task_permissions.erase(permission);
+            return;
+        }
         if (!m_main_released) {
             m_contract_breached = true;
             m_main_released = false;
@@ -521,6 +609,8 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
     std::uint64_t observed_ms)
 {
     HunterPreludeDecision decision;
+    m_task_world = {};
+    m_task_permissions.clear();
     m_replacement_bait_allowed = false;
     bool withdraw_for_unoccluded_observation = false;
     std::string retreat_reason;
@@ -607,11 +697,51 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
         if (visual.frame_observable && current_removal) {
             m_bait_removal_verified = true;
         }
+        std::erase_if(m_early_deployed, [&](const auto& entry) {
+            const auto found = battlefield.find(entry.first);
+            return found == battlefield.end() || found->second != entry.second.second.location;
+        });
+        m_task_world.normal_verified = visual.frame_observable && normal_battle && timestamp_fresh && battlefield_valid;
+        m_task_world.spawn_contract_verified = m_spawn_window_verified;
+        m_task_world.first_bait_consumed = m_bait_consumed;
+        m_task_world.bait_removal_verified = removal_visible;
+        m_task_world.spawns = visual.spawns;
+        m_task_world.lower_possible_tiles = m_lower_possible_tiles;
+        m_task_world.upper_visible = visual.task_upper_visibility_verified;
+        m_task_world.upper_presence = visual.task_upper_presence;
+        m_task_world.upper_empty_frames = visual.task_upper_empty_frames;
+        m_task_world.lower_visible = lower_visible;
+        m_task_world.lower_presence = visual.lower_presence;
+        for (const auto& [oper, known] : m_early_deployed) {
+            static_cast<void>(oper);
+            m_task_world.guard_present =
+                m_task_world.guard_present || m_task_policy.kind(known.first) == HunterTaskKind::Guard;
+            m_task_world.medical_present =
+                m_task_world.medical_present || m_task_policy.kind(known.first) == HunterTaskKind::Medical;
+        }
+        auto upper_heads = visual.battlefield_head_candidates;
+        upper_heads.insert(
+            upper_heads.end(),
+            visual.task_upper_head_candidates.begin(),
+            visual.task_upper_head_candidates.end());
+        for (Point tile : m_upper_ground_tiles) {
+            const auto pixel = m_tile_pixels[tile.y * 10 + tile.x];
+            const Rect possible_head { pixel.x - 50, pixel.y - 140, 100, 140 };
+            if (std::ranges::any_of(upper_heads, [&](const Rect& head) {
+                    return hunter_control::overlaps(possible_head, head);
+                })) {
+                m_task_world.upper_positive_possible_tiles.push_back(tile);
+            }
+        }
         // A retry is a separate bait deployment, not permission to deploy the
         // main team. It needs positive upper-hunter evidence after the previous
         // bait's identity and removal have both been verified in current views.
+        const bool only_approved_tasks = std::ranges::all_of(battlefield, [&](const auto& entry) {
+            const auto known = m_early_deployed.find(entry.first);
+            return known != m_early_deployed.end() && known->second.second.location == entry.second;
+        });
         m_replacement_bait_allowed = visual.frame_observable && removal_visible && battlefield_valid &&
-                                     battlefield.empty() && m_spawn_window_verified &&
+                                     only_approved_tasks && m_spawn_window_verified &&
                                      m_bait_attempts < m_bait_attempt_limit && !m_main_released &&
                                      std::ranges::any_of(
                                          visual.spawns,
@@ -631,10 +761,17 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
             std::ranges::all_of(m_bait_plans.at(m_bait_plan_index).required_targets, [&](Point tile) {
                 return visual.spawns[tile.x == 2 ? 0 : 1].distinct_empty_frames >= 2;
             });
+        const bool bait_and_approved_tasks_only = std::ranges::all_of(battlefield, [&](const auto& entry) {
+            if (m_bait && entry.first == *m_bait) {
+                return true;
+            }
+            const auto known = m_early_deployed.find(entry.first);
+            return known != m_early_deployed.end() && known->second.second.location == entry.second;
+        });
         withdraw_for_unoccluded_observation = visual.frame_observable && m_spawn_window_verified &&
                                               m_hunter_positive_verified && targeted_spawns_empty && m_bait_consumed &&
                                               m_bait && bait_present && !bait_cooling && battlefield_valid &&
-                                              battlefield.size() == 1 && !visual.bait_retreat_allowed;
+                                              bait_and_approved_tasks_only && !visual.bait_retreat_allowed;
         if (visual.frame_observable && m_bait_consumed && m_bait && bait_present && battlefield_valid &&
             (visual.bait_retreat_allowed || withdraw_for_unoccluded_observation)) {
             m_retreat_requested = true;
@@ -755,5 +892,13 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
                              { "main_allowed", decision.main_allowed },
                              { "main_released", m_main_released },
                              { "detector", hunter_control::detector_json(visual) } };
+    decision.diagnostics["scoped_task_decisions"] = std::move(m_task_decisions);
+    m_task_decisions = {};
+    decision.diagnostics["scoped_upper_visible"] = m_task_world.upper_visible;
+    decision.diagnostics["scoped_upper_presence"] = static_cast<int>(m_task_world.upper_presence);
+    decision.diagnostics["scoped_upper_empty_frames"] = m_task_world.upper_empty_frames;
+    decision.diagnostics["approved_guard_present"] = m_task_world.guard_present;
+    decision.diagnostics["approved_medical_present"] = m_task_world.medical_present;
+    decision.diagnostics["scoped_deployed_count"] = static_cast<int>(m_early_deployed.size());
     return decision;
 }
