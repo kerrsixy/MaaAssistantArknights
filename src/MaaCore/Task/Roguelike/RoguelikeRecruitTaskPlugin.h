@@ -3,7 +3,7 @@
 #include "Common/AsstBattleDef.h"
 #include "Config/Roguelike/RoguelikeRecruitConfig.h"
 #include "RoguelikeRecruitPolicy.h"
-#include "Task/Roguelike/BlackFlow/BlackFlowRecruitmentDuty.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowRecruitmentTerminalDuty.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowVoucherStash.h"
 
 namespace asst
@@ -43,6 +43,27 @@ protected:
 
 private:
     friend class RoguelikeRecruitmentTestAccess;
+
+    struct CandidateAssessment
+    {
+        std::optional<RoguelikeRecruitInfo> eligible_without_budget;
+        blackflow::RecruitmentQuoteEligibility quote_eligibility;
+    };
+
+    void refresh_recruitment_team_flags();
+    [[nodiscard]] CandidateAssessment assess_recruitment_candidate(
+        const RoguelikeRecruitImageAnalyzer& analyzer,
+        std::size_t usable_index,
+        int page,
+        int hope,
+        bool team_full_without_rookie);
+    static void append_payable_candidate(
+        const CandidateAssessment& assessment,
+        std::vector<RoguelikeRecruitInfo>& recruit_list);
+    void archive_assessed_quotes(
+        std::vector<blackflow::RecruitmentObservedQuote> observations,
+        std::vector<blackflow::RecruitmentQuoteEligibility> eligibility,
+        const std::vector<RoguelikeRecruitInfo>& actual_candidates);
     // 尝试招募指定助战干员
     bool recruit_support_char(const std::string& name, const int max_refresh);
     // 招募指定的自有干员
@@ -51,6 +72,28 @@ private:
     bool lazy_recruit();
     // Preserve an unused BlackFlow voucher only with capacity, enabled-button and completion evidence.
     bool finish_without_recruitment();
+    enum class VoucherStashReason
+    {
+        NoSuitableCandidate,
+        PreserveExpectedOutputHope
+    };
+    bool start_voucher_stash_transaction(
+        const cv::Mat& image,
+        const blackflow::VoucherStashObservation& observation,
+        VoucherStashReason reason);
+    [[nodiscard]] blackflow::RecruitmentQuoteScope recruitment_quote_scope() const;
+    [[nodiscard]] std::pair<blackflow::TerminalHopeReservationDecision, blackflow::VoucherStashObservation>
+        review_terminal_hope_budget(
+            const blackflow::BlackFlowRecruitmentDutyCatalog& catalog,
+            const std::vector<blackflow::RecruitmentDutyOffer>& offers,
+            const std::string& selected,
+            int page,
+            const cv::Mat& fresh_image);
+    std::filesystem::path m_quote_store_path;
+    std::string m_quote_source_cohort;
+    std::string m_quote_loaded_scope;
+    blackflow::RecruitmentQuoteLedger m_quote_ledger;
+    VoucherStashReason m_stash_reason = VoucherStashReason::NoSuitableCandidate;
     bool verify_voucher_stash();
     // 招募指定干员
     //

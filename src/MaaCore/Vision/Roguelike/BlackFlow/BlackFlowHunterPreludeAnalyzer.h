@@ -56,6 +56,11 @@ struct HunterPreludeFrameContext
 
 struct HunterPreludeObservation
 {
+    bool task_upper_visibility_verified = false;
+    HunterPresence task_upper_presence = HunterPresence::Unknown;
+    double task_upper_best_score = -1.0;
+    int task_upper_empty_frames = 0;
+    std::vector<Rect> task_upper_head_candidates;
     bool frame_observable = false;
     std::array<HunterSpawnObservation, 2> spawns;
     HunterPresence lower_presence = HunterPresence::Unknown;
@@ -137,6 +142,8 @@ private:
     int m_empty_lower_frames = 0;
     std::uint64_t m_empty_lower_start_ms = 0;
     std::uint64_t m_last_observed_at_ms = 0;
+    Rect m_task_upper_roi;
+    int m_task_upper_empty_frames = 0;
     Rect m_lower_roi;
     Rect m_battlefield_roi;
     std::string m_battle_key;

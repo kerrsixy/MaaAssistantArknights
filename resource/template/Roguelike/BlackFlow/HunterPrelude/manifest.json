@@ -578,5 +578,98 @@
             "present": ["spawn1_present.png"],
             "roi": [546, 174, 115, 103]
         }
-    ]
+    ],
+    "task_upper_roi": [136, 71, 615, 214],
+    "scoped_task_policy": {
+        "schema_version": 1,
+        "source_revision": "08ba2aea0e8dba88eff0ec0d2c87e24b4db626f8",
+        "character_sha256": "6a61f54802ee194dbb21968976eb99e2a4050e38928bd24bd2b770479076cea1",
+        "skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+        "runtime_raw_skill_sha_verified": false,
+        "effect_scope": "Versioned base semantics and exact native range match; unknown AoE stays null and accepted only by named game-risk disposition, not safety proof.",
+        "rules": [
+            {
+                "plan_index": 4,
+                "kind": "guard",
+                "location": [7, 2],
+                "direction": "left",
+                "operator_id": "char_4230_mcnist",
+                "min_elite": 1,
+                "max_elite": 2,
+                "selected_skill": 2,
+                "min_skill_rank": 1,
+                "self_effect_radius": 1.5,
+                "base_right_range": [
+                    [0, 0],
+                    [1, 0],
+                    [2, 0]
+                ]
+            },
+            {
+                "plan_index": 5,
+                "kind": "medical",
+                "location": [8, 2],
+                "direction": "left",
+                "operator_id": "char_1016_agoat2",
+                "min_elite": 1,
+                "max_elite": 2,
+                "selected_skill": 1,
+                "min_skill_rank": 1,
+                "self_effect_radius": 0.0,
+                "base_right_range": [
+                    [1, 2],
+                    [2, 2],
+                    [3, 2],
+                    [0, 1],
+                    [1, 1],
+                    [2, 1],
+                    [3, 1],
+                    [0, 0],
+                    [1, 0],
+                    [2, 0],
+                    [3, 0],
+                    [0, -1],
+                    [1, -1],
+                    [2, -1],
+                    [3, -1],
+                    [1, -2],
+                    [2, -2],
+                    [3, -2]
+                ]
+            },
+            {
+                "plan_index": 3,
+                "kind": "aoe_risk",
+                "location": [5, 1],
+                "direction": "left",
+                "operator_id": "char_1035_wisdel",
+                "min_elite": 2,
+                "max_elite": 2,
+                "selected_skill": 3,
+                "min_skill_rank": 10,
+                "self_effect_radius": null,
+                "base_right_range": [
+                    [0, 2],
+                    [1, 2],
+                    [2, 2],
+                    [0, 1],
+                    [1, 1],
+                    [2, 1],
+                    [3, 1],
+                    [0, 0],
+                    [1, 0],
+                    [2, 0],
+                    [3, 0],
+                    [4, 0],
+                    [0, -1],
+                    [1, -1],
+                    [2, -1],
+                    [3, -1],
+                    [0, -2],
+                    [1, -2],
+                    [2, -2]
+                ]
+            }
+        ]
+    }
 }

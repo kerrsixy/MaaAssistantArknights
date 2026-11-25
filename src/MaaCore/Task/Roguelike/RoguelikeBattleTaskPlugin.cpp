@@ -11,6 +11,7 @@
 #include <fstream>
 #include <future>
 #include <ranges>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -1221,8 +1222,16 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_hard_requirements_met(
             return false;
         }
     }
+    const auto hunter_candidate_allowed = [&] {
+        return !m_hunter_prelude || m_hunter_prelude->candidate_allowed(
+                                        plan.plan_index,
+                                        hunter_task_candidate(
+                                            oper,
+                                            plan.location,
+                                            resolve_deploy_direction(oper, plan.location, plan.direction)));
+    };
     if (plan.required_attack_tiles.empty() && plan.required_range_tiles.empty()) {
-        return true;
+        return hunter_candidate_allowed();
     }
     const auto elite = m_oper_elite.find(oper.name);
     const auto props = BattleData.find_first_oper(oper.role, oper.name);
@@ -1246,7 +1255,7 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_hard_requirements_met(
             return std::ranges::find(range, target - plan.location) != range.end();
         });
     };
-    return covers(plan.required_attack_tiles) && covers(plan.required_range_tiles);
+    return covers(plan.required_attack_tiles) && covers(plan.required_range_tiles) && hunter_candidate_allowed();
 }
 
 bool asst::RoguelikeBattleTaskPlugin::deployment_cost_wait_required(
@@ -1286,7 +1295,99 @@ int asst::RoguelikeBattleTaskPlugin::preferred_deployment_coverage(
     }));
 }
 
-bool asst::RoguelikeBattleTaskPlugin::observe_hunter_prelude(const cv::Mat& image, bool normal_battle)
+asst::blackflow::HunterTaskCandidate asst::RoguelikeBattleTaskPlugin::hunter_task_candidate(
+    const battle::DeploymentOper& oper,
+    Point location,
+    battle::DeployDirection direction) const
+{
+    blackflow::HunterTaskCandidate candidate;
+    candidate.oper = { oper.role, oper.name };
+    candidate.location = location;
+    candidate.direction = direction;
+    const auto observed = m_config->status().opers.find(oper.name);
+    const auto elite = m_oper_elite.find(oper.name);
+    const auto identity = RoguelikeTraining.unique_identity(oper.name);
+    const auto props = BattleData.find_first_oper(oper.role, oper.name);
+    if (observed != m_config->status().opers.end() && elite != m_oper_elite.end()) {
+        const auto& preparation = observed->second.preparation;
+        candidate.operator_id = preparation.operator_id;
+        candidate.elite = elite->second;
+        candidate.selected_skill = preparation.selected_skill;
+        if (candidate.selected_skill >= 1 && candidate.selected_skill <= 3) {
+            candidate.skill_rank = preparation.displayed_skill_levels[candidate.selected_skill - 1];
+        }
+        candidate.preparation_known = !identity.empty() && props && props->id == identity &&
+                                      preparation.operator_id == identity && observed->second.elite == elite->second &&
+                                      preparation.training_sequence > 0 && preparation.selection_sequence > 0;
+    }
+    candidate.range = get_attack_range(oper, direction);
+    std::set<battle::OperNameTag> blockers;
+    for (const auto& card : m_cur_deployment_opers) {
+        const battle::OperNameTag tag { card.role, card.name };
+        if (!card.cooling && persistent_blocking_available(tag)) {
+            blockers.insert(tag);
+        }
+    }
+    for (const auto& [tag, point] : m_battlefield_opers) {
+        static_cast<void>(point);
+        if (persistent_blocking_available(tag)) {
+            blockers.insert(tag);
+        }
+    }
+    candidate.sole_persistent_blocker = blockers.size() == 1 && blockers.contains(candidate.oper);
+    return candidate;
+}
+
+void asst::RoguelikeBattleTaskPlugin::use_hunter_task_skills(const cv::Mat& image)
+{
+    using UsageMap = std::unordered_map<battle::OperNameTag, battle::SkillUsage>;
+
+    struct RestoreDeniedUsage
+    {
+        UsageMap& usage;
+        std::unordered_map<battle::OperNameTag, std::optional<battle::SkillUsage>> prior;
+
+        ~RestoreDeniedUsage() noexcept
+        {
+            for (const auto& [tag, value] : prior) {
+                if (value) {
+                    const auto found = usage.find(tag);
+                    if (found != usage.end()) {
+                        found->second = *value;
+                    }
+                }
+                else {
+                    usage.erase(tag);
+                }
+            }
+        }
+    } restore { m_skill_usage, {} };
+
+    for (const auto& [oper, point] : m_battlefield_opers) {
+        const auto approved = m_hunter_prelude->active_task(oper);
+        const battle::DeploymentOper card { .role = oper.role, .name = oper.name };
+        if (approved && m_hunter_prelude->skill_allowed(hunter_task_candidate(card, point, approved->direction))) {
+            continue;
+        }
+        bool matched = false;
+        for (auto& [tag, usage] : m_skill_usage) {
+            if (tag.name == oper.name && (tag.role == Role::Unknown || tag.role == oper.role)) {
+                restore.prior.try_emplace(tag, usage);
+                usage = SkillUsage::NotUse;
+                matched = true;
+            }
+        }
+        if (!matched) {
+            restore.prior.try_emplace(oper, std::nullopt);
+            m_skill_usage.emplace(oper, SkillUsage::NotUse);
+        }
+    }
+    // Reuse normal ActivateOnly accounting, retry limits and polling intervals.
+    // Only denied skill policies are restored; approved-unit accounting persists.
+    use_all_ready_skill(image, SkillButtonIntent::ActivateOnly);
+}
+
+bool asst::RoguelikeBattleTaskPlugin::observe_hunter_prelude(const cv::Mat& image, bool normal_battle, bool allow_input)
 {
     const auto observed_ms = static_cast<std::uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
@@ -1317,7 +1418,7 @@ bool asst::RoguelikeBattleTaskPlugin::observe_hunter_prelude(const cv::Mat& imag
             MAA_NS::imwrite(directory / (name + ".png"), image);
         }
     }
-    if (decision.retreat_bait) {
+    if (decision.retreat_bait && allow_input) {
         const bool sent = retreat_oper(*decision.retreat_bait);
         LogInfo << __FUNCTION__ << "Bait withdrawal action" << *decision.retreat_bait << sent;
         return true;
@@ -1340,7 +1441,9 @@ void asst::RoguelikeBattleTaskPlugin::observe_hunter_after_deployment()
         const auto image = ctrler()->get_image();
         const bool normal_battle = check_pause_button(image);
         LogInfo << __FUNCTION__ << "Post-deployment hunter observation" << sample << normal_battle;
-        if (observe_hunter_prelude(image, normal_battle) || !normal_battle) {
+        // Post-deployment samples precede the next full bar/liveness sync. They
+        // must not click an allegedly present bait that already died meanwhile.
+        if (observe_hunter_prelude(image, normal_battle, false) || !normal_battle) {
             return;
         }
     }
@@ -2034,11 +2137,21 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
         release_record.payload = std::move(released);
         store_soul_evidence(std::move(release_record), {}, true);
     }
+    if (m_hunter_prelude && !m_hunter_main_allowed) {
+        auto hunter_frame = ctrler()->get_image();
+        const bool yielded = observe_hunter_prelude(hunter_frame);
+        image = std::move(hunter_frame);
+        if (yielded) {
+            return true;
+        }
+    }
     // Give a newly acknowledged panel to ordinary deployment first. Skill
     // input here could respawn a Soul or invalidate the fresh card observation.
-    if (!yielding_soul_ui && !m_first_deploy &&
-        (!m_hunter_prelude || m_hunter_main_allowed || m_hunter_prelude->bait_skill_allowed(m_battlefield_opers))) {
-        if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+    if (!yielding_soul_ui && !m_first_deploy) {
+        if (m_hunter_prelude && !m_hunter_main_allowed) {
+            use_hunter_task_skills(image);
+        }
+        else if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
             use_all_ready_skill(image, SkillButtonIntent::ActivateOnly);
         }
         else {
@@ -2052,9 +2165,6 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
     }
     if (need_exit()) {
         return false;
-    }
-    if (m_hunter_prelude && !m_hunter_main_allowed && observe_hunter_prelude(ctrler()->get_image())) {
-        return true;
     }
 
     std::unordered_set<std::string> current_departures = std::move(returned_operators);

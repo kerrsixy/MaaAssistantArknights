@@ -149,6 +149,7 @@ bool asst::blackflow::BlackFlowHunterPreludeAnalyzer::load(
         }
         m_anchors.emplace_back(std::move(anchor));
     }
+    m_task_upper_roi = hunter_vision::rect(data->get("task_upper_roi", json::array {}));
     m_lower_roi = hunter_vision::rect(data->get("lower_roi", json::array {}));
     if (!hunter_vision::inside(m_lower_roi, canvas)) {
         return fail("Hunter lower search region or candidate threshold is invalid");
@@ -241,6 +242,7 @@ void asst::blackflow::BlackFlowHunterPreludeAnalyzer::reset() noexcept
     m_empty_spawn_frames_by_slot = {};
     m_tracks.clear();
     m_empty_lower_frames = 0;
+    m_task_upper_empty_frames = 0;
     m_empty_lower_start_ms = 0;
     m_last_observed_at_ms = 0;
 }
@@ -267,6 +269,7 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
         m_empty_spawn_frames = 0;
         m_empty_spawn_frames_by_slot = {};
         m_empty_lower_frames = 0;
+        m_task_upper_empty_frames = 0;
         m_empty_lower_start_ms = 0;
         m_last_observable_frame.release();
         result.reasons.push_back(reason);
@@ -336,6 +339,49 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
     for (const auto& approach : approaches) {
         if (!hunter_vision::inside(approach, image)) {
             return unknown("Hunter approach zone is clipped");
+        }
+    }
+
+    // The scoped upper search is independent of whole-field absence. Known
+    // allied overlap still vetoes this domain; no pixel is inpainted or hidden.
+    if (!m_task_upper_roi.empty() && hunter_vision::inside(m_task_upper_roi, image) &&
+        !masked(context.battlefield_unit_occlusion_rois, m_task_upper_roi) &&
+        !masked(context.lower_unit_occlusion_rois, m_task_upper_roi)) {
+        bool positive = false;
+        for (const auto& profile : m_head_profiles) {
+            if (m_task_upper_roi.width < profile.image.cols || m_task_upper_roi.height < profile.image.rows) {
+                continue;
+            }
+            cv::Mat scoped_scores;
+            cv::matchTemplate(
+                hunter_vision::patch(image, m_task_upper_roi),
+                profile.image,
+                scoped_scores,
+                cv::TM_CCOEFF_NORMED,
+                profile.mask);
+            cv::patchNaNs(scoped_scores, -1);
+            scoped_scores.setTo(-1, (scoped_scores > 1.01) | (scoped_scores < -1.01));
+            double score = -1;
+            cv::Point point;
+            cv::minMaxLoc(scoped_scores, nullptr, &score, nullptr, &point);
+            if (std::isfinite(score)) {
+                result.task_upper_best_score = std::max(result.task_upper_best_score, score);
+                if (score >= profile.present_threshold) {
+                    positive = true;
+                    result.task_upper_head_candidates.emplace_back(
+                        m_task_upper_roi.x + point.x,
+                        m_task_upper_roi.y + point.y,
+                        profile.image.cols,
+                        profile.image.rows);
+                }
+            }
+        }
+        result.task_upper_visibility_verified = result.task_upper_best_score >= 0;
+        if (positive) {
+            result.task_upper_presence = HunterPresence::Present;
+        }
+        else if (result.task_upper_visibility_verified && result.task_upper_best_score <= m_head_absent_threshold) {
+            result.task_upper_presence = HunterPresence::Absent;
         }
     }
 
@@ -529,6 +575,13 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
         std::ranges::all_of(result.spawns, [](const auto& slot) { return slot.presence == HunterPresence::Absent; });
     const bool distinct = m_last_observable_frame.empty() ||
                           cv::norm(image, m_last_observable_frame, cv::NORM_L1) / (image.total() * 3) > 0.10;
+    if (result.task_upper_visibility_verified && result.task_upper_presence == HunterPresence::Absent) {
+        m_task_upper_empty_frames += distinct ? 1 : 0;
+    }
+    else {
+        m_task_upper_empty_frames = 0;
+    }
+    result.task_upper_empty_frames = m_task_upper_empty_frames;
     for (std::size_t index = 0; index < result.spawns.size(); ++index) {
         auto& spawn = result.spawns[index];
         m_empty_spawn_frames_by_slot[index] =

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "BlackFlowRecruitmentDuty.h"
+#include "BlackFlowRecruitmentQuoteLedger.h"
+#include "Vision/Roguelike/BlackFlow/BlackFlowVoucherStash.h"
 
 namespace asst::blackflow
 {
@@ -44,6 +46,42 @@ struct TerminalDutyDecision
     std::string reason;
     json::value evidence = nullptr;
 };
+
+struct TerminalOutputHopeForecast
+{
+    std::optional<int> expected_hope;
+    std::string reason;
+    std::string template_terms;
+    std::string roster_terms;
+    json::value evidence = nullptr;
+};
+
+struct TerminalHopeReservationDecision
+{
+    bool request_stash = false;
+    bool needs_stash_evidence = false;
+    std::string reason;
+    TerminalOutputHopeForecast forecast;
+};
+
+[[nodiscard]] TerminalOutputHopeForecast forecast_terminal_output_hope(
+    const BlackFlowRecruitmentDutyCatalog& catalog,
+    const std::unordered_map<std::string, RoguelikeOper>& roster,
+    const TerminalDutyContext& context,
+    const RecruitmentQuoteScope& current_price_scope,
+    const std::vector<RecruitmentObservedQuote>& observed_quotes);
+
+// A proposed attempt, never a stored-voucher/survival/damage guarantee.
+[[nodiscard]] TerminalHopeReservationDecision choose_terminal_hope_reservation(
+    const BlackFlowRecruitmentDutyCatalog& catalog,
+    const std::unordered_map<std::string, RoguelikeOper>& roster,
+    const TerminalDutyContext& context,
+    const RecruitmentQuoteScope& current_price_scope,
+    const std::vector<RecruitmentObservedQuote>& observed_quotes,
+    const std::vector<RecruitmentDutyOffer>& current_offers,
+    const std::string& selected_name,
+    int selected_page,
+    const VoucherStashObservation& current_stash);
 
 // Bounded ending1 roster construction objective, not a DPS dominance claim.
 // Actual offers/eligibility keep their original module, origin and price gates.

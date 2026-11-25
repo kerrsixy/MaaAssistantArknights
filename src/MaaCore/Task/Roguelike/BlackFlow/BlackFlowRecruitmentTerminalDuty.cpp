@@ -1,4 +1,4 @@
-#include "BlackFlowRecruitmentTerminalDuty.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowRecruitmentTerminalDuty.h"
 
 #include <algorithm>
 #include <climits>
@@ -428,6 +428,58 @@ Model model(
     return out;
 }
 
+int acquired_body_coverage(
+    const Model& m,
+    const Body& body,
+    const BlackFlowRecruitmentDutyCatalog& catalog,
+    const std::unordered_map<std::string, RoguelikeOper>& roster,
+    const TerminalDutyContext& context)
+{
+    const auto stage = RoguelikeCopilot.get_stage_data(context.stage_name);
+    if (!stage) {
+        return false;
+    }
+    const auto geometry = TilePack::calc(context.stage_name);
+    std::vector<bool> row;
+    for (const auto& slot : m.slots) {
+        row.push_back(std::ranges::any_of(slot.alternatives, [&](const auto& alt) {
+            return admits(body, alt, *stage, context, catalog, geometry).value_or(false);
+        }));
+    }
+    auto edges = m.edges;
+    auto after_bodies = m.bodies;
+    const auto prior = roster.find(body.name);
+    if (prior != roster.end()) {
+        const auto held = std::ranges::find_if(m.bodies, [&](const auto& b) { return b.name == body.name; });
+        if (held == m.bodies.end()) {
+            return false;
+        }
+        const auto index = static_cast<std::size_t>(held - m.bodies.begin());
+        edges[index] = row;
+        after_bodies[index] = body;
+    }
+    else {
+        edges.push_back(std::move(row));
+        after_bodies.push_back(body);
+    }
+    if (!edges[m.core_body][m.core_slot]) {
+        return 0;
+    }
+    const auto filled = assignment(m, edges, false);
+    if (!filled) {
+        return 0;
+    }
+    const auto& target_body = after_bodies[static_cast<std::size_t>((*filled)[m.target])];
+    int required_coverage = 0;
+    for (const auto& alternative : m.slots[m.target].alternatives) {
+        if (admits(target_body, alternative, *stage, context, catalog, geometry).value_or(false)) {
+            required_coverage =
+                std::max(required_coverage, static_cast<int>(alternative.plan.required_attack_tiles.size()));
+        }
+    }
+    return required_coverage;
+}
+
 int completes(
     const Model& m,
     const RecruitmentDutyOffer& offer,
@@ -469,54 +521,188 @@ int completes(
     if (offer.operation == "招募" && std::ranges::any_of(m.bodies, [&](const auto& b) { return b.id == offer.id; })) {
         return false;
     }
-    const auto stage = RoguelikeCopilot.get_stage_data(context.stage_name);
-    if (!stage) {
-        return false;
-    }
-    const auto geometry = TilePack::calc(context.stage_name);
-    const auto body = offer_body(offer);
-    std::vector<bool> row;
-    for (const auto& slot : m.slots) {
-        row.push_back(std::ranges::any_of(slot.alternatives, [&](const auto& alt) {
-            return admits(body, alt, *stage, context, catalog, geometry).value_or(false);
-        }));
-    }
-    auto edges = m.edges;
-    auto after_bodies = m.bodies;
-    if (prior != roster.end()) {
-        const auto held = std::ranges::find_if(m.bodies, [&](const auto& b) { return b.name == offer.name; });
-        if (held == m.bodies.end()) {
-            return false;
-        }
-        const auto index = static_cast<std::size_t>(held - m.bodies.begin());
-        edges[index] = row;
-        after_bodies[index] = body;
-    }
-    else {
-        edges.push_back(std::move(row));
-        after_bodies.push_back(body);
-    }
-    if (!edges[m.core_body][m.core_slot]) {
-        return 0;
-    }
-    const auto filled = assignment(m, edges, false);
-    if (!filled) {
-        return 0;
-    }
-    const auto& target_body = after_bodies[static_cast<std::size_t>((*filled)[m.target])];
-    int required_coverage = 0;
-    for (const auto& alternative : m.slots[m.target].alternatives) {
-        if (admits(target_body, alternative, *stage, context, catalog, geometry).value_or(false)) {
-            required_coverage =
-                std::max(required_coverage, static_cast<int>(alternative.plan.required_attack_tiles.size()));
-        }
-    }
-    return required_coverage;
+    return acquired_body_coverage(m, offer_body(offer), catalog, roster, context);
 }
 }
 
 namespace asst::blackflow
 {
+TerminalOutputHopeForecast forecast_terminal_output_hope(
+    const BlackFlowRecruitmentDutyCatalog& catalog,
+    const std::unordered_map<std::string, RoguelikeOper>& roster,
+    const TerminalDutyContext& context,
+    const RecruitmentQuoteScope& scope,
+    const std::vector<RecruitmentObservedQuote>& quotes)
+{
+    TerminalOutputHopeForecast result;
+    const auto model = terminal_duty_detail::model(catalog, roster, context);
+    result.reason = model.reason;
+    if (!model.valid || !scope.valid() || scope.client != context.client || scope.uid != context.uid ||
+        !context.account || context.account->client() != context.client || context.account->uid() != context.uid) {
+        return result;
+    }
+    result.template_terms = model.template_terms;
+    result.roster_terms = model.roster_terms;
+    json::array applicable;
+    std::size_t rejected = 0;
+    for (const auto& q : quotes) {
+        const auto& observed = q.offer;
+        if (q.non_economic_eligible != std::optional<bool>(true) || !q.scope.valid() ||
+            q.scope.client != scope.client || q.scope.uid != scope.uid || q.scope.package != scope.package ||
+            q.scope.squad != scope.squad || q.scope.source_cohort != scope.source_cohort ||
+            observed.operation != "招募" || !observed.hope_cost || *observed.hope_cost <= 0 || !observed.price_index ||
+            !observed.ordinary_origin || observed.positive_temporary || observed.observed_temporary == true ||
+            observed.training_binding != "source_conditioned_non_temporary" ||
+            observed.temporary_rule_source != catalog.temporary_rule_source() || q.frame_path.empty() ||
+            q.observation_id.empty() || observed.id != RoguelikeTraining.unique_identity(observed.name) ||
+            observed.elite < 0 || observed.elite > 2 || observed.level <= 0 || roster.contains(observed.name)) {
+            ++rejected;
+            continue;
+        }
+        const auto quote_price_context = json::parse(q.scope.price_context);
+        const auto current_price_context = json::parse(scope.price_context);
+        if (!quote_price_context || !current_price_context ||
+            quote_price_context->at("observed_difficulty").as_integer() !=
+                current_price_context->at("observed_difficulty").as_integer() ||
+            (q.scope.price_context_complete && scope.price_context_complete &&
+             quote_price_context->to_string() != current_price_context->to_string())) {
+            ++rejected;
+            continue;
+        }
+        // Prefer directly observed prices in the current context over cheaper
+        // quotes from a different partial modifier context. Eligibility of that
+        // newest quote may remain unknown; never resurrect an older cheap price.
+        const bool current_context_observed = std::ranges::any_of(quotes, [&](const auto& other) {
+            return other.scope.valid() && other.scope.client == scope.client && other.scope.uid == scope.uid &&
+                   other.scope.package == scope.package && other.scope.squad == scope.squad &&
+                   other.scope.source_cohort == scope.source_cohort &&
+                   other.scope.price_context == scope.price_context && other.offer.id == observed.id &&
+                   other.offer.elite == observed.elite && other.offer.level == observed.level &&
+                   other.offer.operation == "招募" && other.offer.hope_cost && *other.offer.hope_cost > 0 &&
+                   other.offer.ordinary_origin && !other.offer.positive_temporary &&
+                   other.offer.observed_temporary != true &&
+                   other.offer.training_binding == "source_conditioned_non_temporary" &&
+                   other.offer.temporary_rule_source == catalog.temporary_rule_source();
+        });
+        if (current_context_observed && q.scope.price_context != scope.price_context) {
+            ++rejected;
+            continue;
+        }
+        const auto& configured = RoguelikeRecruit.get_oper_info("BlackFlow", observed.name);
+        if (configured.account_module) {
+            const auto module = context.account->module_evidence(observed.name, configured.account_module->module_id);
+            if (!module || !module->verified) {
+                ++rejected;
+                continue;
+            }
+        }
+
+        std::array<SkillAvailability, 3> availability;
+        for (int i = 1; i <= 3; ++i) {
+            availability[i - 1] =
+                RoguelikeTraining.skill_availability(observed.name, i, observed.elite, observed.level);
+        }
+        const auto planned = resolve_recruitment_skill_plan(configured.skill, configured.alternate_skill, availability);
+        const auto rank =
+            planned.selected > 0
+                ? context.account->skill_level_for_run(observed.name, planned.selected, observed.elite, observed.level)
+                : std::nullopt;
+        if (!rank) {
+            ++rejected;
+            continue;
+        }
+        const terminal_duty_detail::Body projected {
+            .name = observed.name,
+            .id = observed.id,
+            .elite = observed.elite,
+            .level = observed.level,
+            .skill = planned.selected,
+            .rank = *rank,
+            .source = "UID_training_at_historically_observed_offer_phase_not_current_offer"
+        };
+        if (terminal_duty_detail::acquired_body_coverage(model, projected, catalog, roster, context) <= 0) {
+            ++rejected;
+            continue;
+        }
+        if (!result.expected_hope || *observed.hope_cost < *result.expected_hope) {
+            result.expected_hope = *observed.hope_cost;
+        }
+        applicable.emplace_back(
+            json::object { { "observed_quote", recruitment_quote_to_json(q) },
+                           { "projected_planned_skill", planned.selected },
+                           { "projected_effective_rank", *rank },
+                           { "same_observed_partial_price_context", q.scope.price_context == scope.price_context },
+                           { "actual_future_offer", false } });
+    }
+    result.reason = result.expected_hope ? "receipt_conditioned_expected_cost_for_missing_loaded_output"
+                                         : "no_qualified_native_observed_future_pool_keep_legacy";
+    result.evidence = json::object {
+        { "objective", "expected_acquisition_budget_not_global_combat_dominance" },
+        { "expected_hope", result.expected_hope ? json::value(*result.expected_hope) : json::value(nullptr) },
+        { "native_quote_pool", applicable },
+        { "rejected_quote_count", rejected },
+        { "current_price_context_complete", scope.price_context_complete },
+        { "price_or_future_card_guaranteed", false },
+        { "partial_or_changed_modifiers_unresolved", true },
+        { "missing_site", json::array { model.slots[model.target].location.x, model.slots[model.target].location.y } },
+        { "optional_current_support_value_zero", false },
+        { "DPS_HPS_or_survival_proven", false }
+    };
+    return result;
+}
+
+TerminalHopeReservationDecision choose_terminal_hope_reservation(
+    const BlackFlowRecruitmentDutyCatalog& catalog,
+    const std::unordered_map<std::string, RoguelikeOper>& roster,
+    const TerminalDutyContext& context,
+    const RecruitmentQuoteScope& scope,
+    const std::vector<RecruitmentObservedQuote>& quotes,
+    const std::vector<RecruitmentDutyOffer>& current_offers,
+    const std::string& selected_name,
+    int selected_page,
+    const VoucherStashObservation& stash)
+{
+    TerminalHopeReservationDecision out;
+    out.forecast = forecast_terminal_output_hope(catalog, roster, context, scope, quotes);
+    out.reason = out.forecast.reason;
+    if (!out.forecast.expected_hope || context.hope < 0) {
+        return out;
+    }
+    const auto same = [&](const auto& o) {
+        return o.name == selected_name && o.page_index == selected_page;
+    };
+    const auto found = std::ranges::find_if(current_offers, same);
+    if (found == current_offers.end() || std::ranges::count_if(current_offers, same) != 1 || !found->feasible ||
+        found->client != context.client || found->uid != context.uid || found->run_id != context.run_id ||
+        !found->hope_cost || *found->hope_cost < 0 || *found->hope_cost > context.hope) {
+        out.reason = "current_selected_offer_or_budget_unknown_keep_legacy";
+        return out;
+    }
+    const auto model = terminal_duty_detail::model(catalog, roster, context);
+    if (!model.valid || model.template_terms != out.forecast.template_terms ||
+        model.roster_terms != out.forecast.roster_terms) {
+        out.reason = "current_roster_or_template_changed_keep_legacy";
+        return out;
+    }
+    if (std::ranges::any_of(found->marginal, [](const auto& b) { return b.lower > 0; }) ||
+        terminal_duty_detail::completes(model, *found, catalog, roster, context) > 0) {
+        out.reason = "current_required_gain_precedes_expected_hope_reserve";
+        return out;
+    }
+    if (*found->hope_cost == 0 || context.hope - *found->hope_cost >= *out.forecast.expected_hope) {
+        out.reason = "free_choice_or_expected_budget_preserved";
+        return out;
+    }
+    if (!stash.can_store()) {
+        out.needs_stash_evidence = true;
+        out.reason = "expected_budget_advisory_no_verified_legal_stash_keep_legacy";
+        return out;
+    }
+    out.request_stash = true;
+    out.reason = "optional_spend_crosses_expected_output_budget_request_verified_stash";
+    return out;
+}
+
 TerminalDutyDecision choose_terminal_output_duty(
     const BlackFlowRecruitmentDutyCatalog& catalog,
     const std::unordered_map<std::string, RoguelikeOper>& roster,
