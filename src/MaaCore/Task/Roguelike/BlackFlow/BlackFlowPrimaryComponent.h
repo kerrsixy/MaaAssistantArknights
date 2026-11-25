@@ -45,6 +45,53 @@ struct PrimaryComponentEnvelope
     ProjectedPhysicalProfile upper;
 };
 
+struct PhysicalHitTerm
+{
+    double damage = 0;
+    int count = 0;
+};
+
+// Separate hit terms preserve the defense floor per hit. Ammunition is an
+// attack-capacity condition, not proof that all attacks occur before a deadline.
+struct PhysicalHitSequence
+{
+    std::vector<PhysicalHitTerm> hits;
+    double period = 0;
+    std::optional<int> ammunition;
+};
+
+struct PhysicalHitScale
+{
+    std::array<double, 2> scale { 1, 1 };
+    std::array<int, 2> count { 1, 1 };
+};
+
+struct PrimarySequenceMode
+{
+    std::array<double, 2> extra_atk_fraction { 0, 0 };
+    std::array<double, 2> extra_aspd { 0, 0 };
+    double interval_add = 0;
+    std::vector<PhysicalHitScale> hits;
+    std::optional<std::array<int, 2>> ammunition;
+};
+
+struct PhysicalSequenceEnvelope
+{
+    PhysicalHitSequence lower;
+    PhysicalHitSequence upper;
+};
+
+// Reuses the original primary arithmetic for each distinct hit. These bounds
+// describe one active attack mode, without weighting unknown mode durations.
+[[nodiscard]] std::optional<PhysicalSequenceEnvelope> calculate_primary_sequence(
+    const PrimaryComponentVariant& attributes,
+    const PrimarySequenceMode& mode,
+    const std::optional<PrimaryExternalBounds>& current_run_modifiers);
+
+[[nodiscard]] std::optional<double> physical_sequence_damage(const PhysicalHitSequence& sequence, double defense);
+[[nodiscard]] std::optional<double> physical_sequence_rate(const PhysicalHitSequence& sequence, double defense);
+[[nodiscard]] std::optional<double> physical_ammunition_damage(const PhysicalHitSequence& sequence, double defense);
+
 // Absent external input means a defined intrinsic-reference objective, not a
 // claim that the actual run has zero external effects. Present input remains
 // conditional on the complete current-run component contract at its adapter.

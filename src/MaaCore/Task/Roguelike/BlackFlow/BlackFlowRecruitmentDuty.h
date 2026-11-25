@@ -12,6 +12,49 @@
 
 namespace asst::blackflow
 {
+enum class ConditionalPrimaryTarget
+{
+    Unknown,
+    Ground,
+    Air,
+};
+
+struct PrimarySequenceConditions
+{
+    ConditionalPrimaryTarget target = ConditionalPrimaryTarget::Unknown;
+    std::string source;
+    std::optional<bool> isolated_target;
+    std::optional<bool> steal_succeeded;
+    std::optional<double> stolen_aspd;
+    std::optional<int> remaining_ammunition;
+};
+
+struct ConditionalPrimaryModeEstimate
+{
+    std::string key;
+    std::vector<PhysicalSequenceEnvelope> variants;
+    std::optional<int> simultaneous_target_capacity;
+    bool ammunition_is_observed_remaining = false;
+    std::array<double, 2> added_aspd { 0, 0 };
+    bool ally_opportunity_cost_unresolved = false;
+};
+
+struct ConditionalPrimaryEstimate
+{
+    bool qualified = false;
+    std::string id;
+    std::string range;
+    std::string source;
+    std::string reason;
+    int effective_rank = -1;
+    bool requires_sustain_coverage = false;
+    std::array<double, 2> sp_debt { 0, 0 };
+    std::vector<ConditionalPrimaryModeEstimate> modes;
+    std::vector<std::string> limitations;
+};
+
+[[nodiscard]] json::value conditional_primary_to_json(const ConditionalPrimaryEstimate& value);
+
 struct RecruitmentSkillPlan
 {
     int preferred = 0;
@@ -220,6 +263,18 @@ public:
         const ProjectedOutputAttributes& attributes,
         const std::string& source) const;
 
+    // Source-conditioned acquired-ground-target components, not an automatic
+    // extension of recruitment ranking or a current-run DPS/survival promise.
+    [[nodiscard]] ConditionalPrimaryEstimate conditional_primary(
+        const std::string& name,
+        int elite,
+        int level,
+        int slot,
+        int displayed_or_effective_rank,
+        const ProjectedOutputAttributes& attributes,
+        const PrimarySequenceConditions& conditions,
+        const std::string& source) const;
+
     [[nodiscard]] bool valid() const noexcept { return m_valid; }
 
     [[nodiscard]] std::string temporary_rule_source() const;
@@ -237,6 +292,7 @@ private:
     json::value m_operators = json::object {};
     json::value m_temporary_rule = nullptr;
     std::string m_revision;
+    std::string m_public_skill_sha;
 };
 
 void evaluate_recruitment_output(

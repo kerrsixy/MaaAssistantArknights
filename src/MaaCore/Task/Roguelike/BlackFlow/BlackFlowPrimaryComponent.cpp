@@ -151,4 +151,83 @@ bool primary_component_curves_strictly_better(
     }
     return true;
 }
+
+std::optional<PhysicalSequenceEnvelope> calculate_primary_sequence(
+    const PrimaryComponentVariant& attributes,
+    const PrimarySequenceMode& mode,
+    const std::optional<PrimaryExternalBounds>& current_run_modifiers)
+{
+    const auto ordered = [](const auto& bounds) {
+        return std::isfinite(bounds[0]) && std::isfinite(bounds[1]) && bounds[0] <= bounds[1];
+    };
+    if (!ordered(mode.extra_atk_fraction) || !ordered(mode.extra_aspd) || !std::isfinite(mode.interval_add) ||
+        mode.hits.empty() ||
+        (mode.ammunition && ((*mode.ammunition)[0] < 0 || (*mode.ammunition)[0] > (*mode.ammunition)[1]))) {
+        return std::nullopt;
+    }
+    PhysicalSequenceEnvelope result;
+    if (mode.ammunition) {
+        result.lower.ammunition = (*mode.ammunition)[0];
+        result.upper.ammunition = (*mode.ammunition)[1];
+    }
+    for (const auto& term : mode.hits) {
+        if (!ordered(term.scale) || term.scale[0] <= 0 || term.count[0] < 0 || term.count[0] > term.count[1]) {
+            return std::nullopt;
+        }
+        auto low = attributes, high = attributes;
+        low.own_atk_fraction += mode.extra_atk_fraction[0];
+        high.own_atk_fraction += mode.extra_atk_fraction[1];
+        low.own_aspd += mode.extra_aspd[0];
+        high.own_aspd += mode.extra_aspd[1];
+        low.skill_interval_add = high.skill_interval_add = mode.interval_add;
+        low.skill_scale = high.skill_scale = term.scale;
+        low.hits = high.hits = 1;
+        const auto a = calculate_primary_component(low, current_run_modifiers);
+        const auto b = calculate_primary_component(high, current_run_modifiers);
+        if (!a || !b) {
+            return std::nullopt;
+        }
+        result.lower.period = a->lower.skill_period;
+        result.upper.period = b->upper.skill_period;
+        result.lower.hits.push_back({ a->lower.skill_damage, term.count[0] });
+        result.upper.hits.push_back({ b->upper.skill_damage, term.count[1] });
+    }
+    return result;
+}
+
+std::optional<double> physical_sequence_damage(const PhysicalHitSequence& sequence, double defense)
+{
+    if (!std::isfinite(defense) || defense < 0 || sequence.hits.empty() || !std::isfinite(sequence.period) ||
+        sequence.period <= 0) {
+        return std::nullopt;
+    }
+    double total = 0;
+    for (const auto& hit : sequence.hits) {
+        if (!std::isfinite(hit.damage) || hit.damage <= 0 || hit.count < 0) {
+            return std::nullopt;
+        }
+        total += hit.count * std::max(hit.damage - defense, hit.damage * 0.05);
+    }
+    return std::isfinite(total) ? std::optional<double>(total) : std::nullopt;
+}
+
+std::optional<double> physical_sequence_rate(const PhysicalHitSequence& sequence, double defense)
+{
+    const auto damage = physical_sequence_damage(sequence, defense);
+    if (!damage) {
+        return std::nullopt;
+    }
+    const double rate = *damage / sequence.period;
+    return std::isfinite(rate) ? std::optional<double>(rate) : std::nullopt;
+}
+
+std::optional<double> physical_ammunition_damage(const PhysicalHitSequence& sequence, double defense)
+{
+    const auto damage = physical_sequence_damage(sequence, defense);
+    if (!damage || !sequence.ammunition || *sequence.ammunition < 0) {
+        return std::nullopt;
+    }
+    const double total = *damage * *sequence.ammunition;
+    return std::isfinite(total) ? std::optional<double>(total) : std::nullopt;
+}
 }

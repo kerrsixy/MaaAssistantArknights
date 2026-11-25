@@ -56754,7 +56754,72 @@
                             "sp_cost": 35,
                             "initial_sp": 15,
                             "skill_type": "MANUAL",
-                            "duration": 25.0
+                            "duration": 25.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0.1,
+                                "interval_add": -0.5,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": 25.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "random_four_not_four_guaranteed_hits_on_each_target",
+                                    "aftershock_residual_explosion_soul_and_mode_duration_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "normal",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1,
+                                        "simultaneous_target_capacity": 3
+                                    },
+                                    {
+                                        "key": "overdrive",
+                                        "allocation": "random_in_range",
+                                        "projectiles": 4,
+                                        "scale": 0.6
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 2,
@@ -56762,7 +56827,72 @@
                             "sp_cost": 34,
                             "initial_sp": 15,
                             "skill_type": "MANUAL",
-                            "duration": 25.0
+                            "duration": 25.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0.12,
+                                "interval_add": -0.5,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": 25.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "random_four_not_four_guaranteed_hits_on_each_target",
+                                    "aftershock_residual_explosion_soul_and_mode_duration_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "normal",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1,
+                                        "simultaneous_target_capacity": 3
+                                    },
+                                    {
+                                        "key": "overdrive",
+                                        "allocation": "random_in_range",
+                                        "projectiles": 4,
+                                        "scale": 0.6
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 3,
@@ -56770,7 +56900,72 @@
                             "sp_cost": 33,
                             "initial_sp": 15,
                             "skill_type": "MANUAL",
-                            "duration": 25.0
+                            "duration": 25.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0.14,
+                                "interval_add": -0.5,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": 25.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "random_four_not_four_guaranteed_hits_on_each_target",
+                                    "aftershock_residual_explosion_soul_and_mode_duration_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "normal",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1,
+                                        "simultaneous_target_capacity": 3
+                                    },
+                                    {
+                                        "key": "overdrive",
+                                        "allocation": "random_in_range",
+                                        "projectiles": 4,
+                                        "scale": 0.6
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 4,
@@ -56778,7 +56973,72 @@
                             "sp_cost": 32,
                             "initial_sp": 15,
                             "skill_type": "MANUAL",
-                            "duration": 25.0
+                            "duration": 25.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0.16,
+                                "interval_add": -0.5,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": 25.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "random_four_not_four_guaranteed_hits_on_each_target",
+                                    "aftershock_residual_explosion_soul_and_mode_duration_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "normal",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1,
+                                        "simultaneous_target_capacity": 3
+                                    },
+                                    {
+                                        "key": "overdrive",
+                                        "allocation": "random_in_range",
+                                        "projectiles": 4,
+                                        "scale": 0.65
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 5,
@@ -56786,7 +57046,72 @@
                             "sp_cost": 31,
                             "initial_sp": 15,
                             "skill_type": "MANUAL",
-                            "duration": 25.0
+                            "duration": 25.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0.18,
+                                "interval_add": -0.5,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": 25.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "random_four_not_four_guaranteed_hits_on_each_target",
+                                    "aftershock_residual_explosion_soul_and_mode_duration_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "normal",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1,
+                                        "simultaneous_target_capacity": 3
+                                    },
+                                    {
+                                        "key": "overdrive",
+                                        "allocation": "random_in_range",
+                                        "projectiles": 4,
+                                        "scale": 0.65
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 6,
@@ -56794,7 +57119,72 @@
                             "sp_cost": 30,
                             "initial_sp": 15,
                             "skill_type": "MANUAL",
-                            "duration": 25.0
+                            "duration": 25.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0.2,
+                                "interval_add": -0.5,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": 25.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "random_four_not_four_guaranteed_hits_on_each_target",
+                                    "aftershock_residual_explosion_soul_and_mode_duration_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "normal",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1,
+                                        "simultaneous_target_capacity": 3
+                                    },
+                                    {
+                                        "key": "overdrive",
+                                        "allocation": "random_in_range",
+                                        "projectiles": 4,
+                                        "scale": 0.65
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 7,
@@ -56802,7 +57192,72 @@
                             "sp_cost": 29,
                             "initial_sp": 15,
                             "skill_type": "MANUAL",
-                            "duration": 25.0
+                            "duration": 25.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0.25,
+                                "interval_add": -0.7,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": 25.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "random_four_not_four_guaranteed_hits_on_each_target",
+                                    "aftershock_residual_explosion_soul_and_mode_duration_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "normal",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1,
+                                        "simultaneous_target_capacity": 3
+                                    },
+                                    {
+                                        "key": "overdrive",
+                                        "allocation": "random_in_range",
+                                        "projectiles": 4,
+                                        "scale": 0.7
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 8,
@@ -56810,7 +57265,72 @@
                             "sp_cost": 28,
                             "initial_sp": 15,
                             "skill_type": "MANUAL",
-                            "duration": 25.0
+                            "duration": 25.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0.28,
+                                "interval_add": -0.7,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": 25.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "random_four_not_four_guaranteed_hits_on_each_target",
+                                    "aftershock_residual_explosion_soul_and_mode_duration_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "normal",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1,
+                                        "simultaneous_target_capacity": 3
+                                    },
+                                    {
+                                        "key": "overdrive",
+                                        "allocation": "random_in_range",
+                                        "projectiles": 4,
+                                        "scale": 0.75
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 9,
@@ -56818,7 +57338,72 @@
                             "sp_cost": 27,
                             "initial_sp": 15,
                             "skill_type": "MANUAL",
-                            "duration": 25.0
+                            "duration": 25.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0.3,
+                                "interval_add": -0.7,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": 25.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "random_four_not_four_guaranteed_hits_on_each_target",
+                                    "aftershock_residual_explosion_soul_and_mode_duration_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "normal",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1,
+                                        "simultaneous_target_capacity": 3
+                                    },
+                                    {
+                                        "key": "overdrive",
+                                        "allocation": "random_in_range",
+                                        "projectiles": 4,
+                                        "scale": 0.75
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 10,
@@ -56826,7 +57411,72 @@
                             "sp_cost": 25,
                             "initial_sp": 15,
                             "skill_type": "MANUAL",
-                            "duration": 25.0
+                            "duration": 25.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0.35,
+                                "interval_add": -0.7,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": 25.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "random_four_not_four_guaranteed_hits_on_each_target",
+                                    "aftershock_residual_explosion_soul_and_mode_duration_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "normal",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1,
+                                        "simultaneous_target_capacity": 3
+                                    },
+                                    {
+                                        "key": "overdrive",
+                                        "allocation": "random_in_range",
+                                        "projectiles": 4,
+                                        "scale": 0.8
+                                    }
+                                ]
+                            }
                         }
                     ]
                 },
@@ -56841,7 +57491,66 @@
                             "sp_cost": 70,
                             "initial_sp": 25,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0.95,
+                                "interval_add": 2.9,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_3",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "six_attack_activation_capacity_not_current_remaining_ammo",
+                                    "two_souls_splash_aftershock_residual_explosion_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1.6,
+                                        "ammunition": 6
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 2,
@@ -56849,7 +57558,66 @@
                             "sp_cost": 68,
                             "initial_sp": 25,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 1.0,
+                                "interval_add": 2.9,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_3",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "six_attack_activation_capacity_not_current_remaining_ammo",
+                                    "two_souls_splash_aftershock_residual_explosion_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1.65,
+                                        "ammunition": 6
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 3,
@@ -56857,7 +57625,66 @@
                             "sp_cost": 66,
                             "initial_sp": 25,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 1.1,
+                                "interval_add": 2.9,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_3",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "six_attack_activation_capacity_not_current_remaining_ammo",
+                                    "two_souls_splash_aftershock_residual_explosion_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1.7,
+                                        "ammunition": 6
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 4,
@@ -56865,7 +57692,66 @@
                             "sp_cost": 64,
                             "initial_sp": 30,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 1.2,
+                                "interval_add": 2.9,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_3",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "six_attack_activation_capacity_not_current_remaining_ammo",
+                                    "two_souls_splash_aftershock_residual_explosion_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1.75,
+                                        "ammunition": 6
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 5,
@@ -56873,7 +57759,66 @@
                             "sp_cost": 62,
                             "initial_sp": 30,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 1.3,
+                                "interval_add": 2.9,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_3",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "six_attack_activation_capacity_not_current_remaining_ammo",
+                                    "two_souls_splash_aftershock_residual_explosion_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1.8,
+                                        "ammunition": 6
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 6,
@@ -56881,7 +57826,66 @@
                             "sp_cost": 60,
                             "initial_sp": 30,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 1.4,
+                                "interval_add": 2.9,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_3",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "six_attack_activation_capacity_not_current_remaining_ammo",
+                                    "two_souls_splash_aftershock_residual_explosion_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1.85,
+                                        "ammunition": 6
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 7,
@@ -56889,7 +57893,66 @@
                             "sp_cost": 58,
                             "initial_sp": 35,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 1.5,
+                                "interval_add": 2.9,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_3",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "six_attack_activation_capacity_not_current_remaining_ammo",
+                                    "two_souls_splash_aftershock_residual_explosion_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 1.9,
+                                        "ammunition": 6
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 8,
@@ -56897,7 +57960,66 @@
                             "sp_cost": 55,
                             "initial_sp": 36,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 1.6,
+                                "interval_add": 2.9,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_3",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "six_attack_activation_capacity_not_current_remaining_ammo",
+                                    "two_souls_splash_aftershock_residual_explosion_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 2.0,
+                                        "ammunition": 6
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 9,
@@ -56905,7 +58027,66 @@
                             "sp_cost": 53,
                             "initial_sp": 38,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 1.7,
+                                "interval_add": 2.9,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_3",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "six_attack_activation_capacity_not_current_remaining_ammo",
+                                    "two_souls_splash_aftershock_residual_explosion_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 2.1,
+                                        "ammunition": 6
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 10,
@@ -56913,11 +58094,212 @@
                             "sp_cost": 50,
                             "initial_sp": 40,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 1.8,
+                                "interval_add": 2.9,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1.15]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_wisdel_3",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": false,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "six_attack_activation_capacity_not_current_remaining_ammo",
+                                    "two_souls_splash_aftershock_residual_explosion_not_folded"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 2.2,
+                                        "ammunition": 6
+                                    }
+                                ]
+                            }
                         }
                     ]
                 }
-            ]
+            ],
+            "projected_attributes": {
+                "phases": [
+                    [
+                        {
+                            "level": 1,
+                            "atk": 340,
+                            "period": 2.1
+                        },
+                        {
+                            "level": 50,
+                            "atk": 460,
+                            "period": 2.1
+                        }
+                    ],
+                    [
+                        {
+                            "level": 1,
+                            "atk": 460,
+                            "period": 2.1
+                        },
+                        {
+                            "level": 80,
+                            "atk": 583,
+                            "period": 2.1
+                        }
+                    ],
+                    [
+                        {
+                            "level": 1,
+                            "atk": 583,
+                            "period": 2.1
+                        },
+                        {
+                            "level": 90,
+                            "atk": 687,
+                            "period": 2.1
+                        }
+                    ]
+                ],
+                "ranges": ["3-3", "3-9", "3-9"],
+                "trust_ATK": [0, 90],
+                "potential_ATK": [0, 0, 0, 32.0, 32.0, 32.0],
+                "own_by_phase_potential": [
+                    [
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        }
+                    ],
+                    [
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        }
+                    ],
+                    [
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        }
+                    ]
+                ],
+                "scope": "primary_attribute_source_only_conditional_talents_separate_not_zero_total_damage"
+            }
         },
         "char_1013_chen2": {
             "name": "假日威龙陈",
@@ -73890,7 +75272,70 @@
                             "sp_cost": 30,
                             "initial_sp": 20,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0,
+                                "interval_add": -0.7,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0.09, 0.18],
+                                        [0.09, 0.18],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_angel2_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": true,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "steal_success_and_ally_opportunity_cost_not_inferred_from_roster",
+                                    "self_decay_barrier_and_healing_coverage_do_not_prove_HPS_or_survival",
+                                    "nation_lungmen_not_proof_of_Laterano_skill_filter_double_effect"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 2.0,
+                                        "ammunition": 35,
+                                        "steal_max_aspd": 70.0,
+                                        "steal_bonus_ammo": 5,
+                                        "simultaneous_target_capacity": 1
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 2,
@@ -73898,7 +75343,70 @@
                             "sp_cost": 30,
                             "initial_sp": 20,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0,
+                                "interval_add": -0.7,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0.09, 0.18],
+                                        [0.09, 0.18],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_angel2_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": true,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "steal_success_and_ally_opportunity_cost_not_inferred_from_roster",
+                                    "self_decay_barrier_and_healing_coverage_do_not_prove_HPS_or_survival",
+                                    "nation_lungmen_not_proof_of_Laterano_skill_filter_double_effect"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 2.1,
+                                        "ammunition": 35,
+                                        "steal_max_aspd": 70.0,
+                                        "steal_bonus_ammo": 5,
+                                        "simultaneous_target_capacity": 1
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 3,
@@ -73906,7 +75414,70 @@
                             "sp_cost": 30,
                             "initial_sp": 20,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0,
+                                "interval_add": -0.7,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0.09, 0.18],
+                                        [0.09, 0.18],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_angel2_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": true,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "steal_success_and_ally_opportunity_cost_not_inferred_from_roster",
+                                    "self_decay_barrier_and_healing_coverage_do_not_prove_HPS_or_survival",
+                                    "nation_lungmen_not_proof_of_Laterano_skill_filter_double_effect"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 2.2,
+                                        "ammunition": 35,
+                                        "steal_max_aspd": 70.0,
+                                        "steal_bonus_ammo": 5,
+                                        "simultaneous_target_capacity": 1
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 4,
@@ -73914,7 +75485,70 @@
                             "sp_cost": 30,
                             "initial_sp": 22,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0,
+                                "interval_add": -0.7,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0.09, 0.18],
+                                        [0.09, 0.18],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_angel2_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": true,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "steal_success_and_ally_opportunity_cost_not_inferred_from_roster",
+                                    "self_decay_barrier_and_healing_coverage_do_not_prove_HPS_or_survival",
+                                    "nation_lungmen_not_proof_of_Laterano_skill_filter_double_effect"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 2.3,
+                                        "ammunition": 35,
+                                        "steal_max_aspd": 70.0,
+                                        "steal_bonus_ammo": 5,
+                                        "simultaneous_target_capacity": 1
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 5,
@@ -73922,7 +75556,70 @@
                             "sp_cost": 30,
                             "initial_sp": 22,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0,
+                                "interval_add": -0.7,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0.09, 0.18],
+                                        [0.09, 0.18],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_angel2_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": true,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "steal_success_and_ally_opportunity_cost_not_inferred_from_roster",
+                                    "self_decay_barrier_and_healing_coverage_do_not_prove_HPS_or_survival",
+                                    "nation_lungmen_not_proof_of_Laterano_skill_filter_double_effect"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 2.4,
+                                        "ammunition": 35,
+                                        "steal_max_aspd": 70.0,
+                                        "steal_bonus_ammo": 5,
+                                        "simultaneous_target_capacity": 1
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 6,
@@ -73930,7 +75627,70 @@
                             "sp_cost": 30,
                             "initial_sp": 22,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0,
+                                "interval_add": -0.7,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0.09, 0.18],
+                                        [0.09, 0.18],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_angel2_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": true,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "steal_success_and_ally_opportunity_cost_not_inferred_from_roster",
+                                    "self_decay_barrier_and_healing_coverage_do_not_prove_HPS_or_survival",
+                                    "nation_lungmen_not_proof_of_Laterano_skill_filter_double_effect"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 2.5,
+                                        "ammunition": 35,
+                                        "steal_max_aspd": 70.0,
+                                        "steal_bonus_ammo": 5,
+                                        "simultaneous_target_capacity": 1
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 7,
@@ -73938,7 +75698,70 @@
                             "sp_cost": 30,
                             "initial_sp": 23,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0,
+                                "interval_add": -0.7,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0.09, 0.18],
+                                        [0.09, 0.18],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_angel2_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": true,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "steal_success_and_ally_opportunity_cost_not_inferred_from_roster",
+                                    "self_decay_barrier_and_healing_coverage_do_not_prove_HPS_or_survival",
+                                    "nation_lungmen_not_proof_of_Laterano_skill_filter_double_effect"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 2.7,
+                                        "ammunition": 35,
+                                        "steal_max_aspd": 70.0,
+                                        "steal_bonus_ammo": 5,
+                                        "simultaneous_target_capacity": 1
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 8,
@@ -73946,7 +75769,70 @@
                             "sp_cost": 30,
                             "initial_sp": 23,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0,
+                                "interval_add": -0.7,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0.09, 0.18],
+                                        [0.09, 0.18],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_angel2_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": true,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "steal_success_and_ally_opportunity_cost_not_inferred_from_roster",
+                                    "self_decay_barrier_and_healing_coverage_do_not_prove_HPS_or_survival",
+                                    "nation_lungmen_not_proof_of_Laterano_skill_filter_double_effect"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 2.8,
+                                        "ammunition": 35,
+                                        "steal_max_aspd": 70.0,
+                                        "steal_bonus_ammo": 5,
+                                        "simultaneous_target_capacity": 1
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 9,
@@ -73954,7 +75840,70 @@
                             "sp_cost": 30,
                             "initial_sp": 23,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0,
+                                "interval_add": -0.7,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0.09, 0.18],
+                                        [0.09, 0.18],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_angel2_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": true,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "steal_success_and_ally_opportunity_cost_not_inferred_from_roster",
+                                    "self_decay_barrier_and_healing_coverage_do_not_prove_HPS_or_survival",
+                                    "nation_lungmen_not_proof_of_Laterano_skill_filter_double_effect"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 2.9,
+                                        "ammunition": 35,
+                                        "steal_max_aspd": 70.0,
+                                        "steal_bonus_ammo": 5,
+                                        "simultaneous_target_capacity": 1
+                                    }
+                                ]
+                            }
                         },
                         {
                             "rank": 10,
@@ -73962,7 +75911,70 @@
                             "sp_cost": 30,
                             "initial_sp": 25,
                             "skill_type": "MANUAL",
-                            "duration": -1.0
+                            "duration": -1.0,
+                            "conditional_primary": {
+                                "kind": "physical_conditional_modes",
+                                "target_class": "ground_reference",
+                                "range_unchanged": true,
+                                "atk_fraction": 0,
+                                "interval_add": -0.7,
+                                "main_target_scale_by_phase": [
+                                    [1, 1],
+                                    [1, 1],
+                                    [1, 1]
+                                ],
+                                "ammo_self_atk_by_phase_potential": [
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0],
+                                        [0, 0]
+                                    ],
+                                    [
+                                        [0.09, 0.18],
+                                        [0.09, 0.18],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26],
+                                        [0.13, 0.26]
+                                    ]
+                                ],
+                                "source_skill_id": "skchr_angel2_2",
+                                "source_skill_sha256": "492900f6b957233296c9736c86bb4e5f3ab4b4d7f5055a0f973c5acec3d174b1",
+                                "requires_sustain_coverage": true,
+                                "not_total_DPS": true,
+                                "duration_raw": -1.0,
+                                "limitations": [
+                                    "outside_intrinsic_acquired_ground_target_reference_not_live_DPS",
+                                    "external_modifiers_unknown_not_assumed_zero",
+                                    "conditional_main_talent_factor_not_exact_engine_stacking",
+                                    "steal_success_and_ally_opportunity_cost_not_inferred_from_roster",
+                                    "self_decay_barrier_and_healing_coverage_do_not_prove_HPS_or_survival",
+                                    "nation_lungmen_not_proof_of_Laterano_skill_filter_double_effect"
+                                ],
+                                "modes": [
+                                    {
+                                        "key": "ammo_main",
+                                        "allocation": "acquired",
+                                        "projectiles": 1,
+                                        "scale": 3.0,
+                                        "ammunition": 35,
+                                        "steal_max_aspd": 70.0,
+                                        "steal_bonus_ammo": 5,
+                                        "simultaneous_target_capacity": 1
+                                    }
+                                ]
+                            }
                         }
                     ]
                 },
@@ -74053,7 +76065,149 @@
                         }
                     ]
                 }
-            ]
+            ],
+            "projected_attributes": {
+                "phases": [
+                    [
+                        {
+                            "level": 1,
+                            "atk": 249,
+                            "period": 1.3
+                        },
+                        {
+                            "level": 50,
+                            "atk": 416,
+                            "period": 1.3
+                        }
+                    ],
+                    [
+                        {
+                            "level": 1,
+                            "atk": 416,
+                            "period": 1.3
+                        },
+                        {
+                            "level": 80,
+                            "atk": 587,
+                            "period": 1.3
+                        }
+                    ],
+                    [
+                        {
+                            "level": 1,
+                            "atk": 587,
+                            "period": 1.3
+                        },
+                        {
+                            "level": 90,
+                            "atk": 708,
+                            "period": 1.3
+                        }
+                    ]
+                ],
+                "ranges": ["3-1", "3-3", "3-3"],
+                "trust_ATK": [0, 70],
+                "potential_ATK": [0, 0, 0, 30.0, 30.0, 30.0],
+                "own_by_phase_potential": [
+                    [
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        }
+                    ],
+                    [
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        }
+                    ],
+                    [
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        },
+                        {
+                            "atk_fraction": 0,
+                            "aspd": 0,
+                            "first_deploy_sp_upper": 0
+                        }
+                    ]
+                ],
+                "scope": "primary_attribute_source_only_conditional_talents_separate_not_zero_total_damage"
+            }
         },
         "char_474_glady": {
             "name": "歌蕾蒂娅",

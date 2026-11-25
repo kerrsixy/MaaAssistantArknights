@@ -1,4 +1,5 @@
 #include "RoguelikeSkillSelectionTaskPlugin.h"
+#include "RoguelikeBattleTaskPlugin.h"
 #include "RoguelikePreparationTask.h"
 
 #include "Config/GeneralConfig.h"
@@ -95,6 +96,7 @@ bool asst::RoguelikeSkillSelectionTaskPlugin::_run()
 
 bool asst::RoguelikeSkillSelectionTaskPlugin::run_blackflow_preparation()
 {
+    begin_prepared_primary_observation();
     auto image = ctrler()->get_image();
     const auto started = std::chrono::steady_clock::now();
     const auto timeout = std::chrono::seconds(Config.get_options().battle_start_timeout_seconds);
@@ -114,10 +116,6 @@ bool asst::RoguelikeSkillSelectionTaskPlugin::run_blackflow_preparation()
     RoguelikeSkillSelectionImageAnalyzer names(image);
     if (!names.analyze()) {
         return interrupt_before_battle("preparation_names_unreadable");
-    }
-    for (auto& [name, oper] : m_config->status().opers) {
-        static_cast<void>(name);
-        oper.preparation = {};
     }
     const auto move = Task.get("RoguelikeSkillSelectionMove1")->rect_move;
     const auto size = Task.get("BlackFlowPreparationSkillAnchor")->rect_move;
@@ -317,6 +315,11 @@ bool asst::RoguelikeSkillSelectionTaskPlugin::run_blackflow_preparation()
     if (!complete) {
         return interrupt_before_battle("selected_skill_not_confirmed");
     }
+    std::vector<std::string> selected_names;
+    for (const auto& choice : choices) {
+        selected_names.push_back(choice.name);
+    }
+    publish_prepared_primary_observation(selected_names);
     m_config->status().team_full_without_rookie = team_full && !has_rookie;
     return true;
 }
@@ -328,4 +331,27 @@ bool asst::RoguelikeSkillSelectionTaskPlugin::interrupt_before_battle(std::strin
     callback(AsstMsg::SubTaskExtraInfo, incomplete);
     m_task_ptr->set_enable(false);
     return true;
+}
+
+void asst::RoguelikeSkillSelectionTaskPlugin::begin_prepared_primary_observation()
+{
+    if (m_task_ptr) {
+        if (const auto battle = m_task_ptr->find_plugin<RoguelikeBattleTaskPlugin>()) {
+            battle->invalidate_prepared_primary();
+        }
+    }
+    for (auto& [name, oper] : m_config->status().opers) {
+        static_cast<void>(name);
+        oper.preparation = {};
+    }
+}
+
+void
+    asst::RoguelikeSkillSelectionTaskPlugin::publish_prepared_primary_observation(const std::vector<std::string>& names)
+{
+    if (m_task_ptr) {
+        if (const auto battle = m_task_ptr->find_plugin<RoguelikeBattleTaskPlugin>()) {
+            battle->prepare_primary_from_selection(names);
+        }
+    }
 }

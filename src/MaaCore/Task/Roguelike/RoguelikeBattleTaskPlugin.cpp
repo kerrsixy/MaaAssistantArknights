@@ -8,6 +8,7 @@
 #include <fstream>
 #include <future>
 #include <ranges>
+#include <utility>
 #include <vector>
 
 #include "Config/GeneralConfig.h"
@@ -81,6 +82,7 @@ bool asst::RoguelikeBattleTaskPlugin::verify(AsstMsg msg, const json::value& det
 
 bool asst::RoguelikeBattleTaskPlugin::load_params(const json::value& params)
 {
+    invalidate_prepared_primary();
 #ifdef ASST_DEBUG
     m_resume_stage = params.get("battle_resume_stage", std::string());
 #endif
@@ -354,7 +356,7 @@ bool asst::RoguelikeBattleTaskPlugin::calc_stage_info()
     if (resume_stage.empty() && !wait_until_start_button_clicked()) {
         return false;
     }
-    clear();
+    begin_stage_with_prepared_primary();
 
     bool calced = false;
 
@@ -651,6 +653,296 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_plan_exhausted(const battle::ro
            (m_hunter_prelude && !m_hunter_prelude->allows_plan(plan.plan_index));
 }
 
+void asst::RoguelikeBattleTaskPlugin::invalidate_prepared_primary()
+{
+    m_pending_prepared_primary.reset();
+    m_active_prepared_primary.reset();
+}
+
+void asst::RoguelikeBattleTaskPlugin::prepare_primary_from_selection(const std::vector<std::string>& names)
+{
+    invalidate_prepared_primary();
+    blackflow::BlackFlowRecruitmentDutyCatalog catalog;
+    catalog.load(
+        ResDir.get() / utils::path("roguelike/BlackFlow/recruitment_duties.json"),
+        ResDir.get() / utils::path("roguelike/BlackFlow/operator_training.json"),
+        ResDir.get() / utils::path("battle_data.json"));
+    auto batch = blackflow::build_prepared_primary_components(
+        catalog,
+        m_config->status(),
+        m_config->account_client(),
+        m_config->account_uid(),
+        names);
+    auto observation = basic_info_with_what("BlackFlowPreparedPrimaryComponents");
+    observation["details"] = blackflow::prepared_primary_to_json(batch);
+    observation["details"]["calculated_before_start_action"] = true;
+    std::vector<std::size_t> indices;
+    std::size_t legacy = batch.entries.size();
+    for (std::size_t i = 0; i < batch.entries.size(); ++i) {
+        indices.push_back(i);
+        if (batch.entries[i].name == m_config->get_core_char()) {
+            legacy = i;
+        }
+    }
+    const auto preference = blackflow::choose_prepared_primary_reference(batch, indices, legacy);
+    observation["details"]["reference_reason"] = preference.reason;
+    observation["details"]["reference_preference"] =
+        preference.preferred ? json::value(batch.entries[*preference.preferred].name) : json::value(nullptr);
+    observation["details"]["deployment_geometry_and_DP_pending"] = true;
+    callback(AsstMsg::SubTaskExtraInfo, observation);
+    if (blackflow::prepared_primary_matches(
+            batch,
+            m_config->status(),
+            m_config->account_client(),
+            m_config->account_uid())) {
+        m_pending_prepared_primary = std::move(batch);
+    }
+}
+
+void asst::RoguelikeBattleTaskPlugin::begin_stage_with_prepared_primary()
+{
+    auto pending = std::exchange(m_pending_prepared_primary, std::nullopt);
+    clear();
+    if (pending && blackflow::prepared_primary_matches(
+                       *pending,
+                       m_config->status(),
+                       m_config->account_client(),
+                       m_config->account_uid())) {
+        m_active_prepared_primary = std::move(pending);
+    }
+}
+
+bool asst::RoguelikeBattleTaskPlugin::prepared_primary_current() const
+{
+    return m_config->get_theme() == RoguelikeTheme::BlackFlow && m_active_prepared_primary &&
+           blackflow::prepared_primary_matches(
+               *m_active_prepared_primary,
+               m_config->status(),
+               m_config->account_client(),
+               m_config->account_uid());
+}
+
+std::optional<asst::battle::roguelike::DeployInfoWithRank>
+    asst::RoguelikeBattleTaskPlugin::prepared_plan(int plan_index) const
+{
+    for (const auto& [group, plans] : m_deploy_plan) {
+        static_cast<void>(group);
+        const auto found = std::ranges::find_if(plans, [&](const auto& p) { return p.plan_index == plan_index; });
+        if (found != plans.end()) {
+            return *found;
+        }
+    }
+    return std::nullopt;
+}
+
+bool asst::RoguelikeBattleTaskPlugin::prepared_runtime_eligible(
+    const battle::DeploymentOper& oper,
+    Point location,
+    battle::DeployDirection direction,
+    const std::vector<Point>& targets) const
+{
+    if (!prepared_primary_current() || oper.cooling || oper.cost <= 0 || targets.empty() ||
+        m_battlefield_opers.contains({ oper.role, oper.name }) || m_used_tiles.contains(location) ||
+        m_blacklist_location.contains(location) || !deployment_target_allowed(oper, location)) {
+        return false;
+    }
+    const auto observed = m_config->status().opers.find(oper.name);
+    const auto elite = m_oper_elite.find(oper.name);
+    if (observed == m_config->status().opers.end() || elite == m_oper_elite.end() ||
+        elite->second != observed->second.elite ||
+        BattleData.get_range(oper.role, oper.name, elite->second) == BattleDataConfig::EmptyRange) {
+        return false;
+    }
+    const auto range = get_attack_range(oper, direction);
+    return std::ranges::all_of(targets, [&](const auto& p) {
+        return std::ranges::find(range, p - location) != range.end();
+    });
+}
+
+void asst::RoguelikeBattleTaskPlugin::prioritize_prepared_authored(std::vector<DeployPlanInfo>& candidates)
+{
+    std::unordered_set<std::size_t> removed;
+    std::unordered_set<std::size_t> compared;
+    if (prepared_primary_current() && m_prepared_cost_observed && m_cost >= 0) {
+        const auto& batch = *m_active_prepared_primary;
+        for (std::size_t seed = 0; seed < candidates.size(); ++seed) {
+            if (compared.contains(seed)) {
+                continue;
+            }
+            const auto task = prepared_plan(candidates[seed].plan_index);
+            if (!task || task->required_attack_tiles.empty()) {
+                continue;
+            }
+            std::vector<std::size_t> task_rows, rows, entries;
+            std::unordered_set<std::size_t> unique_entries;
+            std::optional<std::size_t> legacy_row;
+            std::size_t legacy = batch.entries.size();
+            int legacy_cost = -1;
+            for (std::size_t i = seed; i < candidates.size(); ++i) {
+                const auto& row = candidates[i];
+                const auto& first = candidates[seed];
+                // Group ranks are preferences within one authored task, not
+                // separate tasks. A unit can occur in both a named core group
+                // and a later shared group. Keep other sites/tasks untouched.
+                if (row.plan_index != first.plan_index || row.placed != first.placed ||
+                    row.direction != first.direction || row.preferred_coverage != first.preferred_coverage) {
+                    continue;
+                }
+                compared.emplace(i);
+                task_rows.push_back(i);
+                const auto oper = std::ranges::find_if(m_cur_deployment_opers, [&](const auto& o) {
+                    return o.name == row.oper_name && o.role == row.role;
+                });
+                const auto e =
+                    std::ranges::find_if(batch.entries, [&](const auto& entry) { return entry.name == row.oper_name; });
+                if (oper == m_cur_deployment_opers.end() || e == batch.entries.end() ||
+                    !prepared_runtime_eligible(
+                        *oper,
+                        row.placed,
+                        resolve_deploy_direction(*oper, row.placed, row.direction),
+                        task->required_attack_tiles) ||
+                    (!oper->available && !(m_reserve_deploy_cost && deployment_cost_wait_required(*oper, m_cost)))) {
+                    continue;
+                }
+                const auto index = static_cast<std::size_t>(e - batch.entries.begin());
+                if (!legacy_row && deployment_requirements_met(*oper, *task)) {
+                    legacy_row = i;
+                    legacy = index;
+                    legacy_cost = oper->cost;
+                }
+                if (unique_entries.emplace(index).second) {
+                    rows.push_back(i);
+                    entries.push_back(index);
+                }
+            }
+            if (!legacy_row) {
+                continue;
+            }
+            std::vector<std::size_t> budget_cohort;
+            for (std::size_t j = 0; j < entries.size(); ++j) {
+                if (candidates[rows[j]].cost > 0 && candidates[rows[j]].cost <= legacy_cost) {
+                    budget_cohort.push_back(entries[j]);
+                }
+            }
+            const auto choice = blackflow::choose_prepared_primary_reference(batch, budget_cohort, legacy);
+            if (!choice.preferred) {
+                continue;
+            }
+            const auto selected = std::ranges::find(entries, *choice.preferred);
+            const auto selected_row = rows[static_cast<std::size_t>(selected - entries.begin())];
+            const auto priority = candidates[*legacy_row];
+            auto& chosen = candidates[selected_row];
+            chosen.rank = priority.rank;
+            chosen.oper_order_in_group = priority.oper_order_in_group;
+            chosen.prefer_group_order = priority.prefer_group_order;
+            chosen.prepared_replacement = true;
+            for (const auto row : task_rows) {
+                if (row != selected_row) {
+                    removed.emplace(row);
+                }
+            }
+            auto receipt = basic_info_with_what("BlackFlowPreparedPrimaryDeploymentChoice");
+            receipt["details"] =
+                json::object { { "run_id", batch.run_id },
+                               { "stage", m_stage_name },
+                               { "plan_index", task->plan_index },
+                               { "legacy", batch.entries[legacy].name },
+                               { "chosen", batch.entries[*choice.preferred].name },
+                               { "reason", choice.reason },
+                               { "same_plan_site_direction_required_tiles", true },
+                               { "reservation_transferred", true },
+                               { "legacy_task_rank", priority.rank },
+                               { "duplicate_task_rows_removed", static_cast<int>(task_rows.size() - 1) },
+                               { "observed_DP", m_cost },
+                               { "self_decay_ally_ammo_heal_and_steal_opportunity_cost_not_survival_proof", true },
+                               { "scope", "nonincreasing_DP_first_mode_ground_reference_not_global_strength" } };
+            callback(AsstMsg::SubTaskExtraInfo, receipt);
+        }
+    }
+    std::vector<DeployPlanInfo> filtered;
+    for (std::size_t i = 0; i < candidates.size(); ++i) {
+        if (removed.contains(i)) {
+            continue;
+        }
+        const auto& row = candidates[i];
+        const auto task = prepared_plan(row.plan_index);
+        const auto oper = std::ranges::find_if(m_cur_deployment_opers, [&](const auto& o) {
+            return o.name == row.oper_name && o.role == row.role;
+        });
+        if (task && oper != m_cur_deployment_opers.end() &&
+            (row.prepared_replacement || deployment_requirements_met(*oper, *task))) {
+            filtered.push_back(row);
+        }
+    }
+    std::stable_sort(filtered.begin(), filtered.end());
+    candidates = std::move(filtered);
+}
+
+std::optional<asst::battle::DeploymentOper>
+    asst::RoguelikeBattleTaskPlugin::prepared_generic_primary(bool cost_observed) const
+{
+    if (!prepared_primary_current() || !cost_observed || m_cost < 0 || m_homes.empty()) {
+        return std::nullopt;
+    }
+    const auto& batch = *m_active_prepared_primary;
+    const auto legacy =
+        std::ranges::find_if(batch.entries, [&](const auto& e) { return e.name == m_config->get_core_char(); });
+    const auto core = std::ranges::find_if(m_cur_deployment_opers, [&](const auto& o) {
+        return o.name == m_config->get_core_char();
+    });
+    if (legacy == batch.entries.end() || core == m_cur_deployment_opers.end() || core->cost <= 0) {
+        return std::nullopt;
+    }
+    const bool initial_blocking = std::ranges::any_of(m_battlefield_opers, [&](const auto& entry) {
+        return persistent_blocking_available(entry.first);
+    });
+    if (starting_core_action(*core, m_cost, initial_blocking, false, calc_best_loc(*core).has_value()) ==
+        StartingCoreAction::Fallback) {
+        // A reference primary preference must not consume the legacy opening
+        // fallback intended to establish initial defence or handle a locked core.
+        return std::nullopt;
+    }
+    std::vector<Point> targets;
+    for (const auto& [point, home] : m_blocking_for_home_index) {
+        if (home == m_cur_home_index) {
+            targets.push_back(point);
+        }
+    }
+    if (targets.empty()) {
+        const auto home = m_homes.at(m_cur_home_index).location;
+        for (const auto& [point, tile] : m_normal_tile_info) {
+            if (tile.key == TilePack::TileKey::Road && std::abs(point.x - home.x) + std::abs(point.y - home.y) == 1) {
+                targets.push_back(point);
+            }
+        }
+    }
+    std::vector<std::size_t> eligible;
+    for (const auto& oper : m_cur_deployment_opers) {
+        if (oper.cost > core->cost || (!oper.available && oper.name != core->name) ||
+            (oper.cost > m_cost && oper.name != core->name) ||
+            RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name)) {
+            continue;
+        }
+        const auto where = calc_best_loc(oper);
+        const auto entry = std::ranges::find_if(batch.entries, [&](const auto& e) { return e.name == oper.name; });
+        if (where && entry != batch.entries.end() &&
+            prepared_runtime_eligible(oper, where->placed, where->direction, targets)) {
+            eligible.push_back(static_cast<std::size_t>(entry - batch.entries.begin()));
+        }
+    }
+    const auto choice = blackflow::choose_prepared_primary_reference(
+        batch,
+        eligible,
+        static_cast<std::size_t>(legacy - batch.entries.begin()));
+    if (!choice.preferred) {
+        return std::nullopt;
+    }
+    const auto selected = std::ranges::find_if(m_cur_deployment_opers, [&](const auto& o) {
+        return o.name == batch.entries[*choice.preferred].name;
+    });
+    return selected != m_cur_deployment_opers.end() ? std::optional(*selected) : std::nullopt;
+}
+
 bool asst::RoguelikeBattleTaskPlugin::starting_core_reserves_site(
     const battle::DeploymentOper& core,
     const battle::roguelike::DeployInfoWithRank& candidate,
@@ -702,6 +994,24 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_requirements_met(
     const battle::DeploymentOper& oper,
     const battle::roguelike::DeployInfoWithRank& plan) const
 {
+    if (!deployment_hard_requirements_met(oper, plan)) {
+        return false;
+    }
+    if (oper.name != m_config->get_core_char() && !RoguelikeCopilot.reserved_core_groups(m_stage_name).empty()) {
+        const auto core = std::ranges::find_if(m_cur_deployment_opers, [&](const auto& current) {
+            return current.name == m_config->get_core_char();
+        });
+        if (core != m_cur_deployment_opers.end() && starting_core_reserves_site(*core, plan, m_kills, m_stage_name)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool asst::RoguelikeBattleTaskPlugin::deployment_hard_requirements_met(
+    const battle::DeploymentOper& oper,
+    const battle::roguelike::DeployInfoWithRank& plan) const
+{
     if (const auto cap = RoguelikeCopilot.maximum_deploy_cost(m_stage_name, plan.plan_index);
         cap && (oper.cost <= 0 || oper.cost > *cap)) {
         // Cost0 also represents OCR failure; a capped opener cannot claim it is
@@ -722,14 +1032,6 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_requirements_met(
     if ((plan.exclude_starting_core && oper.name == m_config->get_core_char()) ||
         std::ranges::find(plan.excluded_operator_names, oper.name) != plan.excluded_operator_names.end()) {
         return false;
-    }
-    if (oper.name != m_config->get_core_char() && !RoguelikeCopilot.reserved_core_groups(m_stage_name).empty()) {
-        const auto core = std::ranges::find_if(m_cur_deployment_opers, [&](const auto& current) {
-            return current.name == m_config->get_core_char();
-        });
-        if (core != m_cur_deployment_opers.end() && starting_core_reserves_site(*core, plan, m_kills, m_stage_name)) {
-            return false;
-        }
     }
     if (plan.require_persistent_blocking && !persistent_blocking_available({ oper.role, oper.name })) {
         return false;
@@ -913,23 +1215,9 @@ bool asst::RoguelikeBattleTaskPlugin::request_authored_budget_reobservation(
     return true;
 }
 
-asst::blackflow::AuthoredPlanResult asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
+std::vector<asst::RoguelikeBattleTaskPlugin::DeployPlanInfo>
+    asst::RoguelikeBattleTaskPlugin::build_prepared_authored_candidates(bool& waiting)
 {
-    Log.info("deploy diag: cur_opers", m_cur_deployment_opers.size(), "homes", m_homes.size());
-    LogTraceFunction;
-    Log.info("m_kills", m_kills);
-
-    bool is_success = false;
-    for (const auto& info : m_retreat_plan) {
-        if (m_kills >= info.kill_lower_bound && m_kills <= info.kill_upper_bound) {
-            if (m_used_tiles.contains(info.location)) {
-                retreat_oper(info.location);
-                Log.info("retreat operator");
-                return blackflow::AuthoredPlanResult::Handled;
-            }
-        }
-    }
-    Log.debug("No operator needs to be retreated.");
     // 构造当前地图的部署指令列表
     std::vector<DeployPlanInfo> deploy_plan_list;
     // 获取当前肉鸽的分组信息[干员组1名称,干员组2名称,...]
@@ -970,7 +1258,7 @@ asst::blackflow::AuthoredPlanResult asst::RoguelikeBattleTaskPlugin::do_best_dep
             }
             for (const auto& info : plan_iter->second) {
                 if (deployment_plan_exhausted(info) || m_kills < info.kill_lower_bound ||
-                    m_kills > info.kill_upper_bound || !deployment_requirements_met(oper, info)) {
+                    m_kills > info.kill_upper_bound || !deployment_hard_requirements_met(oper, info)) {
                     continue;
                 }
                 DeployPlanInfo deploy_plan;
@@ -1011,12 +1299,12 @@ asst::blackflow::AuthoredPlanResult asst::RoguelikeBattleTaskPlugin::do_best_dep
                     if (deployment_plan_exhausted(info)) {
                         continue;
                     }
-                    if (!deployment_requirements_met(oper, info)) {
+                    if (!deployment_hard_requirements_met(oper, info)) {
                         continue;
                     }
                     if (m_kills < info.kill_lower_bound) {
                         LogDebug << "    deploy info" << oper.name << "in group" << group_name << "is waiting.";
-                        is_success = true; // 如果发现了待命干员，此函数最终返回true
+                        waiting = waiting || deployment_requirements_met(oper, info);
                         continue;
                     }
                     if (m_kills > info.kill_upper_bound) {
@@ -1062,6 +1350,28 @@ asst::blackflow::AuthoredPlanResult asst::RoguelikeBattleTaskPlugin::do_best_dep
     // m_cur_deployment_opers 的原始顺序， 配合 operator<
     // 里的费用比较，行为可预测。
     std::stable_sort(deploy_plan_list.begin(), deploy_plan_list.end());
+    prioritize_prepared_authored(deploy_plan_list);
+    return deploy_plan_list;
+}
+
+asst::blackflow::AuthoredPlanResult asst::RoguelikeBattleTaskPlugin::do_best_deploy(bool allow_soul_inspection)
+{
+    Log.info("deploy diag: cur_opers", m_cur_deployment_opers.size(), "homes", m_homes.size());
+    LogTraceFunction;
+    Log.info("m_kills", m_kills);
+
+    bool is_success = false;
+    for (const auto& info : m_retreat_plan) {
+        if (m_kills >= info.kill_lower_bound && m_kills <= info.kill_upper_bound) {
+            if (m_used_tiles.contains(info.location)) {
+                retreat_oper(info.location);
+                Log.info("retreat operator");
+                return blackflow::AuthoredPlanResult::Handled;
+            }
+        }
+    }
+    Log.debug("No operator needs to be retreated.");
+    auto deploy_plan_list = build_prepared_authored_candidates(is_success);
     // 排序结果必须可见：否则「低费优先」是否真的生效只能靠 best deploy 反推，
     // 而同 rank 多条记录混在一起时根本看不出谁排在前面。
     for (size_t i = 0; i < deploy_plan_list.size() && i < 3; ++i) {
@@ -1172,7 +1482,27 @@ asst::blackflow::AuthoredPlanResult asst::RoguelikeBattleTaskPlugin::do_best_dep
             return blackflow::AuthoredPlanResult::Handled;
         }
     }
+    if (m_reserve_deploy_cost && best_waiting_plan != nullptr) {
+        // A validated shortage owns this strict authored budget. No placement,
+        // input retry or plan progress is claimed; the next normal frame must
+        // revalidate identity, target, range, cooldown, expiry and affordability.
+        return blackflow::AuthoredPlanResult::WaitingForCost;
+    }
     return is_success ? blackflow::AuthoredPlanResult::Handled : blackflow::AuthoredPlanResult::NoAction;
+}
+
+bool asst::RoguelikeBattleTaskPlugin::authored_dispatch_blocks_generic(bool urgent_home, bool allow_soul_inspection)
+{
+    // Preserve the existing hybrid urgent-home bypass. Authored-only stages
+    // retain their own policy even for urgent homes.
+    if (!m_deploy_plan_only && urgent_home) {
+        return false;
+    }
+    const auto planned = do_best_deploy(allow_soul_inspection);
+    if (planned == blackflow::AuthoredPlanResult::Handled) {
+        m_first_deploy = false;
+    }
+    return m_deploy_plan_only || planned != blackflow::AuthoredPlanResult::NoAction;
 }
 
 // 漏怪 / 崩盘诊断。
@@ -1407,6 +1737,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
     // when a forced return resets its cooldown. This does not prove unlock.
     auto returned_operators = reconcile_returned_blackflow_operators();
     const bool cost_observed = update_cost(image, image_prev);
+    m_prepared_cost_observed = cost_observed;
     update_kills(image, image_prev);
     if (yielding_soul_ui) {
         // The lease survives recognition failures. Only a fresh complete card
@@ -1483,21 +1814,8 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
 
     // 退场事件必须先处理；预设部署成功后提前返回会漏掉这一帧的防线失守。
     auto urgent_home_opt = check_urgent(pre_cooling, current_departures, pre_battlefield);
-    if (m_deploy_plan_only) {
-        const auto planned = do_best_deploy(!yielding_soul_ui);
-        if (planned == blackflow::AuthoredPlanResult::Handled) {
-            m_first_deploy = false;
-        }
+    if (authored_dispatch_blocks_generic(urgent_home_opt.has_value(), !yielding_soul_ui)) {
         return true;
-    }
-    if (!urgent_home_opt) {
-        const auto planned = do_best_deploy(!yielding_soul_ui);
-        if (planned != blackflow::AuthoredPlanResult::NoAction) {
-            if (planned == blackflow::AuthoredPlanResult::Handled) {
-                m_first_deploy = false;
-            }
-            return true;
-        }
     }
 
     { // 这是旧的、通用部署逻辑
@@ -1792,6 +2110,11 @@ std::optional<asst::battle::DeploymentOper>
                blackflow::OpeningDutyChoice::DeferIdleHealing;
     };
 
+    if (m_deploy_plan.empty() && !urgent_home) {
+        if (const auto prepared = prepared_generic_primary(cost_observed)) {
+            return prepared;
+        }
+    }
     // Authored mechanics retain their own order and budget. For unplanned
     // BlackFlow stages, the configured starting core must precede filler roles.
     if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_deploy_plan.empty() && !urgent_home) {
@@ -2062,6 +2385,8 @@ void asst::RoguelikeBattleTaskPlugin::all_melee_retreat()
 
 void asst::RoguelikeBattleTaskPlugin::clear()
 {
+    invalidate_prepared_primary();
+    m_prepared_cost_observed = false;
     if (m_soul_retreat) {
         m_soul_retreat->invalidate_input_permission();
     }

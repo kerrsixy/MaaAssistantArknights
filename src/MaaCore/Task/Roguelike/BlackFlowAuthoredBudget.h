@@ -8,7 +8,8 @@ enum class AuthoredPlanResult
 {
     NoAction,
     Handled,
-    Reobserve
+    Reobserve,
+    WaitingForCost
 };
 
 enum class AuthoredBudgetReobservation

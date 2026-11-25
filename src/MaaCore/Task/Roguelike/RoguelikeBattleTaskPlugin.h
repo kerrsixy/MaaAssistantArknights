@@ -11,6 +11,7 @@
 #include "Common/AsstTypes.h"
 #include "Config/Miscellaneous/TilePack.h"
 #include "MaaUtils/NoWarningCVMat.hpp"
+#include "RoguelikePreparationTask.h"
 #include "Task/BattleHelper.h"
 
 namespace asst
@@ -41,8 +42,11 @@ public:
 
     virtual bool verify(AsstMsg msg, const json::value& details) const override;
     bool load_params(const json::value& params) override;
+    void invalidate_prepared_primary();
+    void prepare_primary_from_selection(const std::vector<std::string>& names);
 
 protected:
+    friend class RoguelikePreparedPrimaryTestAccess;
     virtual bool _run() override;
 
     virtual AbstractTask& this_task() override { return *this; }
@@ -75,6 +79,7 @@ protected:
         battle::DeployDirection direction {}; // 部署朝向
         int cost = 0;                         // 干员部署费用，0 表示未识别
         bool prefer_group_order = false;
+        bool prepared_replacement = false;
 
         bool operator<(const DeployPlanInfo& x) const
         {
@@ -116,7 +121,23 @@ protected:
         }
     };
 
+    void begin_stage_with_prepared_primary();
+    std::vector<DeployPlanInfo> build_prepared_authored_candidates(bool& waiting);
+    void prioritize_prepared_authored(std::vector<DeployPlanInfo>& candidates);
+    bool deployment_hard_requirements_met(
+        const battle::DeploymentOper& oper,
+        const battle::roguelike::DeployInfoWithRank& plan) const;
+    std::optional<battle::roguelike::DeployInfoWithRank> prepared_plan(int plan_index) const;
+    bool prepared_runtime_eligible(
+        const battle::DeploymentOper& oper,
+        Point location,
+        battle::DeployDirection direction,
+        const std::vector<Point>& targets) const;
+    std::optional<battle::DeploymentOper> prepared_generic_primary(bool cost_observed) const;
+    bool prepared_primary_current() const;
+
     blackflow::AuthoredPlanResult do_best_deploy(bool allow_soul_inspection = true);
+    bool authored_dispatch_blocks_generic(bool urgent_home, bool allow_soul_inspection = true);
     bool request_authored_budget_reobservation(const battle::DeploymentOper& oper, const DeployPlanInfo& plan);
     static bool deployment_cost_wait_required(const battle::DeploymentOper& oper, int observed_cost);
     std::unordered_set<std::string> reconcile_returned_blackflow_operators();
@@ -295,5 +316,8 @@ protected:
     std::map<battle::OperNameTag, battle::DeployDirection> m_observed_deploy_directions;
     std::uint64_t m_soul_sequence = 0;
     bool m_soul_selection_owned = false;
+    std::optional<blackflow::PreparedComponentBatch> m_pending_prepared_primary;
+    std::optional<blackflow::PreparedComponentBatch> m_active_prepared_primary;
+    bool m_prepared_cost_observed = false;
 };
 } // namespace asst

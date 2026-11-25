@@ -48,6 +48,98 @@ std::optional<double> number(const json::value& object, const char* key)
     return std::isfinite(value) ? std::optional<double>(value) : std::nullopt;
 }
 
+struct AttributeVariants
+{
+    std::string range;
+    std::vector<PrimaryComponentVariant> variants;
+};
+
+std::optional<AttributeVariants> attributes(
+    const json::object& op,
+    int elite,
+    int level,
+    const ProjectedOutputAttributes& evidence,
+    std::string& reason)
+{
+    const auto reject = [&](const char* text) -> std::optional<AttributeVariants> {
+        reason = text;
+        return std::nullopt;
+    };
+    const auto phases = op.find<json::array>("phases"), ranges = op.find<json::array>("ranges"),
+               trust = op.find<json::array>("trust_ATK"), potential = op.find<json::array>("potential_ATK"),
+               own = op.find<json::array>("own_by_phase_potential");
+    if (!phases || !ranges || !trust || !potential || !own || elite < 0 ||
+        phases->size() <= static_cast<std::size_t>(elite) || ranges->size() <= static_cast<std::size_t>(elite) ||
+        own->size() <= static_cast<std::size_t>(elite) || !phases->at(elite).is_array() || !own->at(elite).is_array() ||
+        trust->size() != 2 || potential->size() != 6) {
+        return reject("attribute_bounds_source_missing");
+    }
+    const auto& frames = phases->at(elite).as_array();
+    if (frames.size() != 2 || own->at(elite).as_array().size() != 6) {
+        return reject("invalid_source_keyframes");
+    }
+    const auto first = number(frames.at(0), "level"), last = number(frames.at(1), "level"),
+               atk0 = number(frames.at(0), "atk"), atk1 = number(frames.at(1), "atk"),
+               period0 = number(frames.at(0), "period"), period1 = number(frames.at(1), "period");
+    if (!first || !last || !atk0 || !atk1 || !period0 || !period1 || level < *first || level > *last ||
+        *last < *first) {
+        return reject("typed_attribute_or_skill_inputs_invalid");
+    }
+    for (const auto& value : *trust) {
+        if (!value.is_number() || !std::isfinite(value.as_double())) {
+            return reject("invalid_trust_bounds");
+        }
+    }
+    for (const auto& value : *potential) {
+        if (!value.is_number() || !std::isfinite(value.as_double())) {
+            return reject("invalid_potential_bounds");
+        }
+    }
+    if (trust->at(0).as_double() > trust->at(1).as_double()) {
+        return reject("reversed_source_bounds");
+    }
+    const double ratio = *last == *first ? 0 : (level - *first) / (*last - *first);
+    const double bare = *atk0 + ratio * (*atk1 - *atk0), period = *period0 + ratio * (*period1 - *period0);
+    double tl = trust->at(0).as_double(), th = trust->at(1).as_double();
+    int pl = 0, ph = 5;
+    if (!evidence.source.empty() && evidence.trust_percent) {
+        if (*evidence.trust_percent < 0 || *evidence.trust_percent > 200) {
+            return reject("invalid_trust_percentage");
+        }
+        if (*evidence.trust_percent == 0) {
+            th = tl;
+        }
+        else if (*evidence.trust_percent >= 100) {
+            tl = th;
+        }
+    }
+    if (!evidence.source.empty() && evidence.potential) {
+        if (*evidence.potential < 1 || *evidence.potential > 6) {
+            return reject("invalid_potential_rank");
+        }
+        pl = ph = *evidence.potential - 1;
+    }
+    AttributeVariants result { .range = ranges->at(elite).as_string() };
+    for (int p = pl; p <= ph; ++p) {
+        const auto& self = own->at(elite).as_array().at(p);
+        const auto attack = number(self, "atk_fraction"), speed = number(self, "aspd"),
+                   bonus = number(self, "first_deploy_sp_upper");
+        if (!attack || !speed || !bonus || *bonus < 0) {
+            return reject("reviewed_own_talent_bounds_missing");
+        }
+        result.variants.push_back(
+            PrimaryComponentVariant {
+                .pre_talent_attack = { std::floor(bare + tl + potential->at(p).as_double()),
+                                       std::ceil(bare + th + potential->at(p).as_double()) },
+                .own_atk_fraction = *attack,
+                .own_aspd = *speed,
+                .base_period = period,
+                .first_deploy_sp_upper = *bonus,
+            });
+    }
+    return result;
+}
+
 }
 
 bool projected_output_strictly_better(const ProjectedOutputEstimate& a, const ProjectedOutputEstimate& b)
@@ -187,106 +279,42 @@ ProjectedOutputEstimate BlackFlowRecruitmentDutyCatalog::primary_components(
             !model->at("range_unchanged").as_boolean()) {
             return reject("selected_default_or_alternate_skill_model_unreviewed");
         }
-        const auto phases = op->find<json::array>("phases"), ranges = op->find<json::array>("ranges"),
-                   trust = op->find<json::array>("trust_ATK"), potential = op->find<json::array>("potential_ATK"),
-                   own = op->find<json::array>("own_by_phase_potential");
-        if (!phases || !ranges || !trust || !potential || !own || phases->size() <= static_cast<std::size_t>(elite) ||
-            ranges->size() <= static_cast<std::size_t>(elite) || own->size() <= static_cast<std::size_t>(elite) ||
-            !phases->at(elite).is_array() || !own->at(elite).is_array() || trust->size() != 2 ||
-            potential->size() != 6) {
-            return reject("attribute_bounds_source_missing");
-        }
-        const auto& frames = phases->at(elite).as_array();
-        if (frames.size() != 2 || own->at(elite).as_array().size() != 6) {
-            return reject("invalid_source_keyframes");
-        }
-        const auto first = projected_output_detail::number(frames.at(0), "level"),
-                   last = projected_output_detail::number(frames.at(1), "level"),
-                   atk0 = projected_output_detail::number(frames.at(0), "atk"),
-                   atk1 = projected_output_detail::number(frames.at(1), "atk"),
-                   period0 = projected_output_detail::number(frames.at(0), "period"),
-                   period1 = projected_output_detail::number(frames.at(1), "period");
         const auto hits = projected_output_detail::number(*model, "hits"),
                    add = projected_output_detail::number(*model, "interval_add"),
                    sp = projected_output_detail::number(row, "sp_cost"),
                    initial = projected_output_detail::number(row, "initial_sp");
         const auto scales = model->find<json::array>("scale_bounds");
-        if (!first || !last || !atk0 || !atk1 || !period0 || !period1 || !hits || !add || !sp || !initial ||
-            level < *first || level > *last || *last < *first || *hits <= 0 || *sp < 0 || *initial < 0 ||
+        if (!hits || !add || !sp || !initial || *hits <= 0 || *sp < 0 || *initial < 0 ||
             row.get("sp_type", "") != "INCREASE_WITH_TIME" || !scales || scales->size() != 2) {
             return reject("typed_attribute_or_skill_inputs_invalid");
-        }
-        for (const auto& v : *trust) {
-            if (!v.is_number() || !std::isfinite(v.as_double())) {
-                return reject("invalid_trust_bounds");
-            }
-        }
-        for (const auto& v : *potential) {
-            if (!v.is_number() || !std::isfinite(v.as_double())) {
-                return reject("invalid_potential_bounds");
-            }
         }
         for (const auto& v : *scales) {
             if (!v.is_number() || !std::isfinite(v.as_double()) || v.as_double() <= 0) {
                 return reject("invalid_damage_scale");
             }
         }
-        if (trust->at(0).as_double() > trust->at(1).as_double() ||
-            scales->at(0).as_double() > scales->at(1).as_double()) {
+        if (scales->at(0).as_double() > scales->at(1).as_double()) {
             return reject("reversed_source_bounds");
         }
-        const double ratio = *last == *first ? 0 : (level - *first) / (*last - *first);
-        const double bare = *atk0 + ratio * (*atk1 - *atk0), base_period = *period0 + ratio * (*period1 - *period0);
-        double tl = trust->at(0).as_double(), th = trust->at(1).as_double();
-        int pl = 0, ph = 5;
-        if (!attributes.source.empty() && attributes.trust_percent) {
-            if (*attributes.trust_percent < 0 || *attributes.trust_percent > 200) {
-                return reject("invalid_trust_percentage");
-            }
-            if (*attributes.trust_percent == 0) {
-                th = tl;
-            }
-            else if (*attributes.trust_percent >= 100) {
-                tl = th;
-            }
-            // Intermediate trust mapping remains the complete source interval.
+        std::string attribute_reason;
+        const auto parsed = projected_output_detail::attributes(*op, elite, level, attributes, attribute_reason);
+        if (!parsed) {
+            return reject(attribute_reason.c_str());
         }
-        if (!attributes.source.empty() && attributes.potential) {
-            if (*attributes.potential < 1 || *attributes.potential > 6) {
-                return reject("invalid_potential_rank");
-            }
-            pl = ph = *attributes.potential - 1;
-        }
-        for (int p = pl; p <= ph; ++p) {
-            const auto& self = own->at(elite).as_array().at(p);
-            const auto attack = projected_output_detail::number(self, "atk_fraction"),
-                       speed = projected_output_detail::number(self, "aspd"),
-                       bonus = projected_output_detail::number(self, "first_deploy_sp_upper");
-            if (!attack || !speed || !bonus || *bonus < 0) {
-                return reject("reviewed_own_talent_bounds_missing");
-            }
-            const auto component = calculate_primary_component(
-                PrimaryComponentVariant {
-                    .pre_talent_attack = { std::floor(bare + tl + potential->at(p).as_double()),
-                                           std::ceil(bare + th + potential->at(p).as_double()) },
-                    .own_atk_fraction = *attack,
-                    .own_aspd = *speed,
-                    .base_period = base_period,
-                    .skill_interval_add = *add,
-                    .skill_scale = { scales->at(0).as_double(), scales->at(1).as_double() },
-                    .hits = *hits,
-                    .sp_cost = *sp,
-                    .initial_sp = *initial,
-                    .first_deploy_sp_upper = *bonus,
-                },
-                external);
+        for (auto variant : parsed->variants) {
+            variant.skill_interval_add = *add;
+            variant.skill_scale = { scales->at(0).as_double(), scales->at(1).as_double() };
+            variant.hits = *hits;
+            variant.sp_cost = *sp;
+            variant.initial_sp = *initial;
+            const auto component = calculate_primary_component(variant, external);
             if (!component) {
                 return reject("invalid_computed_attribute_or_modifier_bounds");
             }
             out.lower.push_back(component->lower);
             out.upper.push_back(component->upper);
         }
-        out.range = ranges->at(elite).as_string();
+        out.range = parsed->range;
         out.qualified = !out.range.empty();
         out.reason = modifiers ? "bounded_trust_potential_own_talents_and_explicit_external_conditions_not_full_DPS"
                                : "outside_intrinsic_primary_components_estimate_not_current_run_dominance";
@@ -295,6 +323,246 @@ ProjectedOutputEstimate BlackFlowRecruitmentDutyCatalog::primary_components(
     catch (const json::exception&) {
         return reject("malformed_projected_source_unknown_not_abort");
     }
+}
+
+ConditionalPrimaryEstimate BlackFlowRecruitmentDutyCatalog::conditional_primary(
+    const std::string& name,
+    int elite,
+    int level,
+    int slot,
+    int displayed_or_effective_rank,
+    const ProjectedOutputAttributes& attributes,
+    const PrimarySequenceConditions& conditions,
+    const std::string& source) const
+{
+    ConditionalPrimaryEstimate out { .id = RoguelikeTraining.unique_identity(name), .source = source };
+    const auto reject = [&](const std::string& reason) {
+        out.qualified = false;
+        out.reason = reason;
+        return out;
+    };
+    const auto rank = normalize_displayed_skill_level_for_run(name, slot, elite, level, displayed_or_effective_rank);
+    if (!m_valid || out.id.empty() || !m_operators.contains(out.id) || !rank || source.empty()) {
+        return reject("conditional_identity_phase_slot_rank_or_source_unproven");
+    }
+    out.effective_rank = *rank;
+    if (conditions.target != ConditionalPrimaryTarget::Ground) {
+        return reject("target_class_not_proven_ground_reference");
+    }
+    if (conditions.source.empty() && (conditions.isolated_target || conditions.steal_succeeded ||
+                                      conditions.stolen_aspd || conditions.remaining_ammunition)) {
+        return reject("conditional_observation_provenance_missing");
+    }
+    const auto bounds = [](const json::value& value) -> std::optional<std::array<double, 2>> {
+        if (!value.is_array() || value.as_array().size() != 2) {
+            return std::nullopt;
+        }
+        const auto& values = value.as_array();
+        if (!values.at(0).is_number() || !values.at(1).is_number()) {
+            return std::nullopt;
+        }
+        const std::array<double, 2> result { values.at(0).as_double(), values.at(1).as_double() };
+        return std::isfinite(result[0]) && std::isfinite(result[1]) && result[0] <= result[1] ? std::optional(result)
+                                                                                              : std::nullopt;
+    };
+    try {
+        const auto& raw = m_operators.at(out.id);
+        const auto op = raw.find<json::object>("projected_attributes");
+        const auto row = skill(out.id, slot, *rank);
+        const auto model = row.find<json::object>("conditional_primary");
+        if (!op || !model || model->get("kind", "") != "physical_conditional_modes" ||
+            model->get("target_class", "") != "ground_reference" || !model->contains("requires_sustain_coverage") ||
+            !model->at("requires_sustain_coverage").is<bool>() || !model->contains("range_unchanged") ||
+            !model->at("range_unchanged").is<bool>() || !model->at("range_unchanged").as_boolean() ||
+            model->get("source_skill_sha256", "") != m_public_skill_sha ||
+            model->get("source_skill_id", "") != raw.at("slots").as_array().at(slot - 1).get("skill_id", "")) {
+            return reject("selected_conditional_skill_model_or_source_unreviewed");
+        }
+        std::string reason;
+        const auto parsed = projected_output_detail::attributes(*op, elite, level, attributes, reason);
+        if (!parsed || parsed->range.empty()) {
+            return reject(reason.empty() ? "attribute_range_unknown" : reason);
+        }
+        out.range = parsed->range;
+        out.requires_sustain_coverage = model->at("requires_sustain_coverage").as_boolean();
+        const auto attack = projected_output_detail::number(*model, "atk_fraction"),
+                   interval = projected_output_detail::number(*model, "interval_add"),
+                   sp = projected_output_detail::number(row, "sp_cost"),
+                   initial = projected_output_detail::number(row, "initial_sp");
+        const auto modes = model->find<json::array>("modes"),
+                   main = model->find<json::array>("main_target_scale_by_phase"),
+                   ammo_self = model->find<json::array>("ammo_self_atk_by_phase_potential"),
+                   limitations = model->find<json::array>("limitations");
+        if (!attack || !interval || !sp || !initial || *sp < 0 || *initial < 0 ||
+            row.get("sp_type", "") != "INCREASE_WITH_TIME" || !modes || modes->empty() || !main ||
+            main->size() <= static_cast<std::size_t>(elite) || !ammo_self ||
+            ammo_self->size() <= static_cast<std::size_t>(elite) || !ammo_self->at(elite).is_array() ||
+            ammo_self->at(elite).as_array().size() != 6 || !limitations) {
+            return reject("conditional_skill_rows_or_phase_conditions_invalid");
+        }
+        const auto target_scale = bounds(main->at(elite));
+        if (!target_scale || (*target_scale)[0] <= 0) {
+            return reject("main_target_factor_bounds_invalid");
+        }
+        for (const auto& item : *limitations) {
+            if (!item.is_string()) {
+                return reject("conditional_limitations_not_typed");
+            }
+            out.limitations.push_back(item.as_string());
+        }
+        out.sp_debt = { std::max(0.0, *sp - *initial), std::max(0.0, *sp - *initial) };
+        for (const auto& raw_mode : *modes) {
+            if (!raw_mode.is_object()) {
+                return reject("conditional_mode_not_object");
+            }
+            const auto scale = projected_output_detail::number(raw_mode, "scale"),
+                       projectiles = projected_output_detail::number(raw_mode, "projectiles");
+            const std::string key = raw_mode.get("key", ""), allocation = raw_mode.get("allocation", "");
+            if (key.empty() || !scale || *scale <= 0 || !projectiles || *projectiles < 1 ||
+                std::floor(*projectiles) != *projectiles || *projectiles > 64 ||
+                (allocation != "acquired" && allocation != "random_in_range")) {
+                return reject("conditional_hit_allocation_invalid");
+            }
+            PrimarySequenceMode mode;
+            mode.interval_add = *interval;
+            const int count = static_cast<int>(*projectiles);
+            mode.hits.push_back(
+                PhysicalHitScale {
+                    .scale = { *scale * (*target_scale)[0], *scale * (*target_scale)[1] },
+                    .count = { allocation == "random_in_range" && conditions.isolated_target != true ? 0 : count,
+                               count },
+                });
+            if (raw_mode.contains("ammunition")) {
+                const auto ammo = projected_output_detail::number(raw_mode, "ammunition");
+                if (!ammo || *ammo < 1 || std::floor(*ammo) != *ammo || *ammo > 10'000) {
+                    return reject("conditional_ammunition_invalid");
+                }
+                const int base = static_cast<int>(*ammo);
+                mode.ammunition = std::array<int, 2> { base, base };
+            }
+            if (raw_mode.contains("steal_max_aspd")) {
+                const auto speed = projected_output_detail::number(raw_mode, "steal_max_aspd"),
+                           extra = projected_output_detail::number(raw_mode, "steal_bonus_ammo");
+                if (!speed || *speed < 0 || !extra || *extra < 0 || std::floor(*extra) != *extra || *extra > 10'000 ||
+                    !mode.ammunition ||
+                    (conditions.stolen_aspd &&
+                     (!conditions.steal_succeeded || !std::isfinite(*conditions.stolen_aspd) ||
+                      *conditions.stolen_aspd < 0 || *conditions.stolen_aspd > *speed ||
+                      (conditions.steal_succeeded == false && *conditions.stolen_aspd > 0)))) {
+                    return reject("steal_observation_or_ammunition_condition_invalid");
+                }
+                mode.extra_aspd = conditions.steal_succeeded == false ? std::array<double, 2> { 0, 0 }
+                                                                      : std::array<double, 2> { 0, *speed };
+                if (conditions.stolen_aspd) {
+                    mode.extra_aspd = { *conditions.stolen_aspd, *conditions.stolen_aspd };
+                }
+                if (conditions.steal_succeeded != false) {
+                    (*mode.ammunition)[1] += static_cast<int>(*extra);
+                }
+                if (conditions.steal_succeeded == true) {
+                    (*mode.ammunition)[0] = (*mode.ammunition)[1];
+                }
+            }
+            else if (conditions.steal_succeeded || conditions.stolen_aspd) {
+                return reject("steal_condition_supplied_to_nonstealing_mode");
+            }
+            if (conditions.remaining_ammunition) {
+                if (!mode.ammunition || *conditions.remaining_ammunition < 0 ||
+                    *conditions.remaining_ammunition > (*mode.ammunition)[1]) {
+                    return reject("remaining_ammunition_outside_source_capacity");
+                }
+                if (*conditions.remaining_ammunition == 0) {
+                    return reject("observed_ammunition_exhausted");
+                }
+                mode.ammunition =
+                    std::array<int, 2> { *conditions.remaining_ammunition, *conditions.remaining_ammunition };
+            }
+            ConditionalPrimaryModeEstimate output { .key = key,
+                                                    .ammunition_is_observed_remaining =
+                                                        conditions.remaining_ammunition.has_value() };
+            output.added_aspd = mode.extra_aspd;
+            output.ally_opportunity_cost_unresolved =
+                raw_mode.contains("steal_max_aspd") && conditions.steal_succeeded != false;
+            if (raw_mode.contains("simultaneous_target_capacity")) {
+                const auto capacity = projected_output_detail::number(raw_mode, "simultaneous_target_capacity");
+                if (!capacity || *capacity < 1 || *capacity > 64 || std::floor(*capacity) != *capacity) {
+                    return reject("simultaneous_target_capacity_invalid");
+                }
+                output.simultaneous_target_capacity = static_cast<int>(*capacity);
+            }
+            const int first_potential =
+                !attributes.source.empty() && attributes.potential ? *attributes.potential - 1 : 0;
+            for (std::size_t i = 0; i < parsed->variants.size(); ++i) {
+                const auto conditional_attack = bounds(ammo_self->at(elite).as_array().at(first_potential + i));
+                if (!conditional_attack) {
+                    return reject("conditional_own_ammo_talent_bounds_invalid");
+                }
+                mode.extra_atk_fraction = { *attack + (*conditional_attack)[0], *attack + (*conditional_attack)[1] };
+                auto variant = parsed->variants[i];
+                variant.sp_cost = *sp;
+                variant.initial_sp = *initial;
+                const auto sequence = calculate_primary_sequence(variant, mode, std::nullopt);
+                if (!sequence) {
+                    return reject("conditional_primary_numeric_inputs_invalid");
+                }
+                out.sp_debt[0] =
+                    std::min(out.sp_debt[0], std::max(0.0, *sp - *initial - variant.first_deploy_sp_upper));
+                output.variants.push_back(*sequence);
+            }
+            out.modes.push_back(std::move(output));
+        }
+        out.qualified = !out.modes.empty();
+        out.reason = "source_conditioned_intrinsic_hit_sequences_not_recruitment_winner_or_live_DPS";
+        return out;
+    }
+    catch (const json::exception&) {
+        return reject("malformed_conditional_source_unknown_not_abort");
+    }
+}
+
+json::value conditional_primary_to_json(const ConditionalPrimaryEstimate& value)
+{
+    const auto sequence_json = [](const PhysicalHitSequence& sequence) {
+        json::array hits;
+        for (const auto& hit : sequence.hits) {
+            hits.emplace_back(json::object { { "damage_per_hit", hit.damage }, { "count", hit.count } });
+        }
+        return json::object { { "hits", hits },
+                              { "period", sequence.period },
+                              { "ammunition",
+                                sequence.ammunition ? json::value(*sequence.ammunition) : json::value(nullptr) } };
+    };
+    json::array modes;
+    for (const auto& mode : value.modes) {
+        json::array variants;
+        for (const auto& variant : mode.variants) {
+            variants.emplace_back(
+                json::object { { "lower", sequence_json(variant.lower) }, { "upper", sequence_json(variant.upper) } });
+        }
+        modes.emplace_back(
+            json::object { { "key", mode.key },
+                           { "variants", variants },
+                           { "simultaneous_target_capacity",
+                             mode.simultaneous_target_capacity ? json::value(*mode.simultaneous_target_capacity)
+                                                               : json::value(nullptr) },
+                           { "added_aspd", mode.added_aspd },
+                           { "ally_opportunity_cost_unresolved", mode.ally_opportunity_cost_unresolved },
+                           { "ammunition_is_observed_remaining", mode.ammunition_is_observed_remaining } });
+    }
+    return json::object { { "qualified", value.qualified },
+                          { "operator_id", value.id },
+                          { "range", value.range },
+                          { "effective_rank", value.effective_rank },
+                          { "source", value.source },
+                          { "reason", value.reason },
+                          { "sp_debt_not_activation_seconds", value.sp_debt },
+                          { "requires_sustain_coverage", value.requires_sustain_coverage },
+                          { "survival_proven", false },
+                          { "modes", modes },
+                          { "limitations", value.limitations },
+                          { "full_DPS", nullptr },
+                          { "unknown_external_assumed_zero", false },
+                          { "automatic_recruitment_choice", false } };
 }
 
 RecruitmentSkillPlan
@@ -457,6 +725,7 @@ bool BlackFlowRecruitmentDutyCatalog::load(
     m_operators = json::object {};
     m_temporary_rule = nullptr;
     m_revision.clear();
+    m_public_skill_sha.clear();
     const auto facts = json::open(f), training = json::open(t), battle = json::open(b);
     return facts && training && battle && configure(*facts, *training, *battle);
 }
@@ -508,6 +777,7 @@ bool BlackFlowRecruitmentDutyCatalog::configure(const json::value& f, const json
     }
     m_operators = std::move(verified);
     m_revision = f.get("game_data_revision", "");
+    m_public_skill_sha = f.get("public_skill_sha256", "");
     if (const auto temporary = f.find<json::object>("temporary_rule");
         temporary && temporary->get("kind", "") == "temporary_recruit_hope_zero" && temporary->get("topic", -1) == 6 &&
         temporary->get("mode", -1) == 0 && !temporary->get("sha256", "").empty()) {
