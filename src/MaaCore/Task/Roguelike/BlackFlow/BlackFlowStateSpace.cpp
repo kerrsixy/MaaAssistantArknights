@@ -36,6 +36,7 @@ RunState materialize_run_state(
 {
     RunState result = source;
     result.current_node = state.node;
+    result.scene_rewards_available = state.scene_rewards_available;
     result.resources.action_points = action_points;
     result.resources.movement_charges.clear();
     for (const auto& spec : movement_specs()) {
@@ -86,6 +87,7 @@ PlannerState transition_state(
     const std::unordered_map<NodeId, std::uint8_t>& node_indices)
 {
     PlannerState successor = source;
+    successor.scene_rewards_available = false;
     successor.node = landing;
     if (action.candidate.movement != MovementKind::Walk) {
         auto& charge = successor.movement_charges[movement_index(action.candidate.movement)];
@@ -133,8 +135,11 @@ int action_gain(
     }
     const Node* node = map.find_node(effect_node);
     const auto bit = node_bit(node_indices, effect_node);
-    if (node != nullptr && bit.has_value() && node->type == NodeType::Light && (source.consumed_lights & *bit) == 0) {
-        ++gain;
+    if (node != nullptr && bit.has_value()) {
+        gain += guaranteed_node_action_point_gain(
+            *node,
+            (source.consumed_lights & *bit) != 0,
+            source.scene_rewards_available);
     }
     return gain;
 }
@@ -253,8 +258,13 @@ std::optional<ProjectedMoveOutcome> project_move_outcome(
 
     ProjectedMoveOutcome outcome;
     outcome.run = run;
-    outcome.action_point_gain = move.predicted_action_point_gain;
+    outcome.action_point_gain =
+        movement->effect.action_point_gain + guaranteed_node_action_point_gain(
+                                                 *target,
+                                                 run.consumed_one_time_nodes.contains(move.target),
+                                                 run.scene_rewards_available);
     outcome.run.current_node = move.landing;
+    outcome.run.scene_rewards_available = false;
     outcome.run.resources.action_points =
         action_points_after(run.resources.action_points, exact_action_point_cost, outcome.action_point_gain);
     outcome.run.resources.hope += movement->effect.hope_gain;
@@ -300,7 +310,8 @@ std::size_t PlannerStateHash::operator()(const PlannerState& state) const noexce
     seed = combine_hash(seed, std::hash<PlannerNodeMask> {}(state.opened_blockers));
     seed = combine_hash(seed, std::hash<PlannerNodeMask> {}(state.consumed_lights));
     seed = combine_hash(seed, std::hash<SafetyGoalProgressId> {}(state.goal_progress_id));
-    return combine_hash(seed, std::hash<bool> {}(state.terminal));
+    seed = combine_hash(seed, std::hash<bool> {}(state.terminal));
+    return combine_hash(seed, std::hash<bool> {}(state.scene_rewards_available));
 }
 
 bool OnDemandStateGraph::initialize(
@@ -367,6 +378,7 @@ bool OnDemandStateGraph::initialize(
 
     PlannerState initial;
     initial.node = run.current_node;
+    initial.scene_rewards_available = run.scene_rewards_available;
     if (m_options.safety_goal != nullptr) {
         initial.goal_progress_id = m_options.initial_goal_progress_id != InvalidSafetyGoalProgressId
                                        ? m_options.initial_goal_progress_id

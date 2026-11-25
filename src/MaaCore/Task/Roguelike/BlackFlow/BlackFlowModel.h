@@ -111,6 +111,8 @@ struct NodeOccupation
 
 [[nodiscard]] std::optional<NodeOccupation>
     parse_rest_occupation_description(std::string text, std::string stage_title = {});
+[[nodiscard]] std::optional<NodeOccupation>
+    parse_node_occupation_description(std::string text, std::string stage_title = {});
 
 struct Node
 {
@@ -139,9 +141,15 @@ struct Node
     std::optional<NodeId> transfer_target;
     // type/name are effective entry facts; retain independent base-map identity.
     std::optional<NodeOccupation> occupation;
+    // A base-map Light glyph does not prove an unoccupied AP reward.
+    // Cleared on the existing movement scope reset, identity change, or floor reset.
+    bool light_reward_verified = false;
 
     bool operator==(const Node&) const noexcept = default;
 };
+
+[[nodiscard]] int
+    guaranteed_node_action_point_gain(const Node& node, bool consumed, bool scene_rewards_available = true) noexcept;
 
 struct EdgeEvidence
 {
@@ -435,6 +443,8 @@ struct RunState
     std::unordered_set<MovementKind> cross_floor_expired;
     std::unordered_map<NodeId, NodeProgress> node_progress;
     bool strategy_terminal = false;
+    // Transient hypothetical projection flag; actual scene proofs expire on a move.
+    bool scene_rewards_available = true;
 };
 
 struct MoveCandidate

@@ -727,6 +727,9 @@ void BlackFlowSession::queue_map_summary(std::optional<NodeId> corrected_node)
                 { "base_map_type", std::string(to_string(node.occupation ? node.occupation->base_type : node.type)) },
                 { "effective_entry_type", std::string(to_string(node.type)) },
                 { "occupation_confirmed", node.occupation.has_value() },
+                { "light_reward_verified", node.light_reward_verified },
+                { "guaranteed_action_point_gain",
+                  guaranteed_node_action_point_gain(node, m_run.consumed_one_time_nodes.contains(node.id)) },
                 { "base_map_name", node.occupation ? node.occupation->base_name : node.name },
                 { "occupation_rewards_known", node.occupation ? json::value(false) : json::value(nullptr) },
                 { "stage_title", node.occupation ? node.occupation->stage_title : std::string {} },
@@ -1752,8 +1755,9 @@ PreviewDisposition BlackFlowSession::accept_preview_in_place(MovePreview preview
                                                         : existing->type;
     const bool occupation_bound =
         preview.occupation && existing != nullptr &&
-        (visual_type == NodeType::Unknown || visual_type == NodeType::Rest) &&
-        preview.occupation->base_type == NodeType::Rest && preview.occupation->entry_type == NodeType::BattleNormal &&
+        (visual_type == NodeType::Unknown || visual_type == preview.occupation->base_type) &&
+        (preview.occupation->base_type == NodeType::Rest || preview.occupation->base_type == NodeType::Light) &&
+        preview.occupation->entry_type == NodeType::BattleNormal &&
         preview.occupation->cleared_type == NodeType::Empty && !preview.occupation->stage_title.empty() &&
         preview.displayed_type == NodeType::BattleNormal;
     const bool occupation_released = existing != nullptr && existing->occupation && !preview.occupation &&

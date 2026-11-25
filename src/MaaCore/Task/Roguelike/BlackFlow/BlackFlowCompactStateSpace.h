@@ -73,6 +73,7 @@ private:
         NodeIdentityState identity_state = NodeIdentityState::Unclassified;
         std::optional<std::uint8_t> transfer_landing;
         bool identity_from_template = false;
+        int guaranteed_action_point_gain = 0;
     };
 
     [[nodiscard]] std::optional<PlannerNodeMask> bit(NodeId node) const noexcept;
