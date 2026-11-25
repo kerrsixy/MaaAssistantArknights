@@ -18,6 +18,7 @@ namespace asst
 {
 namespace blackflow
 {
+class BlackFlowSession;
 class BlackFlowHunterPreludeController;
 class BlackFlowSoulObserver;
 class BlackFlowSoulEvidenceBuffer;
@@ -43,7 +44,13 @@ public:
     virtual bool verify(AsstMsg msg, const json::value& details) const override;
     bool load_params(const json::value& params) override;
     void invalidate_prepared_primary();
-    void prepare_primary_from_selection(const std::vector<std::string>& names);
+    void prepare_primary_from_selection(
+        const std::vector<std::string>& names,
+        const std::optional<blackflow::FormationRoleProposal>& proposal = std::nullopt);
+    void set_blackflow_session(std::shared_ptr<blackflow::BlackFlowSession> session);
+    std::optional<blackflow::PreparationStageContext> preparation_stage_context() const;
+    void publish_formation_role(blackflow::FormationRoleProposal proposal);
+    std::optional<blackflow::FormationRoleProposal> take_formation_role();
 
 protected:
     friend class RoguelikePreparedPrimaryTestAccess;
@@ -134,6 +141,7 @@ protected:
         battle::DeployDirection direction,
         const std::vector<Point>& targets) const;
     std::optional<battle::DeploymentOper> prepared_generic_primary(bool cost_observed) const;
+    std::optional<battle::DeploymentOper> prepared_assigned_primary(bool cost_observed) const;
     bool prepared_primary_current() const;
 
     blackflow::AuthoredPlanResult do_best_deploy(bool allow_soul_inspection = true);
@@ -319,5 +327,7 @@ protected:
     std::optional<blackflow::PreparedComponentBatch> m_pending_prepared_primary;
     std::optional<blackflow::PreparedComponentBatch> m_active_prepared_primary;
     bool m_prepared_cost_observed = false;
+    std::shared_ptr<blackflow::BlackFlowSession> m_preparation_session;
+    std::optional<blackflow::FormationRoleProposal> m_formation_role_proposal;
 };
 } // namespace asst

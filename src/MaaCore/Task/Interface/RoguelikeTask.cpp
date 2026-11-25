@@ -87,9 +87,9 @@ asst::RoguelikeTask::RoguelikeTask(const AsstCallback& callback, Assistant* inst
         m_roguelike_task_ptr->register_plugin<RoguelikeShoppingTaskPlugin>(m_config_ptr, m_control_ptr);
     shopping_plugin->set_retry_times(0);
 
-    m_roguelike_task_ptr->register_plugin<RoguelikeBattleTaskPlugin>(m_config_ptr, m_control_ptr)
-        ->set_retry_times(0)
-        .set_ignore_error(true);
+    const auto battle_plugin =
+        m_roguelike_task_ptr->register_plugin<RoguelikeBattleTaskPlugin>(m_config_ptr, m_control_ptr);
+    battle_plugin->set_retry_times(0).set_ignore_error(true);
     m_roguelike_task_ptr->register_plugin<RoguelikeRecruitTaskPlugin>(m_config_ptr, m_control_ptr)
         ->set_retry_times(2)
         .set_ignore_error(true);
@@ -135,8 +135,13 @@ asst::RoguelikeTask::RoguelikeTask(const AsstCallback& callback, Assistant* inst
     // ------------------ 黑流树海主题专用插件 ------------------
     m_blackflow_map_source_ptr = std::make_shared<blackflow::BlackFlowMapObservationSource>();
     m_blackflow_session_ptr = std::make_shared<blackflow::BlackFlowSession>();
-    m_blackflow_port_ptr =
-        std::make_shared<blackflow::BlackFlowTaskPort>(callback, inst, TaskType, m_blackflow_map_source_ptr);
+    m_blackflow_port_ptr = std::make_shared<blackflow::BlackFlowTaskPort>(
+        callback,
+        inst,
+        TaskType,
+        m_blackflow_map_source_ptr,
+        m_config_ptr);
+    battle_plugin->set_blackflow_session(m_blackflow_session_ptr);
     encounter_plugin->set_blackflow_session(m_blackflow_session_ptr);
     shopping_plugin->set_blackflow_session(m_blackflow_session_ptr);
     m_roguelike_task_ptr->register_plugin<blackflow::BlackFlowAccountTaskPlugin>(m_config_ptr, m_control_ptr)

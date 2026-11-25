@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AbstractRoguelikeTaskPlugin.h"
+#include "RoguelikePreparationTask.h"
 #include "Vision/Roguelike/RoguelikeFormationImageAnalyzer.h"
 
 namespace asst
@@ -22,16 +23,23 @@ protected:
     virtual bool _run() override;
     virtual bool on_run_fails() override;
 
-    void clear_and_reselect();
-    bool analyze();
+    std::optional<blackflow::FormationRoleProposal>
+        plan_primary_members(const std::vector<std::string>& all, const std::vector<std::string>& legacy) const;
+    bool confirm_primary_members(blackflow::FormationRoleProposal& proposal, const std::vector<std::string>& actual)
+        const;
+    bool clear_and_reselect();
+    bool analyze(bool read_training = true);
     bool select(RoguelikeFormationImageAnalyzer::FormationOper oper);
     void swipe_to_first_page();
-    void scan_oper();
+    bool scan_oper(bool read_training = true);
     void observe_preparation(
         const cv::Mat& frame,
         const std::vector<RoguelikeFormationImageAnalyzer::FormationOper>& operators);
 
 private:
+    friend class RoguelikePreparedPrimaryTestAccess;
+    bool m_scan_failed = false;
+    bool m_selection_input_issued = false;
     int cur_page = 1;
     int max_page = 1;
     std::vector<RoguelikeFormationImageAnalyzer::FormationOper> oper_list;

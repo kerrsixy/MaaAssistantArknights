@@ -1,5 +1,7 @@
 #include "RoguelikeFormationTaskPlugin.h"
+#include "RoguelikeBattleTaskPlugin.h"
 #include "RoguelikePreparationTask.h"
+#include "Utils/WorkingDir.hpp"
 
 #include "Config/Roguelike/RoguelikeRecruitConfig.h"
 #include "Config/TaskData.h"
@@ -59,6 +61,11 @@ bool asst::RoguelikeFormationTaskPlugin::_run()
 {
     LogTraceFunction;
 
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_task_ptr) {
+        if (const auto battle = m_task_ptr->find_plugin<RoguelikeBattleTaskPlugin>()) {
+            battle->invalidate_prepared_primary();
+        }
+    }
     const auto frame = ctrler()->get_image();
     RoguelikeFormationImageAnalyzer formation_analyzer(frame);
     if (!formation_analyzer.analyze()) {
@@ -111,31 +118,39 @@ bool asst::RoguelikeFormationTaskPlugin::_run()
     }
 
     if (reselect) {
-        clear_and_reselect();
+        return clear_and_reselect();
     }
 
     return true;
 }
 
-void asst::RoguelikeFormationTaskPlugin::clear_and_reselect()
+bool asst::RoguelikeFormationTaskPlugin::clear_and_reselect()
 {
     LogTraceFunction;
 
     // 清空并退出游戏会自动按等级重新排序
-    ProcessTask(*this, { "RoguelikeQuickFormationClearAndReselect" }).run();
+    if (!ProcessTask(*this, { "RoguelikeQuickFormationClearAndReselect" }).run() &&
+        m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+        return false;
+    }
 
-    scan_oper();
+    if (!scan_oper() && m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+        return false;
+    }
     // 如果新识别出的干员页数没有之前的多，说明没在最左侧开始识别
     if (max_page > cur_page) {
         cur_page = max_page;
         swipe_to_first_page();
-        scan_oper();
+        if (!scan_oper() && m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+            return false;
+        }
     }
     max_page = cur_page;
     std::erase_if(oper_list, [&](const auto& oper) {
         return RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name);
     });
 
+    const auto all_operators = oper_list;
     // 将oper_list的每个干员重置为未选择
     for (auto& oper : oper_list) {
         oper.selected = false;
@@ -192,18 +207,153 @@ void asst::RoguelikeFormationTaskPlugin::clear_and_reselect()
 
     std::ranges::move(oper_list | std::views::take(13 - sorted_oper_list.size()), std::back_inserter(sorted_oper_list));
 
-    for (const auto& oper : sorted_oper_list) {
-        select(oper);
+    std::vector<std::string> legacy_names;
+    for (const auto& card : sorted_oper_list) {
+        legacy_names.push_back(card.name);
     }
+    std::optional<blackflow::FormationRoleProposal> role;
+    std::vector<std::string> all;
+    for (const auto& card : all_operators) {
+        all.push_back(card.name);
+    }
+    role = plan_primary_members(all, legacy_names);
+    if (role) {
+        std::vector<RoguelikeFormationImageAnalyzer::FormationOper> proposed;
+        for (const auto& name : role->requested_members) {
+            const auto found = std::ranges::find_if(all_operators, [&](const auto& x) { return x.name == name; });
+            if (found == all_operators.end()) {
+                return false;
+            }
+            proposed.push_back(*found);
+        }
+        sorted_oper_list = std::move(proposed);
+    }
+    m_selection_input_issued = false;
+    for (const auto& oper : sorted_oper_list) {
+        if (!select(oper)) {
+            return false;
+        }
+    }
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+        blackflow::FormationRoleProposal requested;
+        for (const auto& oper : sorted_oper_list) {
+            requested.requested_members.push_back(oper.name);
+        }
+        if (role) {
+            requested = *role;
+        }
+        // The current page can have moved after selecting an earlier member.
+        // Re-read names/selected flags, not all training, once for UI closure.
+        std::vector<std::string> actual;
+        if (m_selection_input_issued) {
+            swipe_to_first_page();
+            if (!scan_oper(false)) {
+                return false;
+            }
+            for (const auto& oper : oper_list) {
+                if (oper.selected) {
+                    actual.push_back(oper.name);
+                }
+            }
+        }
+        else {
+            // Full page collection is already complete and no input changed it.
+            for (const auto& oper : all_operators) {
+                if (oper.selected) {
+                    actual.push_back(oper.name);
+                }
+            }
+        }
+        const bool verified = role ? confirm_primary_members(requested, actual)
+                                   : blackflow::verify_formation_selected_set(requested, actual);
+        json::array planned;
+        if (role) {
+            for (const auto& entry : requested.full_observations) {
+                planned.emplace_back(
+                    json::object { { "name", entry.name },
+                                   { "elite", entry.full_observed.elite },
+                                   { "level", entry.full_observed.level },
+                                   { "planned_skill", entry.planned_skill },
+                                   { "training_sequence", entry.full_observed.preparation.training_sequence },
+                                   { "observed_selected_skill", entry.full_observed.preparation.selected_skill },
+                                   { "component", blackflow::conditional_primary_to_json(entry.component) } });
+            }
+        }
+        auto receipt = basic_info_with_what("BlackFlowFormationPrimaryDecision");
+        receipt["details"] =
+            json::object { { "reason", role ? requested.reason : "stage_context_unknown_preserve_legacy_members" },
+                           { "requested_members", requested.requested_members },
+                           { "observed_selected_members", actual },
+                           { "selected_set_verified", verified },
+                           { "primary_candidates", requested.primary_candidates },
+                           { "Full_planned_components", planned },
+                           { "stage_context",
+                             role ? blackflow::preparation_stage_to_json(requested.stage) : json::value(nullptr) },
+                           { "skill_selection_still_requires_actual_Skills_page", true },
+                           { "member_swap_applied", requested.requested_members != legacy_names },
+                           { "selection_input_issued", m_selection_input_issued },
+                           { "duplicate_Full_scan", false } };
+        callback(AsstMsg::SubTaskExtraInfo, receipt);
+        if (!verified) {
+            return false;
+        }
+    }
+    return true;
 }
 
-bool asst::RoguelikeFormationTaskPlugin::analyze()
+std::optional<asst::blackflow::FormationRoleProposal> asst::RoguelikeFormationTaskPlugin::plan_primary_members(
+    const std::vector<std::string>& all,
+    const std::vector<std::string>& legacy) const
+{
+    if (m_config->get_theme() != RoguelikeTheme::BlackFlow || !m_task_ptr) {
+        return std::nullopt;
+    }
+    const auto battle = m_task_ptr->find_plugin<RoguelikeBattleTaskPlugin>();
+    if (!battle) {
+        return std::nullopt;
+    }
+    const auto stage = battle->preparation_stage_context();
+    if (!stage) {
+        return std::nullopt;
+    }
+    blackflow::BlackFlowRecruitmentDutyCatalog catalog;
+    catalog.load(
+        ResDir.get() / utils::path("roguelike/BlackFlow/recruitment_duties.json"),
+        ResDir.get() / utils::path("roguelike/BlackFlow/operator_training.json"),
+        ResDir.get() / utils::path("battle_data.json"));
+    return blackflow::choose_formation_primary(
+        catalog,
+        m_config->status(),
+        *stage,
+        all,
+        legacy,
+        m_config->get_core_char());
+}
+
+bool asst::RoguelikeFormationTaskPlugin::confirm_primary_members(
+    blackflow::FormationRoleProposal& proposal,
+    const std::vector<std::string>& actual) const
+{
+    if (!blackflow::verify_formation_selected_set(proposal, actual) || !m_task_ptr) {
+        return false;
+    }
+    const auto battle = m_task_ptr->find_plugin<RoguelikeBattleTaskPlugin>();
+    const auto current = battle ? battle->preparation_stage_context() : std::nullopt;
+    if (!current || *current != proposal.stage) {
+        return false;
+    }
+    battle->publish_formation_role(proposal);
+    return true;
+}
+
+bool asst::RoguelikeFormationTaskPlugin::analyze(bool read_training)
 {
     LogTraceFunction;
 
     const auto frame = ctrler()->get_image();
     RoguelikeFormationImageAnalyzer formation_analyzer(frame);
     if (!formation_analyzer.analyze()) {
+        m_scan_failed = true;
         return false;
     }
 
@@ -214,7 +364,7 @@ bool asst::RoguelikeFormationTaskPlugin::analyze()
     std::vector<std::string> detected_oper_names(oper_name_view.begin(), oper_name_view.end());
     const bool reach_last_column = (detected_oper_names == m_last_detected_oper_names);
     m_last_detected_oper_names = std::move(detected_oper_names);
-    if (!reach_last_column) {
+    if (!reach_last_column && read_training) {
         observe_preparation(frame, formation_analyze_result);
     }
 
@@ -255,6 +405,22 @@ bool asst::RoguelikeFormationTaskPlugin::select(RoguelikeFormationImageAnalyzer:
         }
     }
     Log.info(__FUNCTION__, "select oper", oper.name, "on page", cur_page);
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+        RoguelikeFormationImageAnalyzer current(ctrler()->get_image());
+        if (!current.analyze()) {
+            return false;
+        }
+        const auto& cards = current.get_result();
+        if (std::ranges::count_if(cards, [&](const auto& x) { return x.name == oper.name; }) != 1) {
+            return false;
+        }
+        const auto target = std::ranges::find_if(cards, [&](const auto& x) { return x.name == oper.name; });
+        if (!target->selected) {
+            ctrler()->click(target->rect);
+            m_selection_input_issued = true;
+        }
+        return true;
+    }
     ctrler()->click(oper.rect);
     return true;
 }
@@ -268,18 +434,20 @@ void asst::RoguelikeFormationTaskPlugin::swipe_to_first_page()
     cur_page = 1;
 }
 
-void asst::RoguelikeFormationTaskPlugin::scan_oper()
+bool asst::RoguelikeFormationTaskPlugin::scan_oper(bool read_training)
 {
     m_last_detected_oper_names.clear();
+    m_scan_failed = false;
     oper_list.clear();
     cur_page = 1;
 
-    while (analyze()) { // 返回true说明新增了干员，可能还有下一页
+    while (analyze(read_training)) { // 返回true说明新增了干员，可能还有下一页
         ProcessTask(*this, { "RoguelikeRecruitOperListSlowlySwipeToTheRight" }).run();
         cur_page++;
     }
 
     cur_page--; // 最后多划了一下，退回最后一页的页码
+    return !m_scan_failed;
 }
 
 void asst::RoguelikeFormationTaskPlugin::observe_preparation(

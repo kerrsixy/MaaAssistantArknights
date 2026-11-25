@@ -1,6 +1,7 @@
 #include <regex>
 
 #include "BlackFlow/BlackFlowBattleVariant.h"
+#include "BlackFlow/BlackFlowSession.h"
 #include "RoguelikeBattleTaskPlugin.h"
 
 #include <chrono>
@@ -657,9 +658,42 @@ void asst::RoguelikeBattleTaskPlugin::invalidate_prepared_primary()
 {
     m_pending_prepared_primary.reset();
     m_active_prepared_primary.reset();
+    m_formation_role_proposal.reset();
 }
 
-void asst::RoguelikeBattleTaskPlugin::prepare_primary_from_selection(const std::vector<std::string>& names)
+void asst::RoguelikeBattleTaskPlugin::set_blackflow_session(std::shared_ptr<blackflow::BlackFlowSession> session)
+{
+    invalidate_prepared_primary();
+    m_preparation_session = std::move(session);
+}
+
+std::optional<asst::blackflow::PreparationStageContext>
+    asst::RoguelikeBattleTaskPlugin::preparation_stage_context() const
+{
+    return m_preparation_session ? blackflow::current_preparation_stage(
+                                       *m_preparation_session,
+                                       m_config->account_client(),
+                                       m_config->account_uid(),
+                                       m_config->status().run_id)
+                                 : std::nullopt;
+}
+
+void asst::RoguelikeBattleTaskPlugin::publish_formation_role(blackflow::FormationRoleProposal proposal)
+{
+    const auto current = preparation_stage_context();
+    if (current && *current == proposal.stage && proposal.selected_set_verified) {
+        m_formation_role_proposal = std::move(proposal);
+    }
+}
+
+std::optional<asst::blackflow::FormationRoleProposal> asst::RoguelikeBattleTaskPlugin::take_formation_role()
+{
+    return std::exchange(m_formation_role_proposal, std::nullopt);
+}
+
+void asst::RoguelikeBattleTaskPlugin::prepare_primary_from_selection(
+    const std::vector<std::string>& names,
+    const std::optional<blackflow::FormationRoleProposal>& proposal)
 {
     invalidate_prepared_primary();
     blackflow::BlackFlowRecruitmentDutyCatalog catalog;
@@ -673,9 +707,18 @@ void asst::RoguelikeBattleTaskPlugin::prepare_primary_from_selection(const std::
         m_config->account_client(),
         m_config->account_uid(),
         names);
+    const auto stage = preparation_stage_context();
+    const bool role_verified =
+        proposal && stage && blackflow::formation_proposal_matches_actual(*proposal, *stage, m_config->status(), names);
+    if (role_verified) {
+        batch.stage = *stage;
+        batch.primary_role_candidates = proposal->primary_candidates;
+    }
     auto observation = basic_info_with_what("BlackFlowPreparedPrimaryComponents");
     observation["details"] = blackflow::prepared_primary_to_json(batch);
     observation["details"]["calculated_before_start_action"] = true;
+    observation["details"]["formation_role_rebuilt_from_actual_skill_page"] = role_verified;
+    observation["details"]["formation_proposal_present"] = proposal.has_value();
     std::vector<std::size_t> indices;
     std::size_t legacy = batch.entries.size();
     for (std::size_t i = 0; i < batch.entries.size(); ++i) {
@@ -714,12 +757,22 @@ void asst::RoguelikeBattleTaskPlugin::begin_stage_with_prepared_primary()
 
 bool asst::RoguelikeBattleTaskPlugin::prepared_primary_current() const
 {
-    return m_config->get_theme() == RoguelikeTheme::BlackFlow && m_active_prepared_primary &&
-           blackflow::prepared_primary_matches(
-               *m_active_prepared_primary,
-               m_config->status(),
-               m_config->account_client(),
-               m_config->account_uid());
+    if (m_config->get_theme() != RoguelikeTheme::BlackFlow || !m_active_prepared_primary ||
+        !blackflow::prepared_primary_matches(
+            *m_active_prepared_primary,
+            m_config->status(),
+            m_config->account_client(),
+            m_config->account_uid())) {
+        return false;
+    }
+    if (m_active_prepared_primary->stage) {
+        const auto current = preparation_stage_context();
+        if (!current || *current != *m_active_prepared_primary->stage ||
+            (!m_stage_name.empty() && m_stage_name != current->stage_name)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 std::optional<asst::battle::roguelike::DeployInfoWithRank>
@@ -879,6 +932,69 @@ void asst::RoguelikeBattleTaskPlugin::prioritize_prepared_authored(std::vector<D
 }
 
 std::optional<asst::battle::DeploymentOper>
+    asst::RoguelikeBattleTaskPlugin::prepared_assigned_primary(bool cost_observed) const
+{
+    if (!prepared_primary_current() || !cost_observed || m_cost < 0 || m_homes.empty()) {
+        return std::nullopt;
+    }
+    const auto& batch = *m_active_prepared_primary;
+    // Only an actual selected-set/Skills-verified formation role may replace
+    // an absent opening core. This does not change the configured core.
+    if (!batch.stage || batch.primary_role_candidates.empty()) {
+        return std::nullopt;
+    }
+    const bool has_blocking = std::ranges::any_of(m_battlefield_opers, [&](const auto& item) {
+        return persistent_blocking_available(item.first);
+    });
+    const bool blocking_waits = std::ranges::any_of(m_cur_deployment_opers, [&](const auto& card) {
+        return !card.cooling && persistent_blocking_available({ card.role, card.name }) &&
+               !m_battlefield_opers.contains({ card.role, card.name });
+    });
+    if (!has_blocking && blocking_waits) {
+        return std::nullopt;
+    }
+    std::vector<Point> targets;
+    for (const auto& [point, home] : m_blocking_for_home_index) {
+        if (home == m_cur_home_index) {
+            targets.push_back(point);
+        }
+    }
+    if (targets.empty()) {
+        const auto home = m_homes.at(m_cur_home_index).location;
+        for (const auto& [point, tile] : m_normal_tile_info) {
+            if (tile.key == TilePack::TileKey::Road && std::abs(point.x - home.x) + std::abs(point.y - home.y) == 1) {
+                targets.push_back(point);
+            }
+        }
+    }
+    std::vector<std::size_t> eligible;
+    std::vector<blackflow::ConditionalPrimaryEstimate> components;
+    for (const auto& e : batch.entries) {
+        components.push_back(e.component);
+    }
+    for (const auto& card : m_cur_deployment_opers) {
+        if (card.cost <= 0 || RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), card.name) ||
+            std::ranges::find(batch.primary_role_candidates, card.name) == batch.primary_role_candidates.end()) {
+            continue;
+        }
+        const auto entry = std::ranges::find_if(batch.entries, [&](const auto& e) { return e.name == card.name; });
+        const auto location = calc_best_loc(card);
+        if (entry != batch.entries.end() && location &&
+            prepared_runtime_eligible(card, location->placed, location->direction, targets)) {
+            eligible.push_back(static_cast<std::size_t>(entry - batch.entries.begin()));
+        }
+    }
+    const auto chosen = blackflow::choose_initial_primary_reference(components, eligible, std::nullopt);
+    if (!chosen.preferred) {
+        return std::nullopt;
+    }
+    const auto card = std::ranges::find_if(m_cur_deployment_opers, [&](const auto& x) {
+        return x.name == batch.entries[*chosen.preferred].name;
+    });
+    return card != m_cur_deployment_opers.end() ? std::optional(*card) : std::nullopt;
+}
+
+std::optional<asst::battle::DeploymentOper>
     asst::RoguelikeBattleTaskPlugin::prepared_generic_primary(bool cost_observed) const
 {
     if (!prepared_primary_current() || !cost_observed || m_cost < 0 || m_homes.empty()) {
@@ -890,7 +1006,11 @@ std::optional<asst::battle::DeploymentOper>
     const auto core = std::ranges::find_if(m_cur_deployment_opers, [&](const auto& o) {
         return o.name == m_config->get_core_char();
     });
-    if (legacy == batch.entries.end() || core == m_cur_deployment_opers.end() || core->cost <= 0) {
+    if (legacy == batch.entries.end() || core == m_cur_deployment_opers.end()) {
+        const auto assigned = prepared_assigned_primary(cost_observed);
+        return assigned && assigned->available && assigned->cost <= m_cost ? assigned : std::nullopt;
+    }
+    if (core->cost <= 0) {
         return std::nullopt;
     }
     const bool initial_blocking = std::ranges::any_of(m_battlefield_opers, [&](const auto& entry) {
@@ -2119,11 +2239,18 @@ std::optional<asst::battle::DeploymentOper>
     // BlackFlow stages, the configured starting core must precede filler roles.
     if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_deploy_plan.empty() && !urgent_home) {
         const auto core_name = m_config->get_core_char();
-        const auto core = std::ranges::find_if(m_cur_deployment_opers, [&](const DeploymentOper& oper) {
+        auto core = std::ranges::find_if(m_cur_deployment_opers, [&](const DeploymentOper& oper) {
             return !core_name.empty() && oper.name == core_name && oper.role != Role::Drone && !oper.cooling &&
                    !RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name) &&
                    !m_battlefield_opers.contains({ oper.role, oper.name });
         });
+        if (core == m_cur_deployment_opers.end()) {
+            if (const auto assigned = prepared_assigned_primary(cost_observed)) {
+                core = std::ranges::find_if(m_cur_deployment_opers, [&](const auto& card) {
+                    return card.name == assigned->name;
+                });
+            }
+        }
         if (core != m_cur_deployment_opers.end() && !defer_idle_opening_healing(*core)) {
             const bool initial_blocking = std::ranges::any_of(m_battlefield_opers, [&](const auto& entry) {
                 return persistent_blocking_available(entry.first);
@@ -2134,12 +2261,19 @@ std::optional<asst::battle::DeploymentOper>
                 initial_blocking,
                 urgent_home,
                 calc_best_loc(*core).has_value());
+            if (core->name != core_name && action == StartingCoreAction::Deploy &&
+                (!cost_observed || core->cost <= 0 || core->cost > m_cost)) {
+                return std::nullopt;
+            }
             if (action == StartingCoreAction::Deploy) {
-                LogInfo << __FUNCTION__ << "Prioritize configured starting core" << core->name << core->cost;
+                LogInfo << __FUNCTION__
+                        << (core->name == core_name ? "Prioritize configured starting core"
+                                                    : "Prioritize verified formation primary")
+                        << core->name << core->cost;
                 return *core;
             }
             if (action == StartingCoreAction::Reserve) {
-                LogTrace << __FUNCTION__ << "Reserve DP after initial blocking for starting core" << core->name
+                LogTrace << __FUNCTION__ << "Reserve DP after initial blocking for current primary" << core->name
                          << core->cost << m_cost;
                 return std::nullopt;
             }
