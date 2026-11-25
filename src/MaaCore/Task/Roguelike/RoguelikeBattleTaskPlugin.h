@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <queue>
@@ -21,9 +22,11 @@ namespace blackflow
 class BlackFlowSession;
 class BlackFlowHunterPreludeController;
 class BlackFlowSoulObserver;
+struct GoalLifeObservation;
 class BlackFlowSoulEvidenceBuffer;
 struct SoulEvidenceRecord;
 class BlackFlowSummonRetreat;
+class BlackFlowPauseTransition;
 } // namespace blackflow
 
 class RoguelikeBattleTaskPlugin : public AbstractRoguelikeTaskPlugin, private BattleHelper
@@ -43,6 +46,7 @@ public:
 
     virtual bool verify(AsstMsg msg, const json::value& details) const override;
     bool load_params(const json::value& params) override;
+    void reset_in_run_variables() override;
     void invalidate_prepared_primary();
     void prepare_primary_from_selection(
         const std::vector<std::string>& names,
@@ -69,7 +73,10 @@ protected:
     }
 
     virtual void clear() override;
-    bool do_once(cv::Mat& image, const cv::Mat& image_prev);
+    bool do_once(cv::Mat& image, const cv::Mat& image_prev, std::int64_t captured_ms = 0);
+    static std::int64_t pause_observation_clock();
+    void flush_pause_classification(const char* reject_reason = nullptr) noexcept;
+    std::string save_pause_transition_frame(const cv::Mat& image, std::string_view kind) noexcept;
     void store_soul_evidence(blackflow::SoulEvidenceRecord record, const cv::Mat& frame, bool defer);
     void flush_soul_evidence(const char* reason) noexcept;
 
@@ -230,6 +237,7 @@ protected:
     bool m_hunter_main_allowed = false;
     std::uint64_t m_hunter_observation_sequence = 0;
     bool m_waiting_for_manual_resume = false;
+    std::unique_ptr<blackflow::BlackFlowPauseTransition> m_pause_transition;
     std::unordered_map<int, int> m_plan_deployment_counts;
     blackflow::AuthoredBudgetReobserver m_authored_budget_reobserver;
     std::unordered_set<Point> m_blacklist_location;
@@ -311,11 +319,14 @@ protected:
     // 做法：不猜敌人，只把「本场战斗多久没涨击杀、还剩几个敌人」量化成日志事件，
     //       供离线按地图名聚合定位漏怪图，作为下一轮行为改动的数据基础。
     void diagnose_battle_progress();
+    // Diagnostic-only consumer, shared by the actual actor and offline probe.
+    bool consume_goal_life_observation(const blackflow::GoalLifeObservation& observed);
 
     std::chrono::steady_clock::time_point m_diag_battle_start {};   // 本场战斗首次观测时刻
     std::chrono::steady_clock::time_point m_diag_last_kill_time {}; // 最近一次击杀数变化的时刻
     int m_diag_last_kills = 0;                                      // 上一帧击杀数，用于检测停滞
     int m_diag_last_heartbeat = -1;                                 // 上次打印心跳的 30 秒刻度，避免刷屏
+    std::optional<int> m_diag_last_goal_life;
     bool m_diag_stall_warned = false;                               // 本轮停滞是否已告警，避免重复刷
 
     std::unique_ptr<blackflow::BlackFlowSoulEvidenceBuffer> m_soul_evidence;

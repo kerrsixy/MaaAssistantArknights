@@ -6,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include "BlackFlowInventoryDiscard.h"
 #include "BlackFlowInventoryModel.h"
 
 namespace cv
@@ -85,7 +86,7 @@ private:
         const InventoryCleanupPolicy& policy,
         std::string_view name,
         std::string* error) const;
-    bool discard(BlackFlowInventoryContext& context, const VisibleScrap& scrap, std::string* error);
+    InventoryDiscardOutcome discard(BlackFlowInventoryContext& context, const VisibleScrap& scrap, std::string* error);
 
     bool finish(BlackFlowInventoryContext& context, bool report, std::string* error);
     bool abandon(BlackFlowInventoryContext& context, std::string* error) const;

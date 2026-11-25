@@ -5,6 +5,8 @@
 #include "RoguelikeBattleTaskPlugin.h"
 
 #include <chrono>
+#include <cmath>
+
 #include <filesystem>
 #include <fstream>
 #include <future>
@@ -12,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "Common/BlackFlowPauseTransition.h"
 #include "Config/GeneralConfig.h"
 #include "Config/Miscellaneous/BattleDataConfig.h"
 #include "Config/Miscellaneous/TilePack.h"
@@ -33,6 +36,7 @@
 #include "Vision/Matcher.h"
 #include "Vision/OCRer.h"
 #include "Vision/RegionOCRer.h"
+#include "Vision/Roguelike/BlackFlow/BlackFlowPauseTransitionAnalyzer.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowSoulObserver.h"
 
 using namespace asst::battle;
@@ -45,7 +49,8 @@ asst::RoguelikeBattleTaskPlugin::RoguelikeBattleTaskPlugin(
     const std::shared_ptr<RoguelikeConfig>& roguelike_config_ptr,
     const std::shared_ptr<RoguelikeControlTaskPlugin>& control) :
     AbstractRoguelikeTaskPlugin(callback, inst, task_chain, roguelike_config_ptr, control),
-    BattleHelper(inst)
+    BattleHelper(inst),
+    m_pause_transition(std::make_unique<blackflow::BlackFlowPauseTransition>())
 {
 }
 
@@ -54,11 +59,29 @@ asst::RoguelikeBattleTaskPlugin::~RoguelikeBattleTaskPlugin()
     if (m_soul_retreat) {
         m_soul_retreat->invalidate_input_permission();
     }
+    flush_pause_classification("destructor");
     flush_soul_evidence("destructor");
 }
 
 bool asst::RoguelikeBattleTaskPlugin::verify(AsstMsg msg, const json::value& details) const
 {
+    // AbstractTask invokes verify/run synchronously before forwarding the callback.
+    // Cache one passive classification here; callbacks and all work stay in _run.
+    if (m_pause_transition && m_pause_transition->pending()) {
+        const bool process = details.get("subtask", std::string()) == "ProcessTask";
+        const bool failed = msg == AsstMsg::SubTaskError || msg == AsstMsg::SubTaskStopped ||
+                            msg == AsstMsg::TaskChainError || msg == AsstMsg::TaskChainStopped ||
+                            msg == AsstMsg::TaskChainCompleted || msg == AsstMsg::AllTasksCompleted || need_exit();
+        const auto task = details.get("details", "task", std::string());
+        const bool started = process && msg == AsstMsg::SubTaskStart;
+        const auto score = details.get("details", "result", "score", 0.0);
+        const bool matched = started && details.get("details", "algorithm", std::string()) == "MatchTemplate" &&
+                             std::isfinite(score) && score > 0.0 &&
+                             !details.get("details", "result", "template", std::string()).empty();
+        if (m_pause_transition->observe_successor(task, started, failed, matched, pause_observation_clock())) {
+            return true;
+        }
+    }
     if (msg != AsstMsg::SubTaskCompleted || details.get("subtask", std::string()) != "ProcessTask") {
         return false;
     }
@@ -81,6 +104,11 @@ bool asst::RoguelikeBattleTaskPlugin::verify(AsstMsg msg, const json::value& det
     }
 }
 
+void asst::RoguelikeBattleTaskPlugin::reset_in_run_variables()
+{
+    flush_pause_classification("run_reset");
+}
+
 bool asst::RoguelikeBattleTaskPlugin::load_params(const json::value& params)
 {
     invalidate_prepared_primary();
@@ -92,23 +120,34 @@ bool asst::RoguelikeBattleTaskPlugin::load_params(const json::value& params)
 
 bool asst::RoguelikeBattleTaskPlugin::_run()
 {
+    // A passive successor ack consumes the cached decision exactly once and
+    // never re-enters battle initialization or issues a gameplay operation.
+    if (m_pause_transition && m_pause_transition->has_decision()) {
+        flush_pause_classification();
+        return true;
+    }
+
     // This guard spans the entire battle loop, not one Select/observe call.
     // It handles early returns and exceptions without flushing between frames
     // of an owned UI transaction.
     struct EvidenceAtBattleExit
     {
         RoguelikeBattleTaskPlugin& owner;
+        bool waiting_successor = false;
 
         ~EvidenceAtBattleExit()
         {
             if (owner.m_soul_retreat) {
                 owner.m_soul_retreat->invalidate_input_permission();
             }
+            if (!waiting_successor || owner.need_exit()) {
+                owner.flush_pause_classification(owner.need_exit() ? "stop_requested" : "battle_invocation_exit");
+            }
             owner.flush_soul_evidence("battle_invocation_exit");
         }
     };
 
-    const EvidenceAtBattleExit evidence_at_exit { *this };
+    EvidenceAtBattleExit evidence_at_exit { *this };
     const bool resuming = !m_resume_stage.empty();
     // 进入战斗前位于地图界面，读取「目标生命值」并记录掉血，供判断关卡风险
     {
@@ -146,6 +185,9 @@ bool asst::RoguelikeBattleTaskPlugin::_run()
 
     if (!calc_stage_info()) {
         return false;
+    }
+    if (m_pause_transition) {
+        m_pause_transition->begin_battle(m_stage_name + ":" + std::to_string(pause_observation_clock()));
     }
     if (resuming) {
         OCRer paused(ctrler()->get_image());
@@ -270,8 +312,10 @@ bool asst::RoguelikeBattleTaskPlugin::_run()
             flush_soul_evidence("ui_released_before_capture");
         }
         // 不在战斗场景，且已使用过了干员，说明已经打完了，就结束循环
+        const auto captured_ms = pause_observation_clock();
         image = ctrler()->get_image();
-        if (!do_once(image, image_prev) && (!m_first_deploy || m_hunter_prelude != nullptr)) {
+        if (!do_once(image, image_prev, captured_ms) &&
+            (!m_first_deploy || m_hunter_prelude != nullptr || (m_pause_transition && m_pause_transition->pending()))) {
             break;
         }
         image_prev = std::move(image);
@@ -299,6 +343,15 @@ bool asst::RoguelikeBattleTaskPlugin::_run()
         m_soul_retreat->invalidate_input_permission();
     }
     flush_soul_evidence("battle_loop_exit");
+    if (m_pause_transition) {
+        if (need_exit()) {
+            flush_pause_classification("stop_requested");
+        }
+        else {
+            m_pause_transition->battle_loop_left();
+            evidence_at_exit.waiting_successor = m_pause_transition->pending();
+        }
+    }
     // 通知战斗结束，无论成功与否
     auto info = basic_info_with_what("RoguelikeCombatEnd");
     callback(AsstMsg::SubTaskExtraInfo, info);
@@ -1635,6 +1688,52 @@ bool asst::RoguelikeBattleTaskPlugin::authored_dispatch_blocks_generic(bool urge
 // 实现取舍：本轮只「把看不见的变成看得见」，不在战斗内做任何会自动改变部署行为的判断，
 //      以免在冲 N8 的过程中引入回归。心跳 30
 //      秒一条、停滞告警每场最多一次，日志量可控。
+bool asst::RoguelikeBattleTaskPlugin::consume_goal_life_observation(const blackflow::GoalLifeObservation& observed)
+{
+    if (m_config->get_theme() != RoguelikeTheme::BlackFlow || !observed.hud_verified || !observed.life ||
+        *observed.life < 0 || *observed.life > 999 || (!observed.ocr_performed && !observed.cache_hit) ||
+        observed.score < 0.92 || m_diag_last_goal_life == observed.life) {
+        return false;
+    }
+    if (observed.raw_digits.empty() || observed.raw_digits.size() > 3 ||
+        !std::ranges::all_of(observed.raw_digits, [](unsigned char c) { return c >= '0' && c <= '9'; }) ||
+        std::stoi(observed.raw_digits) != *observed.life) {
+        return false;
+    }
+    const auto previous = m_diag_last_goal_life;
+    m_diag_last_goal_life = observed.life;
+    auto info = basic_info_with_what("BlackFlowBattleGoalLifeObserved");
+    info["details"] = json::object {
+        { "stage", m_stage_name },
+        { "run_id", m_config->status().run_id },
+        { "life", *observed.life },
+        { "previous_life", previous ? json::value(*previous) : json::value(nullptr) },
+        { "delta_from_previous_observation",
+          previous ? json::value(*observed.life - *previous) : json::value(nullptr) },
+        { "source", "existing_frame_top_goal_life_roi" },
+        { "anchor_task", observed.anchor_task },
+        { "number_roi",
+          json::array { observed.number_roi.x,
+                        observed.number_roi.y,
+                        observed.number_roi.width,
+                        observed.number_roi.height } },
+        { "raw_digits", observed.raw_digits },
+        { "recognition_reason", observed.reason },
+        { "score", observed.score },
+        { "roi_cache_hit", observed.cache_hit },
+        { "ocr_performed", observed.ocr_performed },
+        { "ocr_attempt", observed.ocr_attempt },
+        { "independent_capture_proven", false },
+        { "extra_screenshot_requested", false },
+        { "exploration_hp_written", false },
+        { "strategy_input_changed", false },
+        { "death_or_leak_cause_known", false },
+    };
+    LogInfo << __FUNCTION__ << "Goal life observation" << *observed.life << "ROI cached" << observed.cache_hit;
+    callback(AsstMsg::SubTaskExtraInfo, info);
+    return true;
+}
+
 void asst::RoguelikeBattleTaskPlugin::diagnose_battle_progress()
 {
     const auto now = std::chrono::steady_clock::now();
@@ -1694,13 +1793,14 @@ void asst::RoguelikeBattleTaskPlugin::diagnose_battle_progress()
     }
 }
 
-bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& image_prev)
+bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& image_prev, std::int64_t captured_ms)
 {
     if (need_exit()) {
         if (m_soul_retreat) {
             m_soul_retreat->invalidate_input_permission();
         }
         flush_soul_evidence("stop_requested");
+        flush_pause_classification("stop_requested");
         return false;
     }
     if (m_soul_selection_owned && m_soul_observer) {
@@ -1733,7 +1833,11 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
         }
     }
 
-    // 注：战斗界面无「目标生命值」显示，血量采集已移至地图阶段（见 TODO）
+    // Goal life is visible beside the top HUD gate. Read this existing frame
+    // for diagnostics only; never update exploration HP or drive battle input.
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_soul_observer) {
+        consume_goal_life_observation(m_soul_observer->goal_life(image));
+    }
 
     thread_local auto prev_frame_time = std::chrono::steady_clock::time_point {};
     static const auto min_frame_interval =
@@ -1750,65 +1854,98 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
 
     prev_frame_time = std::chrono::steady_clock::now();
 
+    bool transition_frame_observed = false;
+    bool official_running = false;
+    bool normal_running = false;
+    const auto observe_transition = [&](bool paused) {
+        normal_running = !paused && m_soul_observer && m_soul_observer->normal_running(image);
+        auto facts =
+            blackflow::analyze_pause_transition_frame(image, captured_ms, paused, official_running, normal_running);
+        facts.selected_ui_owned = m_soul_selection_owned;
+        transition_frame_observed = true;
+        if (facts.banner) {
+            facts.banner_file = save_pause_transition_frame(image, "complete-banner");
+        }
+        facts.received_ms = pause_observation_clock();
+        if (m_pause_transition) {
+            m_pause_transition->observe(facts);
+            flush_pause_classification();
+        }
+        return facts;
+    };
     if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
         Matcher running(image);
         running.set_task_info("BattleOfficiallyBegin");
+        official_running = running.analyze().has_value();
         const bool soul_guard_paused = m_soul_observer && m_soul_observer->paused(image);
-        if (!running.analyze() || soul_guard_paused) {
+        bool paused_ui = soul_guard_paused;
+        if (!official_running && !paused_ui) {
             OCRer paused(image);
             paused.set_roi({ 450, 270, 400, 150 });
             paused.set_required({ "PAUSE", "暂停中" });
-            if (soul_guard_paused || paused.analyze()) {
-                // A positive pause bypasses the Soul observer below. Revoke its
-                // old permission explicitly; never cancel or resume this panel.
-                if (m_soul_retreat) {
-                    m_soul_retreat->invalidate_input_permission();
-                }
-                flush_soul_evidence("positive_pause_ui");
-                if (!m_waiting_for_manual_resume) {
-                    // A paused UI can also appear during a local result transition.
-                    // Keep the exact source frame; its origin is not inferred here.
-                    const auto stamp = std::chrono::duration_cast<std::chrono::microseconds>(
-                                           std::chrono::steady_clock::now().time_since_epoch())
-                                           .count();
-                    const auto path = UserDir.get() / utils::path("debug/blackflow/pause-ui") /
-                                      utils::path(std::to_string(stamp) + ".png");
-                    std::error_code image_error;
-                    std::filesystem::create_directories(path.parent_path(), image_error);
-                    bool image_saved = false;
-                    if (!image_error && !image.empty()) {
-                        try {
-                            image_saved = MAA_NS::imwrite(path, image);
-                        }
-                        catch (const cv::Exception& error) {
-                            LogWarn << __FUNCTION__ << "Pause frame encoding failed" << error.what();
-                        }
-                    }
-                    LogInfo << __FUNCTION__ << "Observed paused battle; waiting without game input";
-                    auto info = basic_info_with_what("BlackFlowBattlePaused");
-                    info["details"] = json::object {
-                        { "stage", m_stage_name },
-                        { "waiting_for_resume", true },
-                        { "origin", "unknown" },
-                        { "pause_glyph_observed", soul_guard_paused },
-                        { "image_saved", image_saved },
-                        { "image_file", image_saved ? utils::path_to_utf8_string(path) : std::string {} },
-                        { "last_observed_kills", m_kills },
-                        { "last_observed_total_kills", m_total_kills },
-                        { "automation_resumed_pause", false },
-                    };
+            paused_ui = paused.analyze().has_value();
+        }
+        if (paused_ui) {
+            // Preserve all pause protection; neither classification resumes nor
+            // cancels the player's panel. Pending observations also own no UI.
+            if (m_soul_retreat) {
+                m_soul_retreat->invalidate_input_permission();
+            }
+            flush_soul_evidence("positive_pause_ui");
+            auto facts = observe_transition(true);
+            if (!m_waiting_for_manual_resume) {
+                const auto file = save_pause_transition_frame(image, "pause-ui");
+                json::value details = json::object {
+                    { "stage", m_stage_name },
+                    { "waiting_for_resume", true },
+                    { "origin", "unknown" },
+                    { "pause_glyph_observed", soul_guard_paused },
+                    { "image_saved", !file.empty() },
+                    { "image_file", file },
+                    { "last_observed_kills", m_kills },
+                    { "last_observed_total_kills", m_total_kills },
+                    { "automation_resumed_pause", false },
+                };
+                facts.received_ms = pause_observation_clock();
+                if (m_pause_transition && m_pause_transition->begin_pause(facts, details)) {
+                    auto info = basic_info_with_what("BlackFlowBattlePausePending");
+                    info["details"] = m_pause_transition->pending_details();
                     callback(AsstMsg::SubTaskExtraInfo, info);
                 }
-                m_waiting_for_manual_resume = true;
-                if (m_hunter_prelude && !m_hunter_main_allowed) {
-                    observe_hunter_prelude(image, false);
-                }
-                return true;
+                flush_pause_classification();
+            }
+            m_waiting_for_manual_resume = true;
+            if (m_hunter_prelude && !m_hunter_main_allowed) {
+                observe_hunter_prelude(image, false);
+            }
+            return true;
+        }
+        const bool observe_end =
+            m_waiting_for_manual_resume ||
+            (m_pause_transition && (m_pause_transition->pending() || m_pause_transition->has_banner())) ||
+            (m_total_kills > 0 && m_kills >= m_total_kills - 1);
+        if (observe_end) {
+            const auto facts = observe_transition(false);
+            if (m_pause_transition && m_pause_transition->pending()) {
+                // Only a proven ending candidate may leave on HUD disappearance;
+                // the original outer result ack still decides classification.
+                return facts.hud_known;
+            }
+            if (m_waiting_for_manual_resume && !facts.strong_running) {
+                // An ordinary pause remains protected through black/unknown UI.
+                // Absence of a glyph or HUD is never a passive resume/end ack.
+                return !(m_soul_observer && m_soul_observer->battle_end_scene(image).has_value());
+            }
+            if (facts.banner || (m_pause_transition && m_pause_transition->has_banner() && !facts.strong_running)) {
+                return facts.hud_known;
             }
         }
         if (m_waiting_for_manual_resume) {
-            LogInfo << __FUNCTION__ << "Observed battle leave pause without automation input";
+            LogInfo << __FUNCTION__ << "Observed strong running view after pause without automation input";
             m_waiting_for_manual_resume = false;
+            // Resume ordinary automation from the next natural capture, without
+            // issuing input from this classification/recovery frame.
+            return true;
         }
     }
 
@@ -1859,6 +1996,12 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
     const bool cost_observed = update_cost(image, image_prev);
     m_prepared_cost_observed = cost_observed;
     update_kills(image, image_prev);
+    if (!yielding_soul_ui && !transition_frame_observed && m_config->get_theme() == RoguelikeTheme::BlackFlow &&
+        m_total_kills > 0 && m_kills == m_total_kills) {
+        if (observe_transition(false).banner) {
+            return true;
+        }
+    }
     if (yielding_soul_ui) {
         // The lease survives recognition failures. Only a fresh complete card
         // observation may consume the handoff and re-enable ordinary actions.
@@ -2517,10 +2660,65 @@ void asst::RoguelikeBattleTaskPlugin::all_melee_retreat()
     }
 }
 
+std::int64_t asst::RoguelikeBattleTaskPlugin::pause_observation_clock()
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
+
+void asst::RoguelikeBattleTaskPlugin::flush_pause_classification(const char* reject_reason) noexcept
+{
+    try {
+        if (!m_pause_transition) {
+            return;
+        }
+        if (reject_reason) {
+            m_pause_transition->reject(reject_reason);
+        }
+        if (auto decision = m_pause_transition->take_decision()) {
+            const auto tag = decision->end_transition ? "BlackFlowBattleEndTransition" : "BlackFlowBattlePaused";
+            auto info = basic_info_with_what(tag);
+            info["details"] = std::move(decision->details);
+            info["details"]["classification_reason"] = decision->reason;
+            info["details"]["classification_pending"] = false;
+            info["details"]["classified_as_end_transition"] = decision->end_transition;
+            info["details"]["classification_recorded_ms"] = pause_observation_clock();
+            info["details"]["automation_resumed_pause"] = false;
+            callback(AsstMsg::SubTaskExtraInfo, info);
+        }
+    }
+    catch (...) {
+        LogWarn << __FUNCTION__ << "Pause classification could not be emitted; acceptance remains unresolved";
+    }
+}
+
+std::string
+    asst::RoguelikeBattleTaskPlugin::save_pause_transition_frame(const cv::Mat& image, std::string_view kind) noexcept
+{
+    try {
+        if (image.empty()) {
+            return {};
+        }
+        const auto path = UserDir.get() / utils::path("debug/blackflow") / utils::path(std::string(kind)) /
+                          utils::path(std::to_string(pause_observation_clock()) + ".png");
+        std::error_code error;
+        std::filesystem::create_directories(path.parent_path(), error);
+        if (!error && MAA_NS::imwrite(path, image)) {
+            return utils::path_to_utf8_string(path);
+        }
+    }
+    catch (...) {
+        LogWarn << __FUNCTION__ << "Pause transition frame could not be saved";
+    }
+    return {};
+}
+
 void asst::RoguelikeBattleTaskPlugin::clear()
 {
+    flush_pause_classification("battle_reset");
     invalidate_prepared_primary();
     m_prepared_cost_observed = false;
+    m_diag_last_goal_life.reset();
     if (m_soul_retreat) {
         m_soul_retreat->invalidate_input_permission();
     }
