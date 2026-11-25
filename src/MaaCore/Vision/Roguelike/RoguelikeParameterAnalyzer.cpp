@@ -53,12 +53,23 @@ std::optional<int> asst::RoguelikeParameterAnalyzer::read_number(
 
 std::optional<int> asst::RoguelikeParameterAnalyzer::read_blackflow_hope(const cv::Mat& image)
 {
+    return read_blackflow_hope(image, BlackFlowHopeLayout::ExplorationHeader);
+}
+
+std::optional<int>
+    asst::RoguelikeParameterAnalyzer::read_blackflow_hope(const cv::Mat& image, BlackFlowHopeLayout layout)
+{
     if (image.empty() || image.type() != CV_8UC3 || image.cols != 1280 || image.rows != 720) {
         return std::nullopt;
     }
+    const bool recruitment = layout == BlackFlowHopeLayout::RecruitmentHeader;
+    if (!recruitment && layout != BlackFlowHopeLayout::ExplorationHeader) {
+        return std::nullopt;
+    }
     Matcher header(image);
-    header.set_task_info("BlackFlow@Roguelike@HopeHeader");
-    const auto task = Task.get<OcrTaskInfo>("BlackFlow@Roguelike@CurrentHope");
+    header.set_task_info(recruitment ? "BlackFlow@Roguelike@RecruitHopeHeader" : "BlackFlow@Roguelike@HopeHeader");
+    const auto task = Task.get<OcrTaskInfo>(
+        recruitment ? "BlackFlow@Roguelike@RecruitCurrentHope" : "BlackFlow@Roguelike@CurrentHope");
     if (!task || !header.analyze()) {
         return std::nullopt;
     }

@@ -37,6 +37,266 @@ DutyBound replacement_marginal(DutyBound other, DutyBound old, DutyBound next)
 
 namespace asst::blackflow
 {
+namespace projected_output_detail
+{
+std::optional<double> number(const json::value& object, const char* key)
+{
+    if (!object.is_object() || !object.contains(key) || !object.at(key).is_number()) {
+        return std::nullopt;
+    }
+    const double value = object.at(key).as_double();
+    return std::isfinite(value) ? std::optional<double>(value) : std::nullopt;
+}
+
+}
+
+bool projected_output_strictly_better(const ProjectedOutputEstimate& a, const ProjectedOutputEstimate& b)
+{
+    return a.qualified && b.qualified && a.objective == b.objective && !a.range.empty() && a.range == b.range &&
+           primary_component_curves_strictly_better(
+               a.lower,
+               b.upper,
+               a.objective != PrimaryProjectionObjective::OutsideIntrinsicReference);
+}
+
+json::value projected_output_to_json(const ProjectedOutputEstimate& x)
+{
+    json::array limitations;
+    for (const auto& item : x.limitations) {
+        limitations.emplace_back(item);
+    }
+    const auto profiles = [](const auto& values) {
+        json::array rows;
+        for (const auto& value : values) {
+            rows.emplace_back(
+                json::object {
+                    { "base_primary_damage", value.base_damage },
+                    { "base_period", value.base_period },
+                    { "active_primary_damage", value.skill_damage },
+                    { "active_period", value.skill_period },
+                    { "active_hits", value.hits },
+                    { "reported_intrinsic_SP_units", value.sp_debt },
+                });
+        }
+        return rows;
+    };
+    return json::object { { "qualified", x.qualified },
+                          { "objective",
+                            x.objective == PrimaryProjectionObjective::OutsideIntrinsicReference
+                                ? "outside_intrinsic_acquired_target_reference_not_current_run_dominance"
+                                : "current_run_primary_components" },
+                          { "limitations", std::move(limitations) },
+                          { "marginal_known_positive", x.marginal_known_positive },
+                          { "operator_id", x.id },
+                          { "range_id", x.range },
+                          { "reason", x.reason },
+                          { "evidence_source", x.evidence_source },
+                          { "effective_rank", x.effective_rank },
+                          { "lower_profiles", x.lower.size() },
+                          { "upper_profiles", x.upper.size() },
+                          { "lower_component_facts", profiles(x.lower) },
+                          { "upper_component_facts", profiles(x.upper) },
+                          { "SP_units_used_for_ordering",
+                            x.objective == PrimaryProjectionObjective::CurrentRunComponents },
+                          { "visible_panel_ATK_used", false },
+                          { "defense_domain", "all_nonnegative_via_physical_curve_breakpoints_not_observed_enemy_DEF" },
+                          { "stun_state", "full_source_bounds_not_assumed_stunned" },
+                          { "scope", "projected_acquired_target_primary_physical_components_not_total_team_strength" },
+                          { "battle_DP", nullptr },
+                          { "HPS", nullptr },
+                          { "full_DPS", nullptr } };
+}
+
+ProjectedOutputEstimate BlackFlowRecruitmentDutyCatalog::projected_output(
+    const std::string& name,
+    int elite,
+    int level,
+    int slot,
+    int rank,
+    const ProjectedOutputAttributes& attributes,
+    const RecruitmentOutputEvidence& modifiers) const
+{
+    return primary_components(name, elite, level, slot, rank, attributes, &modifiers);
+}
+
+ProjectedOutputEstimate BlackFlowRecruitmentDutyCatalog::intrinsic_primary(
+    const std::string& name,
+    int elite,
+    int level,
+    int slot,
+    int rank,
+    const ProjectedOutputAttributes& attributes,
+    const std::string& source) const
+{
+    auto out = primary_components(name, elite, level, slot, rank, attributes, nullptr);
+    out.evidence_source = source + ":" + attributes.source;
+    if (source.empty()) {
+        out.qualified = false;
+        out.reason = "intrinsic_reference_context_source_unbound";
+    }
+    out.limitations = { "external_effects_excluded_by_reference_objective_not_assumed_zero",
+                        "no_future_map_enemy_or_deadline_observation",
+                        "primary_components_not_full_DPS_or_survival",
+                        "equal_base_reference_footprint_cohort_only",
+                        "intrinsic_SP_debt_reported_not_an_activation_deadline_or_component_ordering_constraint" };
+    return out;
+}
+
+ProjectedOutputEstimate BlackFlowRecruitmentDutyCatalog::primary_components(
+    const std::string& name,
+    int elite,
+    int level,
+    int slot,
+    int rank,
+    const ProjectedOutputAttributes& attributes,
+    const RecruitmentOutputEvidence* modifiers) const
+{
+    ProjectedOutputEstimate out;
+    out.id = RoguelikeTraining.unique_identity(name);
+    out.effective_rank = rank;
+    out.evidence_source = modifiers ? modifiers->source : "outside_intrinsic_reference";
+    out.objective = modifiers ? PrimaryProjectionObjective::CurrentRunComponents
+                              : PrimaryProjectionObjective::OutsideIntrinsicReference;
+    const auto reject = [&](const char* reason) {
+        out.reason = reason;
+        return out;
+    };
+    const auto maximum_rank = RoguelikeTraining.maximum_training(name, slot);
+    if (!m_valid || out.id.empty() || !m_operators.contains(out.id) || elite < 0 || elite > 2 || rank < 1 ||
+        !maximum_rank || rank > *maximum_rank ||
+        rank > (elite == 0   ? 4
+                : elite == 1 ? 7
+                             : 10) ||
+        RoguelikeTraining.skill_availability(name, slot, elite, level) != SkillAvailability::Available) {
+        return reject("actual_identity_phase_level_or_rank_unproven");
+    }
+    std::optional<PrimaryExternalBounds> external;
+    if (modifiers) {
+        if (!modifiers->external_modifiers_bounded || modifiers->source.empty()) {
+            return reject("external_modifiers_unbounded_not_zero");
+        }
+        external = PrimaryExternalBounds { .atk_fraction = modifiers->external_atk_fraction,
+                                           .aspd = modifiers->external_aspd };
+    }
+    try {
+        const auto op = m_operators.at(out.id).find<json::object>("projected_attributes");
+        const auto row = skill(out.id, slot, rank);
+        const auto model = row.find<json::object>("projected_primary");
+        if (!op || !model || model->get("kind", "") != "physical_acquired_target" ||
+            !model->contains("range_unchanged") || !model->at("range_unchanged").is<bool>() ||
+            !model->at("range_unchanged").as_boolean()) {
+            return reject("selected_default_or_alternate_skill_model_unreviewed");
+        }
+        const auto phases = op->find<json::array>("phases"), ranges = op->find<json::array>("ranges"),
+                   trust = op->find<json::array>("trust_ATK"), potential = op->find<json::array>("potential_ATK"),
+                   own = op->find<json::array>("own_by_phase_potential");
+        if (!phases || !ranges || !trust || !potential || !own || phases->size() <= static_cast<std::size_t>(elite) ||
+            ranges->size() <= static_cast<std::size_t>(elite) || own->size() <= static_cast<std::size_t>(elite) ||
+            !phases->at(elite).is_array() || !own->at(elite).is_array() || trust->size() != 2 ||
+            potential->size() != 6) {
+            return reject("attribute_bounds_source_missing");
+        }
+        const auto& frames = phases->at(elite).as_array();
+        if (frames.size() != 2 || own->at(elite).as_array().size() != 6) {
+            return reject("invalid_source_keyframes");
+        }
+        const auto first = projected_output_detail::number(frames.at(0), "level"),
+                   last = projected_output_detail::number(frames.at(1), "level"),
+                   atk0 = projected_output_detail::number(frames.at(0), "atk"),
+                   atk1 = projected_output_detail::number(frames.at(1), "atk"),
+                   period0 = projected_output_detail::number(frames.at(0), "period"),
+                   period1 = projected_output_detail::number(frames.at(1), "period");
+        const auto hits = projected_output_detail::number(*model, "hits"),
+                   add = projected_output_detail::number(*model, "interval_add"),
+                   sp = projected_output_detail::number(row, "sp_cost"),
+                   initial = projected_output_detail::number(row, "initial_sp");
+        const auto scales = model->find<json::array>("scale_bounds");
+        if (!first || !last || !atk0 || !atk1 || !period0 || !period1 || !hits || !add || !sp || !initial ||
+            level < *first || level > *last || *last < *first || *hits <= 0 || *sp < 0 || *initial < 0 ||
+            row.get("sp_type", "") != "INCREASE_WITH_TIME" || !scales || scales->size() != 2) {
+            return reject("typed_attribute_or_skill_inputs_invalid");
+        }
+        for (const auto& v : *trust) {
+            if (!v.is_number() || !std::isfinite(v.as_double())) {
+                return reject("invalid_trust_bounds");
+            }
+        }
+        for (const auto& v : *potential) {
+            if (!v.is_number() || !std::isfinite(v.as_double())) {
+                return reject("invalid_potential_bounds");
+            }
+        }
+        for (const auto& v : *scales) {
+            if (!v.is_number() || !std::isfinite(v.as_double()) || v.as_double() <= 0) {
+                return reject("invalid_damage_scale");
+            }
+        }
+        if (trust->at(0).as_double() > trust->at(1).as_double() ||
+            scales->at(0).as_double() > scales->at(1).as_double()) {
+            return reject("reversed_source_bounds");
+        }
+        const double ratio = *last == *first ? 0 : (level - *first) / (*last - *first);
+        const double bare = *atk0 + ratio * (*atk1 - *atk0), base_period = *period0 + ratio * (*period1 - *period0);
+        double tl = trust->at(0).as_double(), th = trust->at(1).as_double();
+        int pl = 0, ph = 5;
+        if (!attributes.source.empty() && attributes.trust_percent) {
+            if (*attributes.trust_percent < 0 || *attributes.trust_percent > 200) {
+                return reject("invalid_trust_percentage");
+            }
+            if (*attributes.trust_percent == 0) {
+                th = tl;
+            }
+            else if (*attributes.trust_percent >= 100) {
+                tl = th;
+            }
+            // Intermediate trust mapping remains the complete source interval.
+        }
+        if (!attributes.source.empty() && attributes.potential) {
+            if (*attributes.potential < 1 || *attributes.potential > 6) {
+                return reject("invalid_potential_rank");
+            }
+            pl = ph = *attributes.potential - 1;
+        }
+        for (int p = pl; p <= ph; ++p) {
+            const auto& self = own->at(elite).as_array().at(p);
+            const auto attack = projected_output_detail::number(self, "atk_fraction"),
+                       speed = projected_output_detail::number(self, "aspd"),
+                       bonus = projected_output_detail::number(self, "first_deploy_sp_upper");
+            if (!attack || !speed || !bonus || *bonus < 0) {
+                return reject("reviewed_own_talent_bounds_missing");
+            }
+            const auto component = calculate_primary_component(
+                PrimaryComponentVariant {
+                    .pre_talent_attack = { std::floor(bare + tl + potential->at(p).as_double()),
+                                           std::ceil(bare + th + potential->at(p).as_double()) },
+                    .own_atk_fraction = *attack,
+                    .own_aspd = *speed,
+                    .base_period = base_period,
+                    .skill_interval_add = *add,
+                    .skill_scale = { scales->at(0).as_double(), scales->at(1).as_double() },
+                    .hits = *hits,
+                    .sp_cost = *sp,
+                    .initial_sp = *initial,
+                    .first_deploy_sp_upper = *bonus,
+                },
+                external);
+            if (!component) {
+                return reject("invalid_computed_attribute_or_modifier_bounds");
+            }
+            out.lower.push_back(component->lower);
+            out.upper.push_back(component->upper);
+        }
+        out.range = ranges->at(elite).as_string();
+        out.qualified = !out.range.empty();
+        out.reason = modifiers ? "bounded_trust_potential_own_talents_and_explicit_external_conditions_not_full_DPS"
+                               : "outside_intrinsic_primary_components_estimate_not_current_run_dominance";
+        return out;
+    }
+    catch (const json::exception&) {
+        return reject("malformed_projected_source_unknown_not_abort");
+    }
+}
+
 RecruitmentSkillPlan
     resolve_recruitment_skill_plan(int preferred, int alternate, const std::array<SkillAvailability, 3>& availability)
 {
@@ -404,6 +664,181 @@ json::value
     };
 }
 
+void evaluate_recruitment_output(
+    RecruitmentDutyOffer& offer,
+    const BlackFlowRecruitmentDutyCatalog& catalog,
+    const BlackFlowAccountProfile* account,
+    const std::unordered_map<std::string, RoguelikeOper>& roster,
+    const RecruitmentDutyContext& context,
+    const RecruitmentOriginLedger* origins)
+{
+    offer.projected_output = {};
+    offer.intrinsic_reference = {};
+    offer.intrinsic_reference.objective = PrimaryProjectionObjective::OutsideIntrinsicReference;
+    const auto evidence = context.output_evidence;
+    if (!evidence || evidence->source.empty() || evidence->client != context.client || evidence->uid != context.uid ||
+        evidence->run_id != context.run_id || context.run_id.empty() || offer.client != context.client ||
+        offer.uid != context.uid || offer.run_id != context.run_id ||
+        offer.id != RoguelikeTraining.unique_identity(offer.name) || !account || account->client() != context.client ||
+        account->uid() != context.uid || !offer.ordinary_origin || !offer.account_training_used ||
+        offer.effective_rank < 1 || offer.positive_temporary) {
+        offer.projected_output.reason = offer.intrinsic_reference.reason =
+            "recruit_output_context_rank_or_origin_unknown_not_invented";
+        return;
+    }
+    const auto attrs_for = [&](const std::string& id) {
+        const auto found = evidence->attributes.find(id);
+        return found == evidence->attributes.end() ? ProjectedOutputAttributes {} : found->second;
+    };
+    const auto risk_for = [&](const std::string& id) {
+        std::vector<std::string> result;
+        for (const auto& key : { id, std::string("*") }) {
+            const auto found = evidence->known_operator_risks.find(key);
+            if (found != evidence->known_operator_risks.end()) {
+                result.insert(result.end(), found->second.begin(), found->second.end());
+            }
+        }
+        return result;
+    };
+    offer.projected_output = catalog.projected_output(
+        offer.name,
+        offer.elite,
+        offer.level,
+        offer.planned_skill,
+        offer.effective_rank,
+        attrs_for(offer.id),
+        *evidence);
+    offer.intrinsic_reference = catalog.intrinsic_primary(
+        offer.name,
+        offer.elite,
+        offer.level,
+        offer.planned_skill,
+        offer.effective_rank,
+        attrs_for(offer.id),
+        evidence->source);
+    const auto risks = risk_for(offer.id);
+    if (!risks.empty()) {
+        offer.intrinsic_reference.qualified = false;
+        offer.intrinsic_reference.reason = "known_current_context_differential_risk_vetoes_intrinsic_reference";
+        offer.intrinsic_reference.limitations.insert(
+            offer.intrinsic_reference.limitations.end(),
+            risks.begin(),
+            risks.end());
+    }
+    if (account->skill_level_for_run(offer.name, offer.planned_skill, offer.elite, offer.level) !=
+        std::optional<int>(offer.effective_rank)) {
+        offer.projected_output.qualified = offer.intrinsic_reference.qualified = false;
+        offer.projected_output.reason = offer.intrinsic_reference.reason =
+            "offer_rank_not_bound_to_exact_account_training";
+        return;
+    }
+    const auto reference_range = BattleData.get_range(battle::Role::Unknown, offer.name, offer.elite);
+    for (auto* output : { &offer.projected_output, &offer.intrinsic_reference }) {
+        if (!output->qualified) {
+            continue;
+        }
+        const bool intrinsic = output->objective == PrimaryProjectionObjective::OutsideIntrinsicReference;
+        if (reference_range.empty()) {
+            output->reason = "reference_footprint_unbound";
+            continue;
+        }
+        bool gain = true;
+        for (const auto& [name, old] : roster) {
+            const auto id = RoguelikeTraining.unique_identity(name);
+            const auto props = BattleData.find_first_oper(battle::Role::Unknown, name);
+            if (id.empty() || !props || old.elite < 0 || old.elite > 2) {
+                output->reason = "roster_identity_or_phase_unknown_not_zero";
+                gain = false;
+                break;
+            }
+            if (props->role == battle::Role::Medic && props->sub_role != battle::SubRole::Medic_IncantationMedic) {
+                continue;
+            }
+            const auto range = BattleData.get_range(props->role, name, old.elite);
+            if (range.empty()) {
+                output->reason = "roster_reference_footprint_unknown";
+                gain = false;
+                break;
+            }
+            const bool same_reference =
+                range.size() == reference_range.size() && std::ranges::all_of(reference_range, [&](const Point& p) {
+                    return std::ranges::find(range, p) != range.end();
+                });
+            const bool full_coverage = std::ranges::all_of(reference_range, [&](const Point& p) {
+                return std::ranges::find(range, p) != range.end();
+            });
+            if (intrinsic ? !same_reference : !full_coverage) {
+                if (intrinsic) {
+                    output->limitations.push_back("roster_different_reference_footprint_not_scored_as_zero:" + name);
+                }
+                continue;
+            }
+            if (intrinsic && !risk_for(id).empty()) {
+                output->reason = "known_incumbent_context_risk_prevents_reference_increment";
+                gain = false;
+                break;
+            }
+            const auto& cfg = RoguelikeRecruit.get_oper_info("BlackFlow", name);
+            std::array<SkillAvailability, 3> availability;
+            for (int slot = 1; slot <= 3; ++slot) {
+                availability[slot - 1] = RoguelikeTraining.skill_availability(name, slot, old.elite, old.level);
+            }
+            const auto plan = resolve_recruitment_skill_plan(cfg.skill, cfg.alternate_skill, availability);
+            int rank = -1;
+            std::string rank_source = "unknown_origin_or_training";
+            const auto& prep = old.preparation;
+            const auto origin =
+                origins ? origins->find(context.client, context.uid, context.run_id, id, old) : std::nullopt;
+            if (origin && origin->ordinary) {
+                if (plan.selected > 0 && prep.operator_id == id && prep.training_sequence > 0 &&
+                    prep.selection_sequence >= prep.training_sequence && prep.selected_skill == plan.selected) {
+                    rank = normalize_displayed_skill_level_for_run(
+                               name,
+                               plan.selected,
+                               old.elite,
+                               old.level,
+                               prep.displayed_skill_levels[plan.selected - 1])
+                               .value_or(-1);
+                    if (rank > 0) {
+                        rank_source = "current_phase_normalized_preparation";
+                    }
+                }
+                if (rank < 1) {
+                    rank = account->skill_level_for_run(name, plan.selected, old.elite, old.level).value_or(-1);
+                    if (rank > 0) {
+                        rank_source = "confirmed_ordinary_uid_account_training";
+                    }
+                }
+            }
+            output->limitations.push_back(
+                "incumbent_effective_rank:" + id + ":" + std::to_string(rank) + ":" + rank_source);
+            const auto before =
+                intrinsic
+                    ? catalog.intrinsic_primary(
+                          name,
+                          old.elite,
+                          old.level,
+                          plan.selected,
+                          rank,
+                          attrs_for(id),
+                          evidence->source)
+                    : catalog
+                          .projected_output(name, old.elite, old.level, plan.selected, rank, attrs_for(id), *evidence);
+            if (!before.qualified || !projected_output_strictly_better(*output, before)) {
+                output->reason = before.qualified ? "no_reference_component_increment_beyond_same_cohort_incumbent"
+                                                  : "same_cohort_incumbent_component_unknown_not_zero";
+                gain = false;
+                break;
+            }
+        }
+        output->marginal_known_positive = gain;
+        if (gain) {
+            output->reason = intrinsic ? "estimated_intrinsic_reference_increment_not_global_roster_or_run_dominance"
+                                       : "bounded_intrinsic_projection_gain_not_global_team_dominance";
+        }
+    }
+}
+
 void evaluate_recruitment_duties(
     RecruitmentDutyOffer& offer,
     const BlackFlowRecruitmentDutyCatalog& catalog,
@@ -520,6 +955,7 @@ std::vector<RecruitmentDutyOffer> observe_recruitment_duties(
         offer.healing_component =
             catalog.heal_packet(offer.name, offer.elite, offer.level, offer.planned_skill, offer.effective_rank);
         evaluate_recruitment_duties(offer, catalog, roster);
+        evaluate_recruitment_output(offer, catalog, account, roster, context, origins);
         if (offer.id.empty()) {
             offer.reasons.emplace_back("exact_identity_unknown");
         }
@@ -627,11 +1063,127 @@ RecruitmentDutyDecision choose_recruitment_duty(
             result.reason = "intrinsic_heal_packets_known_actual_modifiers_and_patient_task_unproven_keep_legacy";
         }
     }
+    if (!result.selected_offer && dominators.empty() && legacy->projected_output.qualified) {
+        std::vector<std::size_t> output_candidates;
+        const auto output_better = [&](const auto& a, const auto& b) {
+            if (!a.feasible || !b.feasible || a.client != b.client || a.uid.empty() || a.uid != b.uid ||
+                a.run_id != b.run_id || !a.hope_cost || !b.hope_cost || *a.hope_cost > *b.hope_cost ||
+                !a.projected_output.marginal_known_positive) {
+                return false;
+            }
+            for (std::size_t task = 0; task < 2; ++task) {
+                if (a.marginal[task].lower < b.marginal[task].upper) {
+                    return false;
+                }
+            }
+            return projected_output_strictly_better(a.projected_output, b.projected_output);
+        };
+        for (std::size_t i = 0; i < offers.size(); ++i) {
+            if (std::ranges::count_if(
+                    offers,
+                    [&](const auto& x) { return x.name == offers[i].name && x.page_index == offers[i].page_index; }) !=
+                    1 ||
+                std::ranges::find(eligible, std::pair { offers[i].name, offers[i].page_index }) == eligible.end() ||
+                !output_better(offers[i], *legacy)) {
+                continue;
+            }
+            output_candidates.push_back(i);
+        }
+        std::vector<std::size_t> frontier;
+        for (const auto i : output_candidates) {
+            if (std::ranges::none_of(output_candidates, [&](const auto j) {
+                    return i != j && output_better(offers[j], offers[i]);
+                })) {
+                frontier.push_back(i);
+            }
+        }
+        if (frontier.size() == 1) {
+            result.selected_offer = frontier[0];
+            result.adjusted = true;
+            result.reason = "same_duty_frontier_bounded_primary_gain_nonincreasing_hope_not_team_dominance";
+        }
+    }
+    if (!result.selected_offer && dominators.empty() && legacy->intrinsic_reference.qualified) {
+        std::vector<std::size_t> candidates;
+        bool unequal_price_gain = false;
+        const auto reference_better = [&](const auto& a, const auto& b, bool equal_price) {
+            if (!a.feasible || !b.feasible || a.client != b.client || a.uid.empty() || a.uid != b.uid ||
+                a.run_id.empty() || a.run_id != b.run_id || !a.hope_cost || !b.hope_cost || a.analysis_id == 0 ||
+                b.analysis_id == 0 || !a.price_index || !b.price_index ||
+                (equal_price && *a.hope_cost != *b.hope_cost) || !a.ordinary_origin || !b.ordinary_origin ||
+                !a.account_training_used || !b.account_training_used || a.positive_temporary || b.positive_temporary ||
+                !a.intrinsic_reference.marginal_known_positive ||
+                a.intrinsic_reference.objective != PrimaryProjectionObjective::OutsideIntrinsicReference ||
+                b.intrinsic_reference.objective != PrimaryProjectionObjective::OutsideIntrinsicReference) {
+                return false;
+            }
+            for (std::size_t task = 0; task < 2; ++task) {
+                if (a.marginal[task].lower < b.marginal[task].upper) {
+                    return false;
+                }
+            }
+            return projected_output_strictly_better(a.intrinsic_reference, b.intrinsic_reference);
+        };
+        for (std::size_t i = 0; i < offers.size(); ++i) {
+            if (std::ranges::count_if(
+                    offers,
+                    [&](const auto& x) { return x.name == offers[i].name && x.page_index == offers[i].page_index; }) !=
+                    1 ||
+                std::ranges::find(eligible, std::pair { offers[i].name, offers[i].page_index }) == eligible.end()) {
+                continue;
+            }
+            if (reference_better(offers[i], *legacy, true)) {
+                candidates.push_back(i);
+            }
+            else if (offers[i].hope_cost != legacy->hope_cost && reference_better(offers[i], *legacy, false)) {
+                unequal_price_gain = true;
+            }
+        }
+        std::vector<std::size_t> reference_frontier;
+        for (const auto i : candidates) {
+            if (std::ranges::none_of(candidates, [&](const auto j) {
+                    return i != j && reference_better(offers[j], offers[i], true);
+                })) {
+                reference_frontier.push_back(i);
+            }
+        }
+        if (reference_frontier.size() == 1) {
+            result.selected_offer = reference_frontier[0];
+            result.adjusted = true;
+            result.intrinsic_reference_used = true;
+            result.reason = "estimated_outside_intrinsic_reference_gain_equal_hope_not_current_run_dominance";
+        }
+        else if (unequal_price_gain) {
+            result.reason =
+                "reference_gain_known_unequal_hope_needs_gain_per_hope_model_not_universal_nonincrease_rule";
+        }
+    }
     return result;
 }
 
 bool recruitment_duty_refind_matches(const RecruitmentDutyOffer& intended, const RecruitmentDutyOffer& actual)
 {
+    if (intended.intrinsic_reference_used &&
+        (!actual.intrinsic_reference.qualified ||
+         intended.intrinsic_reference.objective != actual.intrinsic_reference.objective ||
+         intended.intrinsic_reference.marginal_known_positive != actual.intrinsic_reference.marginal_known_positive ||
+         intended.intrinsic_reference.evidence_source != actual.intrinsic_reference.evidence_source ||
+         intended.intrinsic_reference.range != actual.intrinsic_reference.range ||
+         intended.intrinsic_reference.lower != actual.intrinsic_reference.lower ||
+         intended.intrinsic_reference.upper != actual.intrinsic_reference.upper ||
+         intended.intrinsic_reference.limitations != actual.intrinsic_reference.limitations)) {
+        return false;
+    }
+
+    if (intended.projected_output.qualified &&
+        (!actual.projected_output.qualified ||
+         intended.projected_output.marginal_known_positive != actual.projected_output.marginal_known_positive ||
+         intended.projected_output.evidence_source != actual.projected_output.evidence_source ||
+         intended.projected_output.range != actual.projected_output.range ||
+         intended.projected_output.lower != actual.projected_output.lower ||
+         intended.projected_output.upper != actual.projected_output.upper)) {
+        return false;
+    }
     return actual.feasible && intended.client == actual.client && !intended.uid.empty() && intended.uid == actual.uid &&
            intended.run_id == actual.run_id && intended.positive_temporary == actual.positive_temporary &&
            intended.inherited_origin_receipt == actual.inherited_origin_receipt && !intended.id.empty() &&
@@ -720,6 +1272,9 @@ json::value recruitment_duty_to_json(const RecruitmentDutyOffer& x)
         { "effective_rank", x.effective_rank },
         { "skill_availability", static_cast<int>(x.skill_availability) },
         { "skill_facts", x.skill_facts },
+        { "projected_output", projected_output_to_json(x.projected_output) },
+        { "outside_intrinsic_reference", projected_output_to_json(x.intrinsic_reference) },
+        { "intrinsic_reference_used_for_this_selection", x.intrinsic_reference_used },
         { "intrinsic_healing_component", x.healing_component },
         { "hope_cost", x.hope_cost ? json::value(*x.hope_cost) : json::value(nullptr) },
         { "operation", x.operation },

@@ -1,9 +1,104 @@
 #include "BlackFlowAccountProfile.h"
 
 #include <algorithm>
+#include <cmath>
+#include <unordered_set>
 
 namespace asst::blackflow
 {
+std::optional<BlackFlowAccountProfile>
+    BlackFlowAccountProfile::with_life_modifier_evidence(const LifeModifierReceipt& receipt) const
+{
+    if (receipt.client != m_client || receipt.uid != m_uid || receipt.source.empty() ||
+        receipt.source_hash.size() != 64 || receipt.observed_at.empty() || receipt.active_ids.empty()) {
+        return std::nullopt;
+    }
+    std::unordered_set<std::string> states;
+    for (const auto& id : receipt.active_ids) {
+        if (id.empty() || !states.emplace(id).second) {
+            return std::nullopt;
+        }
+    }
+    for (const auto& id : receipt.inactive_ids) {
+        if (id.empty() || !states.emplace(id).second) {
+            return std::nullopt;
+        }
+    }
+    auto updated = *this;
+    updated.m_life_modifiers = receipt;
+    return updated;
+}
+
+json::value account_trust_to_json(const AccountTrustEvidence& value)
+{
+    return json::object { { "schema", 1 },
+                          { "client", value.client },
+                          { "uid", value.uid },
+                          { "operator_id", value.operator_id },
+                          { "operator_name", value.operator_name },
+                          { "percentage", value.percentage },
+                          { "confidence", value.confidence },
+                          { "raw_text", value.raw_text },
+                          { "observed_at", value.observed_at },
+                          { "evidence_file", value.evidence_file },
+                          { "source_kind", "exact_same_uid_operator_detail" },
+                          { "identity_verified", true } };
+}
+
+std::optional<AccountTrustEvidence> account_trust_from_json(
+    const json::value& value,
+    const std::string& client,
+    const std::string& uid,
+    const std::string& operator_id,
+    const std::string& operator_name)
+{
+    if (!value.is_object()) {
+        return std::nullopt;
+    }
+    // Do not allow coercions/defaults to manufacture a known zero or identity.
+    for (const auto& key : { "client",
+                             "uid",
+                             "operator_id",
+                             "operator_name",
+                             "raw_text",
+                             "observed_at",
+                             "evidence_file",
+                             "source_kind" }) {
+        if (!value.contains(key) || !value.at(key).is_string() || value.at(key).as_string().empty()) {
+            return std::nullopt;
+        }
+    }
+    if (!value.contains("schema") || !value.at("schema").is_number() || value.at("schema").as_double() != 1 ||
+        !value.contains("identity_verified") || !value.at("identity_verified").is_boolean() ||
+        !value.at("identity_verified").as_boolean() || value.at("client").as_string() != client ||
+        value.at("uid").as_string() != uid || value.at("operator_id").as_string() != operator_id ||
+        value.at("operator_name").as_string() != operator_name ||
+        value.at("source_kind").as_string() != "exact_same_uid_operator_detail" || !value.contains("percentage") ||
+        !value.at("percentage").is_number() || !value.contains("confidence") || !value.at("confidence").is_number()) {
+        return std::nullopt;
+    }
+    const auto percent = value.at("percentage").as_double();
+    const auto confidence = value.at("confidence").as_double();
+    if (!std::isfinite(percent) || percent != std::trunc(percent) || percent < 0 || percent > 200 ||
+        !std::isfinite(confidence) || confidence < 0.95 || confidence > 1) {
+        return std::nullopt;
+    }
+    const auto& raw = value.at("raw_text").as_string();
+    const auto canonical = std::to_string(static_cast<int>(percent));
+    if (raw != canonical + "%" && raw != canonical + "％") {
+        return std::nullopt;
+    }
+    return AccountTrustEvidence { .client = client,
+                                  .uid = uid,
+                                  .operator_id = operator_id,
+                                  .operator_name = operator_name,
+                                  .percentage = static_cast<int>(percent),
+                                  .confidence = confidence,
+                                  .raw_text = value.at("raw_text").as_string(),
+                                  .observed_at = value.at("observed_at").as_string(),
+                                  .evidence_file = value.at("evidence_file").as_string() };
+}
+
 std::optional<BlackFlowAccountProfile> BlackFlowAccountProfile::parse(
     const json::value& snapshot,
     const std::string& client,
@@ -73,6 +168,12 @@ std::optional<BlackFlowAccountProfile> BlackFlowAccountProfile::parse(
                 (oper.training->elite == oper.elite && oper.training->level > oper.level)) {
                 return reject("account skill training identity or strength is invalid: " + name);
             }
+        }
+        if (value.contains("attribute_trust")) {
+            // An invalid optional attribute is a data-quality unknown. It must
+            // not invalidate the otherwise usable UID-bound roster/training.
+            oper.trust = account_trust_from_json(value.at("attribute_trust"), client, uid, oper.id, name);
+            oper.trust_quality = oper.trust ? "known_cached_observation" : "invalid_optional_evidence";
         }
         profile.m_operators.emplace(name, std::move(oper));
     }

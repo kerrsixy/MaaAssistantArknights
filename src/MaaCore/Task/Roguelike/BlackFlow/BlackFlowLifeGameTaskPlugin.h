@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -43,6 +44,8 @@ private:
     BlackFlowLifeGamePlanner m_planner;
     LifeGameEvidence m_evidence;
     LifeGameScreenObservation m_last_observation;
+    std::string m_last_observation_stamp;
+    std::filesystem::path m_last_evidence_file;
     std::unordered_map<std::string, Location> m_locations;
     int m_verified_upgrades = 0;
     int m_terminal_upgrades = 0;
