@@ -12,6 +12,7 @@
 #include "BlackFlowNodeExecutionTypes.h"
 #include "Config/Roguelike/BlackFlow/BlackFlowStrategyConfig.h"
 
+#include "BlackFlowPreviewProgress.h"
 #include "BlackFlowTaskPort.h"
 
 // 这部分实现类和相关类型统一放入 asst::blackflow，保持模块内组织一致。
@@ -335,6 +336,7 @@ private:
     std::optional<VerifiedMoveArc> m_verified_move_arc;
     std::optional<PendingMoveCandidate> m_pending_candidate;
     std::optional<MoveTransaction> m_transaction;
+    PreviewConflictProgress m_preview_conflicts;
     std::optional<BlackFlowPlan> m_last_plan;
     std::optional<PageExecutionContext> m_page_context;
     std::optional<BlackFlowStrategyResult> m_result;

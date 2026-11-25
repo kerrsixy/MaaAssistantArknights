@@ -164,6 +164,11 @@ RoutingCycleOutcome execute_preview_cycle(Session& session, IBlackFlowTaskPort& 
         return { RoutingCycleStatus::Failed, "move_preview_failed", std::move(error) };
     }
     const PreviewDisposition disposition = session.accept_preview(std::move(preview), &error);
+    if constexpr (requires { session.terminated(); }) {
+        if (session.terminated()) {
+            return { RoutingCycleStatus::SessionTerminated, "preview_identity_conflict_no_progress", std::move(error) };
+        }
+    }
     if (disposition == PreviewDisposition::ReplanAfterDismiss) {
         return { RoutingCycleStatus::PreviewNeedsReplan, {}, {} };
     }

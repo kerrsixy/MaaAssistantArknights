@@ -17,6 +17,25 @@
 
 namespace asst::blackflow
 {
+namespace occupation_detail
+{
+std::optional<NodeOccupation> completed_occupation_for(
+    const PageExecutionContext& context,
+    const std::optional<MoveTransaction>& transaction,
+    std::string_view transaction_id)
+{
+    if (context.stage != PageExecutionStage::Resolved || !transaction ||
+        (transaction->stage() != MoveTransactionStage::PageResolved &&
+         transaction->stage() != MoveTransactionStage::Applied) ||
+        context.transaction_id != transaction_id || context.node != transaction->proposal().target ||
+        !transaction->preview() || !transaction->preview()->occupation ||
+        context.node_type != transaction->preview()->occupation->entry_type) {
+        return std::nullopt;
+    }
+    return *transaction->preview()->occupation;
+}
+}
+
 std::string_view to_string(CultivatedAnimalType type) noexcept
 {
     switch (type) {
@@ -705,6 +724,12 @@ void BlackFlowSession::queue_map_summary(std::optional<NodeId> corrected_node)
                 { "row", node.position.row },
                 { "column", node.position.column },
                 { "type", std::string(to_string(node.type)) },
+                { "base_map_type", std::string(to_string(node.occupation ? node.occupation->base_type : node.type)) },
+                { "effective_entry_type", std::string(to_string(node.type)) },
+                { "occupation_confirmed", node.occupation.has_value() },
+                { "base_map_name", node.occupation ? node.occupation->base_name : node.name },
+                { "occupation_rewards_known", node.occupation ? json::value(false) : json::value(nullptr) },
+                { "stage_title", node.occupation ? node.occupation->stage_title : std::string {} },
                 { "name", node.name },
                 { "identity_revealed", node.identity_revealed },
                 { "identity_state",
@@ -1020,6 +1045,10 @@ bool BlackFlowSession::merge_perception(
     else {
         m_facts.begin_page();
     }
+    if (new_floor || (previous_current_node != InvalidNodeId && previous_current_node != normalized->current_node)) {
+        m_map_version.map.clear_occupations();
+        m_preview_conflicts.reset();
+    }
     supplement_map_exits(normalized->map, m_map_version.exits, m_map_version.exit_type);
     if (!m_map_version.map.merge(normalized->map, error)) {
         return false;
@@ -1099,6 +1128,11 @@ bool BlackFlowSession::synchronize_map_facts(std::string* error)
 
 void BlackFlowSession::finalize_entered_node(const PageExecutionContext& context, bool page_completed)
 {
+    // Map-return merging clears movement-scoped occupation before finalization.
+    // Keep completion bound to the preview of this exact committed transaction.
+    const auto completed_occupation =
+        page_completed ? occupation_detail::completed_occupation_for(context, m_transaction, m_transaction_id)
+                       : std::nullopt;
     Node entered;
     if (const Node* stored = m_map_version.map.snapshot().find_node(context.node);
         stored != nullptr && stored->floor == context.floor) {
@@ -1112,6 +1146,12 @@ void BlackFlowSession::finalize_entered_node(const PageExecutionContext& context
         entered.traversal = default_traversal_for(entered.type);
     }
 
+    if (completed_occupation.has_value()) {
+        // Completion credit follows the verified page, not its stale base icon
+        // or the already-cleared icon observed while returning to the map.
+        entered.type = completed_occupation->entry_type;
+        entered.name = completed_occupation->stage_title;
+    }
     if (context.result.has_value()) {
         const NodeStateUpdate& update = *context.result;
         if (update.actual_type.has_value()) {
@@ -1166,6 +1206,17 @@ void BlackFlowSession::finalize_entered_node(const PageExecutionContext& context
                 updated.traversal.repeatable = *context.result->repeatable;
             }
             updated.progress = entered.progress;
+            // The verified combat-page completion resolves the occupied entry;
+            // the panel explicitly states the base node becomes empty after victory.
+            if (completed_occupation.has_value()) {
+                updated.type = completed_occupation->cleared_type;
+                updated.name.clear();
+                updated.traversal = default_traversal_for(updated.type);
+            }
+            if (page_completed) {
+                updated.occupation.reset();
+                m_preview_conflicts.reset();
+            }
             if (page_completed && context.result.has_value() && context.result->becomes_empty.value_or(false)) {
                 updated.type = NodeType::Empty;
                 updated.traversal = default_traversal_for(NodeType::Empty);
@@ -1668,7 +1719,7 @@ PreviewDisposition BlackFlowSession::accept_preview(MovePreview preview, std::st
 {
     BlackFlowSession staged = *this;
     const auto result = staged.accept_preview_in_place(std::move(preview), error);
-    if (result != PreviewDisposition::Failed) {
+    if (result != PreviewDisposition::Failed || staged.terminated()) {
         *this = std::move(staged);
     }
     return result;
@@ -1695,6 +1746,56 @@ PreviewDisposition BlackFlowSession::accept_preview_in_place(MovePreview preview
         preview.displayed_type = existing->type;
         preview.displayed_name = existing->name;
         preview.identity_revealed = existing->identity_revealed;
+    }
+    const NodeType visual_type = existing == nullptr    ? NodeType::Unknown
+                                 : existing->occupation ? existing->occupation->base_type
+                                                        : existing->type;
+    const bool occupation_bound =
+        preview.occupation && existing != nullptr &&
+        (visual_type == NodeType::Unknown || visual_type == NodeType::Rest) &&
+        preview.occupation->base_type == NodeType::Rest && preview.occupation->entry_type == NodeType::BattleNormal &&
+        preview.occupation->cleared_type == NodeType::Empty && !preview.occupation->stage_title.empty() &&
+        preview.displayed_type == NodeType::BattleNormal;
+    const bool occupation_released = existing != nullptr && existing->occupation && !preview.occupation &&
+                                     preview.identity_revealed &&
+                                     preview.displayed_type == existing->occupation->base_type;
+    const bool wrong_occupation_binding = preview.occupation.has_value() && !occupation_bound;
+    const bool unexplained_change =
+        existing != nullptr && existing->identity_revealed && existing->type != NodeType::Unknown &&
+        preview.identity_revealed && preview.displayed_type != NodeType::Unknown &&
+        existing->type != preview.displayed_type && !occupation_bound && !occupation_released;
+    if (wrong_occupation_binding || unexplained_change) {
+        const PreviewProgressScope scope {
+            m_run_revision,     m_run.floor,
+            m_run.current_node, proposal.target,
+            proposal.landing,   proposal.movement,
+            visual_type,        existing == nullptr ? NodeProgress::Removed : existing->progress
+        };
+        if (m_preview_conflicts.repeated(scope)) {
+            const std::string reason =
+                "same move repeatedly contradicts visual identity or occupation binding without progress";
+            queue_warning("preview_identity_conflict_no_progress", reason, DiagnosticTrigger::RebuildConflict);
+            fail("preview_identity_conflict_no_progress", reason, FailureDisposition::StopTask);
+            m_transaction.reset();
+            m_transaction_id.clear();
+            if (error) {
+                *error = reason;
+            }
+            return PreviewDisposition::Failed;
+        }
+        queue_warning(
+            "preview_identity_conflict_reacquire",
+            "refresh selected node and preview once before retry",
+            DiagnosticTrigger::RebuildConflict);
+        if (wrong_occupation_binding) {
+            m_transaction.reset();
+            m_transaction_id.clear();
+            m_verified_move_arc.reset();
+            return PreviewDisposition::ReplanAfterDismiss;
+        }
+    }
+    if (occupation_bound || occupation_released) {
+        m_preview_conflicts.reset();
     }
     if (!m_transaction->record_preview(preview, error)) {
         return PreviewDisposition::Failed;
@@ -2309,6 +2410,12 @@ void BlackFlowSession::queue_node_resolution(const PageExecutionContext& context
         becomes_empty = result.becomes_empty.value_or(false);
     }
 
+    if (const auto occupation = occupation_detail::completed_occupation_for(context, m_transaction, m_transaction_id);
+        occupation && occupation->cleared_type == NodeType::Empty) {
+        // Report the same verified transformation that finalization will apply.
+        becomes_empty = true;
+        repeatable = false;
+    }
     json::object details {
         { "run_revision", context.run_revision },
         { "observation_id", m_observation_id },

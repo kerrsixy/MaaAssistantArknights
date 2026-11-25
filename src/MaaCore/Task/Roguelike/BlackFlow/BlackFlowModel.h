@@ -99,6 +99,19 @@ struct NodeTraversal
     bool operator==(const NodeTraversal&) const noexcept = default;
 };
 
+struct NodeOccupation
+{
+    NodeType base_type = NodeType::Unknown;
+    std::string base_name;
+    NodeType entry_type = NodeType::Unknown;
+    NodeType cleared_type = NodeType::Unknown;
+    std::string stage_title;
+    bool operator==(const NodeOccupation&) const noexcept = default;
+};
+
+[[nodiscard]] std::optional<NodeOccupation>
+    parse_rest_occupation_description(std::string text, std::string stage_title = {});
+
 struct Node
 {
     NodeId id = InvalidNodeId;
@@ -124,6 +137,8 @@ struct Node
     bool ideal_source_known = false;
     std::string ideal_source;
     std::optional<NodeId> transfer_target;
+    // type/name are effective entry facts; retain independent base-map identity.
+    std::optional<NodeOccupation> occupation;
 
     bool operator==(const Node&) const noexcept = default;
 };
@@ -224,6 +239,7 @@ class NormalizedMap
 public:
     [[nodiscard]] bool merge(const MapObservationBatch& batch, std::string* error = nullptr);
     void reset();
+    void clear_occupations();
     void finalize_revision(const MapSnapshot& previous);
     bool accept_preview(NodeId target, const MovePreview& preview, bool& changed, std::string* error);
 
@@ -475,6 +491,8 @@ struct MovePreview
     bool identity_revealed = false;
     bool ideal_source_known = false;
     std::string ideal_source;
+    std::string stage_title;
+    std::optional<NodeOccupation> occupation;
 };
 
 enum class MoveTransactionStage
