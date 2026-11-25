@@ -3914,5 +3914,29 @@
         "withoutDet": false,
         "fullMatch": false,
         "text": []
+    },
+    "BlackFlowAccount@TrustLabel": {
+        "algorithm": "OcrDetect",
+        "roi": [15, 396, 105, 30],
+        "text": ["信赖值"],
+        "fullMatch": true,
+        "action": "DoNothing"
+    },
+    "BlackFlowAccount@TrustPercent": {
+        "algorithm": "OcrDetect",
+        "roi": [339, 397, 66, 29],
+        "text": [],
+        "withoutDet": true,
+        "action": "DoNothing"
+    },
+    "BlackFlow@Roguelike@RecruitHopeHeader": {
+        "algorithm": "MatchTemplate",
+        "template": "BlackFlow@Roguelike@RecruitHopeHeader.png",
+        "roi": [430, 0, 135, 62],
+        "templThreshold": 0.9
+    },
+    "BlackFlow@Roguelike@RecruitCurrentHope": {
+        "baseTask": "BlackFlow@Roguelike@CurrentHope",
+        "roi": [550, 12, 160, 42]
     }
 }

@@ -23,6 +23,15 @@ struct AccountTrainingEvidence
     };
 };
 
+// A fresh displayed rank still needs the current phase and slot's game rules.
+// This function proves neither account ownership nor ordinary recruitment origin.
+[[nodiscard]] std::optional<int> normalize_displayed_skill_level_for_run(
+    const std::string& name,
+    int skill,
+    int current_run_elite,
+    int current_run_level,
+    int displayed_rank);
+
 // Supply verified current-run phase and level. Account training does not promote an operator.
 [[nodiscard]] std::optional<int> account_skill_level_for_run(
     const AccountTrainingEvidence& account,

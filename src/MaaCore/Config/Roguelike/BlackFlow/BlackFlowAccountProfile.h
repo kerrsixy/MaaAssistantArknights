@@ -8,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "BlackFlowAccountModifierEvidence.h"
 #include "BlackFlowAccountTraining.h"
 
 namespace asst::blackflow
@@ -20,6 +21,29 @@ struct AccountModuleEvidence
     bool verified = false;
 };
 
+// This is an independently validated field receipt, not the legacy potential
+// number or the displayed panel ATK (which may already include a module).
+struct AccountTrustEvidence
+{
+    std::string client;
+    std::string uid;
+    std::string operator_id;
+    std::string operator_name;
+    int percentage = -1;
+    double confidence = 0;
+    std::string raw_text;
+    std::string observed_at;
+    std::string evidence_file;
+};
+
+[[nodiscard]] json::value account_trust_to_json(const AccountTrustEvidence& value);
+[[nodiscard]] std::optional<AccountTrustEvidence> account_trust_from_json(
+    const json::value& value,
+    const std::string& client,
+    const std::string& uid,
+    const std::string& operator_id,
+    const std::string& operator_name);
+
 struct AccountOperatorProfile
 {
     std::string id;
@@ -28,6 +52,8 @@ struct AccountOperatorProfile
     bool strength_verified = false;
     std::unordered_map<std::string, AccountModuleEvidence> modules;
     std::optional<AccountTrainingEvidence> training;
+    std::optional<AccountTrustEvidence> trust;
+    std::string trust_quality = "missing_optional_evidence";
 };
 
 // Account strength is separate from operators recruited into the current exploration.
@@ -62,10 +88,19 @@ public:
 
     [[nodiscard]] bool roster_complete() const noexcept { return m_roster_complete; }
 
+    [[nodiscard]] const std::optional<LifeModifierReceipt>& life_modifier_evidence() const noexcept
+    {
+        return m_life_modifiers;
+    }
+
+    [[nodiscard]] std::optional<BlackFlowAccountProfile>
+        with_life_modifier_evidence(const LifeModifierReceipt& receipt) const;
+
 private:
     std::string m_uid;
     std::string m_client;
     bool m_roster_complete = false;
     std::unordered_map<std::string, AccountOperatorProfile> m_operators;
+    std::optional<LifeModifierReceipt> m_life_modifiers;
 };
 }

@@ -2,6 +2,7 @@
 #include "Config/Miscellaneous/BattleDataConfig.h"
 #include "Config/Roguelike/BlackFlow/BlackFlowAccountProfile.h"
 #include "RoguelikeOperEvidence.h"
+#include "Vision/Roguelike/RoguelikeParameterAnalyzer.h"
 
 #include <cctype>
 #include <utility>
@@ -10,7 +11,9 @@
 #include "Controller/Controller.h"
 #include "MaaUtils/Time.hpp"
 #include "Task/ProcessTask.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowModifierEvidenceProducer.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowRecruitmentDuty.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowRecruitmentOutputEvidence.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowRecruitmentPageObservation.h"
 #include "Utils/Logger.hpp"
 #include "Utils/WorkingDir.hpp"
@@ -320,6 +323,10 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
 
     const int cur_hope = read_current_hope(image);
 
+    blackflow::BlackFlowModifierEvidenceProducer modifier_catalog;
+    if (theme == RoguelikeTheme::BlackFlow && mode == RoguelikeMode::Exp) {
+        modifier_catalog.load(ResDir.get() / utils::path("roguelike/BlackFlow/modifier_components.json"));
+    }
     blackflow::BlackFlowRecruitmentDutyCatalog duty_catalog;
     std::vector<blackflow::RecruitmentDutyOffer> duty_offers;
     if (theme == RoguelikeTheme::BlackFlow && mode == RoguelikeMode::Exp) {
@@ -367,6 +374,41 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
         }
 
         if (theme == RoguelikeTheme::BlackFlow && mode == RoguelikeMode::Exp) {
+            std::vector<std::string> attribute_names;
+            for (const auto& oper : analyzer.get_result()) {
+                attribute_names.push_back(oper.name);
+            }
+            for (const auto& [name, oper] : chars_map) {
+                attribute_names.push_back(name);
+            }
+            // The UID-bound profile is immutable during this exploration. The
+            // final refind calls the same adapter and matches projected facts.
+            const auto modifier_parts = modifier_catalog.observe(
+                blackflow::ModifierEvidenceRequest {
+                    .profile = m_config->account_profile().get(),
+                    .client = m_config->account_client(),
+                    .uid = m_config->account_uid(),
+                    .run_id = m_config->status().run_id,
+                    .observed_at = frame_read_completed_at,
+                    .operator_names = attribute_names,
+                    .configured_squad = m_config->get_squad(),
+                    .observed_purchase_names = m_config->status().collections,
+                    .life = m_config->account_profile() ? m_config->account_profile()->life_modifier_evidence()
+                                                        : std::nullopt,
+                });
+            const auto output_evidence = blackflow::recruitment_profile_output_evidence(
+                m_config->account_profile().get(),
+                m_config->account_client(),
+                m_config->account_uid(),
+                m_config->status().run_id,
+                attribute_names,
+                modifier_parts.comparison_receipt);
+            auto attribute_observation = basic_info_with_what("BlackFlowRecruitmentAttributeEvidence");
+            attribute_observation["details"] = blackflow::recruitment_profile_output_to_json(output_evidence);
+            attribute_observation["details"]["stage"] = "initial_page";
+            attribute_observation["details"]["modifier_parts"] =
+                blackflow::modifier_evidence_parts_to_json(modifier_parts);
+            callback(AsstMsg::SubTaskExtraInfo, attribute_observation);
             const blackflow::RecruitmentDutyContext context {
                 .client = m_config->account_client(),
                 .uid = m_config->account_uid(),
@@ -376,6 +418,7 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                 .hope = cur_hope,
                 .mode = static_cast<int>(mode),
                 .initial = m_initail_recruit,
+                .output_evidence = &output_evidence,
             };
             auto page_offers = blackflow::observe_recruitment_duties(
                 analyzer,
@@ -752,6 +795,7 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
             if (replacement != recruit_list.end()) {
                 selected_oper = replacement;
                 duty_intent = desired;
+                duty_intent->intrinsic_reference_used = duty_choice.intrinsic_reference_used;
             }
         }
         json::array offers;
@@ -778,7 +822,11 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
             { "hope_budget", cur_hope },
             { "hope_budget_source", "pre_page_scan_read_current_hope;revalidated_before_click" },
             { "offers", offers },
-            { "scope", "remaining_current_roster_duties_not_global_strength_or_future_lifetime" },
+            { "intrinsic_reference_used", duty_choice.intrinsic_reference_used },
+            { "scope",
+              duty_choice.intrinsic_reference_used
+                  ? "estimated_outside_intrinsic_reference_not_current_run_dominance"
+                  : "remaining_current_roster_duties_not_global_strength_or_future_lifetime" },
         };
         callback(AsstMsg::SubTaskExtraInfo, decision);
     }
@@ -998,6 +1046,10 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
     bool start_with_elite_two = m_config->get_start_with_elite_two();
     bool only_start_with_elite_two = m_config->get_only_start_with_elite_two();
 
+    blackflow::BlackFlowModifierEvidenceProducer modifier_catalog;
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_config->get_mode() == RoguelikeMode::Exp) {
+        modifier_catalog.load(ResDir.get() / utils::path("roguelike/BlackFlow/modifier_components.json"));
+    }
     blackflow::BlackFlowRecruitmentDutyCatalog fallback_catalog;
     const auto* catalog = known_catalog;
     if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_config->get_mode() == RoguelikeMode::Exp &&
@@ -1036,6 +1088,39 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
                 auto selected = *it;
                 std::optional<blackflow::RecruitmentDutyOffer> final_origin;
                 if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_config->get_mode() == RoguelikeMode::Exp) {
+                    std::vector<std::string> attribute_names;
+                    for (const auto& oper : chars) {
+                        attribute_names.push_back(oper.name);
+                    }
+                    for (const auto& [name, oper] : m_config->status().opers) {
+                        attribute_names.push_back(name);
+                    }
+                    const auto modifier_parts = modifier_catalog.observe(
+                        blackflow::ModifierEvidenceRequest {
+                            .profile = m_config->account_profile().get(),
+                            .client = m_config->account_client(),
+                            .uid = m_config->account_uid(),
+                            .run_id = m_config->status().run_id,
+                            .observed_at = MAA_NS::format_now(),
+                            .operator_names = attribute_names,
+                            .configured_squad = m_config->get_squad(),
+                            .observed_purchase_names = m_config->status().collections,
+                            .life = m_config->account_profile() ? m_config->account_profile()->life_modifier_evidence()
+                                                                : std::nullopt,
+                        });
+                    const auto output_evidence = blackflow::recruitment_profile_output_evidence(
+                        m_config->account_profile().get(),
+                        m_config->account_client(),
+                        m_config->account_uid(),
+                        m_config->status().run_id,
+                        attribute_names,
+                        modifier_parts.comparison_receipt);
+                    auto attribute_observation = basic_info_with_what("BlackFlowRecruitmentAttributeEvidence");
+                    attribute_observation["details"] = blackflow::recruitment_profile_output_to_json(output_evidence);
+                    attribute_observation["details"]["stage"] = "final_refind";
+                    attribute_observation["details"]["modifier_parts"] =
+                        blackflow::modifier_evidence_parts_to_json(modifier_parts);
+                    callback(AsstMsg::SubTaskExtraInfo, attribute_observation);
                     const blackflow::RecruitmentDutyContext context {
                         .client = m_config->account_client(),
                         .uid = m_config->account_uid(),
@@ -1045,6 +1130,7 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
                         .hope = read_current_hope(image),
                         .mode = static_cast<int>(m_config->get_mode()),
                         .initial = m_initail_recruit,
+                        .output_evidence = &output_evidence,
                     };
                     const auto actual = blackflow::observe_recruitment_duties(
                         analyzer,
@@ -1261,6 +1347,17 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_own_char(const std::string& name)
 
 int asst::RoguelikeRecruitTaskPlugin::read_current_hope(const cv::Mat& image)
 {
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+        const auto hope = RoguelikeParameterAnalyzer::read_blackflow_hope(
+            image,
+            RoguelikeParameterAnalyzer::BlackFlowHopeLayout::RecruitmentHeader);
+        const int current = hope.value_or(-1);
+        // Invalidate a stale balance when this exact page is unreadable.
+        m_config->status().hope = current;
+        LogInfo << __FUNCTION__ << "Recruitment current hope" << current << "source"
+                << "anchored yellow current-value glyphs";
+        return current;
+    }
     int cur_hope = -1;
     {
         // 1280x720 下实测：色条右侧的当前希望数字位于 x≈600..640、y≈18..52。

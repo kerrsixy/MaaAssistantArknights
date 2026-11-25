@@ -72,6 +72,8 @@ std::optional<json::value> BlackFlowAccountSnapshotStore::merge(
                     retained["module_slots"] = json::array {};
                     retained.as_object().erase("skill_training");
                     retained.as_object().erase("skill_training_latest_attempt");
+                    retained.as_object().erase("attribute_trust");
+                    retained.as_object().erase("attribute_trust_latest_attempt");
                     retained["legacy_identifier_repair"] =
                         json::object { { "previous", legacy },
                                        { "observed_at", stamp },
@@ -172,6 +174,42 @@ std::optional<json::value> BlackFlowAccountSnapshotStore::merge(
                 stamp,
                 utils::path_to_utf8_string(image->second));
         }
+        const auto previous_trust = oper.contains("attribute_trust") ? account_trust_from_json(
+                                                                           oper.at("attribute_trust"),
+                                                                           observed.client,
+                                                                           observed.uid,
+                                                                           value.operator_id,
+                                                                           name)
+                                                                     : std::nullopt;
+        bool fresh_trust_valid = false;
+        if (value.trust) {
+            const auto& trust = *value.trust;
+            const AccountTrustEvidence receipt { .client = observed.client,
+                                                 .uid = observed.uid,
+                                                 .operator_id = value.operator_id,
+                                                 .operator_name = name,
+                                                 .percentage = trust.percentage,
+                                                 .confidence = trust.confidence,
+                                                 .raw_text = trust.raw_text,
+                                                 .observed_at = stamp,
+                                                 .evidence_file = utils::path_to_utf8_string(image->second) };
+            const auto serialized = account_trust_to_json(receipt);
+            fresh_trust_valid =
+                account_trust_from_json(serialized, observed.client, observed.uid, value.operator_id, name).has_value();
+            if (fresh_trust_valid) {
+                oper["attribute_trust"] = serialized;
+            }
+        }
+        if (!fresh_trust_valid && !previous_trust) {
+            oper.as_object().erase("attribute_trust");
+        }
+        // Retention does not rewrite the original attribute receipt's timestamp.
+        oper["attribute_trust_latest_attempt"] = json::object {
+            { "observed_at", stamp },
+            { "evidence_file", utils::path_to_utf8_string(image->second) },
+            { "state", fresh_trust_valid ? "known" : "unknown" },
+            { "retained_previous_source", !fresh_trust_valid && previous_trust.has_value() },
+        };
         oper["strength_evidence"] =
             json::object { { "source_kind", "exact_same_uid_operator_detail" },
                            { "recognized_name", value.recognized_name },

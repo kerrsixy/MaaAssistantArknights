@@ -94,6 +94,31 @@ std::optional<AccountTrainingEvidence> account_training_from_json(
     return result;
 }
 
+std::optional<int> normalize_displayed_skill_level_for_run(
+    const std::string& name,
+    int skill,
+    int current_run_elite,
+    int current_run_level,
+    int displayed_rank)
+{
+    const auto level_cap = RoguelikeTraining.maximum_level(name, current_run_elite);
+    const auto base_cap = RoguelikeTraining.maximum_base_skill(name);
+    const auto rank_cap = RoguelikeTraining.maximum_training(name, skill);
+    if (RoguelikeTraining.unique_identity(name).empty() || !level_cap || !base_cap || !rank_cap ||
+        current_run_elite < 0 || current_run_elite > 2 || current_run_level <= 0 || current_run_level > *level_cap ||
+        displayed_rank < 1 || displayed_rank > *rank_cap ||
+        RoguelikeTraining.skill_availability(name, skill, current_run_elite, current_run_level) !=
+            SkillAvailability::Available) {
+        return std::nullopt;
+    }
+    // These are the existing account-skill phase rules, now shared by both
+    // evidence adapters. The base maximum remains operator-source driven.
+    if (current_run_elite < 2) {
+        return std::min(displayed_rank, current_run_elite == 0 ? std::min(*base_cap, 4) : *base_cap);
+    }
+    return displayed_rank;
+}
+
 std::optional<int> account_skill_level_for_run(
     const AccountTrainingEvidence& account,
     int skill,
@@ -121,12 +146,20 @@ std::optional<int> account_skill_level_for_run(
     if (mastery < -1 || mastery > 3 || (mastery > 0 && (account.elite < 2 || account.base_skill_level != 7))) {
         return std::nullopt;
     }
-    if (current_run_elite < 2) {
-        return std::min(account.base_skill_level, current_run_elite == 0 ? 4 : 7);
+    if (current_run_elite < 2 || account.base_skill_level < 7) {
+        return normalize_displayed_skill_level_for_run(
+            account.operator_name,
+            skill,
+            current_run_elite,
+            current_run_level,
+            account.base_skill_level);
     }
-    if (account.base_skill_level < 7) {
-        return account.base_skill_level;
-    }
-    return mastery >= 0 ? std::optional<int>(7 + mastery) : std::nullopt;
+    return mastery >= 0 ? normalize_displayed_skill_level_for_run(
+                              account.operator_name,
+                              skill,
+                              current_run_elite,
+                              current_run_level,
+                              7 + mastery)
+                        : std::nullopt;
 }
 }

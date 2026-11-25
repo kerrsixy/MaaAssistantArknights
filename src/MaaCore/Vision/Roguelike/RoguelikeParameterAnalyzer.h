@@ -24,7 +24,16 @@ public:
     [[nodiscard]] static std::optional<int>
         read_number(const cv::Mat& image, const std::string& task_name, double minimum_score = 0.9);
 
+    enum class BlackFlowHopeLayout
+    {
+        ExplorationHeader,
+        RecruitmentHeader,
+    };
+
+    // Both layouts read only yellow current-value glyphs. The gray value and
+    // previously cached balances cannot establish an affordable budget.
     [[nodiscard]] static std::optional<int> read_blackflow_hope(const cv::Mat& image);
+    [[nodiscard]] static std::optional<int> read_blackflow_hope(const cv::Mat& image, BlackFlowHopeLayout layout);
 
     // int update_hope(const cv::Mat& image);
     int update_hp(const cv::Mat& image);

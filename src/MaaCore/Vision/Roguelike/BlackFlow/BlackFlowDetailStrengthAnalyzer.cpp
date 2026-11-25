@@ -26,6 +26,29 @@ std::vector<std::string>
     return labels;
 }
 
+std::optional<int> BlackFlowDetailStrengthAnalyzer::parse_trust_percentage(const std::string& text)
+{
+    // Retain the percent suffix: a bare number is not proof of the trust field.
+    auto numeric = text;
+    if (numeric.ends_with("％")) {
+        numeric.replace(numeric.size() - std::string("％").size(), std::string("％").size(), "%");
+    }
+    if (numeric.size() < 2 || numeric.size() > 4 || numeric.back() != '%') {
+        return std::nullopt;
+    }
+    numeric.pop_back();
+    if (numeric.size() > 1 && numeric.front() == '0') {
+        return std::nullopt;
+    }
+    int value = -1;
+    const auto conversion = std::from_chars(numeric.data(), numeric.data() + numeric.size(), value);
+    if (conversion.ec != std::errc {} || conversion.ptr != numeric.data() + numeric.size() || value < 0 ||
+        value > 200) {
+        return std::nullopt;
+    }
+    return value;
+}
+
 std::optional<DetailStrengthObservation>
     BlackFlowDetailStrengthAnalyzer::analyze(const std::string& operator_id, const std::string& operator_name) const
 {
@@ -106,14 +129,38 @@ std::optional<DetailStrengthObservation>
     if (!level || !maximum || level->first < 1 || maximum->first < level->first || maximum->first > 90) {
         return std::nullopt;
     }
-    return DetailStrengthObservation { .operator_id = operator_id,
-                                       .operator_name = operator_name,
-                                       .recognized_name = identity->text,
-                                       .elite = *elite,
-                                       .level = level->first,
-                                       .maximum_level = maximum->first,
-                                       .name_rect = identity->rect,
-                                       .level_rect = level->second,
-                                       .maximum_level_rect = maximum->second };
+    auto result = DetailStrengthObservation { .operator_id = operator_id,
+                                              .operator_name = operator_name,
+                                              .recognized_name = identity->text,
+                                              .elite = *elite,
+                                              .level = level->first,
+                                              .maximum_level = maximum->first,
+                                              .name_rect = identity->rect,
+                                              .level_rect = level->second,
+                                              .maximum_level_rect = maximum->second };
+    // Optional attribute evidence is read only after exact identity and phase/level
+    // have succeeded on this same frame. Unreadable trust never breaks that receipt.
+    const auto label_task = Task.get<OcrTaskInfo>("BlackFlowAccount@TrustLabel");
+    const auto percent_task = Task.get<OcrTaskInfo>("BlackFlowAccount@TrustPercent");
+    if (label_task && percent_task && inside(label_task->roi) && inside(percent_task->roi)) {
+        OCRer label(m_image), percent(m_image);
+        label.set_task_info(label_task);
+        percent.set_task_info(percent_task);
+        const auto labels_found = label.analyze();
+        const auto values_found = percent.analyze();
+        if (labels_found && values_found && labels_found->size() == 1 && values_found->size() == 1) {
+            const auto& label_value = labels_found->front();
+            const auto& value = values_found->front();
+            const auto percentage = parse_trust_percentage(value.text);
+            if (label_value.text == "信赖值" && label_value.score >= 0.95 && value.score >= 0.95 && percentage) {
+                result.trust = DetailTrustObservation { .percentage = *percentage,
+                                                        .confidence = std::min(label_value.score, value.score),
+                                                        .raw_text = value.text,
+                                                        .label_rect = label_value.rect,
+                                                        .value_rect = value.rect };
+            }
+        }
+    }
+    return result;
 }
 }

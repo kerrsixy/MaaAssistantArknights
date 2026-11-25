@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "BlackFlowPrimaryComponent.h"
 #include "Config/Roguelike/BlackFlow/BlackFlowAccountProfile.h"
 #include "Task/Roguelike/RoguelikeConfig.h"
 #include "Vision/Roguelike/RoguelikeRecruitImageAnalyzer.h"
@@ -31,6 +32,51 @@ struct DutyBound
     int upper = 1;
 };
 
+struct ProjectedOutputAttributes
+{
+    std::optional<int> trust_percent;
+    std::optional<int> potential;
+    std::string source;
+};
+
+struct RecruitmentOutputEvidence
+{
+    std::string client;
+    std::string uid;
+    std::string run_id;
+    std::string source;
+    bool external_modifiers_bounded = false;
+    std::array<double, 2> external_atk_fraction { 0, 0 };
+    std::array<double, 2> external_aspd { 0, 0 };
+    std::unordered_map<std::string, ProjectedOutputAttributes> attributes;
+    // Positive, source-bound differential facts; absence is not proof of none.
+    std::unordered_map<std::string, std::vector<std::string>> known_operator_risks;
+};
+
+enum class PrimaryProjectionObjective
+{
+    CurrentRunComponents,
+    OutsideIntrinsicReference,
+};
+
+struct ProjectedOutputEstimate
+{
+    PrimaryProjectionObjective objective = PrimaryProjectionObjective::CurrentRunComponents;
+    std::vector<std::string> limitations;
+    bool qualified = false;
+    bool marginal_known_positive = false;
+    std::string id;
+    std::string range;
+    std::string reason;
+    std::string evidence_source;
+    int effective_rank = -1;
+    std::vector<ProjectedPhysicalProfile> lower;
+    std::vector<ProjectedPhysicalProfile> upper;
+};
+
+[[nodiscard]] bool projected_output_strictly_better(const ProjectedOutputEstimate& a, const ProjectedOutputEstimate& b);
+[[nodiscard]] json::value projected_output_to_json(const ProjectedOutputEstimate& value);
+
 struct RecruitmentDutyContext
 {
     std::string theme = "BlackFlow";
@@ -42,6 +88,7 @@ struct RecruitmentDutyContext
     int hope = -1;
     int mode = -1;
     bool initial = false;
+    const RecruitmentOutputEvidence* output_evidence = nullptr;
 };
 
 struct RecruitmentDutyOffer
@@ -78,6 +125,9 @@ struct RecruitmentDutyOffer
     bool replacement_valid = false;
     json::value skill_facts = nullptr;
     json::value healing_component = nullptr;
+    ProjectedOutputEstimate projected_output;
+    ProjectedOutputEstimate intrinsic_reference;
+    bool intrinsic_reference_used = false;
 };
 
 struct RecruitmentOriginReceipt
@@ -152,17 +202,50 @@ public:
     [[nodiscard]] std::array<DutyBound, 2> body(const std::string& name, int elite, int level) const;
     [[nodiscard]] json::value skill(const std::string& id, int slot, int rank) const;
     [[nodiscard]] json::value heal_packet(const std::string& name, int elite, int level, int slot, int rank) const;
+    [[nodiscard]] ProjectedOutputEstimate projected_output(
+        const std::string& name,
+        int elite,
+        int level,
+        int slot,
+        int rank,
+        const ProjectedOutputAttributes& attributes,
+        const RecruitmentOutputEvidence& modifiers) const;
+
+    [[nodiscard]] ProjectedOutputEstimate intrinsic_primary(
+        const std::string& name,
+        int elite,
+        int level,
+        int slot,
+        int rank,
+        const ProjectedOutputAttributes& attributes,
+        const std::string& source) const;
 
     [[nodiscard]] bool valid() const noexcept { return m_valid; }
 
     [[nodiscard]] std::string temporary_rule_source() const;
 
 private:
+    [[nodiscard]] ProjectedOutputEstimate primary_components(
+        const std::string& name,
+        int elite,
+        int level,
+        int slot,
+        int rank,
+        const ProjectedOutputAttributes& attributes,
+        const RecruitmentOutputEvidence* modifiers) const;
     bool m_valid = false;
     json::value m_operators = json::object {};
     json::value m_temporary_rule = nullptr;
     std::string m_revision;
 };
+
+void evaluate_recruitment_output(
+    RecruitmentDutyOffer& offer,
+    const BlackFlowRecruitmentDutyCatalog& catalog,
+    const BlackFlowAccountProfile* account,
+    const std::unordered_map<std::string, RoguelikeOper>& roster,
+    const RecruitmentDutyContext& context,
+    const RecruitmentOriginLedger* origins);
 
 [[nodiscard]] std::vector<RecruitmentDutyOffer> observe_recruitment_duties(
     const RoguelikeRecruitImageAnalyzer& analyzer,
@@ -184,6 +267,7 @@ struct RecruitmentDutyDecision
     std::optional<std::size_t> selected_offer;
     std::string reason;
     bool adjusted = false;
+    bool intrinsic_reference_used = false;
 };
 
 // Eligible keys are the unchanged legacy consumer's name/page pairs, not all

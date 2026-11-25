@@ -103,21 +103,62 @@ std::optional<asst::blackflow::ShopShelfPage> asst::blackflow::BlackFlowShopShel
 
 bool asst::blackflow::BlackFlowShopShelf::same_view(const ShopShelfPage& lhs, const ShopShelfPage& rhs)
 {
-    if (lhs.offers.size() != rhs.offers.size() || lhs.clipped_content != rhs.clipped_content) {
+    if (lhs.offers.empty() || rhs.offers.empty() || lhs.clipped_content != rhs.clipped_content) {
         return false;
     }
-    for (std::size_t i = 0; i < lhs.offers.size(); ++i) {
-        const auto& a = lhs.offers[i];
-        const auto& b = rhs.offers[i];
-        const auto column = [](const Rect& rect) {
-            return (rect.x - 410 + 20) / 207;
-        };
-        if (a.name != b.name || a.price != b.price || column(a.rect) != column(b.rect) ||
-            std::abs(a.rect.y - b.rect.y) > 4) {
+    const auto column = [](const Rect& rect) {
+        return (rect.x - 410 + 20) / 207;
+    };
+    const auto same_anchor = [&](const ShopShelfOffer& a, const ShopShelfOffer& b) {
+        return a.name == b.name && column(a.rect) == column(b.rect);
+    };
+    const auto exact = [&]() {
+        if (lhs.offers.size() != rhs.offers.size()) {
             return false;
         }
+        for (std::size_t i = 0; i < lhs.offers.size(); ++i) {
+            const auto& a = lhs.offers[i];
+            const auto& b = rhs.offers[i];
+            if (!same_anchor(a, b) || a.price != b.price || std::abs(a.rect.y - b.rect.y) > 4) {
+                return false;
+            }
+        }
+        return true;
+    };
+    if (exact()) {
+        return true;
     }
-    return true;
+    // Scrolling geometry is independent of prices and unstable OCR fragments.
+    // A purchase still requires seek's fresh exact title and price verification.
+    std::size_t matched = 0;
+    int first_column = -1, min_y = 10'000, max_y = -1;
+    bool multiple_columns = false;
+    for (const auto& a : lhs.offers) {
+        const auto left_count =
+            std::ranges::count_if(lhs.offers, [&](const auto& item) { return same_anchor(a, item); });
+        const auto right_count =
+            std::ranges::count_if(rhs.offers, [&](const auto& item) { return same_anchor(a, item); });
+        if (left_count != 1 || right_count != 1) {
+            continue;
+        }
+        const auto found = std::ranges::find_if(rhs.offers, [&](const auto& item) { return same_anchor(a, item); });
+        // Any uniquely associated title with actual vertical movement vetoes stability.
+        if (std::abs(a.rect.y - found->rect.y) > 4) {
+            return false;
+        }
+        ++matched;
+        const int col = column(a.rect);
+        if (first_column < 0) {
+            first_column = col;
+        }
+        multiple_columns = multiple_columns || col != first_column;
+        min_y = std::min(min_y, a.rect.y);
+        max_y = std::max(max_y, a.rect.y);
+    }
+    // Require a majority across separate rows and columns. One repeated title or
+    // a mostly unobserved page cannot establish a stationary viewport.
+    const auto required = std::max<std::size_t>(3, (std::min(lhs.offers.size(), rhs.offers.size()) * 2 + 2) / 3);
+    return matched >= required && multiple_columns && max_y - min_y >= 100;
 }
 
 std::optional<asst::blackflow::ShopShelfPage>

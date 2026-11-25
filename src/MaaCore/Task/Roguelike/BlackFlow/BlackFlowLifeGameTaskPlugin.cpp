@@ -1,13 +1,17 @@
 #include "BlackFlowLifeGameTaskPlugin.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <limits>
+#include <opencv2/imgcodecs.hpp>
 
+#include "BlackFlowModifierEvidenceProducer.h"
 #include "Config/TaskData.h"
 #include "Controller/Controller.h"
 #include "Task/ProcessTask.h"
 #include "Utils/Logger.hpp"
+#include "Utils/Platform.hpp"
 #include "Utils/WorkingDir.hpp"
 
 namespace asst::blackflow
@@ -73,13 +77,37 @@ std::optional<LifeGameScreenObservation> BlackFlowLifeGameTaskPlugin::observe_st
     if (!resource_action("BlackFlow@Roguelike@LifeGameObserve")) {
         return std::nullopt;
     }
-    BlackFlowLifeGameAnalyzer second(ctrler()->get_image());
+    const auto stable_image = ctrler()->get_image();
+    BlackFlowLifeGameAnalyzer second(stable_image);
     auto after = second.analyze(m_planner.nodes(), details);
     if (!valid_balance(after) || before.collection_complete != after.collection_complete ||
         before.points != after.points || before.collected != after.collected || before.total != after.total ||
         before.selected_name != after.selected_name || before.selected_state != after.selected_state ||
         before.selected_cost != after.selected_cost) {
         return std::nullopt;
+    }
+    m_last_observation_stamp = std::to_string(
+        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+            .count());
+    m_last_evidence_file.clear();
+    // Preserve this exact validated image; no additional screenshot or UI action.
+    if (!UserDir.empty() && !m_config->account_uid().empty() && !m_config->account_client().empty()) {
+        std::error_code ec;
+        const auto directory = UserDir.get() / utils::path("debug/blackflow/life_game");
+        std::filesystem::create_directories(directory, ec);
+        if (!ec) {
+            const auto file = directory / utils::path(
+                                              "life_" + m_config->account_client() + "_" + m_config->account_uid() +
+                                              "_" + m_last_observation_stamp + ".png");
+            try {
+                if (cv::imwrite(utils::path_to_utf8_string(file), stable_image)) {
+                    m_last_evidence_file = file;
+                }
+            }
+            catch (const cv::Exception& error) {
+                LogWarn << __FUNCTION__ << "Optional same-frame Life Game evidence could not be saved" << error.what();
+            }
+        }
     }
     m_last_observation = after;
     m_evidence.available_points = after.points;
@@ -221,6 +249,37 @@ void BlackFlowLifeGameTaskPlugin::report(std::string status, std::string reason,
     for (const auto& id : plan.unknown_ids) {
         unknown_ids.emplace_back(id);
     }
+    std::optional<LifeModifierReceipt> life_receipt;
+    bool profile_rebound = false;
+    std::string modifier_quality = "not_a_complete_UI_receipt_or_no_bound_profile";
+    if (!unknown && status == "complete" && m_config->account_profile()) {
+        BlackFlowModifierEvidenceProducer modifiers;
+        if (modifiers.load(ResDir.get() / utils::path("roguelike/BlackFlow/modifier_components.json"))) {
+            life_receipt = modifiers.completed_life_game(
+                m_last_observation,
+                m_planner.nodes(),
+                m_config->account_client(),
+                m_config->account_uid(),
+                m_last_observation_stamp,
+                utils::path_to_utf8_string(m_last_evidence_file),
+                &modifier_quality);
+            if (life_receipt) {
+                auto updated = m_config->account_profile()->with_life_modifier_evidence(*life_receipt);
+                if (updated) {
+                    profile_rebound =
+                        m_config->bind_account_profile(std::make_shared<BlackFlowAccountProfile>(std::move(*updated)));
+                    modifier_quality = profile_rebound ? "complete_lit_UI_and_exact_source_set_bound"
+                                                       : "profile_rebind_identity_changed";
+                }
+                else {
+                    modifier_quality = "profile_receipt_identity_or_fields_invalid";
+                }
+            }
+        }
+        else {
+            modifier_quality = "optional_modifier_source_unavailable";
+        }
+    }
     info["details"] = json::object {
         { "status", std::move(status) },
         { "reason", std::move(reason) },
@@ -242,6 +301,13 @@ void BlackFlowLifeGameTaskPlugin::report(std::string status, std::string reason,
         { "ambiguous_selections", m_ambiguous_selections },
         { "unknown_ids", std::move(unknown_ids) },
         { "retained_page", unknown || m_only },
+        { "observation_stamp", m_last_observation_stamp },
+        { "frame_saved", !m_last_evidence_file.empty() },
+        { "evidence_file", utils::path_to_utf8_string(m_last_evidence_file) },
+        { "account_modifier_profile_rebound", profile_rebound },
+        { "modifier_data_quality", modifier_quality },
+        { "source_conditioned_all_active_ids", life_receipt ? static_cast<int>(life_receipt->active_ids.size()) : 0 },
+        { "modifier_source_hash", life_receipt ? life_receipt->source_hash : "" },
     };
     callback(AsstMsg::SubTaskExtraInfo, info);
 }
@@ -268,6 +334,8 @@ bool BlackFlowLifeGameTaskPlugin::_run()
     m_evidence = {};
     m_locations.clear();
     m_last_observation = {};
+    m_last_observation_stamp.clear();
+    m_last_evidence_file.clear();
     m_verified_upgrades = 0;
     m_terminal_upgrades = 0;
     m_debit_verified = false;
