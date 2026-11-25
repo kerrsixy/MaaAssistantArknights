@@ -250,6 +250,11 @@ struct Milestone
     int rank = 0;
     int required_count = 1;
     int weight = 1;
+    // Missing preserves legacy exact utility. Units are milestone preference units.
+    std::optional<int> reward_weight_min;
+
+    [[nodiscard]] int minimum_reward_weight() const noexcept { return reward_weight_min.value_or(weight); }
+
     int minimum_unknown_nodes_revealed = 0;
     Condition active_if;
     Condition complete_if { ConditionKind::Constant, false };
@@ -455,6 +460,8 @@ struct PolicyCandidate
     // 只计跨层保留的加工品。过期的下楼即作废，省下来没有意义。
     int persistent_processing_move_count = 0;
     int estimated_duration = 0;
+    int backtracking_count = 0;
+    int rewardless_entry_count = 0;
     std::unordered_map<std::string, int> milestone_progress;
     std::vector<std::string> immediate_milestone_ids;
     std::vector<NodeId> planned_route;

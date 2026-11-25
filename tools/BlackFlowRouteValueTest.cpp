@@ -95,6 +95,16 @@ int main()
     expect(
         high && progress != high.decision.planned_milestone_progress.end() && progress->second >= 3,
         "a real large reward gain may justify extra movement resources");
+    policy.milestones.front().reward_weight_min = 0;
+    const auto uncertain = planner.plan(request);
+    expect(static_cast<bool>(uncertain), "unknown reward upside retains a complete exit route");
+    int uncertain_uses = 0;
+    for (const auto& step : uncertain.decision.planned_route_steps) {
+        uncertain_uses += step.move.movement != MovementKind::Walk;
+    }
+    expect(
+        uncertain && uncertain.decision.selected->movement == MovementKind::Walk && uncertain_uses == 0,
+        "a zero lower bound does not spend persistent charges as guaranteed large rewards");
     std::cout << "ROUTE_VALUE checks=" << checks << " failures=" << failures << " inputs=0 live_route_proven=false\n";
     return failures ? 1 : 0;
 }

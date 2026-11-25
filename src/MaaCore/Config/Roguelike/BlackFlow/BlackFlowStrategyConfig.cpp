@@ -493,10 +493,27 @@ Milestone parse_milestone(const json::value& value)
 {
     check_keys(
         value,
-        { "id",           "description", "enforcement",    "terminality", "on_miss",
-          "miss_outcome", "miss_reason", "miss_succeeded", "kind",        "completion",
-          "floor_window", "rank",        "count",          "weight",      "minimum_unknown_nodes_revealed",
-          "active_if",    "complete_if", "selector",       "page_intent", "reserves",
+        { "id",
+          "description",
+          "enforcement",
+          "terminality",
+          "on_miss",
+          "miss_outcome",
+          "miss_reason",
+          "miss_succeeded",
+          "kind",
+          "completion",
+          "floor_window",
+          "rank",
+          "count",
+          "weight",
+          "minimum_unknown_nodes_revealed",
+          "reward_weight_min",
+          "active_if",
+          "complete_if",
+          "selector",
+          "page_intent",
+          "reserves",
           "requires" },
         { "id", "floor_window", "selector" },
         "milestone");
@@ -520,6 +537,12 @@ Milestone parse_milestone(const json::value& value)
     result.rank = value.get("rank", 0);
     result.required_count = value.get("count", 1);
     result.weight = value.get("weight", 1);
+    if (const auto minimum = value.find("reward_weight_min"); minimum) {
+        if (!minimum->is_number()) {
+            invalid_config("milestone reward_weight_min must be an integer");
+        }
+        result.reward_weight_min = minimum->as_integer();
+    }
     result.minimum_unknown_nodes_revealed = value.get("minimum_unknown_nodes_revealed", 0);
     result.active_if = optional_condition(value, "active_if", true);
     result.complete_if = optional_condition(value, "complete_if", false);
@@ -545,6 +568,11 @@ Milestone parse_milestone(const json::value& value)
         result.floor_end > MaximumMilestoneFloor || result.required_count < 1 || result.weight < 1 ||
         result.minimum_unknown_nodes_revealed < 0) {
         invalid_config("milestone id, floor window, count, weight, or reveal threshold is invalid");
+    }
+    if (result.reward_weight_min && (*result.reward_weight_min < 0 || *result.reward_weight_min > result.weight ||
+                                     result.enforcement != MilestoneEnforcement::Soft ||
+                                     result.completion != MilestoneCompletion::VisitCount || result.strategy_goal())) {
+        invalid_config("reward_weight_min requires a non-strategy soft visit-count milestone within [0, weight]");
     }
     if (result.minimum_unknown_nodes_revealed > 0 &&
         std::ranges::find(result.selector.node_types, NodeType::Light) == result.selector.node_types.end()) {

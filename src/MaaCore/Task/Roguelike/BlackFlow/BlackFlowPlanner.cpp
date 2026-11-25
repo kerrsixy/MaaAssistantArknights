@@ -1,6 +1,7 @@
 #include "BlackFlowPlanner.h"
 
 #include "BlackFlowSafetyValue.h"
+#include "BlackFlowSoftReward.h"
 
 #include <algorithm>
 #include <chrono>
@@ -120,42 +121,12 @@ RouteMetric add_metric(RouteMetric lhs, const RouteMetric& rhs) noexcept
     return lhs;
 }
 
-std::int64_t route_penalty(const RouteMetric& metric) noexcept
-{
-    // A backtrack spends the same action-point budget as any other walk and
-    // also revisits an empty node.  Give it a small extra penalty so a route
-    // with the same rewards prefers a fresh branch, while still allowing the
-    // move when the map topology makes it necessary.
-    // A regular combat node can grant a processing piece, but it also
-    // consumes the safest fallback margin.  Boss/terminal combat is present
-    // in every complete route and therefore remains a constant; the extra
-    // weight mainly removes optional combat chains when a non-combat branch
-    // provides the same milestones.
-    // A processing move already reduces duration when it skips walk steps.
-    // Crediting its destination's hypothetical walking distance again rewards
-    // choosing a remote detour, even when an equally useful nearby route exists.
-    // Keep saved distance as evidence, never as additional resource income.
-    return 2LL * metric.battles + metric.processing_moves + metric.duration + 2LL * metric.backtracking +
-           3LL * metric.rewardless_entries;
-}
-
 // 行动力残值为零，跨层保留的加工品残值为正，所以打平时先比后者。
 bool route_metric_weakly_better(const RouteMetric& lhs, const RouteMetric& rhs) noexcept
 {
-    return route_penalty(lhs) <= route_penalty(rhs) && std::tie(
-                                                           lhs.battles,
-                                                           lhs.backtracking,
-                                                           lhs.rewardless_entries,
-                                                           lhs.walk_distance_saved,
-                                                           lhs.persistent_processing_moves,
-                                                           lhs.duration) <=
-                                                           std::tie(
-                                                               rhs.battles,
-                                                               rhs.backtracking,
-                                                               rhs.rewardless_entries,
-                                                               rhs.walk_distance_saved,
-                                                               rhs.persistent_processing_moves,
-                                                               rhs.duration);
+    return lhs.battles <= rhs.battles && lhs.processing_moves <= rhs.processing_moves &&
+           lhs.persistent_processing_moves <= rhs.persistent_processing_moves && lhs.duration <= rhs.duration &&
+           lhs.backtracking <= rhs.backtracking && lhs.rewardless_entries <= rhs.rewardless_entries;
 }
 
 struct RouteMilestone
@@ -269,8 +240,10 @@ std::vector<int> binding_progress_score(const std::vector<RouteMilestone>& miles
     return score;
 }
 
-std::vector<std::int64_t>
-    preferred_progress_score(const std::vector<RouteMilestone>& milestones, const std::vector<int>& progress)
+std::vector<std::int64_t> preferred_progress_score(
+    const std::vector<RouteMilestone>& milestones,
+    const std::vector<int>& progress,
+    bool lower_bound = false)
 {
     std::vector<std::int64_t> score;
     for (const MilestoneKind kind : { MilestoneKind::Preferred, MilestoneKind::Opportunistic }) {
@@ -293,7 +266,9 @@ std::vector<std::int64_t>
                     0,
                     std::min(progress[end], milestone.required_count) -
                         std::min(milestones[end].initial_progress, milestone.required_count));
-                reward += static_cast<std::int64_t>(milestone.weight) * gained;
+                reward +=
+                    static_cast<std::int64_t>(lower_bound ? milestone.minimum_reward_weight() : milestone.weight) *
+                    gained;
                 ++end;
             }
             score.emplace_back(reward);
@@ -372,18 +347,32 @@ bool route_label_better(
     }
     const auto lhs_preferred = preferred_progress_score(milestones, lhs.progress);
     const auto rhs_preferred = preferred_progress_score(milestones, rhs.progress);
+    const auto lhs_lower = preferred_progress_score(milestones, lhs.progress, true);
+    const auto rhs_lower = preferred_progress_score(milestones, rhs.progress, true);
     for (std::size_t index = 0; index < std::min(lhs_preferred.size(), rhs_preferred.size()); ++index) {
-        if (lhs_preferred[index] == rhs_preferred[index]) {
-            continue;
+        const auto lhs_key = soft_reward_key(
+            lhs_lower[index],
+            lhs_preferred[index],
+            lhs.metric.battles,
+            lhs.metric.processing_moves,
+            lhs.metric.persistent_processing_moves,
+            lhs.metric.duration,
+            lhs.metric.backtracking,
+            lhs.metric.rewardless_entries,
+            minimize_intermediate_interactions ? lhs.intermediate_interactions : 0);
+        const auto rhs_key = soft_reward_key(
+            rhs_lower[index],
+            rhs_preferred[index],
+            rhs.metric.battles,
+            rhs.metric.processing_moves,
+            rhs.metric.persistent_processing_moves,
+            rhs.metric.duration,
+            rhs.metric.backtracking,
+            rhs.metric.rewardless_entries,
+            minimize_intermediate_interactions ? rhs.intermediate_interactions : 0);
+        if (lhs_key != rhs_key) {
+            return lhs_key > rhs_key;
         }
-        const std::int64_t lhs_utility = lhs_preferred[index] - route_penalty(lhs.metric) -
-                                         (minimize_intermediate_interactions ? lhs.intermediate_interactions : 0);
-        const std::int64_t rhs_utility = rhs_preferred[index] - route_penalty(rhs.metric) -
-                                         (minimize_intermediate_interactions ? rhs.intermediate_interactions : 0);
-        if (lhs_utility != rhs_utility) {
-            return lhs_utility > rhs_utility;
-        }
-        return lhs_preferred[index] > rhs_preferred[index];
     }
     if (minimize_intermediate_interactions) {
         const auto lhs_metric = std::tie(
@@ -885,175 +874,38 @@ bool route_may_beat(
         return false;
     }
 
-    RouteMetric minimum_metric = current.metric;
-    if (!graph.is_terminal(current.state)) {
-        minimum_metric.duration = add_metric(minimum_metric, RouteMetric { .duration = 1 }).duration;
-        bool has_terminal = false;
-        bool every_terminal_is_combat = true;
-        for (const auto& [id, node] : map.nodes()) {
-            if (node.progress == NodeProgress::Removed || !graph.is_terminal_node(id)) {
-                continue;
-            }
-            has_terminal = true;
-            every_terminal_is_combat = every_terminal_is_combat && is_combat_node_type(node.type);
-        }
-        if (has_terminal && every_terminal_is_combat) {
-            minimum_metric.battles = add_metric(minimum_metric, RouteMetric { .battles = 1 }).battles;
-        }
-    }
-
-    const auto lower_preferred = preferred_progress_score(milestones, current.progress);
-    std::vector<std::int64_t> bounded_upper_preferred = preferred_progress_score(milestones, upper_progress);
-    const auto incumbent_preferred = preferred_progress_score(milestones, incumbent.progress);
-    const std::int64_t current_penalty =
-        route_penalty(current.metric) + (minimize_intermediate_interactions ? current.intermediate_interactions : 0);
-    const std::int64_t minimum_penalty =
-        route_penalty(minimum_metric) + (minimize_intermediate_interactions ? current.intermediate_interactions : 0);
-    const std::int64_t incumbent_penalty =
-        route_penalty(incumbent.metric) +
-        (minimize_intermediate_interactions ? incumbent.intermediate_interactions : 0);
-    std::vector<std::int64_t> upper_utilities;
-    upper_utilities.reserve(bounded_upper_preferred.size());
-    std::size_t score_index = 0;
-    for (const MilestoneKind kind : { MilestoneKind::Preferred, MilestoneKind::Opportunistic }) {
-        std::size_t begin = 0;
-        while (begin < milestones.size()) {
-            while (begin < milestones.size() &&
-                   (milestones[begin].binding || milestones[begin].definition->kind != kind)) {
-                ++begin;
-            }
-            if (begin == milestones.size()) {
-                break;
-            }
-            const int rank = milestones[begin].definition->rank;
-            std::size_t end = begin;
-            while (end < milestones.size() && !milestones[end].binding && milestones[end].definition->kind == kind &&
-                   milestones[end].definition->rank == rank) {
-                ++end;
-            }
-
-            int best_terminal_reward = 0;
-            int best_terminal_net = std::numeric_limits<int>::min();
-            bool has_terminal = false;
-            std::vector<int> nonterminal_rewards;
-            std::vector<int> nonterminal_nets;
-            for (const auto& [id, stored] : map.nodes()) {
-                if (stored.progress == NodeProgress::Removed) {
-                    continue;
-                }
-                Node node = stored;
-                node.type = route_node_type(map, graph, current.state, id);
-                if (node.type == NodeType::Empty) {
-                    node.name.clear();
-                }
-                int reward = 0;
-                for (std::size_t milestone_index = begin; milestone_index < end; ++milestone_index) {
-                    const Milestone& milestone = *milestones[milestone_index].definition;
-                    if (current.progress[milestone_index] >= milestone.required_count ||
-                        std::ranges::find(current.counted[milestone_index], id) !=
-                            current.counted[milestone_index].end() ||
-                        !milestone_matches_node(milestone, node)) {
-                        continue;
-                    }
-                    reward += milestone.weight;
-                }
-                const bool terminal = graph.is_terminal_node(id);
-                const int interaction_penalty =
-                    minimize_intermediate_interactions ? (terminal ? 0 : intermediate_interaction_cost(node.type)) : 1;
-                const int net = reward - interaction_penalty - (is_combat_node_type(node.type) ? 1 : 0);
-                if (terminal) {
-                    has_terminal = true;
-                    best_terminal_reward = std::max(best_terminal_reward, reward);
-                    best_terminal_net = std::max(best_terminal_net, net);
-                }
-                else if (reward > 0) {
-                    nonterminal_rewards.emplace_back(reward);
-                    nonterminal_nets.emplace_back(net);
-                }
-            }
-            if (!has_terminal || score_index >= bounded_upper_preferred.size()) {
-                return true;
-            }
-            std::ranges::sort(nonterminal_rewards, std::greater {});
-            std::ranges::sort(nonterminal_nets, std::greater {});
-            const std::size_t optional_slots =
-                std::min<std::size_t>(nonterminal_rewards.size(), static_cast<std::size_t>(nonterminal_entry_limit));
-            std::int64_t additive_reward_upper = lower_preferred[score_index] + best_terminal_reward;
-            for (std::size_t position = 0; position < optional_slots; ++position) {
-                additive_reward_upper += nonterminal_rewards[position];
-            }
-            bounded_upper_preferred[score_index] =
-                std::min(bounded_upper_preferred[score_index], additive_reward_upper);
-
-            std::int64_t additive_utility_upper = lower_preferred[score_index] - current_penalty + best_terminal_net;
-            const std::size_t net_slots =
-                std::min<std::size_t>(nonterminal_nets.size(), static_cast<std::size_t>(nonterminal_entry_limit));
-            for (std::size_t position = 0; position < net_slots && nonterminal_nets[position] > 0; ++position) {
-                additive_utility_upper += nonterminal_nets[position];
-            }
-            upper_utilities.emplace_back(
-                std::min(additive_utility_upper, bounded_upper_preferred[score_index] - minimum_penalty));
-            ++score_index;
-            begin = end;
-        }
-    }
-    if (score_index != bounded_upper_preferred.size()) {
+    // Reserve scores are Boolean. Future replenishment cannot improve on
+    // an incumbent that already satisfies every declared reserve.
+    if (!std::ranges::all_of(incumbent.reserve_score, [](int value) { return value == 1; })) {
         return true;
     }
-
-    for (std::size_t index = 0; index < bounded_upper_preferred.size(); ++index) {
-        const std::int64_t lower_reward = lower_preferred[index];
-        const std::int64_t upper_reward = bounded_upper_preferred[index];
-        const std::int64_t incumbent_reward = incumbent_preferred[index];
-        const std::int64_t upper_utility = upper_utilities[index];
-        const std::int64_t incumbent_utility = incumbent_reward - incumbent_penalty;
-        if (upper_utility > incumbent_utility ||
-            (upper_utility == incumbent_utility && upper_reward > incumbent_reward)) {
-            return true;
-        }
-        if (incumbent_reward < lower_reward || incumbent_reward > upper_reward) {
-            return false;
-        }
-    }
-
-    if (minimize_intermediate_interactions) {
-        const auto minimum_tie = std::tie(
-            minimum_metric.battles,
-            minimum_metric.backtracking,
-            minimum_metric.rewardless_entries,
-            minimum_metric.walk_distance_saved,
-            current.intermediate_interactions,
-            minimum_metric.persistent_processing_moves,
-            minimum_metric.duration);
-        const auto incumbent_tie = std::tie(
+    const auto upper_lower = preferred_progress_score(milestones, upper_progress, true);
+    const auto upper_upper = preferred_progress_score(milestones, upper_progress);
+    const auto incumbent_lower = preferred_progress_score(milestones, incumbent.progress, true);
+    const auto incumbent_upper = preferred_progress_score(milestones, incumbent.progress);
+    for (std::size_t index = 0; index < upper_upper.size(); ++index) {
+        const auto optimistic = soft_reward_key(
+            upper_lower[index],
+            upper_upper[index],
+            current.metric.battles,
+            current.metric.processing_moves,
+            current.metric.persistent_processing_moves,
+            current.metric.duration,
+            current.metric.backtracking,
+            current.metric.rewardless_entries,
+            minimize_intermediate_interactions ? current.intermediate_interactions : 0);
+        const auto incumbent_key = soft_reward_key(
+            incumbent_lower[index],
+            incumbent_upper[index],
             incumbent.metric.battles,
+            incumbent.metric.processing_moves,
+            incumbent.metric.persistent_processing_moves,
+            incumbent.metric.duration,
             incumbent.metric.backtracking,
             incumbent.metric.rewardless_entries,
-            incumbent.metric.walk_distance_saved,
-            incumbent.intermediate_interactions,
-            incumbent.metric.persistent_processing_moves,
-            incumbent.metric.duration);
-        if (minimum_tie != incumbent_tie) {
-            return minimum_tie < incumbent_tie;
-        }
-    }
-    else {
-        const auto minimum_tie = std::tie(
-            minimum_metric.battles,
-            minimum_metric.backtracking,
-            minimum_metric.rewardless_entries,
-            minimum_metric.walk_distance_saved,
-            minimum_metric.persistent_processing_moves,
-            minimum_metric.duration);
-        const auto incumbent_tie = std::tie(
-            incumbent.metric.battles,
-            incumbent.metric.backtracking,
-            incumbent.metric.rewardless_entries,
-            incumbent.metric.walk_distance_saved,
-            incumbent.metric.persistent_processing_moves,
-            incumbent.metric.duration);
-        if (minimum_tie != incumbent_tie) {
-            return minimum_tie < incumbent_tie;
+            minimize_intermediate_interactions ? incumbent.intermediate_interactions : 0);
+        if (optimistic != incumbent_key) {
+            return optimistic > incumbent_key;
         }
     }
     return true;
@@ -1310,16 +1162,31 @@ RouteLabel best_route_after_outcome(
         }
         const auto lhs_preferred = preferred_progress_score(milestones, lhs.progress);
         const auto rhs_preferred = preferred_progress_score(milestones, rhs.progress);
+        const auto lhs_lower = preferred_progress_score(milestones, lhs.progress, true);
+        const auto rhs_lower = preferred_progress_score(milestones, rhs.progress, true);
         for (std::size_t index = 0; index < std::min(lhs_preferred.size(), rhs_preferred.size()); ++index) {
-            const std::int64_t lhs_utility = lhs_preferred[index] - route_penalty(lhs.metric) -
-                                             (minimize_intermediate_interactions ? lhs.intermediate_interactions : 0);
-            const std::int64_t rhs_utility = rhs_preferred[index] - route_penalty(rhs.metric) -
-                                             (minimize_intermediate_interactions ? rhs.intermediate_interactions : 0);
-            if (lhs_utility != rhs_utility) {
-                return lhs_utility > rhs_utility;
-            }
-            if (lhs_preferred[index] != rhs_preferred[index]) {
-                return lhs_preferred[index] > rhs_preferred[index];
+            const auto lhs_key = soft_reward_key(
+                lhs_lower[index],
+                lhs_preferred[index],
+                lhs.metric.battles,
+                lhs.metric.processing_moves,
+                lhs.metric.persistent_processing_moves,
+                lhs.metric.duration,
+                lhs.metric.backtracking,
+                lhs.metric.rewardless_entries,
+                minimize_intermediate_interactions ? lhs.intermediate_interactions : 0);
+            const auto rhs_key = soft_reward_key(
+                rhs_lower[index],
+                rhs_preferred[index],
+                rhs.metric.battles,
+                rhs.metric.processing_moves,
+                rhs.metric.persistent_processing_moves,
+                rhs.metric.duration,
+                rhs.metric.backtracking,
+                rhs.metric.rewardless_entries,
+                minimize_intermediate_interactions ? rhs.intermediate_interactions : 0);
+            if (lhs_key != rhs_key) {
+                return lhs_key > rhs_key;
             }
         }
         const int lhs_flexibility = flexibility_score(lhs);
@@ -2293,6 +2160,8 @@ BlackFlowPlan BlackFlowPlanner::plan_impl(const BlackFlowPlanRequest& request) c
         candidate.processing_move_count = worst_metric.processing_moves;
         candidate.persistent_processing_move_count = worst_metric.persistent_processing_moves;
         candidate.estimated_duration = worst_metric.duration;
+        candidate.backtracking_count = worst_metric.backtracking;
+        candidate.rewardless_entry_count = worst_metric.rewardless_entries;
         candidate.facts.set("route.resources.complete", complete_route_resources);
         if (complete_route_resources) {
             for (const auto& [resource, value] : route_resources_after) {
