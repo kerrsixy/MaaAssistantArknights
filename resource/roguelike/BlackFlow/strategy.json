@@ -839,6 +839,7 @@
                 },
                 {
                     "id": "ending1_floor2_employ",
+                    "active_if": false,
                     "description": "第二层顺路经过应急助力",
                     "kind": "preferred",
                     "floor_window": [2, 2],
@@ -889,7 +890,6 @@
                             "battle_normal",
                             "battle_savage",
                             "duel",
-                            "employ",
                             "expedition",
                             "hide_battle",
                             "hide_invisible",
@@ -918,6 +918,7 @@
                 },
                 {
                     "id": "ending1_late_employ",
+                    "active_if": false,
                     "description": "第三至第五层优先经过应急助力",
                     "kind": "preferred",
                     "floor_window": [3, 5],
