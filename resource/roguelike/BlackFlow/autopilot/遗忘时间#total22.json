@@ -1,0 +1,80 @@
+{
+    "stage_name": "遗忘时间#total22",
+    "variant_of": "遗忘时间",
+    "when": {
+        "total_enemies": 22
+    },
+    "reserve_starting_core_groups": [],
+    "doc": [
+        "2026-11-22 run35首场正常通过但末帧至少损失1；第二次紧急生命4入场，EW3,2朝上开技后进入冷却，最终39分自然失败。用户仅标注第二场4,1反伤，不把该坐标永久判定为反伤。",
+        "三类草由关卡随机启用；原始潜在位置4,1和7,3都应考虑。EW S3溅射2.5、天赋爆炸1.1；只排除直接射程不足以证明不误伤。本候选尚未实机通关，视觉分类仍在验证。",
+        "先放卡达等已核单体术师3,2朝左，覆盖顶路1,1至3,1以及转角1,2/1,3。原草位4,1和7,3不在直接射程；不能把所有术师或AOE狙击都作为同等替换。",
+        "机械师7,4朝下仍负责跳板诱敌，朝下避免主动选中7,3的随机物。S2自身破盾1.5范围仍可能波及7,3，不能宣称整队完全避反伤。",
+        "EW2,5朝左负责蓝门前1,3及忍者末段，不再声称她覆盖顶y=1。单体输出承担顶路；连续脚本线段模型中EW对当前两潜在物最短距离3.354/4.610，大于2.5，但不等于引擎碰撞、残影连锁和全队生存已经获证。",
+        "如果另有盾/近卫，在1,3朝上做真正末端阻挡；机械师已经在跳板，不能把她同时算作末端挡。医疗独立2,2朝下，实际蜜莓基础范围覆盖卡达、EW与1,3阻挡；其它医疗需逐人验证。",
+        "结构性原理只作7,4临时诱敌备份，与机械师占同一格时不会重复部署。归其他地面并限名，不再误用工人组；持续20/30秒不是永久诱饵，卡冷却也不是场上实体死亡证明。",
+        "正常主路8,1向左至1,1再到1,3进0,3；忍者按原始多条路线及阻挡/跳跃机制处理。箱型草触发后extraRoutes会产生新移动敌人，箱体消失不是击杀或奖励证明。",
+        "下轮验证重点：单体先手的处理能力、EW末端截杀时机、机械师7,4朝下骗跳、两种草位实际类型、技能前后HP与角色退场原因。保留原图PNG与识别图，不能将离线几何审计当无人通关。",
+        "2026-11-25 PRIVATE137 total22限定：本变体覆盖上述旧顶路落点为2,3朝上，保留四required tiles与医疗2,2；非紧急唯一识别。仅前段避初始邻射，后续1,3仍可受击，未实机/未获免伤证明。"
+    ],
+    "deploy_plan": [
+        {
+            "groups": ["术师"],
+            "location": [2, 3],
+            "direction": "up",
+            "minimum_elite": 1,
+            "max_deployments": 2,
+            "prefer_group_order": true,
+            "operator_names": ["卡达", "史都华德", "夜烟", "刻俄柏"],
+            "required_attack_tiles": [
+                [1, 1],
+                [2, 1],
+                [3, 1],
+                [1, 3]
+            ]
+        },
+        {
+            "groups": ["机械师", "挡人先锋", "重装", "奶盾", "领主"],
+            "location": [7, 4],
+            "direction": "down",
+            "minimum_elite": 1,
+            "max_deployments": 2,
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["益达"],
+            "location": [2, 5],
+            "direction": "left",
+            "minimum_elite": 1,
+            "max_deployments": 2,
+            "prefer_group_order": true,
+            "operator_names": ["维什戴尔"],
+            "required_attack_tiles": [[1, 3]]
+        },
+        {
+            "groups": ["重装", "奶盾", "挡人先锋", "近卫", "地面阻挡"],
+            "location": [1, 3],
+            "direction": "up",
+            "minimum_elite": 1,
+            "max_deployments": 2,
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["元素奶", "奶", "单奶", "群奶"],
+            "location": [2, 2],
+            "direction": "down",
+            "minimum_elite": 1,
+            "max_deployments": 2,
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["其他地面"],
+            "operator_names": ["结构性原理"],
+            "location": [7, 4],
+            "direction": "down",
+            "max_deployments": 1
+        }
+    ],
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true
+}

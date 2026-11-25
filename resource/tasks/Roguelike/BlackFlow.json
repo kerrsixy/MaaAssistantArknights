@@ -140,6 +140,7 @@
         "action": "DoNothing",
         "next": [
             "BlackFlow@Roguelike@BeginRecovery_Victory",
+            "BlackFlow@Roguelike@MissionFailedFlag2",
             "BlackFlow@Roguelike@ResumeSavedContinue",
             "BlackFlow@Roguelike@ResumeFloorIntro",
             "BlackFlow@Roguelike@ResumeSavedMap"
@@ -152,6 +153,7 @@
         "templThreshold": 0.9,
         "next": [
             "BlackFlow@Roguelike@BeginRecovery_Victory",
+            "BlackFlow@Roguelike@MissionFailedFlag2",
             "BlackFlow@Roguelike@ResumeFloorIntro",
             "BlackFlow@Roguelike@ResumeSavedMap"
         ]

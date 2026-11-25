@@ -1,6 +1,10 @@
 #include "RoguelikePreparationTask.h"
 
+#include <algorithm>
+#include <cmath>
 #include <filesystem>
+#include <functional>
+#include <unordered_set>
 
 #include "MaaUtils/ImageIo.h"
 #include "MaaUtils/Time.hpp"
@@ -134,4 +138,180 @@ int asst::choose_preparation_skill(
         return alternate;
     }
     return 0;
+}
+
+namespace asst::blackflow::prepared_primary_detail
+{
+std::optional<std::reference_wrapper<const ConditionalPrimaryModeEstimate>>
+    initial_mode(const ConditionalPrimaryEstimate& e)
+{
+    if (!e.qualified || e.modes.empty() || (e.modes[0].key != "normal" && e.modes[0].key != "ammo_main")) {
+        return std::nullopt;
+    }
+    return std::cref(e.modes[0]);
+}
+
+bool rate_better(const ConditionalPrimaryEstimate& a, const ConditionalPrimaryEstimate& b)
+{
+    const auto am = initial_mode(a), bm = initial_mode(b);
+    if (!am || !bm || am->get().variants.empty() || bm->get().variants.empty()) {
+        return false;
+    }
+    bool strict = false;
+    for (const auto& av : am->get().variants) {
+        for (const auto& bv : bm->get().variants) {
+            std::vector<double> points { 0 };
+            double maximum = 0;
+            for (const auto& sequence : { av.lower, bv.upper }) {
+                for (const auto& hit : sequence.hits) {
+                    if (!std::isfinite(hit.damage) || hit.damage <= 0) {
+                        return false;
+                    }
+                    points.push_back(0.95 * hit.damage);
+                    maximum = std::max(maximum, hit.damage);
+                }
+            }
+            points.push_back(maximum + 1);
+            for (double defense : points) {
+                const auto ar = physical_sequence_rate(av.lower, defense);
+                const auto br = physical_sequence_rate(bv.upper, defense);
+                if (!ar || !br || *ar + 1e-9 < *br) {
+                    return false;
+                }
+                strict = strict || *ar > *br + 1e-9;
+            }
+        }
+    }
+    return strict;
+}
+}
+
+namespace asst::blackflow
+{
+PreparedComponentBatch build_prepared_primary_components(
+    const BlackFlowRecruitmentDutyCatalog& catalog,
+    const RoguelikeStatus& status,
+    const std::string& client,
+    const std::string& uid,
+    const std::vector<std::string>& selected_names)
+{
+    PreparedComponentBatch batch { .client = client, .uid = uid, .run_id = status.run_id };
+    std::unordered_set<std::string> unique;
+    for (const auto& name : selected_names) {
+        const auto current = status.opers.find(name);
+        if (name.empty() || !unique.emplace(name).second || current == status.opers.end()) {
+            continue;
+        }
+        PreparedPrimaryEntry entry { .name = name, .observed = current->second };
+        const auto& p = entry.observed.preparation;
+        if (client.empty() || uid.empty() || status.run_id.empty() || p.operator_id.empty() ||
+            p.operator_id != RoguelikeTraining.unique_identity(name) || p.training_sequence == 0 ||
+            p.selection_sequence < p.training_sequence || p.selected_skill < 1 || p.selected_skill > 3) {
+            entry.component.reason = "verified_preparation_identity_phase_or_selection_unavailable";
+        }
+        else {
+            entry.component = catalog.conditional_primary(
+                name,
+                entry.observed.elite,
+                entry.observed.level,
+                p.selected_skill,
+                p.displayed_skill_levels[p.selected_skill - 1],
+                {},
+                PrimarySequenceConditions { .target = ConditionalPrimaryTarget::Ground,
+                                            .source = "preparation_ground_reference_not_live_enemy" },
+                "verified_preparation:" + status.run_id + ":" + std::to_string(p.training_sequence) + ":" +
+                    std::to_string(p.selection_sequence));
+        }
+        batch.entries.push_back(std::move(entry));
+    }
+    return batch;
+}
+
+bool prepared_primary_matches(
+    const PreparedComponentBatch& batch,
+    const RoguelikeStatus& status,
+    const std::string& client,
+    const std::string& uid)
+{
+    if (client.empty() || uid.empty() || status.run_id.empty() || batch.client != client || batch.uid != uid ||
+        batch.run_id != status.run_id || batch.entries.empty()) {
+        return false;
+    }
+    for (const auto& entry : batch.entries) {
+        const auto current = status.opers.find(entry.name);
+        if (current == status.opers.end()) {
+            return false;
+        }
+        const auto& old = entry.observed;
+        const auto& now = current->second;
+        if (old.elite != now.elite || old.level != now.level ||
+            old.preparation.operator_id != now.preparation.operator_id ||
+            old.preparation.selected_skill != now.preparation.selected_skill ||
+            old.preparation.displayed_skill_levels != now.preparation.displayed_skill_levels ||
+            old.preparation.training_sequence != now.preparation.training_sequence ||
+            old.preparation.selection_sequence != now.preparation.selection_sequence) {
+            return false;
+        }
+    }
+    return true;
+}
+
+PreparedPrimaryChoice choose_prepared_primary_reference(
+    const PreparedComponentBatch& batch,
+    const std::vector<std::size_t>& candidates,
+    std::size_t legacy)
+{
+    PreparedPrimaryChoice result { .reason = "initial_ground_reference_incomparable_keep_legacy" };
+    if (legacy >= batch.entries.size() || std::ranges::find(candidates, legacy) == candidates.end()) {
+        result.reason = "legacy_not_in_qualified_comparison";
+        return result;
+    }
+    std::vector<std::size_t> frontier;
+    for (const auto i : candidates) {
+        if (i >= batch.entries.size() || i == legacy ||
+            !prepared_primary_detail::rate_better(batch.entries[i].component, batch.entries[legacy].component)) {
+            continue;
+        }
+        if (std::ranges::none_of(candidates, [&](const auto j) {
+                return j < batch.entries.size() && j != i &&
+                       prepared_primary_detail::rate_better(batch.entries[j].component, batch.entries[i].component);
+            })) {
+            frontier.push_back(i);
+        }
+    }
+    if (frontier.size() == 1) {
+        result.preferred = frontier[0];
+        result.reason = "initial_acquired_ground_main_rate_reference_not_total_DPS_or_survival";
+    }
+    else if (frontier.size() > 1) {
+        result.reason = "multiple_incomparable_reference_preferences_keep_legacy";
+    }
+    return result;
+}
+
+json::value prepared_primary_to_json(const PreparedComponentBatch& batch)
+{
+    json::array entries;
+    for (const auto& entry : batch.entries) {
+        const auto& p = entry.observed.preparation;
+        entries.emplace_back(
+            json::object { { "name", entry.name },
+                           { "operator_id", p.operator_id },
+                           { "elite", entry.observed.elite },
+                           { "level", entry.observed.level },
+                           { "selected_skill", p.selected_skill },
+                           { "training_sequence", p.training_sequence },
+                           { "selection_sequence", p.selection_sequence },
+                           { "displayed_levels", p.displayed_skill_levels },
+                           { "component", conditional_primary_to_json(entry.component) } });
+    }
+    return json::object { { "client", batch.client },
+                          { "uid", batch.uid },
+                          { "run_id", batch.run_id },
+                          { "entries", entries },
+                          { "account_mastery_substituted", false },
+                          { "training_read_in_battle", false },
+                          { "unknown_external_assumed_zero", false },
+                          { "objective", "first_skill_mode_acquired_ground_main_rate_reference" } };
+}
 }

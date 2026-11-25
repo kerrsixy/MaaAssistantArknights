@@ -8,15 +8,15 @@
     "deploy_plan_only": true,
     "deploy_plan": [
         {
+            "groups": ["机械师", "重装", "铁卫", "奶盾"],
+            "location": [7, 2],
+            "direction": "left"
+        },
+        {
             "groups": ["益达"],
             "operator_names": ["维什戴尔"],
             "location": [3, 3],
             "direction": "up"
-        },
-        {
-            "groups": ["机械师", "重装", "铁卫", "奶盾"],
-            "location": [7, 2],
-            "direction": "left"
         }
     ],
     "reserve_deploy_cost": true
