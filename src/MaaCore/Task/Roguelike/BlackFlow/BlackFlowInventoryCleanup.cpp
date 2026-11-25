@@ -21,8 +21,6 @@ constexpr std::string_view ItemsTask = "BlackFlow@Roguelike@InventoryCleanupItem
 constexpr std::string_view SwipeForwardTask = "BlackFlow@Roguelike@InventoryCleanupSwipe";
 constexpr std::string_view SwipeBackTask = "BlackFlow@Roguelike@InventoryCleanupSwipeBack";
 constexpr std::string_view DiscardReadyTask = "BlackFlow@Roguelike@InventoryCleanupDiscardReady";
-constexpr std::string_view DiscardTask = "BlackFlow@Roguelike@InventoryCleanupDiscard";
-constexpr std::string_view DiscardedTask = "BlackFlow@Roguelike@InventoryCleanupDiscarded";
 constexpr std::string_view CloseTask = "BlackFlow@Roguelike@InventoryCleanupClose";
 
 // 精准滑动按识别位置计算距离，两个方向分别使用各自的落点。
@@ -32,7 +30,6 @@ constexpr int SettledShift = 40;
 constexpr int MaxSurveySteps = 12;
 constexpr int RewindSwipes = 7;
 constexpr int MaxWalkSteps = 16;
-constexpr int MaxCardClickAttempts = 3;
 // 保留任务自身后置等待之外的稳定等待，供滑动、点击和丢弃后的识别使用。
 constexpr unsigned SettleDelay = 300;
 
@@ -513,45 +510,27 @@ std::optional<VisibleScrap> BlackFlowInventoryCleanup::walk_to_name(
     return std::nullopt;
 }
 
-bool BlackFlowInventoryCleanup::discard(
+InventoryDiscardReadiness observe_inventory_discard_readiness(const cv::Mat& image, std::string* error)
+{
+    const auto task = Task.get<OcrTaskInfo>(std::string(DiscardReadyTask));
+    if (task == nullptr || image.empty()) {
+        set_error(
+            error,
+            task == nullptr ? "inventory discard readiness task is missing"
+                            : "inventory discard readiness image is empty");
+        return InventoryDiscardReadiness::Unavailable;
+    }
+    OCRer analyzer(image);
+    analyzer.set_task_info(task);
+    return analyzer.analyze().has_value() ? InventoryDiscardReadiness::Ready : InventoryDiscardReadiness::Unknown;
+}
+
+InventoryDiscardOutcome BlackFlowInventoryCleanup::discard(
     BlackFlowInventoryContext& context,
     const VisibleScrap& scrap,
     std::string* error)
 {
-    // 丢弃按钮出现即视为卡片已打开，未出现才重新点击，不以固定等待推断。
-    bool opened = false;
-    for (int attempt = 0; attempt < MaxCardClickAttempts; ++attempt) {
-        if (!context.click(scrap.rect)) {
-            set_error(error, "failed to click the scrap card: " + scrap.name);
-            return false;
-        }
-        context.wait(SettleDelay);
-        if (context.execute({ std::string(DiscardReadyTask) }, nullptr)) {
-            opened = true;
-            LogInfo << std::format(
-                "BlackFlow inventory | event=card_opened | name={} | attempt={}",
-                scrap.name,
-                attempt + 1);
-            break;
-        }
-        LogWarn << std::format(
-            "BlackFlow inventory | event=card_open_failed | name={} | attempt={}",
-            scrap.name,
-            attempt + 1);
-    }
-    if (!opened) {
-        set_error(error, "discard button never appeared for: " + scrap.name);
-        return false;
-    }
-
-    if (!context.execute({ std::string(DiscardTask) }, error)) {
-        return false;
-    }
-    if (!context.last_task().ends_with(DiscardedTask)) {
-        set_error(error, "discard was not confirmed for: " + scrap.name);
-        return false;
-    }
-    return true;
+    return discard_inventory_item(context, scrap, observe_inventory_discard_readiness, error);
 }
 
 bool BlackFlowInventoryCleanup::finish(BlackFlowInventoryContext& context, bool report, std::string* error)
@@ -759,7 +738,15 @@ bool BlackFlowInventoryCleanup::run(BlackFlowInventoryContext& context, std::str
         }
 
         std::string discard_error;
-        if (!discard(context, *reached, &discard_error)) {
+        const auto discard_outcome = discard(context, *reached, &discard_error);
+        if (discard_outcome == InventoryDiscardOutcome::ReadinessUnresolved ||
+            discard_outcome == InventoryDiscardOutcome::ReadinessUnavailable) {
+            // The selected card may still own a modal. Do not try another card
+            // or mark cleanup complete without a positive readiness observation.
+            set_error(error, std::move(discard_error));
+            return abandon(context, error);
+        }
+        if (discard_outcome != InventoryDiscardOutcome::Discarded) {
             if (context.interrupted()) {
                 set_error(error, "inventory cleanup interrupted");
                 return abandon(context, error);

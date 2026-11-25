@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -30,6 +31,21 @@ struct BossBodyEvidence
 // independently verify the selected exact identity. Boss protection
 // additionally requires fresh Boss evidence; deployment-site inspection has its
 // own intent.
+struct GoalLifeObservation
+{
+    std::optional<int> life;
+    bool hud_verified = false;
+    bool cache_hit = false;
+    bool ocr_performed = false;
+    std::uint64_t ocr_attempt = 0;
+    std::string anchor_task;
+    Rect number_roi;
+    Rect digits_rect;
+    std::string raw_digits;
+    double score = 0.0;
+    std::string reason;
+};
+
 class BlackFlowSoulObserver
 {
 public:
@@ -43,6 +59,8 @@ public:
     bool retreat_button(const cv::Mat& image, Point expected) const;
     bool normal_running(const cv::Mat& image) const;
     std::optional<std::string> battle_end_scene(const cv::Mat& image) const;
+    // Existing frame only. ROI reuse is not a new capture or OCR observation.
+    GoalLifeObservation goal_life(const cv::Mat& image);
 
 private:
     BossBodyEvidence boss_impl(const cv::Mat& image, Rect search, bool selection_view) const;
@@ -64,5 +82,8 @@ private:
     bool m_ready = false;
     cv::Mat m_pause_mask;
     cv::Mat m_retreat_mask;
+    cv::Mat m_goal_life_roi;
+    GoalLifeObservation m_goal_life_cached;
+    std::uint64_t m_goal_life_ocr_attempts = 0;
 };
 } // namespace asst::blackflow

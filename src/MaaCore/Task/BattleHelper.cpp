@@ -1,5 +1,6 @@
 #include "BattleHelper.h"
 
+#include <cstdlib>
 #include <future>
 #include <thread>
 
@@ -236,6 +237,44 @@ bool asst::BattleHelper::update_deployment_(
             name_image = m_inst_helper.ctrler()->get_image();
 
             std::string name = analyze_detail_page_oper_name(name_image, oper.role);
+
+#ifdef ASST_DEBUG
+            // Preserve the frame from the existing name-recognition click.
+            // This diagnostic adds no capture, input or placement permission.
+            const bool save_hand_preview = [] {
+#ifdef _WIN32
+                std::size_t length = 0;
+                if (getenv_s(&length, nullptr, 0, "MAA_BLACKFLOW_HAND_PREVIEW_DIAGNOSTICS") != 0 || length != 2) {
+                    return false;
+                }
+                char value[2] {};
+                return getenv_s(&length, value, sizeof(value), "MAA_BLACKFLOW_HAND_PREVIEW_DIAGNOSTICS") == 0 &&
+                       value[0] == '1';
+#else
+                const auto* value = std::getenv("MAA_BLACKFLOW_HAND_PREVIEW_DIAGNOSTICS");
+                return value != nullptr && std::string_view(value) == "1";
+#endif
+            }();
+            if (save_hand_preview && !name_image.empty()) {
+                try {
+                    const auto directory = utils::path("debug/blackflow/hand-preview");
+                    std::error_code image_error;
+                    std::filesystem::create_directories(UserDir.get() / directory, image_error);
+                    const bool saved = !image_error && utils::save_debug_image(
+                                                           name_image,
+                                                           directory,
+                                                           false,
+                                                           "existing hand-card name frame",
+                                                           "card_" + std::to_string(oper.index));
+                    LogInfo << __FUNCTION__ << "Hand preview diagnostic" << "stage" << m_stage_name << "card index"
+                            << oper.index << "name" << name << "saved" << saved
+                            << "additional captures 0 additional inputs 0 placement proof false";
+                }
+                catch (const std::exception& error) {
+                    LogWarn << __FUNCTION__ << "Hand preview diagnostic could not be persisted" << error.what();
+                }
+            }
+#endif
             // 这时候即使名字不合法也只能凑合用了，但是为空还是不行的
             if (is_card_name_unusable(name)) {
                 // Failed operator OCR is not evidence of a nameless summon.

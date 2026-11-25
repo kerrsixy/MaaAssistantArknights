@@ -74,6 +74,254 @@ def is_fresh_lobby(state):
     )
 
 
+PAUSE_CLASSIFICATION_VERSION = 1
+
+
+def pause_classification_summary(records):
+    """Pair native pending/final receipts in order; unknown evidence stays closed.
+
+    This validates callback structure and pairing, not image truth or native
+    provenance. It performs no capture, input, clock wait or cleanup operation.
+    """
+    pending_tag = "BlackFlowBattlePausePending"
+    end_tag = "BlackFlowBattleEndTransition"
+    pause_tag = "BlackFlowBattlePaused"
+    rows = {}
+    binding = (
+        "stage",
+        "captured_ms",
+        "received_ms",
+        "current_kills",
+        "current_total",
+        "banner_captured_ms",
+        "classification_deadline_ms",
+        "banner_frame",
+        "image_file",
+    )
+
+    def row_for(key, identity):
+        return rows.setdefault(
+            key,
+            {
+                "pause_observation_id": identity,
+                "pending_callbacks": 0,
+                "final_callbacks": 0,
+                "status": "unresolved",
+                "reason": "missing_final",
+                "pending": None,
+                "invalid": False,
+            },
+        )
+
+    def invalidate(row, reason):
+        row.update(invalid=True, status="invalid", reason=reason)
+
+    for index, record in enumerate(records):
+        raw = record.get("details", "")
+        try:
+            payload = json.loads(raw)
+        except (TypeError, ValueError):
+            if isinstance(raw, str) and any(
+                tag in raw for tag in (pending_tag, end_tag, pause_tag)
+            ):
+                invalidate(row_for(("invalid", index), None), "malformed_json")
+            continue
+        if not isinstance(payload, dict) or payload.get("what") not in (
+            pending_tag,
+            end_tag,
+            pause_tag,
+        ):
+            continue
+        tag, details = payload["what"], payload.get("details")
+        identity = (
+            details.get("pause_observation_id") if isinstance(details, dict) else None
+        )
+        valid_id = (
+            isinstance(identity, str)
+            and bool(identity.strip())
+            and not any(ord(c) < 32 for c in identity)
+        )
+        # Pre-classification manual pause callbacks have no ID; the original
+        # pause_callbacks counter remains an independent acceptance veto.
+        if tag == pause_tag and isinstance(details, dict) and identity is None:
+            continue
+        row = row_for(
+            ("id", identity) if valid_id else ("invalid", index),
+            identity if valid_id else None,
+        )
+        row["pending_callbacks" if tag == pending_tag else "final_callbacks"] += 1
+        if (
+            record.get("msg") != MSG_SUBTASK_EXTRA_INFO
+            or not valid_id
+            or not isinstance(details, dict)
+        ):
+            invalidate(row, "invalid_message_or_identity")
+            continue
+        if tag == pending_tag:
+            if row["pending_callbacks"] != 1 or row["final_callbacks"]:
+                invalidate(row, "duplicate_or_out_of_order_pending")
+                continue
+            integer_keys = (
+                "captured_ms",
+                "received_ms",
+                "current_kills",
+                "current_total",
+                "banner_captured_ms",
+                "classification_deadline_ms",
+            )
+            valid = all(type(details.get(key)) is int for key in integer_keys)
+            valid = valid and all(
+                isinstance(details.get(key), str) and details[key].strip()
+                for key in ("stage", "banner_frame", "image_file")
+            )
+            if valid:
+                valid = (
+                    details.get("classification_pending") is True
+                    and details.get("current_hud_known") is True
+                    and details.get("selected_ui_owned") is False
+                    and details["current_kills"] == details["current_total"] > 0
+                    and 0
+                    < details["banner_captured_ms"]
+                    < details["captured_ms"]
+                    <= details["received_ms"]
+                    and details["received_ms"] - details["banner_captured_ms"] <= 2000
+                    and details["classification_deadline_ms"]
+                    == details["captured_ms"] + 30000
+                )
+            if not valid:
+                invalidate(row, "malformed_pending_evidence")
+                continue
+            row["pending"] = {key: details[key] for key in binding}
+            continue
+        if row["invalid"]:
+            continue
+        if row["final_callbacks"] != 1:
+            invalidate(row, "duplicate_final")
+            continue
+        if row["pending"] is None:
+            if tag == pause_tag and row["pending_callbacks"] == 0:
+                row.update(status="direct_paused", reason="original_pause_veto")
+            else:
+                invalidate(row, "final_without_valid_pending")
+            continue
+        valid = all(
+            type(details.get(key)) is type(value) and details[key] == value
+            for key, value in row["pending"].items()
+        )
+        valid = valid and (
+            details.get("classification_pending") is False
+            and details.get("classified_as_end_transition") is (tag == end_tag)
+            and details.get("automation_resumed_pause") is False
+            and isinstance(details.get("classification_reason"), str)
+            and bool(details["classification_reason"])
+            and type(details.get("classification_recorded_ms")) is int
+            and details["classification_recorded_ms"] >= details["received_ms"]
+        )
+        if valid and tag == end_tag:
+            valid = (
+                details["classification_reason"]
+                == "local_banner_then_nonbattle_then_positive_result_ack"
+                and details.get("positive_successor_task")
+                in (
+                    "BlackFlow@Roguelike@MissionCompletedFlag",
+                    "BlackFlow@Roguelike@MissionFailedFlag",
+                    "BlackFlow@Roguelike@MissionFailedFlag2",
+                )
+                and type(details.get("successor_received_ms")) is int
+                and details["captured_ms"]
+                <= details["successor_received_ms"]
+                <= details["classification_deadline_ms"]
+                and details["classification_recorded_ms"]
+                >= details["successor_received_ms"]
+            )
+        if not valid:
+            invalidate(row, "mismatched_or_malformed_final")
+            continue
+        row.update(
+            status="resolved_end_transition" if tag == end_tag else "resolved_paused",
+            reason=details["classification_reason"],
+        )
+
+    ledger = [
+        {key: value for key, value in row.items() if key not in ("pending", "invalid")}
+        for row in rows.values()
+    ]
+    return {
+        "pause_classification_version": PAUSE_CLASSIFICATION_VERSION,
+        "pause_pending_callbacks": sum(row["pending_callbacks"] for row in ledger),
+        "pause_unresolved_observations": sum(
+            row["status"] in ("unresolved", "invalid") for row in ledger
+        ),
+        "pause_classification_errors": sum(
+            row["status"] == "invalid" for row in ledger
+        ),
+        "pause_classification_ledger": ledger,
+    }
+
+
+def validate_pause_classification_summary(outcome):
+    """Legacy summaries remain supported; versioned summaries must fail closed."""
+    fields = (
+        "pause_pending_callbacks",
+        "pause_unresolved_observations",
+        "pause_classification_errors",
+        "pause_classification_ledger",
+    )
+    if "pause_classification_version" not in outcome:
+        if any(key in outcome for key in fields):
+            raise ValueError("Pause classification version is missing")
+        return
+    if (
+        type(outcome["pause_classification_version"]) is not int
+        or outcome["pause_classification_version"] != PAUSE_CLASSIFICATION_VERSION
+    ):
+        raise ValueError("Unknown pause classification version")
+    if any(type(outcome.get(key)) is not int or outcome[key] < 0 for key in fields[:3]):
+        raise ValueError(
+            "Pause classification counters must be typed nonnegative integers"
+        )
+    ledger = outcome.get("pause_classification_ledger")
+    if not isinstance(ledger, list):
+        raise ValueError("Pause classification ledger must be a list")
+    identities = set()
+    for row in ledger:
+        if not isinstance(row, dict) or any(
+            type(row.get(key)) is not int or row[key] < 0
+            for key in ("pending_callbacks", "final_callbacks")
+        ):
+            raise ValueError("Malformed pause classification row")
+        identity = row.get("pause_observation_id")
+        if (
+            not isinstance(identity, str)
+            or not identity.strip()
+            or identity in identities
+        ):
+            raise ValueError("Invalid or duplicate pause observation identity")
+        identities.add(identity)
+        status = row.get("status")
+        if status not in (
+            "resolved_end_transition",
+            "resolved_paused",
+            "direct_paused",
+        ):
+            raise ValueError("Unresolved or invalid pause observation")
+        if status in ("resolved_paused", "direct_paused"):
+            raise ValueError("A classified pause cannot qualify as unattended")
+        if row["final_callbacks"] != 1 or row["pending_callbacks"] != (
+            0 if status == "direct_paused" else 1
+        ):
+            raise ValueError("Conflicting pause classification event counts")
+    if outcome["pause_pending_callbacks"] != sum(
+        row["pending_callbacks"] for row in ledger
+    ):
+        raise ValueError("Pause classification count disagrees with ledger")
+    if (
+        outcome["pause_unresolved_observations"]
+        or outcome["pause_classification_errors"]
+    ):
+        raise ValueError("Pause classification is unresolved or malformed")
+
+
 class LiveDriver:
     """最小 ctypes 封装：连接模拟器、追加任务、收集回调。"""
 
@@ -359,6 +607,7 @@ class LiveDriver:
             "account_bindings": bindings,
             "battle_stages": stages,
             "pause_callbacks": pauses,
+            **pause_classification_summary(records),
             "fresh_exploration_starts": exploration_starts,
             "assisted_roster_restorations": roster_restorations,
             "workflow_error_callbacks": sum(

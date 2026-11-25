@@ -18,7 +18,11 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from blackflow_live_run import DLL_DIR, is_fresh_lobby
+from blackflow_live_run import (
+    DLL_DIR,
+    is_fresh_lobby,
+    validate_pause_classification_summary,
+)
 from blackflow_state_check import ADB_ADDRESS
 from blackflow_state_check import check as check_state
 
@@ -31,6 +35,7 @@ def verified_round(outcome, client, expected_uid=None, expected_difficulty=None)
     """Validate completion and account identity independently of process exit."""
     if not isinstance(outcome, dict):
         raise ValueError("Outcome is not an object")
+    validate_pause_classification_summary(outcome)
     if any(
         type(outcome.get(key)) is not int
         for key in (

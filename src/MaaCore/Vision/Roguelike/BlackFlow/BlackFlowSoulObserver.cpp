@@ -1,18 +1,24 @@
 #include "BlackFlowSoulObserver.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <utility>
 
+#include "Config/TaskData.h"
 #include "MaaUtils/ImageIo.h"
 #include "MaaUtils/NoWarningCV.hpp"
 #include "Vision/Matcher.h"
+#include "Vision/OCRer.h"
 
 using namespace asst::blackflow;
 
 bool BlackFlowSoulObserver::load(const std::filesystem::path& directory, std::string* error)
 {
     m_ready = false;
+    m_goal_life_roi.release();
+    m_goal_life_cached = {};
+    m_goal_life_ocr_attempts = 0;
     m_boss.clear();
     m_selected_boss.clear();
     m_soul.clear();
@@ -335,4 +341,100 @@ std::vector<asst::Point>
         result.emplace_back(tile);
     }
     return result;
+}
+
+GoalLifeObservation BlackFlowSoulObserver::goal_life(const cv::Mat& image)
+{
+    GoalLifeObservation observed;
+    const auto reject = [&](std::string reason) {
+        m_goal_life_roi.release();
+        m_goal_life_cached = {};
+        observed.reason = std::move(reason);
+        return observed;
+    };
+    if (!m_ready || image.type() != CV_8UC3 || image.size() != cv::Size(1280, 720)) {
+        return reject("observer_or_frame_unavailable");
+    }
+    if (paused(image) || battle_end_scene(image)) {
+        return reject("paused_or_terminal_scene");
+    }
+    asst::Matcher kills(image);
+    kills.set_task_info("BattleKillsFlag");
+    if (!kills.analyze()) {
+        return reject("battle_counter_anchor_missing");
+    }
+    for (const auto* task_name : { "BattleHpFlag", "BattleHpFlag2" }) {
+        asst::Matcher flag(image);
+        flag.set_task_info(task_name);
+        flag.set_threshold(0.9);
+        if (const auto match = flag.analyze()) {
+            const auto task = Task.get(task_name);
+            auto roi = match->rect.move(task->rect_move);
+            // The task's original100px region approaches the red loss badge.
+            // Keep only the numeric field immediately right of the goal flag.
+            roi.width = std::min(roi.width, 80);
+            const cv::Rect bounds(0, 0, image.cols, image.rows);
+            const auto area = asst::make_rect<cv::Rect>(roi);
+            if (roi.empty() || (area & bounds) != area || roi.y < 0 || roi.y + roi.height > 65) {
+                return reject("goal_number_roi_invalid");
+            }
+            observed.hud_verified = true;
+            observed.anchor_task = task_name;
+            observed.number_roi = roi;
+            const auto pixels = image(area);
+            if (!m_goal_life_roi.empty() && m_goal_life_cached.anchor_task == observed.anchor_task &&
+                m_goal_life_cached.number_roi == roi && m_goal_life_roi.size() == pixels.size() &&
+                cv::norm(m_goal_life_roi, pixels, cv::NORM_INF) == 0) {
+                observed = m_goal_life_cached;
+                observed.cache_hit = true;
+                observed.ocr_performed = false;
+                return observed;
+            }
+            // Cache unknown ink/recognition too, so an unchanged unreadable ROI
+            // does not spend an OCR call on every actor frame.
+            const auto cache = [&] {
+                m_goal_life_roi = pixels.clone();
+                m_goal_life_cached = observed;
+                return observed;
+            };
+            cv::Mat ink = cv::Mat::zeros(pixels.size(), CV_8UC1);
+            for (int y = 0; y < pixels.rows; ++y) {
+                const auto* row = pixels.ptr<cv::Vec3b>(y);
+                auto* output = ink.ptr<unsigned char>(y);
+                for (int x = 0; x < pixels.cols; ++x) {
+                    const auto& p = row[x];
+                    const bool white = std::min({ p[0], p[1], p[2] }) >= 130;
+                    const bool red = p[2] >= 120 && p[2] - p[1] >= 45 && p[2] - p[0] >= 45;
+                    output[x] = white || red ? 255 : 0;
+                }
+            }
+            const auto glyph = cv::boundingRect(ink);
+            if (glyph.empty() || glyph.x < 1 || glyph.y < 1 || glyph.br().x > pixels.cols - 1 ||
+                glyph.br().y > pixels.rows - 1 || glyph.width > 60 || glyph.height < 8) {
+                observed.reason = "goal_digit_ink_missing_or_clipped";
+                return cache();
+            }
+            const cv::Rect expanded(glyph.x - 1, glyph.y - 1, glyph.width + 2, glyph.height + 2);
+            observed.digits_rect = { roi.x + expanded.x, roi.y + expanded.y, expanded.width, expanded.height };
+            asst::OCRer ocr(image, observed.digits_rect);
+            ocr.set_without_det(true);
+            ocr.set_use_char_model(true);
+            // No NumberOcrReplace: I, fractions and signed losses stay unknown.
+            observed.ocr_performed = true;
+            observed.ocr_attempt = ++m_goal_life_ocr_attempts;
+            if (const auto result = ocr.analyze(); result && result->size() == 1) {
+                observed.raw_digits = result->front().text;
+                observed.score = result->front().score;
+            }
+            if (observed.score < 0.92 || observed.raw_digits.empty() || observed.raw_digits.size() > 3 ||
+                !std::ranges::all_of(observed.raw_digits, [](unsigned char c) { return c >= '0' && c <= '9'; })) {
+                observed.reason = "goal_digits_unverified";
+                return cache();
+            }
+            observed.life = std::stoi(observed.raw_digits);
+            observed.reason = "goal_life_digits_verified";
+            return cache();
+        }
+    }
+    return reject("goal_life_anchor_missing");
 }
