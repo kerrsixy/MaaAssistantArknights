@@ -1,4 +1,5 @@
 #include "BlackFlowPolicy.h"
+#include "BlackFlowSoftReward.h"
 
 #include <algorithm>
 #include <iterator>
@@ -87,12 +88,13 @@ struct ScoreOrigin
     std::vector<const Milestone*> milestones;
     // 软目标组的首维是路线代价减去目标收益，胜负可能只由代价决定。
     bool net_of_route_cost = false;
+    bool reward_lower_bound = false;
 };
 
 struct RankedCandidate
 {
     const PolicyCandidate* candidate = nullptr;
-    std::vector<int> score;
+    std::vector<std::int64_t> score;
     std::vector<ScoreOrigin> origins;
 };
 
@@ -809,7 +811,7 @@ PolicyDecision PolicyExecutor::choose(
     for (const PolicyCandidate* candidate : eligible) {
         RankedCandidate entry;
         entry.candidate = candidate;
-        auto add_score = [&](int value, ScoreOrigin origin) {
+        auto add_score = [&](std::int64_t value, ScoreOrigin origin) {
             entry.score.emplace_back(value);
             entry.origins.emplace_back(std::move(origin));
         };
@@ -836,7 +838,7 @@ PolicyDecision PolicyExecutor::choose(
                 const int rank = bindings[begin]->rank;
                 std::size_t end = begin;
                 int completed = 0;
-                int progress_sum = 0;
+                std::int64_t progress_sum = 0;
                 while (end < bindings.size() && bindings[end]->rank == rank) {
                     const Milestone& milestone = *bindings[end];
                     const int value = milestone_value(*candidate, milestone);
@@ -864,36 +866,54 @@ PolicyDecision PolicyExecutor::choose(
                 }
                 const int rank = active_milestones[begin]->rank;
                 std::size_t end = begin;
-                int progress_sum = 0;
+                std::int64_t progress_sum = 0;
+                std::int64_t lower_sum = 0;
                 while (end < active_milestones.size() && active_milestones[end]->kind == kind &&
                        active_milestones[end]->rank == rank) {
                     const Milestone& milestone = *active_milestones[end];
-                    progress_sum += milestone.weight * milestone_value(*candidate, milestone);
+                    progress_sum +=
+                        static_cast<std::int64_t>(milestone.weight) * milestone_value(*candidate, milestone);
+                    lower_sum += static_cast<std::int64_t>(milestone.minimum_reward_weight()) *
+                                 milestone_value(*candidate, milestone);
                     ++end;
                 }
-                const auto group_reward = [&](const PolicyCandidate& current) {
-                    int value = 0;
-                    for (std::size_t index = begin; index < end; ++index) {
-                        const Milestone& milestone = *active_milestones[index];
-                        value += milestone.weight * milestone_value(current, milestone);
-                    }
-                    return value;
-                };
-                const int reference = group_reward(*eligible.front());
-                const bool varies = std::ranges::any_of(eligible, [&](const PolicyCandidate* other) {
-                    return group_reward(*other) != reference;
-                });
-                if (varies) {
-                    const std::vector<const Milestone*> group(
-                        active_milestones.begin() + begin,
-                        active_milestones.begin() + end);
-                    add_score(
-                        candidate->estimated_duration + candidate->battle_count + candidate->processing_move_count +
-                            (minimize_intermediate_interactions ? candidate->intermediate_interaction_count : 0) -
-                            progress_sum,
-                        { .category = category, .milestones = group, .net_of_route_cost = true });
-                    add_score(-progress_sum, { .category = category, .milestones = group });
-                }
+                const auto key = soft_reward_key(
+                    lower_sum,
+                    progress_sum,
+                    candidate->battle_count,
+                    candidate->processing_move_count,
+                    candidate->persistent_processing_move_count,
+                    candidate->estimated_duration,
+                    candidate->backtracking_count,
+                    candidate->rewardless_entry_count,
+                    minimize_intermediate_interactions ? candidate->intermediate_interaction_count : 0);
+                const std::vector<const Milestone*> group(
+                    active_milestones.begin() + begin,
+                    active_milestones.begin() + end);
+                add_score(
+                    -key[0],
+                    { .category = category,
+                      .metric = "reward_lower_net",
+                      .milestones = group,
+                      .net_of_route_cost = true,
+                      .reward_lower_bound = true });
+                add_score(
+                    -key[1],
+                    { .category = DecisionReasonCategory::ResourceReserve,
+                      .metric = "persistent_processing_move_count" });
+                add_score(
+                    -key[2],
+                    { .category = category,
+                      .metric = "reward_upper_net",
+                      .milestones = group,
+                      .net_of_route_cost = true });
+                add_score(
+                    -key[3],
+                    { .category = category,
+                      .metric = "reward_lower",
+                      .milestones = group,
+                      .reward_lower_bound = true });
+                add_score(-key[4], { .category = category, .metric = "reward_upper", .milestones = group });
                 begin = end;
             }
         };
@@ -975,8 +995,9 @@ PolicyDecision PolicyExecutor::choose(
             for (const Milestone* milestone : origin.milestones) {
                 const int chosen = milestone_value(*ranked[0].candidate, *milestone);
                 const int runner_up = milestone_value(*ranked[1].candidate, *milestone);
-                chosen_reward += milestone->weight * chosen;
-                runner_up_reward += milestone->weight * runner_up;
+                const int weight = origin.reward_lower_bound ? milestone->minimum_reward_weight() : milestone->weight;
+                chosen_reward += weight * chosen;
+                runner_up_reward += weight * runner_up;
                 if (chosen > runner_up) {
                     decision.decisive_milestone_ids.emplace_back(milestone->id);
                 }

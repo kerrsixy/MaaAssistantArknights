@@ -882,6 +882,7 @@
                     "rank": 0,
                     "count": 99,
                     "weight": 1,
+                    "reward_weight_min": 0,
                     "selector": {
                         "node_types": [
                             "battle_elite",
