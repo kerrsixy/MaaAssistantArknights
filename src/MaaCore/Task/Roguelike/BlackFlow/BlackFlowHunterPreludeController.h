@@ -66,6 +66,10 @@ public:
 
     [[nodiscard]] bool attack_range_allowed(int plan_index, const battle::AttackRange& range) const;
     [[nodiscard]] bool bait_skill_allowed(const std::map<battle::OperNameTag, Point>& battlefield) const noexcept;
+    [[nodiscard]] std::vector<HunterGuardTask> guard_tasks() const;
+    [[nodiscard]] bool guard_identity_required(
+        const HunterTaskCandidate& candidate,
+        const std::vector<HunterTaskCandidate>& projected) const;
     bool candidate_allowed(int plan_index, const HunterTaskCandidate& candidate);
     bool skill_allowed(const HunterTaskCandidate& candidate) const;
     std::optional<HunterTaskCandidate> active_task(const battle::OperNameTag& oper) const;

@@ -1186,6 +1186,14 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_hard_requirements_met(
     const battle::DeploymentOper& oper,
     const battle::roguelike::DeployInfoWithRank& plan) const
 {
+    return deployment_hard_requirements_met(oper, plan, true);
+}
+
+bool asst::RoguelikeBattleTaskPlugin::deployment_hard_requirements_met(
+    const battle::DeploymentOper& oper,
+    const battle::roguelike::DeployInfoWithRank& plan,
+    bool check_hunter) const
+{
     if (const auto cap = RoguelikeCopilot.maximum_deploy_cost(m_stage_name, plan.plan_index);
         cap && (oper.cost <= 0 || oper.cost > *cap)) {
         // Cost0 also represents OCR failure; a capped opener cannot claim it is
@@ -1223,12 +1231,13 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_hard_requirements_met(
         }
     }
     const auto hunter_candidate_allowed = [&] {
-        return !m_hunter_prelude || m_hunter_prelude->candidate_allowed(
-                                        plan.plan_index,
-                                        hunter_task_candidate(
-                                            oper,
-                                            plan.location,
-                                            resolve_deploy_direction(oper, plan.location, plan.direction)));
+        return !check_hunter || !m_hunter_prelude ||
+               m_hunter_prelude->candidate_allowed(
+                   plan.plan_index,
+                   hunter_task_candidate(
+                       oper,
+                       plan.location,
+                       resolve_deploy_direction(oper, plan.location, plan.direction)));
     };
     if (plan.required_attack_tiles.empty() && plan.required_range_tiles.empty()) {
         return hunter_candidate_allowed();
@@ -1300,41 +1309,71 @@ asst::blackflow::HunterTaskCandidate asst::RoguelikeBattleTaskPlugin::hunter_tas
     Point location,
     battle::DeployDirection direction) const
 {
-    blackflow::HunterTaskCandidate candidate;
-    candidate.oper = { oper.role, oper.name };
-    candidate.location = location;
-    candidate.direction = direction;
-    const auto observed = m_config->status().opers.find(oper.name);
-    const auto elite = m_oper_elite.find(oper.name);
-    const auto identity = RoguelikeTraining.unique_identity(oper.name);
-    const auto props = BattleData.find_first_oper(oper.role, oper.name);
-    if (observed != m_config->status().opers.end() && elite != m_oper_elite.end()) {
-        const auto& preparation = observed->second.preparation;
-        candidate.operator_id = preparation.operator_id;
-        candidate.elite = elite->second;
-        candidate.selected_skill = preparation.selected_skill;
-        if (candidate.selected_skill >= 1 && candidate.selected_skill <= 3) {
-            candidate.skill_rank = preparation.displayed_skill_levels[candidate.selected_skill - 1];
-        }
-        candidate.preparation_known = !identity.empty() && props && props->id == identity &&
-                                      preparation.operator_id == identity && observed->second.elite == elite->second &&
-                                      preparation.training_sequence > 0 && preparation.selection_sequence > 0;
+    const auto observed_candidate =
+        [&](const battle::DeploymentOper& oper, Point location, battle::DeployDirection direction) {
+            blackflow::HunterTaskCandidate candidate;
+            candidate.oper = { oper.role, oper.name };
+            candidate.location = location;
+            candidate.direction = direction;
+            const auto observed = m_config->status().opers.find(oper.name);
+            const auto elite = m_oper_elite.find(oper.name);
+            const auto identity = RoguelikeTraining.unique_identity(oper.name);
+            const auto props = BattleData.find_first_oper(oper.role, oper.name);
+            if (observed != m_config->status().opers.end() && elite != m_oper_elite.end()) {
+                const auto& preparation = observed->second.preparation;
+                candidate.operator_id = preparation.operator_id;
+                candidate.elite = elite->second;
+                candidate.selected_skill = preparation.selected_skill;
+                if (candidate.selected_skill >= 1 && candidate.selected_skill <= 3) {
+                    candidate.skill_rank = preparation.displayed_skill_levels[candidate.selected_skill - 1];
+                }
+                candidate.preparation_known = !identity.empty() && props && props->id == identity &&
+                                              preparation.operator_id == identity &&
+                                              observed->second.elite == elite->second &&
+                                              preparation.training_sequence > 0 && preparation.selection_sequence > 0;
+            }
+            candidate.range = get_attack_range(oper, direction);
+            return candidate;
+        };
+    auto candidate = observed_candidate(oper, location, direction);
+    if (!m_hunter_prelude) {
+        return candidate;
     }
-    candidate.range = get_attack_range(oper, direction);
-    std::set<battle::OperNameTag> blockers;
-    for (const auto& card : m_cur_deployment_opers) {
-        const battle::OperNameTag tag { card.role, card.name };
-        if (!card.cooling && persistent_blocking_available(tag)) {
-            blockers.insert(tag);
+    std::vector<blackflow::HunterTaskCandidate> projected;
+    for (const auto& task : m_hunter_prelude->guard_tasks()) {
+        std::set<battle::OperNameTag> seen;
+        for (const auto& card : m_cur_deployment_opers) {
+            const battle::OperNameTag tag { card.role, card.name };
+            if (card.cooling || card.name.empty() || DiceSet.contains(card.name) ||
+                RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), card.name) ||
+                m_battlefield_opers.contains(tag) ||
+                (!card.available && !deployment_cost_wait_required(card, m_cost)) || !seen.insert(tag).second) {
+                continue;
+            }
+            if (!deployment_target_allowed(card, task.location)) {
+                continue;
+            }
+            const auto& group_names = RoguelikeRecruit.get_group_names(m_config->get_theme());
+            const auto group_ids = RoguelikeRecruit.get_group_ids_of_oper(m_config->get_theme(), tag);
+            const bool authored_eligible = std::ranges::any_of(group_ids, [&](int group) {
+                if (group < 0 || static_cast<std::size_t>(group) >= group_names.size()) {
+                    return false;
+                }
+                const auto found = m_deploy_plan.find(group_names[group]);
+                return found != m_deploy_plan.end() && std::ranges::any_of(found->second, [&](const auto& plan) {
+                           return plan.plan_index == task.plan_index && plan.location == task.location &&
+                                  resolve_deploy_direction(card, plan.location, plan.direction) == task.direction &&
+                                  deployment_hard_requirements_met(card, plan, false);
+                       });
+            });
+            if (authored_eligible) {
+                projected.push_back(observed_candidate(card, task.location, task.direction));
+            }
         }
     }
-    for (const auto& [tag, point] : m_battlefield_opers) {
-        static_cast<void>(point);
-        if (persistent_blocking_available(tag)) {
-            blockers.insert(tag);
-        }
-    }
-    candidate.sole_persistent_blocker = blockers.size() == 1 && blockers.contains(candidate.oper);
+    // Legacy field now means unique qualified identity for a current unfilled
+    // Hunter guard task. Ordinary blocker totals never authorize a substitute.
+    candidate.sole_persistent_blocker = m_hunter_prelude->guard_identity_required(candidate, projected);
     return candidate;
 }
 
