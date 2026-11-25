@@ -708,6 +708,7 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
         m_task_world.spawns = visual.spawns;
         m_task_world.lower_possible_tiles = m_lower_possible_tiles;
         m_task_world.upper_visible = visual.task_upper_visibility_verified;
+        m_task_world.upper_scope_covers_spawn_rois = visual.task_upper_covers_spawn_rois;
         m_task_world.upper_presence = visual.task_upper_presence;
         m_task_world.upper_empty_frames = visual.task_upper_empty_frames;
         m_task_world.lower_visible = lower_visible;
@@ -895,6 +896,13 @@ asst::blackflow::HunterPreludeDecision asst::blackflow::BlackFlowHunterPreludeCo
     decision.diagnostics["scoped_task_decisions"] = std::move(m_task_decisions);
     m_task_decisions = {};
     decision.diagnostics["scoped_upper_visible"] = m_task_world.upper_visible;
+    decision.diagnostics["scoped_upper_covers_spawn_rois"] = m_task_world.upper_scope_covers_spawn_rois;
+    decision.diagnostics["scoped_upper_scope_roi"] = json::array { visual.task_upper_scope_roi.x,
+                                                                   visual.task_upper_scope_roi.y,
+                                                                   visual.task_upper_scope_roi.width,
+                                                                   visual.task_upper_scope_roi.height };
+    decision.diagnostics["medical_support_is_hard_gate"] = false;
+    decision.diagnostics["medical_priority_changed"] = false;
     decision.diagnostics["scoped_upper_presence"] = static_cast<int>(m_task_world.upper_presence);
     decision.diagnostics["scoped_upper_empty_frames"] = m_task_world.upper_empty_frames;
     decision.diagnostics["approved_guard_present"] = m_task_world.guard_present;

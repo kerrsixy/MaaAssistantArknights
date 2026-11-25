@@ -173,16 +173,30 @@ HunterTaskPermit BlackFlowHunterTaskPolicy::assess(
                  overlap ? "Guard base/effect domain intersects unresolved hunter domain"
                          : "Versioned guard effect excludes current conservative hunter domain" };
     }
-    const bool spawns_clear = std::ranges::all_of(world.spawns, [](const auto& spawn) {
+    const bool legacy_spawns_clear = std::ranges::all_of(world.spawns, [](const auto& spawn) {
         return spawn.presence == HunterPresence::Absent && spawn.distinct_empty_frames >= 2;
     });
+    const bool fresh_upper_clear =
+        world.upper_visible && world.upper_presence == HunterPresence::Absent && world.upper_empty_frames >= 2;
+    const bool positive_spawn =
+        std::ranges::any_of(world.spawns, [](const auto& spawn) { return spawn.presence == HunterPresence::Present; });
+    // The independent scoped detector can cover both legacy patches even when
+    // their background scores stay Unknown. Positive foreground evidence still vetoes.
+    const bool spawns_clear =
+        !positive_spawn && (legacy_spawns_clear || (world.upper_scope_covers_spawn_rois && fresh_upper_clear));
     const bool lower_known = world.lower_visible && world.lower_presence != HunterPresence::Unknown;
-    const bool allowed = world.guard_present && world.medical_present && spawns_clear && world.upper_visible &&
-                         world.upper_presence == HunterPresence::Absent && world.upper_empty_frames >= 2 && lower_known;
-    return { allowed,
-             allowed,
-             allowed ? "Accepted lower-only residual/AoE-uncertain game risk; NOT hunter clearance"
-                     : "Risk release requires fresh clear upper/spawns, known lower and actual guard plus healer" };
+    const bool allowed = world.guard_present && spawns_clear && fresh_upper_clear && lower_known;
+    return {
+        allowed,
+        allowed,
+        allowed
+            ? (world.medical_present
+                   ? "Accepted scoped lower/AoE risk with guard and observed medical support; NOT clearance or HPS "
+                     "proof"
+                   : "Accepted scoped lower/AoE risk with guard; medical recommended, sustain unknown; NOT clearance")
+            : "Risk release needs fresh clear upper covering both spawns (or legacy absence), known lower and actual "
+              "guard"
+    };
 }
 
 bool BlackFlowHunterTaskPolicy::reserve_guard_identity(const HunterTaskCandidate& candidate) const

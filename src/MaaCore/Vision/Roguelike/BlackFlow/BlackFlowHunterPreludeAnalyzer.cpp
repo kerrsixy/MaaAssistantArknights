@@ -254,6 +254,8 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
     HunterPreludeObservation result;
     const auto unknown = [&](const std::string& reason) {
         result.frame_observable = false;
+        result.task_upper_covers_spawn_rois = false;
+        result.task_upper_scope_roi = {};
         result.lower_presence = HunterPresence::Unknown;
         result.battlefield_presence = HunterPresence::Unknown;
         result.full_search_coverage_verified = false;
@@ -377,6 +379,12 @@ asst::blackflow::HunterPreludeObservation asst::blackflow::BlackFlowHunterPrelud
             }
         }
         result.task_upper_visibility_verified = result.task_upper_best_score >= 0;
+        if (result.task_upper_visibility_verified) {
+            result.task_upper_scope_roi = m_task_upper_roi;
+            result.task_upper_covers_spawn_rois = std::ranges::all_of(result.spawns, [&](const auto& spawn) {
+                return !spawn.roi.empty() && contains(m_task_upper_roi, spawn.roi);
+            });
+        }
         if (positive) {
             result.task_upper_presence = HunterPresence::Present;
         }
