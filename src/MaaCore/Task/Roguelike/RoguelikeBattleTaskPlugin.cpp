@@ -1,5 +1,6 @@
 #include <regex>
 
+#include "BlackFlow/BlackFlowBattleVariant.h"
 #include "RoguelikeBattleTaskPlugin.h"
 
 #include <chrono>
@@ -180,6 +181,78 @@ bool asst::RoguelikeBattleTaskPlugin::_run()
         }
         else {
             LogWarn << __FUNCTION__ << "Soul guard unavailable" << error;
+        }
+    }
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow &&
+        !RoguelikeCopilot.get_stage_variant_keys(m_stage_name).empty()) {
+        std::uint64_t capture_sequence = 0;
+        const auto stamp =
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch())
+                .count();
+        const auto directory =
+            UserDir.get() / utils::path("BlackFlowEvidence/predeploy_variant") / utils::path(std::to_string(stamp));
+        const auto decision = blackflow::consume_predeploy_battle_variant(
+            RoguelikeCopilot,
+            m_stage_name,
+            resuming || !m_first_deploy || !m_battlefield_opers.empty(),
+            m_deploy_plan,
+            [&]() {
+                const auto sequence = ++capture_sequence;
+                if (need_exit() || !ctrler()->screencap(false)) {
+                    return blackflow::BattleVariantObservation { .capture_sequence = sequence };
+                }
+                // Read cache only after this exact screencap succeeded; never
+                // promote an old cached frame merely by assigning a new ID.
+                const auto frame = ctrler()->get_image_cache();
+                auto observation = blackflow::recognize_battle_variant_total(frame, sequence);
+                observation.capture_success = true;
+                const auto path = directory / utils::path(std::to_string(sequence) + ".png");
+                observation.frame_path = MAA_NS::path_to_utf8_string(path);
+                std::error_code image_error;
+                std::filesystem::create_directories(directory, image_error);
+                if (!image_error && !frame.empty()) {
+                    try {
+                        observation.frame_saved = MAA_NS::imwrite(path, frame);
+                    }
+                    catch (const cv::Exception& error) {
+                        LogWarn << __FUNCTION__ << "Predeploy variant frame encoding failed" << error.what();
+                    }
+                }
+                if (!observation.frame_saved) {
+                    LogWarn << __FUNCTION__ << "Predeploy variant frame not saved" << observation.frame_path;
+                }
+                return observation;
+            });
+        json::array observations;
+        for (const auto& item : decision.observations) {
+            observations.emplace_back(
+                json::object { { "capture_request_sequence", item.capture_sequence },
+                               { "physical_capture_success", item.capture_success },
+                               { "fresh_matcher_success", item.fresh_success },
+                               { "frame_path", item.frame_path },
+                               { "frame_saved", item.frame_saved },
+                               { "kills", item.kills },
+                               { "total", item.total } });
+        }
+        auto info = basic_info_with_what("BlackFlowBattleVariantSelected");
+        info["details"] =
+            json::object { { "base_key", m_stage_name },
+                           { "selected_key", decision.selected_key },
+                           { "reason", decision.reason },
+                           { "stable_total",
+                             decision.stable_total ? json::value(*decision.stable_total) : json::value(nullptr) },
+                           { "variant_applied", decision.applied },
+                           { "observations", std::move(observations) },
+                           { "capture_budget", 4 },
+                           { "capture_source", "Controller::screencap(false)->get_image_cache" },
+                           { "saved_frame_matches_HUD_reader_input", true },
+                           { "only_deploy_plan_changed", true },
+                           { "kills_counter_changed", false },
+                           { "selection_locked_for_battle", true },
+                           { "actual_deployment_proven", false } };
+        callback(AsstMsg::SubTaskExtraInfo, info);
+        if (need_exit()) {
+            return false;
         }
     }
     speed_up();

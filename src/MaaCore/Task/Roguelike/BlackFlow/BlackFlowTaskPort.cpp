@@ -266,12 +266,8 @@ bool BlackFlowTaskPort::refresh(
                 error,
                 "map_model_failed_after_next_level_floor: floor " + std::to_string(request.floor) + ": " +
                     perception_error);
-            Log.warn(
-                "BlackFlow map model failed after NextLevel floor recognition",
-                "floor",
-                request.floor,
-                "error",
-                perception_error);
+            LogWarn << __FUNCTION__ << "BlackFlow map model failed after NextLevel floor recognition"
+                    << "floor" << request.floor << "error" << perception_error;
             return false;
         }
         if (const auto action_points = recognize_action_points(image); action_points.has_value()) {
@@ -367,11 +363,11 @@ bool BlackFlowTaskPort::preview(
     preview.exact_action_point_cost = -*displayed_cost;
     const auto displayed_type = std::optional<NodeType>(preview.displayed_type);
     // Persist the exact panel frame, not the map-source's previous map frame.
-    const auto preview_dir = UserDir.get() / "debug/blackflow/preview";
+    const auto preview_dir = UserDir.get() / utils::path("debug/blackflow/preview");
     std::error_code ec;
     std::filesystem::create_directories(preview_dir, ec);
     const auto frame_id = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
-    const auto frame_path = preview_dir / ("preview-" + frame_id + ".png");
+    const auto frame_path = preview_dir / utils::path("preview-" + frame_id + ".png");
     const bool frame_saved = !ec && MAA_NS::imwrite(frame_path, image);
     const Rect clicked = shrink_to_center(*click_rect, 0.5);
     json::object facts {
@@ -392,8 +388,8 @@ bool BlackFlowTaskPort::preview(
         { "frame_saved", frame_saved },
         { "frame_path", utils::path_to_utf8_string(frame_path) }
     };
-    std::ofstream(preview_dir / ("preview-" + frame_id + ".json")) << json::value(facts);
-    Log.info("BlackFlow move preview identity evidence", json::value(facts).to_string());
+    std::ofstream(preview_dir / utils::path("preview-" + frame_id + ".json")) << json::value(facts);
+    LogInfo << __FUNCTION__ << "BlackFlow move preview identity evidence" << json::value(facts).to_string();
     // 理想源只在 Buff 范围内的普通作战节点有规划意义；险路恶敌明确跳过，
     // 避免把其详情页的相似文案误记成可收集目标。
     if (*displayed_type == NodeType::BattleNormal) {
@@ -401,19 +397,19 @@ bool BlackFlowTaskPort::preview(
         if (ideal_source.has_value()) {
             preview.ideal_source_known = true;
             preview.ideal_source = *ideal_source == "理想源" ? *ideal_source : std::string();
-            Log.info(
-                "BlackFlow battle preview ideal source",
-                preview.ideal_source.empty() ? std::string_view("none") : std::string_view(preview.ideal_source));
+            LogInfo << __FUNCTION__ << "BlackFlow battle preview ideal source"
+                    << (preview.ideal_source.empty() ? std::string_view("none")
+                                                     : std::string_view(preview.ideal_source));
         }
         else {
             // 逐个普通战斗节点探查；没有命中时保持 unknown，不能把 OCR 未命中
             // 当成“没有理想源”，否则会在下一次重规划时丢掉尚未探查完的节点。
-            Log.info("BlackFlow battle preview ideal source", "unknown");
+            LogInfo << __FUNCTION__ << "BlackFlow battle preview ideal source" << "unknown";
         }
     }
     else if (*displayed_type == NodeType::BattleSavage) {
         // 理想源不会出现在险路恶敌。即使详情页出现相似文字，也不能写入节点事实。
-        Log.info("BlackFlow savage preview ideal source", "skipped");
+        LogInfo << __FUNCTION__ << "BlackFlow savage preview ideal source" << "skipped";
     }
     return true;
 }

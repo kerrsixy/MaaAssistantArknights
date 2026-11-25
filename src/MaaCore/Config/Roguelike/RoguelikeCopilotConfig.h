@@ -2,6 +2,8 @@
 #include "Config/AbstractConfig.h"
 
 #include <optional>
+#include <utility>
+#include <vector>
 
 #include "Common/AsstBattleDef.h"
 #include "Config/Roguelike/BlackFlow/BlackFlowHunterOpening.h"
@@ -16,6 +18,7 @@ public:
     virtual bool load(const std::filesystem::path& path) override;
 
     std::optional<battle::roguelike::CombatData> get_stage_data(const std::string& stage_name) const;
+    std::vector<std::pair<int, std::string>> get_stage_variant_keys(const std::string& base_stage) const;
     const std::vector<std::string>& reserved_core_groups(const std::string& stage_name) const;
     std::optional<blackflow::HunterOpening> get_hunter_opening(const std::string& stage_name) const;
 

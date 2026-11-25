@@ -1,0 +1,79 @@
+{
+    "stage_name": "进退趋同#total34",
+    "doc": [
+        "Private C-only profile; game stage has no dispatcher to this key yet. Never install as a Chinese-name replacement without a verified variant gate.",
+        "Actual run75 C: cheap single-use upper opener, upper EW, lower persistent3 blocker, sole lower healer, lower physical output, lower arts-capable supplementary output. DPS/timing not live proven.",
+        "Only the deployment plan overrides the verified base; A38/B32 and unknown totals retain base. Two independent no-prompt fresh HUD readings are required before any deployment."
+    ],
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true,
+    "reserve_starting_core_groups": ["益达"],
+    "deploy_plan": [
+        {
+            "groups": ["回费"],
+            "location": [7, 1],
+            "direction": "left",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true,
+            "minimum_base_block_count": 1,
+            "max_deployments": 1,
+            "exclude_starting_core": true
+        },
+        {
+            "groups": ["益达"],
+            "location": [6, 2],
+            "direction": "right",
+            "minimum_elite": 2,
+            "required_attack_tiles": [
+                [7, 1],
+                [9, 1]
+            ]
+        },
+        {
+            "groups": ["地面阻挡", "机械师"],
+            "location": [7, 6],
+            "direction": "left",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true,
+            "minimum_base_block_count": 3,
+            "exclude_starting_core": true
+        },
+        {
+            "groups": ["元素奶", "单奶"],
+            "location": [6, 5],
+            "direction": "right",
+            "minimum_elite": 1,
+            "required_range_tiles": [
+                [7, 6],
+                [8, 5],
+                [7, 5]
+            ]
+        },
+        {
+            "groups": ["高台输出", "狙击", "术师"],
+            "location": [8, 5],
+            "direction": "down",
+            "minimum_elite": 1,
+            "exclude_starting_core": true,
+            "required_attack_tiles": [
+                [7, 6],
+                [9, 6]
+            ]
+        },
+        {
+            "groups": ["术师", "高台输出", "狙击"],
+            "location": [7, 5],
+            "direction": "right",
+            "minimum_elite": 1,
+            "exclude_starting_core": true,
+            "required_attack_tiles": [
+                [7, 6],
+                [9, 6]
+            ]
+        }
+    ],
+    "variant_of": "进退趋同",
+    "when": {
+        "total_enemies": 34
+    }
+}
