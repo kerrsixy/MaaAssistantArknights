@@ -3979,5 +3979,44 @@
         "exceededNext": [],
         "next": ["BlackFlow@Roguelike@StageTraderInvestSystemLeave", "BlackFlow@Roguelike@StageTraderLeave", "#self"],
         "template": "Roguelike@StageTraderInvestCancel.png"
+    },
+    "BlackFlow@Roguelike@ActiveRunRecovery": {
+        "Doc": "Same-native-process exploration recovery only. Continue/map navigation; no abandon, new run, battle resume, or inferred completion. Unknown pages stop preserved.",
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "next": [
+            "BlackFlow@Roguelike@BeginRecovery_DataSync",
+            "BlackFlow@Roguelike@BeginRecovery_DailySupply",
+            "BlackFlow@Roguelike@MonthlySummaryDismiss",
+            "BlackFlow@Roguelike@BeginRecovery_Announcement",
+            "BlackFlow@Roguelike@TrainingSummaryContinue",
+            "BlackFlow@Roguelike@ActiveRunRecoveryHome",
+            "BlackFlow@Roguelike@ResumeSavedContinue",
+            "BlackFlow@Roguelike@ResumeFloorIntro",
+            "BlackFlow@Roguelike@ResumeSavedMap",
+            "BlackFlow@Roguelike@ActiveRunRecoveryStop"
+        ],
+        "onErrorNext": [
+            "BlackFlow@Roguelike@ActiveRunRecoveryStop"
+        ]
+    },
+    "BlackFlow@Roguelike@ActiveRunRecoveryHome": {
+        "baseTask": "BlackFlow@Roguelike@AccountHome",
+        "template": ["SwitchTheme@ToggleSettingsMenu.png", "SwitchTheme@ToggleSettingsMenu-v2.png"],
+        "next": [
+            "BlackFlow@Roguelike@ActiveRunRecoveryIdentity"
+        ]
+    },
+    "BlackFlow@Roguelike@ActiveRunRecoveryIdentity": {
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "next": [
+            "BlackFlow@Roguelike"
+        ]
+    },
+    "BlackFlow@Roguelike@ActiveRunRecoveryStop": {
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "next": []
     }
 }

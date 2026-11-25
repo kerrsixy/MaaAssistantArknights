@@ -17,6 +17,8 @@ protected:
     virtual bool _run() override;
 
 private:
+    friend class BlackFlowActiveRecovery151TestAccess;
+
     enum class PendingWork
     {
         None,
@@ -27,6 +29,12 @@ private:
         PickLastReward,
         CheckStartRunReward,
         StartRunRewardPageMissing,
+        OwnExploration,
+        BeginActiveRecovery,
+        RecoveryIdentity,
+        RecoveryMapSeen,
+        AlignRecoveryMap,
+        StopActiveRecovery,
     };
 
     // 刷开局支援页上认出的一张卡；index 即 blackflow_start_rewards 的位
@@ -49,6 +57,22 @@ private:
     void report_start_run(std::string_view status, const std::vector<std::string>& rewards = {});
     void stop_start_run(std::string_view status, const std::vector<std::string>& rewards = {});
     void complete_start_run(const std::vector<std::string>& rewards = {});
+
+    bool owns_current_exploration() const;
+    bool begin_active_recovery();
+    bool accept_recovery_identity(std::string_view client, std::string_view uid);
+    bool align_recovery_map(const BlackFlowPerceptionSnapshot& snapshot, std::string* error);
+    void stop_active_recovery(std::string_view reason);
+    void report_active_recovery(std::string_view status, std::string_view reason = {});
+    void remove_recovery_override();
+
+    // Process-local ownership, never restored from a cache or a requested difficulty.
+    bool m_exploration_started = false;
+    bool m_active_recovery = false;
+    bool m_recovery_map_seen = false;
+    std::string m_owned_run_id;
+    std::string m_owned_uid;
+    std::string m_owned_client;
 
     std::vector<std::string> m_last_reward_tasks;
     bool m_start_run = false;
