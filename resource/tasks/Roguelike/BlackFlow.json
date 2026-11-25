@@ -3938,5 +3938,44 @@
     "BlackFlow@Roguelike@RecruitCurrentHope": {
         "baseTask": "BlackFlow@Roguelike@CurrentHope",
         "roi": [550, 12, 160, 42]
+    },
+    "BlackFlow@Roguelike@SavedShopRoot": {
+        "Doc": "DEBUG saved-shop-only root. No new exploration, battle, abandonment or generic floor-title fallback.",
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@SavedShopContinue", "BlackFlow@Roguelike@SavedShopReady"]
+    },
+    "BlackFlow@Roguelike@SavedShopContinue": {
+        "baseTask": "BlackFlow@Roguelike@ResumeSavedContinue",
+        "maxTimes": 1,
+        "exceededNext": [],
+        "next": ["BlackFlow@Roguelike@SavedShopReady"],
+        "template": "BlackFlow@Roguelike@Continue.png"
+    },
+    "BlackFlow@Roguelike@SavedShopReady": {
+        "Doc": "The plugin requires fresh AccountRead and a second same-frame shop coin anchor plus exact floor, with modal/map veto, before service.",
+        "baseTask": "BlackFlow@Roguelike@StageTraderLeave",
+        "action": "DoNothing",
+        "maxTimes": 1,
+        "exceededNext": [],
+        "reduceOtherTimes": [],
+        "next": ["BlackFlow@Roguelike@Page-Purchase"],
+        "template": "Roguelike@StageTraderLeave.png"
+    },
+    "BlackFlow@Roguelike@SavedShopMapAck": {
+        "Doc": "Positive real map zoom anchor ends this service. A shop floor title does not qualify.",
+        "baseTask": "BlackFlow@Roguelike@ResumeSavedMap",
+        "action": "DoNothing",
+        "next": [],
+        "exceededNext": [],
+        "reduceOtherTimes": [],
+        "template": ["BlackFlow@Roguelike@MapZoomIn.png", "BlackFlow@Roguelike@MapZoomOut.png"]
+    },
+    "BlackFlow@Roguelike@SavedShopInvestCancel": {
+        "baseTask": "BlackFlow@Roguelike@StageTraderInvestCancel",
+        "maxTimes": 3,
+        "exceededNext": [],
+        "next": ["BlackFlow@Roguelike@StageTraderInvestSystemLeave", "BlackFlow@Roguelike@StageTraderLeave", "#self"],
+        "template": "Roguelike@StageTraderInvestCancel.png"
     }
 }

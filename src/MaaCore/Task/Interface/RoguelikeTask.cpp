@@ -57,6 +57,7 @@
 #include "Task/Roguelike/BlackFlow/BlackFlowMovementTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowNodeTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowRoutingTaskPlugin.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowSavedShopTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowScrapTradeTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowStashedRecruitTaskPlugin.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowTaskPort.h"
@@ -177,6 +178,15 @@ asst::RoguelikeTask::RoguelikeTask(const AsstCallback& callback, Assistant* inst
         m_control_ptr,
         m_blackflow_session_ptr,
         m_blackflow_port_ptr);
+#ifdef ASST_DEBUG
+    m_roguelike_task_ptr
+        ->register_plugin<blackflow::BlackFlowSavedShopTaskPlugin>(
+            m_config_ptr,
+            m_control_ptr,
+            m_blackflow_session_ptr,
+            m_blackflow_port_ptr)
+        ->set_retry_times(0);
+#endif
     m_subtasks.emplace_back(m_roguelike_task_ptr);
 }
 
@@ -263,6 +273,21 @@ bool asst::RoguelikeTask::set_params(const json::value& params)
 
     const auto& theme = m_config_ptr->get_theme();
     const auto& mode = m_config_ptr->get_mode();
+#ifdef ASST_DEBUG
+    const bool saved_shop_only = params.get("blackflow_saved_shop_service_only", false);
+    if (saved_shop_only) {
+        std::string error;
+        if (!blackflow::parse_saved_shop_service_request(params, &error)) {
+            LogError << __FUNCTION__ << error;
+            return false;
+        }
+    }
+#else
+    if (params.get("blackflow_saved_shop_service_only", false)) {
+        return false;
+    }
+#endif
+
     m_blackflow_life_game_only = params.get("blackflow_life_game_only", false);
     if (m_blackflow_life_game_only && theme != RoguelikeTheme::BlackFlow) {
         LogError << __FUNCTION__ << "Life Game allocation requires BlackFlow";
@@ -295,6 +320,31 @@ bool asst::RoguelikeTask::set_params(const json::value& params)
         m_roguelike_task_ptr->override_next(
             "BlackFlow@Roguelike@Begin",
             { "BlackFlow@Roguelike@ResumeSavedExploration" });
+    }
+    if (saved_shop_only) {
+        // The existing assisted account bootstrap remains first. Service cannot
+        // adopt a shop until AccountRead completed with the same verified UID.
+        m_roguelike_task_ptr->set_tasks({ "BlackFlow@Roguelike@AccountBegin" });
+        m_roguelike_task_ptr->override_next("BlackFlow@Roguelike@Begin", { "BlackFlow@Roguelike@SavedShopRoot" });
+        m_roguelike_task_ptr->override_next(
+            "BlackFlow@Roguelike@StageTraderLeaveConfirmCompleted",
+            { "BlackFlow@Roguelike@SavedShopMapAck" });
+        m_roguelike_task_ptr->override_next("BlackFlow@Roguelike@Stages", { "BlackFlow@Roguelike@SavedShopMapAck" });
+        m_roguelike_task_ptr->override_next("BlackFlow@Roguelike@NextLevel", { "BlackFlow@Roguelike@SavedShopMapAck" });
+        // The normal investment cancel's exceededNext abandons an exploration;
+        // this diagnostic uses its bounded, non-abandoning leaf instead.
+        m_roguelike_task_ptr->override_next(
+            "BlackFlow@Roguelike@StageTraderInvestSystemEnter",
+            { "BlackFlow@Roguelike@StageTraderInvestSystemError",
+              "BlackFlow@Roguelike@StageTraderInvestConfirm",
+              "BlackFlow@Roguelike@SavedShopInvestCancel",
+              "#self" });
+        m_roguelike_task_ptr->override_next(
+            "BlackFlow@Roguelike@StageTraderInvestConfirm",
+            { "BlackFlow@Roguelike@StageTraderInvestSystemError", "BlackFlow@Roguelike@SavedShopInvestCancel" });
+        m_roguelike_task_ptr->override_next(
+            "BlackFlow@Roguelike@StageTraderInvestSystemError",
+            { "BlackFlow@Roguelike@SavedShopInvestCancel" });
     }
     if (!params.get("battle_resume_stage", std::string()).empty()) {
         if (theme != RoguelikeTheme::BlackFlow) {
@@ -393,6 +443,23 @@ bool asst::RoguelikeTask::set_params(const json::value& params)
     for (const auto& plugin : m_roguelike_task_ptr->get_plugins()) {
         if (const auto& p_ptr = std::dynamic_pointer_cast<AbstractRoguelikeTaskPlugin>(plugin); p_ptr != nullptr) {
             p_ptr->set_enable(p_ptr->load_params(params));
+#ifdef ASST_DEBUG
+            if (saved_shop_only) {
+                // Initialize normal configuration, then restrict execution to
+                // account, shop, investment and recruitment services. No node
+                // completion, battle, fresh-start or routing consumer runs.
+                const bool service_plugin =
+                    std::dynamic_pointer_cast<blackflow::BlackFlowAccountTaskPlugin>(plugin) ||
+                    std::dynamic_pointer_cast<blackflow::BlackFlowSavedShopTaskPlugin>(plugin) ||
+                    std::dynamic_pointer_cast<RoguelikeShoppingTaskPlugin>(plugin) ||
+                    std::dynamic_pointer_cast<RoguelikeInvestTaskPlugin>(plugin) ||
+                    std::dynamic_pointer_cast<RoguelikeRecruitTaskPlugin>(plugin) ||
+                    std::dynamic_pointer_cast<RoguelikeControlTaskPlugin>(plugin);
+                if (!service_plugin) {
+                    p_ptr->set_enable(false);
+                }
+            }
+#endif
         }
     }
 

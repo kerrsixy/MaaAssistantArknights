@@ -2316,6 +2316,49 @@ bool BlackFlowSession::apply_shopping_purchase(std::string_view name, std::strin
     return true;
 }
 
+#ifdef ASST_DEBUG
+bool BlackFlowSession::begin_debug_shop_service(
+    int observed_floor,
+    bool fresh_account_verified,
+    bool shop_verified,
+    std::string* error)
+{
+    if (!m_policy || terminated() || !fresh_account_verified || !shop_verified || observed_floor < 1 ||
+        observed_floor > 6 || m_page_context || m_transaction || m_pending_candidate) {
+        if (error) {
+            *error = "saved shop service requires verified account and shop with no active move or page";
+        }
+        return false;
+    }
+    // Intentionally leave node/decision/transaction IDs unknown. No AP, visits,
+    // map revision, movement state or node-resolution telemetry is manufactured.
+    m_page_context = PageExecutionContext {
+        .run_revision = m_run_revision,
+        .page_revision = ++m_page_revision,
+        .floor = observed_floor,
+        .node_type = NodeType::Shop,
+        .entry_markers = { "debug_saved_shop_service" },
+        .stage = PageExecutionStage::Running,
+    };
+    return true;
+}
+
+bool BlackFlowSession::finish_debug_shop_service(bool map_verified, std::string* error)
+{
+    if (!map_verified || m_transaction || !m_page_context || m_page_context->node != InvalidNodeId ||
+        m_page_context->node_type != NodeType::Shop || m_page_context->stage != PageExecutionStage::Running ||
+        m_page_context->entry_markers != std::vector<std::string> { "debug_saved_shop_service" } ||
+        !m_page_context->decision_id.empty() || !m_page_context->transaction_id.empty()) {
+        if (error) {
+            *error = "saved shop service can finish only after a verified map with its own orphan context";
+        }
+        return false;
+    }
+    m_page_context.reset();
+    return true;
+}
+#endif
+
 bool BlackFlowSession::mark_page_running(std::string* error)
 {
     if (!m_page_context.has_value() || !m_transaction.has_value() ||
