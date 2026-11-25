@@ -1,4 +1,5 @@
 #include "RoguelikeRecruitTaskPlugin.h"
+#include "BlackFlow/BlackFlowRecruitmentTerminalDuty.h"
 #include "Config/Miscellaneous/BattleDataConfig.h"
 #include "Config/Roguelike/BlackFlow/BlackFlowAccountProfile.h"
 #include "RoguelikeOperEvidence.h"
@@ -884,6 +885,57 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
         callback(AsstMsg::SubTaskExtraInfo, decision);
     }
 
+    std::optional<blackflow::TerminalDutyIntent> terminal_intent;
+    if (theme == RoguelikeTheme::BlackFlow && mode == RoguelikeMode::Exp && m_blackflow_strategy == "ending1" &&
+        !m_initail_recruit && !duty_intent) {
+        std::vector<blackflow::TerminalDutyEligible> eligible;
+        for (const auto& candidate : recruit_list) {
+            eligible.push_back({ candidate.name, candidate.page_index, oper_score(candidate) });
+        }
+        const blackflow::TerminalDutyContext context {
+            .strategy = m_blackflow_strategy,
+            .client = m_config->account_client(),
+            .uid = m_config->account_uid(),
+            .run_id = m_config->status().run_id,
+            .core = m_config->get_core_char(),
+            .hope = cur_hope,
+            .fixed_opening = m_initail_recruit,
+            .account = m_config->account_profile().get(),
+            .origins = &m_origin_ledger,
+        };
+        const auto choice = blackflow::choose_terminal_output_duty(
+            duty_catalog,
+            chars_map,
+            context,
+            duty_offers,
+            eligible,
+            selected_oper->name,
+            selected_oper->page_index);
+        if (choice.selected_offer && choice.intent) {
+            const auto& offer = duty_offers[*choice.selected_offer];
+            const auto chosen = std::ranges::find_if(recruit_list, [&](const auto& candidate) {
+                return candidate.name == offer.name && candidate.page_index == offer.page_index;
+            });
+            if (chosen != recruit_list.end()) {
+                selected_oper = chosen;
+                duty_intent = offer;
+                terminal_intent = *choice.intent;
+            }
+        }
+        auto receipt = basic_info_with_what("BlackFlowRecruitmentTerminalDutyDecision");
+        receipt["details"] = json::object {
+            { "reason", choice.reason },
+            { "adjusted", terminal_intent.has_value() },
+            { "selected", selected_oper->name },
+            { "client", context.client },
+            { "uid", context.uid },
+            { "run_id", context.run_id },
+            { "evidence", choice.evidence },
+            { "click_attempted", false },
+        };
+        callback(AsstMsg::SubTaskExtraInfo, receipt);
+    }
+
     Log.info(
         __FUNCTION__,
         "| Six-star bonus applied:",
@@ -920,8 +972,13 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
         }
     }
 
-    const bool recruited =
-        recruit_appointed_char(char_name, is_rtl, false, duty_intent ? &*duty_intent : nullptr, &duty_catalog);
+    const bool recruited = recruit_appointed_char(
+        char_name,
+        is_rtl,
+        false,
+        duty_intent ? &*duty_intent : nullptr,
+        &duty_catalog,
+        terminal_intent ? &*terminal_intent : nullptr);
     return duty_intent ? recruited : (m_task_ptr != nullptr && !m_task_ptr->get_enable()) || recruited;
 }
 
@@ -1087,9 +1144,15 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
     bool is_rtl,
     bool require_strength,
     const blackflow::RecruitmentDutyOffer* duty_intent,
-    const blackflow::BlackFlowRecruitmentDutyCatalog* known_catalog)
+    const blackflow::BlackFlowRecruitmentDutyCatalog* known_catalog,
+    const blackflow::TerminalDutyIntent* terminal_intent)
 {
     LogTraceFunction;
+    if (terminal_intent &&
+        (m_config->get_theme() != RoguelikeTheme::BlackFlow || m_config->get_mode() != RoguelikeMode::Exp ||
+         m_blackflow_strategy != "ending1" || m_initail_recruit)) {
+        return false;
+    }
     // 最大滑动次数
     int SwipeTimes = Task.get("RoguelikeRecruitSwipeMaxTime")->max_times;
     std::unordered_set<std::string> pre_oper_names;
@@ -1218,6 +1281,36 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
                     callback(AsstMsg::SubTaskExtraInfo, refind);
                     if (duty_intent && !final.intent_matches) {
                         return false;
+                    }
+                    if (terminal_intent) {
+                        const blackflow::TerminalDutyContext terminal_context {
+                            .strategy = m_blackflow_strategy,
+                            .client = context.client,
+                            .uid = context.uid,
+                            .run_id = context.run_id,
+                            .core = m_config->get_core_char(),
+                            .hope = context.hope,
+                            .fixed_opening = m_initail_recruit,
+                            .account = m_config->account_profile().get(),
+                            .origins = &m_origin_ledger,
+                        };
+                        std::string reason;
+                        const bool matched = final.observed && blackflow::terminal_output_refind_matches(
+                                                                   *terminal_intent,
+                                                                   *final.observed,
+                                                                   *catalog,
+                                                                   m_config->status().opers,
+                                                                   terminal_context,
+                                                                   &reason);
+                        auto terminal_refind = basic_info_with_what("BlackFlowRecruitmentTerminalDutyRefind");
+                        terminal_refind["details"] = json::object {
+                            { "matched", matched },       { "reason", reason },          { "uid", context.uid },
+                            { "run_id", context.run_id }, { "selected", selected.name }, { "click_attempted", false },
+                        };
+                        callback(AsstMsg::SubTaskExtraInfo, terminal_refind);
+                        if (!matched) {
+                            return false;
+                        }
                     }
                 }
                 const bool requires_elite_two_observation =
