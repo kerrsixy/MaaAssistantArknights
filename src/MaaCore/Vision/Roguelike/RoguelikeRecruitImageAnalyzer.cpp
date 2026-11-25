@@ -28,12 +28,16 @@ bool asst::RoguelikeRecruitImageAnalyzer::analyze()
     const auto temporary_match = temporary_matcher.analyze();
     const bool temporary_badge = temporary_match.has_value();
     const auto list_roi = Task.get("RoguelikeRecruitOcrFlag")->roi;
+    // Detection may reach a partially visible right column. Keep the original
+    // list geometry below for first-slot temporary-badge ownership.
+    const Rect detection_roi { list_roi.x, list_roi.y, std::max(0, m_image.cols - list_roi.x), list_roi.height };
 
     // Some disabled cards have name/level text below the name OCR threshold.
     // Their own currency flags still give independent known/unknown price
     // evidence without promoting them into usable recruitment candidates.
     MultiMatcher currency_flags(m_image);
     currency_flags.set_task_info("RoguelikeRecruitOcrFlag");
+    currency_flags.set_roi(detection_roi);
     if (const auto flags = currency_flags.analyze()) {
         for (const auto& flag : *flags) {
             m_hope_cost_evidence.emplace_back(analyze_hope_cost(m_image, flag.rect, flag.score));
@@ -42,6 +46,7 @@ bool asst::RoguelikeRecruitImageAnalyzer::analyze()
 
     TemplDetOCRer analyzer(m_image);
     analyzer.set_task_info("RoguelikeRecruitOcrFlag", "RoguelikeRecruitOcr");
+    analyzer.set_roi(detection_roi);
     analyzer.set_replace(
         Task.get<OcrTaskInfo>("CharsNameOcrReplace")->replace_map,
         Task.get<OcrTaskInfo>("CharsNameOcrReplace")->replace_full);

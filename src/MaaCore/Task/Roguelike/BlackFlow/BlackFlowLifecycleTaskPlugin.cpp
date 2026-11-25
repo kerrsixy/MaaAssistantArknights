@@ -8,6 +8,7 @@
 #include "Config/Roguelike/BlackFlow/BlackFlowStrategyConfig.h"
 #include "Config/TaskData.h"
 #include "Controller/Controller.h"
+#include "Task/Miscellaneous/AccountSnapshotTask.h"
 #include "Task/ProcessTask.h"
 #include "Vision/Matcher.h"
 #include "Vision/OCRer.h"
@@ -20,8 +21,8 @@ namespace
 {
 int floor_from_title(const std::string& title)
 {
-    static constexpr std::array<std::string_view, 6> titles {
-        "玻利瓦尔肤层", "甜美的伤口", "血色空脉", "受害者腐殖", "卡德霍之颅", "未萌生的摇篮" };
+    static constexpr std::array<std::string_view, 6> titles { "玻利瓦尔肤层", "甜美的伤口", "血色空脉",
+                                                              "受害者腐殖",   "卡德霍之颅", "未萌生的摇篮" };
     const auto it = std::ranges::find(titles, title);
     return it == titles.end() ? 0 : static_cast<int>(std::distance(titles.begin(), it)) + 1;
 }
@@ -46,6 +47,13 @@ std::pair<std::string, std::string> classify_unreported_termination(const std::s
 
 bool BlackFlowLifecycleTaskPlugin::load_params(const json::value& params)
 {
+    remove_recovery_override();
+    m_exploration_started = false;
+    m_active_recovery = false;
+    m_recovery_map_seen = false;
+    m_owned_run_id.clear();
+    m_owned_uid.clear();
+    m_owned_client.clear();
     m_start_run =
         m_config->get_theme() == RoguelikeTheme::BlackFlow && m_config->get_mode() == RoguelikeMode::BlackFlowStartRun;
     m_prepared_run_finished = false;
@@ -153,6 +161,39 @@ bool BlackFlowLifecycleTaskPlugin::verify(AsstMsg msg, const json::value& detail
     }
 
     const std::string task = details.get("details", "task", "");
+    if (msg == AsstMsg::SubTaskCompleted && task == "BlackFlow@Roguelike@StartExplore") {
+        m_pending = PendingWork::OwnExploration;
+        return true;
+    }
+    if (msg == AsstMsg::SubTaskStart && task == "BlackFlow@Roguelike@BeginRecovery_DataSync" && m_exploration_started) {
+        m_pending = PendingWork::BeginActiveRecovery;
+        return true;
+    }
+    if (m_active_recovery) {
+        if (msg == AsstMsg::SubTaskStart && !owns_current_exploration()) {
+            m_pending = PendingWork::StopActiveRecovery;
+            return true;
+        }
+        if (msg == AsstMsg::SubTaskStart &&
+            (task == "BlackFlow@Roguelike@Abandon" || task == "BlackFlow@Roguelike@AbandonConfirm" ||
+             task == "BlackFlow@Roguelike@ExitThenAbandon" || task == "BlackFlow@Roguelike@StrategyTerminated" ||
+             task == "BlackFlow@Roguelike@ActiveRunRecoveryStop")) {
+            m_pending = PendingWork::StopActiveRecovery;
+            return true;
+        }
+        if (msg == AsstMsg::SubTaskStart && task == "BlackFlow@Roguelike@ActiveRunRecoveryIdentity") {
+            m_pending = PendingWork::RecoveryIdentity;
+            return true;
+        }
+        if (msg == AsstMsg::SubTaskCompleted && task == "BlackFlow@Roguelike@ResumeSavedMap") {
+            m_pending = PendingWork::RecoveryMapSeen;
+            return true;
+        }
+        if (msg == AsstMsg::SubTaskCompleted && task == "BlackFlow@Roguelike@MapPrepare-Ready") {
+            m_pending = PendingWork::AlignRecoveryMap;
+            return true;
+        }
+    }
     if (msg == AsstMsg::SubTaskStart && task == "BlackFlow@Roguelike@LastReward-EnterPoint") {
         m_pending = m_start_run ? PendingWork::CheckStartRunReward : PendingWork::PickLastReward;
         return true;
@@ -174,12 +215,11 @@ bool BlackFlowLifecycleTaskPlugin::verify(AsstMsg msg, const json::value& detail
         // 这次 NextLevel OCR 就是误命中，不能让生命周期插件重复记录楼层并把
         // 任务链拉回 NextLevel 自循环；真正的楼层切换来自地图节点结算后，
         // 页面上下文已经被解析或清空。
-        if (m_session != nullptr && m_session->page_context().has_value()) {
+        if (!m_active_recovery && m_session != nullptr && m_session->page_context().has_value()) {
             const auto& page = *m_session->page_context();
             if (page.node_type == NodeType::ScrapShop && page.stage == PageExecutionStage::Running) {
                 LogDebug << "Ignore NextLevel OCR while BlackFlow scrap shop page is running.";
-                Task.set_task_base(
-                    "BlackFlow@Roguelike@NextLevel", "BlackFlow@Roguelike@ScrapTradeDecision");
+                Task.set_task_base("BlackFlow@Roguelike@NextLevel", "BlackFlow@Roguelike@ScrapTradeDecision");
                 return false;
             }
         }
@@ -187,8 +227,7 @@ bool BlackFlowLifecycleTaskPlugin::verify(AsstMsg msg, const json::value& detail
         const int recognized_floor = floor_from_title(title);
         if (m_session != nullptr && recognized_floor > 0 && m_session->current_floor() == recognized_floor) {
             LogDebug << "Ignore duplicate BlackFlow NextLevel OCR for current floor" << recognized_floor;
-            Task.set_task_base(
-                "BlackFlow@Roguelike@NextLevel", "BlackFlow@Roguelike@MapPrepare-Ready");
+            Task.set_task_base("BlackFlow@Roguelike@NextLevel", "BlackFlow@Roguelike@MapPrepare-Ready");
             return false;
         }
         // 清除行商期间的临时重定向，恢复到通用 NextLevel 任务定义；不能把
@@ -229,6 +268,13 @@ bool BlackFlowLifecycleTaskPlugin::verify(AsstMsg msg, const json::value& detail
 
 void BlackFlowLifecycleTaskPlugin::reset_in_run_variables()
 {
+    remove_recovery_override();
+    m_exploration_started = false;
+    m_active_recovery = false;
+    m_recovery_map_seen = false;
+    m_owned_run_id.clear();
+    m_owned_uid.clear();
+    m_owned_client.clear();
     m_pending = PendingWork::None;
     m_pending_details = {};
     m_terminal_trigger.clear();
@@ -251,6 +297,7 @@ void BlackFlowLifecycleTaskPlugin::reset_in_run_variables()
 
 bool BlackFlowLifecycleTaskPlugin::_run()
 {
+    set_block(true);
     const PendingWork work = m_pending;
     const json::value details = std::move(m_pending_details);
     const std::string trigger = std::move(m_terminal_trigger);
@@ -260,6 +307,61 @@ bool BlackFlowLifecycleTaskPlugin::_run()
     m_terminal_trigger.clear();
     m_terminal_pre_task.clear();
 
+    if (work == PendingWork::OwnExploration) {
+        m_exploration_started = true;
+        m_owned_run_id = m_config->status().run_id;
+        m_owned_uid = m_config->account_uid();
+        m_owned_client = m_config->account_client();
+        report_active_recovery("owned");
+        return true;
+    }
+    if (work == PendingWork::BeginActiveRecovery) {
+        return begin_active_recovery();
+    }
+    if (work == PendingWork::StopActiveRecovery) {
+        stop_active_recovery("unrecognized saved exploration or unsafe recovery continuation");
+        return true;
+    }
+    if (work == PendingWork::RecoveryIdentity) {
+        AccountSnapshotTask account(m_callback, m_inst, m_task_chain);
+        account.set_retry_times(1);
+        if (!owns_current_exploration() || !account.run() ||
+            !accept_recovery_identity(ctrler()->get_client_type(), account.uid())) {
+            stop_active_recovery("fresh account identity is missing or conflicts with the owned exploration");
+        }
+        return true;
+    }
+    if (work == PendingWork::RecoveryMapSeen) {
+        if (!owns_current_exploration()) {
+            stop_active_recovery("map anchor belongs to an unverified exploration");
+            return true;
+        }
+        m_recovery_map_seen = true;
+        m_session->clear_current_floor();
+        Task.set_task_base("BlackFlow@Roguelike@NextLevel", "Roguelike@NextLevel");
+        report_active_recovery("map_anchor_verified");
+        return true;
+    }
+    if (work == PendingWork::AlignRecoveryMap) {
+        std::string error;
+        BlackFlowPerceptionSnapshot snapshot;
+        BlackFlowObservationRequest request;
+        if (m_session != nullptr && m_session->current_floor().has_value()) {
+            request.floor = *m_session->current_floor();
+            request.run_revision = m_session->run_revision();
+            request.verified_difficulty = m_session->observed_difficulty();
+        }
+        if (!m_recovery_map_seen || !owns_current_exploration() || request.floor <= 0 || m_port == nullptr ||
+            !m_port->refresh(request, snapshot, &error) || !align_recovery_map(snapshot, &error)) {
+            stop_active_recovery(error.empty() ? "saved map could not be freshly aligned" : error);
+        }
+        else {
+            // The normal routing plugin must still receive MapPrepare-Ready,
+            // including its floor-five viewport preparation.
+            set_block(false);
+        }
+        return true;
+    }
     if (work == PendingWork::StartRunStarted) {
         report_start_run(m_config->get_run_for_collectible() ? "preparing" : "target_run");
         return true;
@@ -584,4 +686,103 @@ void BlackFlowLifecycleTaskPlugin::check_start_run_utopia(int floor)
     report_outputs();
 }
 
+bool BlackFlowLifecycleTaskPlugin::owns_current_exploration() const
+{
+    return m_exploration_started && m_config != nullptr && m_session != nullptr && !m_session->terminated() &&
+           !m_owned_run_id.empty() && !m_owned_uid.empty() && !m_owned_client.empty() &&
+           m_config->status().run_id == m_owned_run_id && m_config->account_uid() == m_owned_uid &&
+           m_config->account_client() == m_owned_client;
+}
+
+bool BlackFlowLifecycleTaskPlugin::begin_active_recovery()
+{
+    if (m_active_recovery) {
+        stop_active_recovery("DataSync repeated before the saved map was aligned");
+        return true;
+    }
+    if (!owns_current_exploration()) {
+        stop_active_recovery("DataSync has no matching process-owned exploration identity");
+        return true;
+    }
+    auto* process = dynamic_cast<ProcessTask*>(m_task_ptr);
+    if (process == nullptr ||
+        !process->override_next("BlackFlow@Roguelike@Begin", { "BlackFlow@Roguelike@ActiveRunRecovery" })) {
+        stop_active_recovery("active exploration recovery override could not be installed");
+        return true;
+    }
+    m_active_recovery = true;
+    m_recovery_map_seen = false;
+    if (!process->override_next(
+            "BlackFlow@Roguelike@ResumeSavedContinue",
+            { "BlackFlow@Roguelike@ActiveRunRecovery" }) ||
+        !process->override_next("BlackFlow@Roguelike@ResumeFloorIntro", { "BlackFlow@Roguelike@ActiveRunRecovery" })) {
+        stop_active_recovery("saved continuation override could not be installed");
+        return true;
+    }
+    report_active_recovery("continuing", "DataSync retained the same native exploration");
+    return true;
+}
+
+bool BlackFlowLifecycleTaskPlugin::accept_recovery_identity(std::string_view client, std::string_view uid)
+{
+    return m_active_recovery && owns_current_exploration() && client == m_owned_client && uid == m_owned_uid;
+}
+
+bool BlackFlowLifecycleTaskPlugin::align_recovery_map(const BlackFlowPerceptionSnapshot& snapshot, std::string* error)
+{
+    // The map reader, not the previous client combat banner, closes the old page.
+    // Require fresh observed AP here: normal reconciliation has a prediction fallback.
+    if (!m_active_recovery || !m_recovery_map_seen || !owns_current_exploration() ||
+        (!snapshot.run.action_points.has_value() && !snapshot.observation.hud_action_points.has_value()) ||
+        !m_session->update(snapshot, error)) {
+        if (error != nullptr && error->empty()) {
+            *error = "active recovery needs a fresh identified map and observed action points";
+        }
+        return false;
+    }
+    if (m_session->page_context().has_value()) {
+        if (error != nullptr) {
+            *error = "fresh recovery map left an unresolved node page";
+        }
+        return false;
+    }
+    remove_recovery_override();
+    m_active_recovery = false;
+    m_recovery_map_seen = false;
+    report_active_recovery(
+        "map_aligned",
+        "fresh map reconciliation cleared the previous page without asserting victory");
+    return true;
+}
+
+void BlackFlowLifecycleTaskPlugin::remove_recovery_override()
+{
+    if (auto* process = dynamic_cast<ProcessTask*>(m_task_ptr); process != nullptr) {
+        process->remove_override_next("BlackFlow@Roguelike@Begin");
+        process->remove_override_next("BlackFlow@Roguelike@ResumeSavedContinue");
+        process->remove_override_next("BlackFlow@Roguelike@ResumeFloorIntro");
+    }
+}
+
+void BlackFlowLifecycleTaskPlugin::stop_active_recovery(std::string_view reason)
+{
+    // Preserve the screen and the saved run. Never route a recovery failure into abandonment.
+    if (m_task_ptr != nullptr) {
+        m_task_ptr->set_enable(false);
+    }
+    report_active_recovery("stopped_preserved", reason);
+    LogWarn << __FUNCTION__ << "BlackFlow active recovery stopped in place" << reason;
+}
+
+void BlackFlowLifecycleTaskPlugin::report_active_recovery(std::string_view status, std::string_view reason)
+{
+    auto info = basic_info_with_what("BlackFlowActiveRunRecovery");
+    info["details"] = json::object {
+        { "status", std::string(status) }, { "reason", std::string(reason) },
+        { "run_id", m_owned_run_id },      { "uid", m_owned_uid },
+        { "client", m_owned_client },      { "map_anchor_verified", m_recovery_map_seen },
+        { "victory_inferred", false },
+    };
+    callback(AsstMsg::SubTaskExtraInfo, info);
+}
 } // namespace asst::blackflow
