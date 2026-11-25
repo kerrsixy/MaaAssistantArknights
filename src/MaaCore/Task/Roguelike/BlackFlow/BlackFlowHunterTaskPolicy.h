@@ -47,6 +47,7 @@ struct HunterTaskWorld
     std::vector<Point> lower_possible_tiles;
     std::vector<Point> upper_positive_possible_tiles;
     bool upper_visible = false;
+    bool upper_scope_covers_spawn_rois = false;
     HunterPresence upper_presence = HunterPresence::Unknown;
     int upper_empty_frames = 0;
     bool lower_visible = false;

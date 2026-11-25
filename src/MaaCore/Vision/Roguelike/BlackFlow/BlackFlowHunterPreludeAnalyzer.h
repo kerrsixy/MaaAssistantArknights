@@ -57,6 +57,9 @@ struct HunterPreludeFrameContext
 struct HunterPreludeObservation
 {
     bool task_upper_visibility_verified = false;
+    // Same-frame geometry/visibility proof, never a reclassification of the old background models.
+    bool task_upper_covers_spawn_rois = false;
+    Rect task_upper_scope_roi;
     HunterPresence task_upper_presence = HunterPresence::Unknown;
     double task_upper_best_score = -1.0;
     int task_upper_empty_frames = 0;
