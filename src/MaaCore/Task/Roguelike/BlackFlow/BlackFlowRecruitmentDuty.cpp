@@ -37,6 +37,157 @@ DutyBound replacement_marginal(DutyBound other, DutyBound old, DutyBound next)
 
 namespace asst::blackflow
 {
+RecruitmentSkillPlan
+    resolve_recruitment_skill_plan(int preferred, int alternate, const std::array<SkillAvailability, 3>& availability)
+{
+    RecruitmentSkillPlan result { .preferred = preferred, .alternate = alternate, .availability = availability };
+    const auto available = [&](int slot) {
+        return slot >= 1 && slot <= 3 && availability[slot - 1] == SkillAvailability::Available;
+    };
+    if (available(preferred)) {
+        result.selected = preferred;
+        result.reason = "configured_preferred_verified_available_at_offer_phase";
+    }
+    else if (available(alternate)) {
+        result.selected = alternate;
+        result.reason = "preferred_not_verified_available_use_verified_alternate";
+    }
+    else {
+        result.reason = "no_configured_skill_verified_available_unknown_is_not_available";
+    }
+    return result;
+}
+
+void RecruitmentOriginLedger::clear()
+{
+    m_client.clear();
+    m_uid.clear();
+    m_run_id.clear();
+    m_receipts.clear();
+}
+
+bool RecruitmentOriginLedger::bind(const std::string& client, const std::string& uid, const std::string& run_id)
+{
+    if (client.empty() || uid.empty() || run_id.empty()) {
+        clear();
+        return false;
+    }
+    if (client != m_client || uid != m_uid || run_id != m_run_id) {
+        clear();
+        m_client = client;
+        m_uid = uid;
+        m_run_id = run_id;
+    }
+    return true;
+}
+
+std::optional<RecruitmentOriginReceipt> RecruitmentOriginLedger::find(
+    const std::string& client,
+    const std::string& uid,
+    const std::string& run_id,
+    const std::string& id,
+    const RoguelikeOper& before) const
+{
+    if (client != m_client || uid != m_uid || run_id.empty() || run_id != m_run_id) {
+        return std::nullopt;
+    }
+    const auto found = m_receipts.find(id);
+    if (found == m_receipts.end() || found->second.id != id ||
+        RoguelikeTraining.unique_identity(found->second.name) != id || found->second.elite != before.elite ||
+        found->second.level != before.level) {
+        return std::nullopt;
+    }
+    return found->second;
+}
+
+bool RecruitmentOriginLedger::confirm(
+    const RecruitmentDutyOffer& offer,
+    const std::optional<RoguelikeOper>& before,
+    bool confirmed,
+    int recruit_index)
+{
+    const auto cap = RoguelikeTraining.maximum_level(offer.name, offer.elite);
+    if (!confirmed || m_run_id.empty() || offer.client != m_client || offer.uid != m_uid || offer.run_id != m_run_id ||
+        offer.id.empty() || RoguelikeTraining.unique_identity(offer.name) != offer.id || offer.analysis_id == 0 ||
+        !offer.price_index || !offer.hope_cost || *offer.hope_cost < 0 || !cap || offer.level <= 0 ||
+        offer.level > *cap || recruit_index < 1 || offer.page_index < 0 || offer.observed_at.empty() ||
+        (offer.operation != "招募" && offer.operation != "进阶")) {
+        return false;
+    }
+    const auto prior = before ? find(offer.client, offer.uid, offer.run_id, offer.id, *before) : std::nullopt;
+    RecruitmentOriginReceipt next {
+        .client = offer.client,
+        .uid = offer.uid,
+        .run_id = offer.run_id,
+        .id = offer.id,
+        .name = offer.name,
+        .elite = offer.elite,
+        .level = offer.level,
+        .receipt_id = offer.client + "/" + offer.uid + "/" + offer.run_id + "/recruit" + std::to_string(recruit_index) +
+                      "/analysis" + std::to_string(offer.analysis_id) + "/card" +
+                      std::to_string(offer.observation_index),
+        .previous_receipt_id = prior ? prior->receipt_id : std::string {},
+        .analysis_id = offer.analysis_id,
+        .observation_index = offer.observation_index,
+        .price_index = *offer.price_index,
+        .page_index = offer.page_index,
+        .hope_cost = *offer.hope_cost,
+        .operation = offer.operation,
+        .observed_at = offer.observed_at,
+    };
+    if (offer.positive_temporary || offer.observed_temporary == true) {
+        next.temporary = true;
+        next.binding = "confirmed_positive_temporary";
+    }
+    else if (offer.operation == "进阶" && before && offer.elite > before->elite && prior) {
+        next.ordinary = prior->ordinary;
+        next.temporary = prior->temporary;
+        next.rule_source = prior->rule_source;
+        next.binding = prior->ordinary            ? "confirmed_current_run_non_temporary"
+                       : prior->temporary == true ? "confirmed_current_run_temporary"
+                                                  : "confirmed_current_run_unknown_origin";
+    }
+    else if (
+        offer.operation == "招募" && !before && offer.ordinary_origin &&
+        ((offer.training_binding == "source_conditioned_non_temporary" && *offer.hope_cost > 0 &&
+          !offer.temporary_rule_source.empty()) ||
+         (offer.training_binding == "observed_non_temporary" && offer.observed_temporary == false))) {
+        next.ordinary = true;
+        next.temporary = false;
+        next.binding = offer.training_binding;
+        next.rule_source = offer.temporary_rule_source;
+    }
+    m_receipts.insert_or_assign(offer.id, std::move(next));
+    return true;
+}
+
+json::value recruitment_origin_to_json(const RecruitmentOriginReceipt& x)
+{
+    return json::object { { "client", x.client },
+                          { "uid", x.uid },
+                          { "run_id", x.run_id },
+                          { "operator_id", x.id },
+                          { "operator", x.name },
+                          { "elite", x.elite },
+                          { "level", x.level },
+                          { "receipt_id", x.receipt_id },
+                          { "previous_receipt_id", x.previous_receipt_id },
+                          { "analysis_id", x.analysis_id },
+                          { "card_index", x.observation_index },
+                          { "price_index", x.price_index },
+                          { "page_index", x.page_index },
+                          { "hope_cost", x.hope_cost },
+                          { "operation", x.operation },
+                          { "observed_at", x.observed_at },
+                          { "binding", x.binding },
+                          { "ordinary_origin", x.ordinary },
+                          { "instance_temporary", x.temporary ? json::value(*x.temporary) : json::value(nullptr) },
+                          { "temporary_field_is_UI_observation", false },
+                          { "rule_source", x.rule_source },
+                          { "confirmed", true },
+                          { "persisted_to_account_cache", false } };
+}
+
 bool BlackFlowRecruitmentDutyCatalog::load(
     const std::filesystem::path& f,
     const std::filesystem::path& t,
@@ -287,11 +438,23 @@ std::vector<RecruitmentDutyOffer> observe_recruitment_duties(
     const std::unordered_map<std::string, RoguelikeOper>& roster,
     const RecruitmentDutyContext& context)
 {
+    return observe_recruitment_duties(analyzer, catalog, account, roster, context, nullptr);
+}
+
+std::vector<RecruitmentDutyOffer> observe_recruitment_duties(
+    const RoguelikeRecruitImageAnalyzer& analyzer,
+    const BlackFlowRecruitmentDutyCatalog& catalog,
+    const BlackFlowAccountProfile* account,
+    const std::unordered_map<std::string, RoguelikeOper>& roster,
+    const RecruitmentDutyContext& context,
+    const RecruitmentOriginLedger* origins)
+{
     std::vector<RecruitmentDutyOffer> result;
     for (const auto& candidate : analyzer.get_candidate_evidence()) {
         RecruitmentDutyOffer offer;
         offer.client = context.client;
         offer.uid = context.uid;
+        offer.run_id = context.run_id;
         offer.analysis_id = candidate.analysis_id;
         offer.observation_index = candidate.observation_index;
         offer.page_index = context.page_index;
@@ -301,24 +464,48 @@ std::vector<RecruitmentDutyOffer> observe_recruitment_duties(
         offer.level = candidate.level;
         offer.observed_at = context.observed_at;
         offer.observed_temporary = candidate.temporary;
-        offer.planned_skill = RoguelikeRecruit.get_oper_info("BlackFlow", offer.name).skill;
+        const auto& configured = RoguelikeRecruit.get_oper_info("BlackFlow", offer.name);
+        std::array<SkillAvailability, 3> availability;
+        for (int slot = 1; slot <= 3; ++slot) {
+            availability[slot - 1] = RoguelikeTraining.skill_availability(offer.name, slot, offer.elite, offer.level);
+        }
+        offer.skill_plan = resolve_recruitment_skill_plan(configured.skill, configured.alternate_skill, availability);
+        offer.planned_skill = offer.skill_plan.selected;
         offer.skill_availability =
-            RoguelikeTraining.skill_availability(offer.name, offer.planned_skill, offer.elite, offer.level);
+            offer.planned_skill > 0 ? availability[offer.planned_skill - 1] : SkillAvailability::Unknown;
         const auto linked = analyzer.resolve_candidate_hope_cost(candidate);
         if (linked) {
             offer.operation = linked->get().operation;
             offer.hope_cost = linked->get().hope_cost;
+            offer.price_index = candidate.hope_cost_evidence_index;
         }
         const bool positive_temporary = candidate.temporary == true || candidate.legacy_temporary_flag == true;
+        offer.positive_temporary = positive_temporary;
         offer.temporary_rule_source = catalog.temporary_rule_source();
         const bool source_non_temporary = context.theme == "BlackFlow" && context.mode == 0 && linked &&
                                           !offer.temporary_rule_source.empty() && offer.operation == "招募" &&
                                           offer.hope_cost && *offer.hope_cost > 0 && !positive_temporary;
-        offer.ordinary_origin = !positive_temporary && (candidate.temporary == false || source_non_temporary);
-        offer.training_binding = positive_temporary             ? "observed_temporary_no_account_training"
-                                 : source_non_temporary         ? "source_conditioned_non_temporary"
-                                 : candidate.temporary == false ? "observed_non_temporary"
-                                                                : "unknown_origin";
+        const bool directly_ordinary_recruit = offer.operation == "招募" && candidate.temporary == false;
+        offer.ordinary_origin = !positive_temporary && (directly_ordinary_recruit || source_non_temporary);
+        offer.training_binding = positive_temporary          ? "observed_temporary_no_account_training"
+                                 : source_non_temporary      ? "source_conditioned_non_temporary"
+                                 : directly_ordinary_recruit ? "observed_non_temporary"
+                                                             : "unknown_origin";
+        if (offer.operation == "进阶" && !positive_temporary && origins) {
+            const auto previous = roster.find(offer.name);
+            const auto origin =
+                previous == roster.end()
+                    ? std::nullopt
+                    : origins->find(context.client, context.uid, context.run_id, offer.id, previous->second);
+            if (origin && offer.elite > previous->second.elite) {
+                offer.inherited_origin_receipt = origin->receipt_id;
+                offer.ordinary_origin = origin->ordinary;
+                offer.temporary_rule_source = origin->rule_source;
+                offer.training_binding = origin->ordinary            ? "confirmed_current_run_non_temporary"
+                                         : origin->temporary == true ? "confirmed_current_run_temporary"
+                                                                     : "confirmed_current_run_unknown_origin";
+            }
+        }
         if (offer.ordinary_origin && account && account->client() == context.client && account->uid() == context.uid &&
             !context.uid.empty() && !offer.id.empty()) {
             const auto owned = account->find_operator(offer.name);
@@ -446,16 +633,64 @@ RecruitmentDutyDecision choose_recruitment_duty(
 bool recruitment_duty_refind_matches(const RecruitmentDutyOffer& intended, const RecruitmentDutyOffer& actual)
 {
     return actual.feasible && intended.client == actual.client && !intended.uid.empty() && intended.uid == actual.uid &&
-           !intended.id.empty() && intended.id == actual.id && intended.name == actual.name &&
-           intended.elite == actual.elite && intended.level == actual.level &&
-           intended.planned_skill == actual.planned_skill && intended.hope_cost == actual.hope_cost &&
-           intended.operation == actual.operation && intended.training_binding == actual.training_binding &&
-           intended.effective_rank == actual.effective_rank;
+           intended.run_id == actual.run_id && intended.positive_temporary == actual.positive_temporary &&
+           intended.inherited_origin_receipt == actual.inherited_origin_receipt && !intended.id.empty() &&
+           intended.id == actual.id && intended.name == actual.name && intended.elite == actual.elite &&
+           intended.level == actual.level && intended.planned_skill == actual.planned_skill &&
+           intended.hope_cost == actual.hope_cost && intended.operation == actual.operation &&
+           intended.training_binding == actual.training_binding && intended.effective_rank == actual.effective_rank;
+}
+
+RecruitmentFinalOffer resolve_recruitment_final_offer(
+    const RoguelikeRecruitImageAnalyzer& analyzer,
+    const std::vector<RecruitmentDutyOffer>& observed,
+    const battle::roguelike::Recruitment& selected,
+    const std::optional<RecruitmentDutyOffer>& intent)
+{
+    RecruitmentFinalOffer result;
+    const auto same_name = [&](const auto& x) {
+        return x.name == selected.name;
+    };
+    const auto found = std::ranges::find_if(observed, same_name);
+    if (found == observed.end() || std::ranges::count_if(observed, same_name) != 1 || found->id.empty() ||
+        found->id != RoguelikeTraining.unique_identity(selected.name) || found->analysis_id == 0 ||
+        !found->price_index || found->elite != selected.elite || found->level != selected.level ||
+        found->hope_cost != selected.hope_cost || (selected.temporary && !found->positive_temporary)) {
+        result.reason = "final_card_identity_strength_or_same_analysis_price_not_exact";
+        return result;
+    }
+    if (found->analysis_id != analyzer.get_analysis_id() ||
+        found->observation_index >= analyzer.get_candidate_evidence().size()) {
+        result.reason = "final_card_analysis_epoch_mismatch";
+        return result;
+    }
+    const auto& raw = analyzer.get_candidate_evidence()[found->observation_index];
+    const auto linked = analyzer.resolve_candidate_hope_cost(raw);
+    if (!linked || raw.hope_cost_evidence_index != found->price_index || raw.name != found->name ||
+        raw.elite != found->elite || raw.level != found->level || linked->get().hope_cost != found->hope_cost ||
+        linked->get().operation != found->operation || !raw.usable_result_index ||
+        *raw.usable_result_index >= analyzer.get_result().size()) {
+        result.reason = "final_card_linked_raw_evidence_mismatch";
+        return result;
+    }
+    const auto& actual = analyzer.get_result()[*raw.usable_result_index];
+    if (actual.name != selected.name || actual.rect.x != selected.rect.x || actual.rect.y != selected.rect.y ||
+        actual.rect.width != selected.rect.width || actual.rect.height != selected.rect.height) {
+        result.reason = "final_card_selected_rectangle_mismatch";
+        return result;
+    }
+    result.observed = *found;
+    result.intent_matches = !intent || recruitment_duty_refind_matches(*intent, *found);
+    result.reason = result.intent_matches ? "final_card_evidence_matches" : "final_card_differs_from_intended_decision";
+    return result;
 }
 
 json::value recruitment_duty_to_json(const RecruitmentDutyOffer& x)
 {
-    json::array capability, marginal, reasons;
+    json::array capability, marginal, reasons, skill_availability;
+    for (const auto value : x.skill_plan.availability) {
+        skill_availability.emplace_back(static_cast<int>(value));
+    }
     for (std::size_t t = 0; t < 2; ++t) {
         capability.emplace_back(json::array { x.capability[t].lower, x.capability[t].upper });
         marginal.emplace_back(json::array { x.marginal[t].lower, x.marginal[t].upper });
@@ -466,14 +701,21 @@ json::value recruitment_duty_to_json(const RecruitmentDutyOffer& x)
     return json::object {
         { "client", x.client },
         { "uid", x.uid },
+        { "run_id", x.run_id },
         { "analysis_id", x.analysis_id },
         { "observation_index", x.observation_index },
+        { "price_index", x.price_index ? json::value(*x.price_index) : json::value(nullptr) },
         { "page_index", x.page_index },
         { "name", x.name },
         { "operator_id", x.id },
         { "elite", x.elite },
         { "level", x.level },
         { "planned_skill", x.planned_skill },
+        { "configured_preferred_skill", x.skill_plan.preferred },
+        { "configured_alternate_skill", x.skill_plan.alternate },
+        { "planned_skill_reason", x.skill_plan.reason },
+        { "planned_skill_availability", skill_availability },
+        { "planned_skill_is_UI_observation", false },
         { "actual_selected_skill", nullptr },
         { "effective_rank", x.effective_rank },
         { "skill_availability", static_cast<int>(x.skill_availability) },
@@ -483,9 +725,12 @@ json::value recruitment_duty_to_json(const RecruitmentDutyOffer& x)
         { "operation", x.operation },
         { "observed_temporary", x.observed_temporary ? json::value(*x.observed_temporary) : json::value(nullptr) },
         { "training_binding", x.training_binding },
+        { "positive_temporary", x.positive_temporary },
+        { "inherited_origin_receipt", x.inherited_origin_receipt },
         { "account_training_used", x.account_training_used },
         { "non_temporary_rule_source_sha256", x.temporary_rule_source },
         { "non_temporary_rule_scope", "Topic6/mode0/recruit/positive_exact_price/no_positive_temporary_conflict" },
+        { "non_temporary_rule_applied_to_current_offer", x.training_binding == "source_conditioned_non_temporary" },
         { "non_temporary_in_game_independently_verified", false },
         { "capability_bounds", capability },
         { "marginal_bounds", marginal },
