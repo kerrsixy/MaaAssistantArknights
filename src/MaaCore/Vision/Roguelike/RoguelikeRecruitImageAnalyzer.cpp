@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <tuple>
 
 #include "Config/TaskData.h"
 #include "MaaUtils/NoWarningCV.hpp"
@@ -309,4 +310,55 @@ asst::RoguelikeRecruitHopeCostEvidence asst::RoguelikeRecruitImageAnalyzer::anal
     LogTrace << __FUNCTION__ << evidence.operation << "hope cost" << *evidence.hope_cost << evidence.price_roi
              << "score" << evidence.digits_score;
     return evidence;
+}
+
+asst::RoguelikeRecruitPageGeometry asst::RoguelikeRecruitImageAnalyzer::paging_geometry() const
+{
+    RoguelikeRecruitPageGeometry geometry;
+    for (const auto& candidate : m_candidate_evidence) {
+        if (!candidate.name.empty() && !candidate.name_rect.empty()) {
+            geometry.named_cards.emplace_back(candidate.name, candidate.name_rect);
+        }
+    }
+    for (const auto& price : m_hope_cost_evidence) {
+        if (!price.currency_rect.empty()) {
+            geometry.currency_anchors.emplace_back(price.currency_rect);
+        }
+    }
+    std::ranges::sort(geometry.named_cards, [](const auto& lhs, const auto& rhs) {
+        return std::tie(lhs.first, lhs.second.y, lhs.second.x) < std::tie(rhs.first, rhs.second.y, rhs.second.x);
+    });
+    std::ranges::sort(geometry.currency_anchors, [](const Rect& lhs, const Rect& rhs) {
+        return std::tie(lhs.y, lhs.x) < std::tie(rhs.y, rhs.x);
+    });
+    return geometry;
+}
+
+std::string asst::RoguelikeRecruitImageAnalyzer::paging_stop_reason(
+    const RoguelikeRecruitPageGeometry& current,
+    const std::optional<RoguelikeRecruitPageGeometry>& previous,
+    int observation_step,
+    int max_observations)
+{
+    if (observation_step < 0 || max_observations <= 0 || observation_step >= max_observations) {
+        return "invalid_observation_budget";
+    }
+    if (previous && !current.named_cards.empty() && !current.currency_anchors.empty() &&
+        current.named_cards.size() == previous->named_cards.size() &&
+        current.currency_anchors.size() == previous->currency_anchors.size()) {
+        const auto close = [](const Rect& lhs, const Rect& rhs) {
+            return std::abs(lhs.x - rhs.x) < 20 && std::abs(lhs.y - rhs.y) < 5;
+        };
+        const bool names_equal =
+            std::ranges::equal(current.named_cards, previous->named_cards, [&](const auto& lhs, const auto& rhs) {
+                return lhs.first == rhs.first && close(lhs.second, rhs.second);
+            });
+        if (names_equal && std::ranges::equal(current.currency_anchors, previous->currency_anchors, close)) {
+            return "raw_geometry_unchanged";
+        }
+    }
+    if (observation_step >= max_observations - 1) {
+        return "observation_limit";
+    }
+    return {};
 }

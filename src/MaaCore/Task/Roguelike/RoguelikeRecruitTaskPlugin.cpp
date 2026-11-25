@@ -315,6 +315,35 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
     int SwipeTimes = Task.get("RoguelikeRecruitSwipeMaxTime")->max_times;
     int i = 0;
     std::unordered_set<std::string> pre_oper_names;
+    const bool raw_paging = theme == RoguelikeTheme::BlackFlow;
+    std::optional<RoguelikeRecruitPageGeometry> previous_geometry;
+    int analyzed_pages = 0;
+    int last_observed_step = -1;
+    int forward_swipe_calls = 0;
+    std::string paging_stop_reason = SwipeTimes > 0 ? "observation_limit" : "invalid_observation_budget";
+    const auto report_scan = [&] {
+        if (!raw_paging) {
+            return;
+        }
+        auto scan = basic_info_with_what("BlackFlowRecruitmentScanCompleted");
+        scan["details"] = json::object {
+            { "client", m_config->account_client() },
+            { "uid", m_config->account_uid() },
+            { "run_id", m_config->status().run_id },
+            { "recruit_index", m_recruit_count },
+            { "max_page_observations", SwipeTimes },
+            { "analyzed_pages", analyzed_pages },
+            { "last_observed_step", last_observed_step >= 0 ? json::value(last_observed_step) : json::value(nullptr) },
+            { "navigation_step", forward_swipe_calls },
+            { "forward_swipe_calls", forward_swipe_calls },
+            { "stop_reason", paging_stop_reason },
+            { "physical_end_verified", nullptr },
+            { "all_pages_complete", nullptr },
+            { "observed_set_scope", "bounded_raw_geometry_steps_not_distinct_physical_pages" },
+            { "selection_not_yet_clicked", true },
+        };
+        callback(AsstMsg::SubTaskExtraInfo, scan);
+    };
 
     // 开始识别前先往前翻两页，是方舟的bug，有可能进招募界面时不是从最左边开始
     swipe_to_the_left_of_operlist();
@@ -339,6 +368,8 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
     // 翻页找出所有候选干员
     for (; i != SwipeTimes; ++i) {
         if (need_exit()) {
+            paging_stop_reason = "interrupted";
+            report_scan();
             return false;
         }
         image = ctrler()->get_image();
@@ -366,12 +397,18 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
         if (!analyzed) {
             Log.trace(__FUNCTION__, "| Page", i, "recruit list analyse failed");
             // 还没滑动就识别失败，通常是招募界面为空，视为招募成功并退出
+            paging_stop_reason = "analysis_failed";
             if (i == 0) {
+                report_scan();
                 return true;
             }
             // 已经滑动过，识别失败可能是干员不可选
             break;
         }
+
+        ++analyzed_pages;
+        last_observed_step = i;
+        auto current_geometry = raw_paging ? std::make_optional(analyzer.paging_geometry()) : std::nullopt;
 
         if (theme == RoguelikeTheme::BlackFlow && mode == RoguelikeMode::Exp) {
             std::vector<std::string> attribute_names;
@@ -453,7 +490,7 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                 const auto y_offset = abs(rect_it->second.y - oper_info.rect.y);
 
                 // 偏移低于阈值，代表划动没有效果，已经到达屏幕最右侧
-                if (x_offset < 20 && y_offset < 5) {
+                if (!raw_paging && x_offset < 20 && y_offset < 5) {
                     stop_swipe = true;
                     Log.trace(
                         __FUNCTION__,
@@ -709,27 +746,43 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
 
         Log.info(__FUNCTION__, "| Page", i, "oper list:", oper_names);
 
-        if (stop_swipe) {
-            break;
+        if (raw_paging) {
+            paging_stop_reason =
+                RoguelikeRecruitImageAnalyzer::paging_stop_reason(*current_geometry, previous_geometry, i, SwipeTimes);
+            if (!paging_stop_reason.empty()) {
+                LogInfo << __FUNCTION__ << "Recruitment scan stopped" << paging_stop_reason << "step" << i << "usable"
+                        << oper_list.size() << "raw names" << current_geometry->named_cards.size() << "currency anchors"
+                        << current_geometry->currency_anchors.size();
+                break;
+            }
+            previous_geometry = std::move(current_geometry);
         }
+        else {
+            if (stop_swipe) {
+                break;
+            }
 
-        // 每列4个干员，未滑动时可以显示2列，滑动后至少可以显示1列
-        const size_t oper_count = oper_list.size();
-        if ((i == 0 && oper_count < 8) || (oper_count != 4 && oper_count != 8)) {
-            Log.trace(__FUNCTION__, "| Page", i, "oper count:", oper_count, "- stop swiping");
-            break;
+            // 每列4个干员，未滑动时可以显示2列，滑动后至少可以显示1列
+            const size_t oper_count = oper_list.size();
+            if ((i == 0 && oper_count < 8) || (oper_count != 4 && oper_count != 8)) {
+                Log.trace(__FUNCTION__, "| Page", i, "oper count:", oper_count, "- stop swiping");
+                break;
+            }
+            if (pre_oper_names == oper_names) {
+                Log.trace(__FUNCTION__, "| Oper list not changed, stop swiping");
+                break;
+            }
+            pre_oper_names = std::move(oper_names);
         }
-        if (pre_oper_names == oper_names) {
-            Log.trace(__FUNCTION__, "| Oper list not changed, stop swiping");
-            break;
-        }
-        pre_oper_names = std::move(oper_names);
 
         // 向右滑动
-        Log.trace(__FUNCTION__, "| Page", i, "oper count:", oper_count, "- continue swiping");
+        LogTrace << __FUNCTION__ << "Recruitment scan continuing" << "step" << i << "usable" << oper_list.size();
         slowly_swipe(false, max_oper_x - 200);
+        ++forward_swipe_calls;
         sleep(Task.get("RoguelikeCustom-HijackCoChar")->post_delay);
     }
+
+    report_scan();
 
     // 没有候选干员，进入后备逻辑
     if (recruit_list.empty()) {
