@@ -3,6 +3,7 @@
 #include "Common/AsstBattleDef.h"
 #include "Config/Roguelike/RoguelikeRecruitConfig.h"
 #include "RoguelikeRecruitPolicy.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowRecruitmentDuty.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowVoucherStash.h"
 
 namespace asst
@@ -40,6 +41,7 @@ protected:
     void slowly_swipe(bool to_left, int swipe_dist = 500);
 
 private:
+    friend class RoguelikeRecruitmentTestAccess;
     // 尝试招募指定助战干员
     bool recruit_support_char(const std::string& name, const int max_refresh);
     // 招募指定的自有干员
@@ -60,9 +62,13 @@ private:
         const std::string& char_name,
         bool is_rtl = false,
         bool require_strength = false,
-        const blackflow::RecruitmentDutyOffer* duty_intent = nullptr);
+        const blackflow::RecruitmentDutyOffer* duty_intent = nullptr,
+        const blackflow::BlackFlowRecruitmentDutyCatalog* known_catalog = nullptr);
     // 选择干员
     bool select_oper(const battle::roguelike::Recruitment& oper);
+    bool select_oper(
+        const battle::roguelike::Recruitment& oper,
+        const std::optional<blackflow::RecruitmentDutyOffer>& origin);
     int read_current_hope(const cv::Mat& image);
     bool can_afford(const battle::roguelike::Recruitment& oper, int hope) const;
     void discard_pending_recruitment(std::string_view reason);
@@ -83,9 +89,14 @@ private:
         bool confirmed = false;
         bool advance_start = false;
         bool opening = false;
+        std::optional<blackflow::RecruitmentDutyOffer> origin;
+        std::string client;
+        std::string uid;
+        std::string run_id;
     };
 
     std::optional<PendingRecruitment> m_pending_recruitment;
+    blackflow::RecruitmentOriginLedger m_origin_ledger;
     mutable RecruitmentEvent m_recruitment_event = RecruitmentEvent::Select;
     // 找出给定的 Offset 组所有满足条件的干员
     std::unordered_set<std::string> calculate_condition_oper(

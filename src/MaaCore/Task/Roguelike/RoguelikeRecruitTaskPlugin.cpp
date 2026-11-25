@@ -115,6 +115,7 @@ std::unordered_set<std::string> asst::RoguelikeRecruitTaskPlugin::calculate_cond
 bool asst::RoguelikeRecruitTaskPlugin::_run()
 {
     LogTraceFunction;
+    m_origin_ledger.bind(m_config->account_client(), m_config->account_uid(), m_config->status().run_id);
 
     const auto event = std::exchange(m_recruitment_event, RecruitmentEvent::Select);
     if (event == RecruitmentEvent::Discard) {
@@ -381,7 +382,8 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                 duty_catalog,
                 m_config->account_profile() ? &*m_config->account_profile() : nullptr,
                 chars_map,
-                context);
+                context,
+                &m_origin_ledger);
             duty_offers.insert(
                 duty_offers.end(),
                 std::make_move_iterator(page_offers.begin()),
@@ -817,7 +819,8 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
         }
     }
 
-    const bool recruited = recruit_appointed_char(char_name, is_rtl, false, duty_intent ? &*duty_intent : nullptr);
+    const bool recruited =
+        recruit_appointed_char(char_name, is_rtl, false, duty_intent ? &*duty_intent : nullptr, &duty_catalog);
     return duty_intent ? recruited : (m_task_ptr != nullptr && !m_task_ptr->get_enable()) || recruited;
 }
 
@@ -929,6 +932,7 @@ void asst::RoguelikeRecruitTaskPlugin::reset_in_run_variables()
     m_voucher_stash.reset();
     m_stash_resume_source.clear();
     discard_pending_recruitment("run_reset");
+    m_origin_ledger.clear();
     m_recruitment_event = RecruitmentEvent::Select;
     m_config->reset_start_oper_index();
 }
@@ -981,7 +985,8 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
     const std::string& char_name,
     bool is_rtl,
     bool require_strength,
-    const blackflow::RecruitmentDutyOffer* duty_intent)
+    const blackflow::RecruitmentDutyOffer* duty_intent,
+    const blackflow::BlackFlowRecruitmentDutyCatalog* known_catalog)
 {
     LogTraceFunction;
     // 最大滑动次数
@@ -992,6 +997,17 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
     // 是否凹直升
     bool start_with_elite_two = m_config->get_start_with_elite_two();
     bool only_start_with_elite_two = m_config->get_only_start_with_elite_two();
+
+    blackflow::BlackFlowRecruitmentDutyCatalog fallback_catalog;
+    const auto* catalog = known_catalog;
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_config->get_mode() == RoguelikeMode::Exp &&
+        (!catalog || !catalog->valid())) {
+        fallback_catalog.load(
+            ResDir.get() / utils::path("roguelike/BlackFlow/recruitment_duties.json"),
+            ResDir.get() / utils::path("roguelike/BlackFlow/operator_training.json"),
+            ResDir.get() / utils::path("battle_data.json"));
+        catalog = &fallback_catalog;
+    }
 
     for (; i != SwipeTimes; ++i) {
         if (need_exit()) {
@@ -1018,12 +1034,8 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
 
             if (it != chars.cend()) {
                 auto selected = *it;
-                if (duty_intent) {
-                    blackflow::BlackFlowRecruitmentDutyCatalog catalog;
-                    catalog.load(
-                        ResDir.get() / "roguelike/BlackFlow/recruitment_duties.json",
-                        ResDir.get() / "roguelike/BlackFlow/operator_training.json",
-                        ResDir.get() / "battle_data.json");
+                std::optional<blackflow::RecruitmentDutyOffer> final_origin;
+                if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_config->get_mode() == RoguelikeMode::Exp) {
                     const blackflow::RecruitmentDutyContext context {
                         .client = m_config->account_client(),
                         .uid = m_config->account_uid(),
@@ -1036,29 +1048,36 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
                     };
                     const auto actual = blackflow::observe_recruitment_duties(
                         analyzer,
-                        catalog,
+                        *catalog,
                         m_config->account_profile() ? &*m_config->account_profile() : nullptr,
                         m_config->status().opers,
-                        context);
-                    const auto same_name = [&](const auto& x) {
-                        return x.name == duty_intent->name;
-                    };
-                    const auto found = std::ranges::find_if(actual, same_name);
-                    const bool matched = found != actual.end() && std::ranges::count_if(actual, same_name) == 1 &&
-                                         blackflow::recruitment_duty_refind_matches(*duty_intent, *found);
-                    auto refind = basic_info_with_what("BlackFlowRecruitmentDutyRefind");
+                        context,
+                        &m_origin_ledger);
+                    const auto final = blackflow::resolve_recruitment_final_offer(
+                        analyzer,
+                        actual,
+                        selected,
+                        duty_intent ? std::optional<blackflow::RecruitmentDutyOffer>(*duty_intent) : std::nullopt);
+                    final_origin = final.observed;
+                    auto refind = basic_info_with_what(
+                        duty_intent ? "BlackFlowRecruitmentDutyRefind" : "BlackFlowRecruitmentFinalOfferObserved");
                     refind["details"] = json::object {
                         { "client", context.client },
                         { "uid", context.uid },
+                        { "run_id", context.run_id },
                         { "recruit_index", m_recruit_count },
-                        { "intended", blackflow::recruitment_duty_to_json(*duty_intent) },
+                        { "intended",
+                          duty_intent ? blackflow::recruitment_duty_to_json(*duty_intent) : json::value(nullptr) },
                         { "actual",
-                          found != actual.end() ? blackflow::recruitment_duty_to_json(*found) : json::value(nullptr) },
-                        { "matched", matched },
+                          final.observed ? blackflow::recruitment_duty_to_json(*final.observed)
+                                         : json::value(nullptr) },
+                        { "matched", final.intent_matches },
+                        { "reason", final.reason },
+                        { "legacy_choice_unchanged", duty_intent == nullptr },
                         { "click_attempted", false },
                     };
                     callback(AsstMsg::SubTaskExtraInfo, refind);
-                    if (!matched) {
+                    if (duty_intent && !final.intent_matches) {
                         return false;
                     }
                 }
@@ -1086,7 +1105,9 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
                     m_recruit_count == 1) {
                     if (selected.elite == 2) {
                         if (m_config->get_first_floor_foldartal()) {
-                            return select_oper(selected); // Continue only after a candidate was actually selected.
+                            return select_oper(
+                                selected,
+                                final_origin); // Continue only after a candidate was actually selected.
                         }
                         else {
                             m_task_ptr->set_enable(false); // 仅当之后没有东西要凹了才停止
@@ -1101,7 +1122,7 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
                     }
                 }
                 else {
-                    return select_oper(selected);
+                    return select_oper(selected, final_origin);
                 }
                 return true;
             }
@@ -1323,6 +1344,13 @@ bool asst::RoguelikeRecruitTaskPlugin::can_afford(const Recruitment& oper, int h
 
 bool asst::RoguelikeRecruitTaskPlugin::select_oper(const Recruitment& oper)
 {
+    return select_oper(oper, std::nullopt);
+}
+
+bool asst::RoguelikeRecruitTaskPlugin::select_oper(
+    const Recruitment& oper,
+    const std::optional<blackflow::RecruitmentDutyOffer>& origin)
+{
     if (!can_afford(oper, read_current_hope(ctrler()->get_image()))) {
         return false;
     }
@@ -1348,7 +1376,19 @@ bool asst::RoguelikeRecruitTaskPlugin::select_oper(const Recruitment& oper)
     if (!clicked) {
         return false;
     }
-    m_pending_recruitment = PendingRecruitment { oper, false, false, m_initail_recruit };
+    std::optional<blackflow::RecruitmentDutyOffer> exact_origin;
+    if (origin && origin->name == oper.name && origin->elite == oper.elite && origin->level == oper.level &&
+        origin->hope_cost == oper.hope_cost && origin->id == RoguelikeTraining.unique_identity(oper.name)) {
+        exact_origin = origin;
+    }
+    m_pending_recruitment = PendingRecruitment { oper,
+                                                 false,
+                                                 false,
+                                                 m_initail_recruit,
+                                                 std::move(exact_origin),
+                                                 m_config->account_client(),
+                                                 m_config->account_uid(),
+                                                 m_config->status().run_id };
     return true;
 }
 
@@ -1367,6 +1407,16 @@ bool asst::RoguelikeRecruitTaskPlugin::commit_pending_recruitment()
     }
     const auto pending = std::exchange(m_pending_recruitment, std::nullopt);
     const auto& oper = pending->oper;
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow &&
+        (pending->client != m_config->account_client() || pending->uid != m_config->account_uid() ||
+         pending->run_id != m_config->status().run_id)) {
+        m_origin_ledger.clear();
+        LogWarn << __FUNCTION__ << "Discard confirmed candidate from a different account or exploration" << oper.name;
+        return false;
+    }
+    const auto previous = m_config->status().opers.find(oper.name);
+    const auto before =
+        previous == m_config->status().opers.end() ? std::nullopt : std::optional<RoguelikeOper>(previous->second);
     if (!merge_current_run_operator(m_config->status().opers, oper.name, oper.elite, oper.level)) {
         LogWarn << __FUNCTION__ << "Invalid confirmed recruitment observation" << oper.name << oper.elite << oper.level;
         return true;
@@ -1376,6 +1426,38 @@ bool asst::RoguelikeRecruitTaskPlugin::commit_pending_recruitment()
                 << oper.level;
     }
     if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+        const bool bound =
+            m_origin_ledger.bind(m_config->account_client(), m_config->account_uid(), m_config->status().run_id);
+        const bool source_matches = pending->origin && pending->origin->name == oper.name &&
+                                    pending->origin->elite == oper.elite && pending->origin->level == oper.level &&
+                                    pending->origin->hope_cost == oper.hope_cost;
+        const bool origin_recorded =
+            bound && source_matches && m_origin_ledger.confirm(*pending->origin, before, true, m_recruit_count);
+        const auto identity = RoguelikeTraining.unique_identity(oper.name);
+        if (!origin_recorded) {
+            m_origin_ledger.forget(identity);
+        }
+        const auto& committed = m_config->status().opers.at(oper.name);
+        const auto origin = m_origin_ledger.find(
+            m_config->account_client(),
+            m_config->account_uid(),
+            m_config->status().run_id,
+            identity,
+            committed);
+        auto source_receipt = basic_info_with_what("BlackFlowRecruitmentOriginConfirmed");
+        source_receipt["details"] = json::object {
+            { "client", m_config->account_client() },
+            { "uid", m_config->account_uid() },
+            { "run_id", m_config->status().run_id },
+            { "name", oper.name },
+            { "recruit_index", m_recruit_count },
+            { "confirmed", true },
+            { "origin_recorded", origin_recorded },
+            { "origin", origin ? blackflow::recruitment_origin_to_json(*origin) : json::value(nullptr) },
+            { "unknown_is_not_ordinary", true },
+            { "account_cache_written", false },
+        };
+        callback(AsstMsg::SubTaskExtraInfo, source_receipt);
         auto receipt = basic_info_with_what("BlackFlowRecruitmentObserved");
         const auto& stored = m_config->status().opers.at(oper.name);
         receipt["details"] = json::object {
