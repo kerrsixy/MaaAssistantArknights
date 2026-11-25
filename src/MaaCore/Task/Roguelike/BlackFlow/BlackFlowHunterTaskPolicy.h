@@ -28,10 +28,19 @@ struct HunterTaskCandidate
     int selected_skill = 0;
     int skill_rank = -1;
     bool preparation_known = false;
+    // Legacy field layout retained; Hunter now binds this to uniqueness for an
+    // outstanding qualified guard task, never a total ordinary-blocker count.
     bool sole_persistent_blocker = false;
     Point location;
     battle::DeployDirection direction = battle::DeployDirection::None;
     battle::AttackRange range;
+};
+
+struct HunterGuardTask
+{
+    int plan_index = -1;
+    Point location;
+    battle::DeployDirection direction = battle::DeployDirection::None;
 };
 
 struct HunterTaskWorld
@@ -71,6 +80,12 @@ public:
     [[nodiscard]] HunterTaskPermit
         assess(int plan_index, const HunterTaskCandidate& candidate, const HunterTaskWorld& world) const;
     [[nodiscard]] bool reserve_guard_identity(const HunterTaskCandidate& candidate) const;
+    [[nodiscard]] std::vector<HunterGuardTask> guard_tasks() const;
+    [[nodiscard]] bool guard_identity_required(
+        const HunterTaskCandidate& requested,
+        const std::vector<HunterTaskCandidate>& projected,
+        const std::vector<int>& satisfied_plans,
+        const HunterTaskWorld& world) const;
     [[nodiscard]] bool skill_known_allowed(const HunterTaskCandidate& candidate) const;
     [[nodiscard]] HunterTaskKind kind(int plan_index) const;
     [[nodiscard]] Point location(int plan_index) const;
@@ -92,6 +107,10 @@ private:
     };
 
     [[nodiscard]] bool matches(const Rule& rule, const HunterTaskCandidate& candidate, bool position) const;
+    [[nodiscard]] bool guard_effect_domain_allowed(
+        const Rule& rule,
+        const HunterTaskCandidate& candidate,
+        const HunterTaskWorld& world) const;
     std::map<int, std::vector<Rule>> m_rules;
 };
 }

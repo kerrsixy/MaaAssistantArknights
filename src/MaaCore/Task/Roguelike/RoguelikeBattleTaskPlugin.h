@@ -142,6 +142,10 @@ protected:
     bool deployment_hard_requirements_met(
         const battle::DeploymentOper& oper,
         const battle::roguelike::DeployInfoWithRank& plan) const;
+    bool deployment_hard_requirements_met(
+        const battle::DeploymentOper& oper,
+        const battle::roguelike::DeployInfoWithRank& plan,
+        bool check_hunter) const;
     std::optional<battle::roguelike::DeployInfoWithRank> prepared_plan(int plan_index) const;
     bool prepared_runtime_eligible(
         const battle::DeploymentOper& oper,

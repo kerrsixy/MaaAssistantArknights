@@ -488,6 +488,28 @@ bool asst::blackflow::BlackFlowHunterPreludeController::bait_skill_allowed(
     return false;
 }
 
+std::vector<asst::blackflow::HunterGuardTask> asst::blackflow::BlackFlowHunterPreludeController::guard_tasks() const
+{
+    return m_task_policy.guard_tasks();
+}
+
+bool asst::blackflow::BlackFlowHunterPreludeController::guard_identity_required(
+    const HunterTaskCandidate& candidate,
+    const std::vector<HunterTaskCandidate>& projected) const
+{
+    std::vector<int> satisfied;
+    if (m_prepared && !m_contract_breached && m_frame_verified && m_task_world.normal_verified) {
+        // observe() has already pruned missing or displaced field identities.
+        for (const auto& [oper, deployed] : m_early_deployed) {
+            static_cast<void>(oper);
+            if (m_task_policy.has_plan(deployed.first) && m_task_policy.kind(deployed.first) == HunterTaskKind::Guard) {
+                satisfied.push_back(deployed.first);
+            }
+        }
+    }
+    return m_task_policy.guard_identity_required(candidate, projected, satisfied, m_task_world);
+}
+
 bool asst::blackflow::BlackFlowHunterPreludeController::candidate_allowed(
     int plan_index,
     const HunterTaskCandidate& candidate)
@@ -505,7 +527,18 @@ bool asst::blackflow::BlackFlowHunterPreludeController::candidate_allowed(
         return !is_bait_plan(plan_index);
     }
     if (is_bait_plan(plan_index)) {
-        return allows_plan(plan_index) && !m_task_policy.reserve_guard_identity(candidate);
+        const bool reserved = m_task_policy.reserve_guard_identity(candidate);
+        if (reserved && m_task_decisions.size() < 24) {
+            m_task_decisions.emplace_back(
+                json::object { { "frame_sequence", m_sequence },
+                               { "plan_index", plan_index },
+                               { "operator_id", candidate.operator_id },
+                               { "allowed", false },
+                               { "guard_identity_reserved", true },
+                               { "reservation_source", "unique_qualified_identity_for_unfilled_guard_task" },
+                               { "all_hunters_cleared_claimed", false } });
+        }
+        return allows_plan(plan_index) && !reserved;
     }
     const auto permit = m_task_policy.assess(plan_index, candidate, m_task_world);
     if (m_task_decisions.size() < 24) {

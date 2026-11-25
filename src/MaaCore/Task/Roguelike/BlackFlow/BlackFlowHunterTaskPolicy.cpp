@@ -154,20 +154,7 @@ HunterTaskPermit BlackFlowHunterTaskPolicy::assess(
                                      : "No actual approved upper guard patient" };
     }
     if (rule->kind == HunterTaskKind::Guard) {
-        auto uncertain = world.lower_possible_tiles;
-        uncertain.insert(
-            uncertain.end(),
-            world.upper_positive_possible_tiles.begin(),
-            world.upper_positive_possible_tiles.end());
-        for (std::size_t i = 0; i < world.spawns.size(); ++i) {
-            if (world.spawns[i].presence != HunterPresence::Absent || world.spawns[i].distinct_empty_frames < 2) {
-                uncertain.push_back(world.spawn_tiles[i]);
-            }
-        }
-        const bool overlap = std::ranges::any_of(uncertain, [&](Point p) {
-            return std::ranges::find(candidate.range, p - candidate.location) != candidate.range.end() ||
-                   std::hypot(p.x - candidate.location.x, p.y - candidate.location.y) <= *rule->self_effect_radius;
-        });
+        const bool overlap = !guard_effect_domain_allowed(*rule, candidate, world);
         return { !overlap,
                  false,
                  overlap ? "Guard base/effect domain intersects unresolved hunter domain"
@@ -197,6 +184,68 @@ HunterTaskPermit BlackFlowHunterTaskPolicy::assess(
             : "Risk release needs fresh clear upper covering both spawns (or legacy absence), known lower and actual "
               "guard"
     };
+}
+
+bool BlackFlowHunterTaskPolicy::guard_effect_domain_allowed(
+    const Rule& rule,
+    const HunterTaskCandidate& candidate,
+    const HunterTaskWorld& world) const
+{
+    auto uncertain = world.lower_possible_tiles;
+    uncertain.insert(
+        uncertain.end(),
+        world.upper_positive_possible_tiles.begin(),
+        world.upper_positive_possible_tiles.end());
+    for (std::size_t i = 0; i < world.spawns.size(); ++i) {
+        if (world.spawns[i].presence != HunterPresence::Absent || world.spawns[i].distinct_empty_frames < 2) {
+            uncertain.push_back(world.spawn_tiles[i]);
+        }
+    }
+    const bool overlap = std::ranges::any_of(uncertain, [&](Point p) {
+        return std::ranges::find(candidate.range, p - candidate.location) != candidate.range.end() ||
+               std::hypot(p.x - candidate.location.x, p.y - candidate.location.y) <= *rule.self_effect_radius;
+    });
+    return !overlap;
+}
+
+std::vector<HunterGuardTask> BlackFlowHunterTaskPolicy::guard_tasks() const
+{
+    std::vector<HunterGuardTask> result;
+    for (const auto& [index, rules] : m_rules) {
+        if (!rules.empty() && rules.front().kind == HunterTaskKind::Guard) {
+            result.push_back({ index, rules.front().location, rules.front().direction });
+        }
+    }
+    return result;
+}
+
+bool BlackFlowHunterTaskPolicy::guard_identity_required(
+    const HunterTaskCandidate& requested,
+    const std::vector<HunterTaskCandidate>& projected,
+    const std::vector<int>& satisfied_plans,
+    const HunterTaskWorld& world) const
+{
+    for (const auto& [index, rules] : m_rules) {
+        if (rules.empty() || rules.front().kind != HunterTaskKind::Guard ||
+            std::ranges::find(satisfied_plans, index) != satisfied_plans.end()) {
+            continue;
+        }
+        const bool can_serve =
+            std::ranges::any_of(rules, [&](const Rule& rule) { return matches(rule, requested, false); });
+        if (!can_serve) {
+            continue;
+        }
+        const bool other_qualified = std::ranges::any_of(projected, [&](const HunterTaskCandidate& other) {
+            return world.normal_verified && world.spawn_contract_verified && other.oper != requested.oper &&
+                   std::ranges::any_of(rules, [&](const Rule& rule) {
+                       return matches(rule, other, true) && guard_effect_domain_allowed(rule, other, world);
+                   });
+        });
+        if (!other_qualified) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool BlackFlowHunterTaskPolicy::reserve_guard_identity(const HunterTaskCandidate& candidate) const
