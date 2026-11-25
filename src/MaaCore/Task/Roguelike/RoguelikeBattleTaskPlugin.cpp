@@ -702,6 +702,12 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_requirements_met(
     const battle::DeploymentOper& oper,
     const battle::roguelike::DeployInfoWithRank& plan) const
 {
+    if (const auto cap = RoguelikeCopilot.maximum_deploy_cost(m_stage_name, plan.plan_index);
+        cap && (oper.cost <= 0 || oper.cost > *cap)) {
+        // Cost0 also represents OCR failure; a capped opener cannot claim it is
+        // proven cheap. Uncapped plans retain their existing behavior.
+        return false;
+    }
     const auto elite_status = m_oper_elite.find(oper.name);
     if ((plan.minimum_elite > 0 && (elite_status == m_oper_elite.end() || elite_status->second < plan.minimum_elite)) ||
         (!plan.operator_names.empty() &&
