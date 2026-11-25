@@ -3,61 +3,123 @@
     "deploy_plan_only": true,
     "reserve_deploy_cost": true,
     "doc": [
-        "阶段99隔离候选：按实际E1机械师的范围和持续阻挡资格守9,3Left，不借账号E2。E1不是E2承伤、模组或DPS证明。",
-        "8,2Down治疗从真实元素奶/单奶组选择，必须同时覆盖EW7,2、主挡9,3及对空位9,4；不再只允许蜜莓，也不从泛奶组引入不具备普通治疗的辅助。",
-        "保留机械师→卡达→医疗→EW的开局及原位置；本次仅纠正实际名册被错误排除。run64的前四点漏血发生在EW落地前，早期对空DPS及费用问题仍未解决。",
-        "EW7,2Left会引上方猎手，治疗不等价于思衡托真伤/停顿；浮空、树形随机物、伤害及首波时间需实机验证，不做固定等待。"
+        "阶段158私有候选：保留所有站位与朝向，顺序改为9,4Up对空→8,2Down医疗→9,3Left机械师→7,2Left EW。Run86实际Mech为E2/90、21费，DP19时18费卡达已可付却仍为机械师保费；先修这一明确时序问题。",
+        "首职责沿用术师/高台输出组显式组内偏好，卡达优先；仅加当前已证E1史都华德作为卡达缺席或冷却时的备选。不按低费宣称史都华德更强；卡达仍在时DP12继续保费等待18费卡达，未新增期限估值。",
+        "各任务原minimum_elite、required_attack_tiles、required_range_tiles、持续阻挡及所有原位置/朝向保留。医疗提前只增加支持机会，不证明HPS、元素抗性、反传送生存或对所有飞行路线足够。",
+        "Run86首4血发生在EW首下前，卡达两次落地后很快回手，EW左向不覆盖右端飞行线。此候选不声称能挽回首漏或晚期全部14血；猎手贴身、灼烧/溅射、浮空机制和实际技能持续仍需下一实机验证。"
     ],
     "deploy_plan": [
         {
-            "groups": ["机械师"],
-            "operator_names": ["机械师"],
+            "groups": [
+                "术师",
+                "高台输出"
+            ],
+            "operator_names": [
+                "卡达",
+                "史都华德"
+            ],
             "minimum_elite": 1,
-            "location": [9, 3],
+            "location": [
+                9,
+                4
+            ],
+            "direction": "up",
+            "prefer_group_order": true,
+            "required_attack_tiles": [
+                [
+                    8,
+                    3
+                ],
+                [
+                    9,
+                    3
+                ],
+                [
+                    10,
+                    3
+                ]
+            ]
+        },
+        {
+            "groups": [
+                "元素奶",
+                "单奶"
+            ],
+            "minimum_elite": 1,
+            "location": [
+                8,
+                2
+            ],
+            "direction": "down",
+            "prefer_group_order": true,
+            "required_range_tiles": [
+                [
+                    7,
+                    2
+                ],
+                [
+                    9,
+                    3
+                ],
+                [
+                    9,
+                    4
+                ]
+            ]
+        },
+        {
+            "groups": [
+                "机械师"
+            ],
+            "operator_names": [
+                "机械师"
+            ],
+            "minimum_elite": 1,
+            "location": [
+                9,
+                3
+            ],
             "direction": "left",
             "prefer_group_order": true,
             "required_attack_tiles": [
-                [8, 3],
-                [9, 3]
+                [
+                    8,
+                    3
+                ],
+                [
+                    9,
+                    3
+                ]
             ],
             "require_persistent_blocking": true
         },
         {
-            "groups": ["术师", "高台输出"],
-            "operator_names": ["卡达"],
-            "minimum_elite": 1,
-            "location": [9, 4],
-            "direction": "up",
-            "prefer_group_order": true,
-            "required_attack_tiles": [
-                [8, 3],
-                [9, 3],
-                [10, 3]
-            ]
-        },
-        {
-            "groups": ["元素奶", "单奶"],
-            "minimum_elite": 1,
-            "location": [8, 2],
-            "direction": "down",
-            "prefer_group_order": true,
-            "required_range_tiles": [
-                [7, 2],
-                [9, 3],
-                [9, 4]
-            ]
-        },
-        {
-            "groups": ["益达"],
-            "operator_names": ["维什戴尔"],
+            "groups": [
+                "益达"
+            ],
+            "operator_names": [
+                "维什戴尔"
+            ],
             "minimum_elite": 2,
-            "location": [7, 2],
+            "location": [
+                7,
+                2
+            ],
             "direction": "left",
             "prefer_group_order": true,
             "required_attack_tiles": [
-                [4, 1],
-                [5, 1],
-                [6, 1]
+                [
+                    4,
+                    1
+                ],
+                [
+                    5,
+                    1
+                ],
+                [
+                    6,
+                    1
+                ]
             ]
         }
     ]
