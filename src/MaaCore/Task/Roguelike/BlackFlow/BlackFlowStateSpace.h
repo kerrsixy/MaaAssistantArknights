@@ -33,6 +33,7 @@ struct PlannerState
     PlannerNodeMask consumed_lights = 0;
     SafetyGoalProgressId goal_progress_id = InvalidSafetyGoalProgressId;
     bool terminal = false;
+    bool scene_rewards_available = true;
 
     bool operator==(const PlannerState&) const noexcept = default;
 };

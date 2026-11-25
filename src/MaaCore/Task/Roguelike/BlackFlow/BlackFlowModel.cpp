@@ -105,7 +105,10 @@ bool is_walk_transparent(const Node& node, const RunState& state, GraphLayer lay
 
 int predicted_node_gain(const Node& node, const RunState& state) noexcept
 {
-    return node.type == NodeType::Light && !state.consumed_one_time_nodes.contains(node.id) ? 1 : 0;
+    return guaranteed_node_action_point_gain(
+        node,
+        state.consumed_one_time_nodes.contains(node.id),
+        state.scene_rewards_available);
 }
 
 std::uint32_t encode_grid_component(int value, bool* ok) noexcept
@@ -120,6 +123,14 @@ std::uint32_t encode_grid_component(int value, bool* ok) noexcept
     return static_cast<std::uint32_t>((wide << 1) ^ (wide >> 63));
 }
 } // namespace
+
+int guaranteed_node_action_point_gain(const Node& node, bool consumed, bool scene_rewards_available) noexcept
+{
+    return node.type == NodeType::Light && node.progress == NodeProgress::Active && node.light_reward_verified &&
+                   !node.occupation && !consumed && scene_rewards_available
+               ? 1
+               : 0;
+}
 
 std::size_t GridPositionHash::operator()(const GridPosition& position) const noexcept
 {
@@ -350,7 +361,7 @@ bool MapSnapshot::validate(std::string* error) const
     return true;
 }
 
-std::optional<NodeOccupation> parse_rest_occupation_description(std::string text, std::string stage_title)
+std::optional<NodeOccupation> parse_node_occupation_description(std::string text, std::string stage_title)
 {
     std::erase_if(text, [](unsigned char c) { return c == ' ' || c == '\n' || c == '\r' || c == '\t'; });
     for (const std::string token : { "“", "”", "\"" }) {
@@ -358,16 +369,32 @@ std::optional<NodeOccupation> parse_rest_occupation_description(std::string text
             text.erase(at, token.size());
         }
     }
-    const bool supported = text == "居民占领了安全的角落节点，战胜后此节点将变为林间空地" ||
-                           text == "居民占领了安全的角落节点，战胜后此节点变为林间空地";
-    if (!supported || stage_title.empty()) {
+    if (stage_title.empty()) {
         return std::nullopt;
     }
-    return NodeOccupation { NodeType::Rest,
-                            "安全的角落",
-                            NodeType::BattleNormal,
-                            NodeType::Empty,
-                            std::move(stage_title) };
+    // Only exact, observed occupation grammar and these two base node names
+    // are supported. Other OCR text does not create a typed occupation.
+    const std::array<std::pair<std::string_view, NodeType>, 2> supported {
+        std::pair { std::string_view("安全的角落"), NodeType::Rest },
+        std::pair { std::string_view("羽瞰点"), NodeType::Light },
+    };
+    for (const auto& [name, type] : supported) {
+        const std::string prefix = "居民占领了" + std::string(name) + "节点，战胜后此节点";
+        if (text == prefix + "将变为林间空地" || text == prefix + "变为林间空地") {
+            return NodeOccupation { type,
+                                    std::string(name),
+                                    NodeType::BattleNormal,
+                                    NodeType::Empty,
+                                    std::move(stage_title) };
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<NodeOccupation> parse_rest_occupation_description(std::string text, std::string stage_title)
+{
+    auto occupation = parse_node_occupation_description(std::move(text), std::move(stage_title));
+    return occupation && occupation->base_type == NodeType::Rest ? occupation : std::nullopt;
 }
 
 void NormalizedMap::clear_occupations()
@@ -375,12 +402,15 @@ void NormalizedMap::clear_occupations()
     std::vector<Node> changed;
     for (const auto& [id, stored] : m_snapshot.nodes()) {
         (void)id;
-        if (stored.occupation) {
+        if (stored.occupation || stored.light_reward_verified) {
             Node node = stored;
-            node.type = node.occupation->base_type;
-            node.name = node.occupation->base_name;
-            node.traversal = default_traversal_for(node.type);
-            node.occupation.reset();
+            if (node.occupation) {
+                node.type = node.occupation->base_type;
+                node.name = node.occupation->base_name;
+                node.traversal = default_traversal_for(node.type);
+                node.occupation.reset();
+            }
+            node.light_reward_verified = false;
             changed.emplace_back(std::move(node));
         }
     }
@@ -444,6 +474,9 @@ bool NormalizedMap::merge(const MapObservationBatch& batch, std::string* error)
                 (current == nullptr || newly_classified || current->type != *observed.type)) {
                 node.traversal = default_traversal_for(node.type);
             }
+        }
+        if (node.type != NodeType::Light || node.occupation) {
+            node.light_reward_verified = false;
         }
         // An unreadable map label must not erase a name learned from its preview.
         // A different node type still replaces the old name, including with an empty label.
@@ -643,7 +676,7 @@ bool NormalizedMap::accept_preview(NodeId target, const MovePreview& preview, bo
     if (preview.occupation) {
         const NodeType visual_type = node.occupation ? node.occupation->base_type : node.type;
         if ((visual_type != NodeType::Unknown && visual_type != preview.occupation->base_type) ||
-            preview.occupation->base_type != NodeType::Rest ||
+            (preview.occupation->base_type != NodeType::Rest && preview.occupation->base_type != NodeType::Light) ||
             preview.occupation->entry_type != NodeType::BattleNormal ||
             preview.displayed_type != preview.occupation->entry_type ||
             preview.occupation->cleared_type != NodeType::Empty || preview.occupation->stage_title.empty()) {
@@ -668,6 +701,8 @@ bool NormalizedMap::accept_preview(NodeId target, const MovePreview& preview, bo
         node.traversal = default_traversal_for(preview.displayed_type);
     }
     node.type = preview.displayed_type;
+    node.light_reward_verified = node.type == NodeType::Light && !node.occupation && preview.identity_same_frame &&
+                                 !preview.identity_frame_key.empty();
     if (node.occupation) {
         node.name = node.occupation->stage_title;
     }

@@ -139,6 +139,7 @@ bool BlackFlowCompactStateSpace::initialize(
                 node->identity_state,
                 std::nullopt,
                 node->identity_from_template,
+                guaranteed_node_action_point_gain(*node, false),
             });
         const PlannerNodeMask node_mask = PlannerNodeMask { 1 } << index;
         const std::size_t type_index = node_type_index(node->type);
@@ -168,6 +169,7 @@ bool BlackFlowCompactStateSpace::initialize(
     precompute_geometry();
 
     m_initial_state.node = run.current_node;
+    m_initial_state.scene_rewards_available = run.scene_rewards_available;
     for (const MovementSpec& movement : movement_specs()) {
         if (movement.kind == MovementKind::Walk) {
             continue;
@@ -344,7 +346,9 @@ bool BlackFlowCompactStateSpace::walk_transparent(const PlannerState& state, std
 int BlackFlowCompactStateSpace::node_action_point_gain(const PlannerState& state, std::uint8_t node) const noexcept
 {
     const PlannerNodeMask node_mask = PlannerNodeMask { 1 } << node;
-    return m_nodes[node].type == NodeType::Light && (state.consumed_lights & node_mask) == 0 ? 1 : 0;
+    return state.scene_rewards_available && (state.consumed_lights & node_mask) == 0
+               ? m_nodes[node].guaranteed_action_point_gain
+               : 0;
 }
 
 NodeId BlackFlowCompactStateSpace::resolve_landing(std::uint8_t target) const noexcept
@@ -387,6 +391,7 @@ PlannerState BlackFlowCompactStateSpace::transition(
     NodeId landing) const
 {
     PlannerState successor = source;
+    successor.scene_rewards_available = false;
     successor.node = landing;
     if (candidate.movement != MovementKind::Walk) {
         auto& charge = successor.movement_charges[movement_index(candidate.movement)];

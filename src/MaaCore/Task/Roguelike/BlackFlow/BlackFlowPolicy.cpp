@@ -757,23 +757,12 @@ PolicyDecision PolicyExecutor::choose(
 
     decision.eligible_candidates = eligible.size();
     if (eligible.empty()) {
-        // 全部候选都不安全，说明这一拍已经没有任何能走到安全终点的路线。此时直接判失败
-        // 会放弃一个仍可能靠途中拾取行动力或换到代步而脱困的局面，所以降级到「合法且可控」
-        // 的候选继续推进，把真正的失败留给后续确实走不下去的那一拍。
-        std::vector<const PolicyCandidate*> controllable;
-        for (const auto& candidate : candidates) {
-            if (candidate.legal && candidate.move.controllable) {
-                controllable.emplace_back(&candidate);
-            }
-        }
-        if (controllable.empty()) {
-            decision.reason = "no eligible safe candidate";
-            return decision;
-        }
-        eligible = std::move(controllable);
-        decision.reason = "no safe terminal route; continuing with a controllable candidate";
-        decision.rejected.emplace_back(
-            "safety-fallback: " + std::to_string(eligible.size()) + " controllable candidates");
+        // A legal click is not evidence of a recoverable terminal route.
+        // Do not spend the last AP on a known nonterminal empty node merely
+        // because all safe candidates were rejected. Information gathering
+        // must use a separate preview-only transaction, never this move path.
+        decision.reason = "no eligible safe candidate; unsafe movement confirmation disabled";
+        return decision;
     }
 
     const auto is_binding = [&](const Milestone& milestone) {

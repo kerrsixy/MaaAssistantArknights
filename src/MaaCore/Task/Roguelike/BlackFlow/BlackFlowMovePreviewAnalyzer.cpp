@@ -82,7 +82,7 @@ bool recognize_move_preview_identity(const cv::Mat& image, MovePreview& preview,
                     confident &= row.score >= 0.95;
                 }
                 if (confident) {
-                    preview.occupation = parse_rest_occupation_description(text, preview.stage_title);
+                    preview.occupation = parse_node_occupation_description(text, preview.stage_title);
                 }
             }
         }
