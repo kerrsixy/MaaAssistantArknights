@@ -199,6 +199,8 @@ public:
 
     [[nodiscard]] std::optional<int> observed_difficulty() const noexcept { return m_observed_difficulty; }
 
+    [[nodiscard]] std::uint64_t run_revision() const noexcept { return m_run_revision; }
+
     void set_cultivation_target(CultivatedAnimalType target) noexcept { m_cultivation_target = target; }
 
     void set_cultivated_animal_types(std::vector<CultivatedAnimalType> types);

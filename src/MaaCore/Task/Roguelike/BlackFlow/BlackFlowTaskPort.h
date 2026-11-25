@@ -94,6 +94,7 @@ struct BlackFlowObservationRequest
     std::int64_t capture_us = 0;
     // Actual in-game difficulty reading; requested difficulty is not evidence.
     std::optional<int> verified_difficulty;
+    std::uint64_t run_revision = 0;
 };
 
 struct EnteredPageObservation
