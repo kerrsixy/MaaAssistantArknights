@@ -21,9 +21,11 @@ bool asst::RoguelikeCopilotConfig::load(const std::filesystem::path& path)
     auto previous_stages = m_stage_data;
     auto previous_openings = m_hunter_openings;
     auto previous_reservations = m_reserved_core_groups;
+    auto previous_cost_limits = m_maximum_deploy_costs;
     using StageMap = decltype(m_stage_data);
     using OpeningMap = decltype(m_hunter_openings);
     using ReservationMap = decltype(m_reserved_core_groups);
+    using CostLimitMap = decltype(m_maximum_deploy_costs);
 
     struct LoadRollback
     {
@@ -33,6 +35,8 @@ bool asst::RoguelikeCopilotConfig::load(const std::filesystem::path& path)
         OpeningMap& old_openings;
         ReservationMap& reservations;
         ReservationMap& old_reservations;
+        CostLimitMap& cost_limits;
+        CostLimitMap& old_cost_limits;
         bool accepted = false;
 
         ~LoadRollback()
@@ -42,10 +46,11 @@ bool asst::RoguelikeCopilotConfig::load(const std::filesystem::path& path)
                 stages.swap(old_stages);
                 openings.swap(old_openings);
                 reservations.swap(old_reservations);
+                cost_limits.swap(old_cost_limits);
             }
         }
-    } rollback { m_stage_data,      previous_stages,        m_hunter_openings,
-                 previous_openings, m_reserved_core_groups, previous_reservations };
+    } rollback { m_stage_data,           previous_stages,       m_hunter_openings,      previous_openings,
+                 m_reserved_core_groups, previous_reservations, m_maximum_deploy_costs, previous_cost_limits };
 
     std::unordered_map<std::string, int> batch_names;
     std::unordered_set<std::string> referenced_bases;
@@ -90,6 +95,16 @@ bool asst::RoguelikeCopilotConfig::load(const std::filesystem::path& path)
             LogError << __FUNCTION__ << "Variant base or deployment budget rules conflict" << key;
             ret = false;
         }
+        // Variant dispatch replaces only deploy_plan and retains the base stage
+        // key. Side-registry budgets must therefore agree at every plan index.
+        const auto cap_table = [&](const std::string& name) {
+            const auto found = m_maximum_deploy_costs.find(name);
+            return found == m_maximum_deploy_costs.end() ? std::unordered_map<int, int> {} : found->second;
+        };
+        if (base != m_stage_data.end() && cap_table(base->first) != cap_table(key)) {
+            LogError << __FUNCTION__ << "Variant deployment cost caps conflict with base" << key;
+            ret = false;
+        }
     }
     // The guard also restores registry and trace state while DEBUG parse
     // exceptions unwind; the original exception is deliberately not caught.
@@ -125,6 +140,17 @@ const std::vector<std::string>& asst::RoguelikeCopilotConfig::reserved_core_grou
     static const std::vector<std::string> empty;
     const auto it = m_reserved_core_groups.find(stage_name);
     return it == m_reserved_core_groups.end() ? empty : it->second;
+}
+
+std::optional<int>
+    asst::RoguelikeCopilotConfig::maximum_deploy_cost(const std::string& stage_name, int plan_index) const
+{
+    const auto stage = m_maximum_deploy_costs.find(stage_name);
+    if (stage == m_maximum_deploy_costs.end()) {
+        return std::nullopt;
+    }
+    const auto found = stage->second.find(plan_index);
+    return found == stage->second.end() ? std::nullopt : std::optional(found->second);
 }
 
 std::optional<asst::blackflow::HunterOpening>
@@ -330,12 +356,22 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
         }
     }
 
+    std::unordered_map<int, int> maximum_deploy_costs;
     if (auto opt = json.find<json::array>("deploy_plan")) {
         int rank = 1;
         int plan_index = 0;
         for (auto& deploy_info : opt.value()) {
             DeployInfoWithRank info;
             info.plan_index = plan_index++;
+            if (deploy_info.contains("maximum_deploy_cost")) {
+                const auto& cap = deploy_info.at("maximum_deploy_cost");
+                if (!cap.is<int>() || cap.as_double() < 0 || cap.as_double() > std::numeric_limits<int>::max()) {
+                    LogError << __FUNCTION__ << "Invalid deployment maximum cost" << stage_name;
+                    return false;
+                }
+                maximum_deploy_costs.emplace(info.plan_index, cap.as_integer());
+            }
+
             info.max_deployments = deploy_info.get("max_deployments", INT_MAX);
             if (info.max_deployments < 1) {
                 LogError << __FUNCTION__ << "Deployment limit must be positive" << stage_name;
@@ -455,6 +491,12 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
     }
     else {
         m_reserved_core_groups.insert_or_assign(stage_name, std::move(reserved_core_groups));
+    }
+    if (maximum_deploy_costs.empty()) {
+        m_maximum_deploy_costs.erase(stage_name);
+    }
+    else {
+        m_maximum_deploy_costs.insert_or_assign(stage_name, std::move(maximum_deploy_costs));
     }
     m_stage_data.insert_or_assign(std::move(stage_name), std::move(data));
     return true;
