@@ -219,6 +219,7 @@ void BlackFlowMapObservationSource::release() noexcept
     m_weather_initialization_attempted = false;
     m_weather_initialization_error.clear();
     m_last_weather = {};
+    m_last_map_difficulty = {};
     m_last_weather_us = 0;
 }
 
@@ -330,9 +331,9 @@ bool BlackFlowMapObservationSource::recognize(
         weather_context.rows = result.rows;
         weather_context.columns = result.columns;
         weather_context.map_geometry_verified = true;
-        weather_context.verified_difficulty = request.verified_difficulty;
-        // No run identity, live tooltip or source-preview evidence is supplied
-        // here yet. Do not fabricate temporal confirmation or semantic facts.
+        weather_context.floor_key = weather_floor_key(request.run_revision, floor);
+        // Run/floor identity scopes temporal candidates. No live tooltip or
+        // source-preview evidence is supplied; keep semantic scope unknown.
         for (const auto& node : result.node_detection.nodes) {
             weather_context.nodes.push_back(
                 { { node.row, node.column },
@@ -342,6 +343,9 @@ bool BlackFlowMapObservationSource::recognize(
                   std::nullopt });
         }
         const auto weather_started = std::chrono::steady_clock::now();
+        const auto map_difficulty =
+            observe_map_difficulty(result.normalized_bgr, true, next.sequence, request.verified_difficulty);
+        weather_context.verified_difficulty = map_difficulty.level;
         WeatherRecognitionResult weather;
         if (m_weather_analyzer.loaded()) {
             weather = m_weather_analyzer.analyze(result.normalized_bgr, weather_context);
@@ -407,6 +411,7 @@ bool BlackFlowMapObservationSource::recognize(
         observation = std::move(next);
         m_last_accepted_observation_id = observation.observation_id;
         m_last_weather = std::move(weather);
+        m_last_map_difficulty = map_difficulty;
         m_last_weather_us = observation.weather_recognition_us;
         m_last_result = std::move(result);
         return true;
@@ -471,6 +476,7 @@ bool BlackFlowMapObservationSource::persist_diagnostics(const DiagnosticArtifact
         snapshot["weather_recognition_us"] = m_last_weather_us;
         snapshot["weather_observation_id"] = m_last_accepted_observation_id;
         snapshot["weather_recognition"] = m_last_weather.to_json();
+        snapshot["map_difficulty_observation"] = m_last_map_difficulty.to_json();
         snapshot["recognition_floor"] = m_last_result.floor;
         snapshot["recognition_floor_source"] = "next_level_ocr";
         snapshot["route_status"] = request.snapshot.contains("planned_route_steps") ? "planned" : "pending";
@@ -509,6 +515,7 @@ bool BlackFlowMapObservationSource::persist_diagnostics(const DiagnosticArtifact
         json::object weather_snapshot = m_last_weather.to_json().as_object();
         weather_snapshot["observation_id"] = m_last_accepted_observation_id;
         weather_snapshot["recognition_us"] = m_last_weather_us;
+        weather_snapshot["map_difficulty_observation"] = m_last_map_difficulty.to_json();
         weather_file << json::value(std::move(weather_snapshot)).format();
         if (request.include_images) {
             cv::Mat overlay = m_last_result.overlay_bgr.clone();

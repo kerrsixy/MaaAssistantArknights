@@ -6,6 +6,7 @@
 
 #include "BlackFlowTaskPort.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowMapAnalyzer.h"
+#include "Vision/Roguelike/BlackFlow/BlackFlowMapDifficultyAnalyzer.h"
 
 namespace asst::blackflow
 {
@@ -41,6 +42,7 @@ private:
     bool m_weather_initialization_attempted = false;
     std::string m_weather_initialization_error;
     WeatherRecognitionResult m_last_weather;
+    MapDifficultyObservation m_last_map_difficulty;
     std::int64_t m_last_weather_us = 0;
 };
 } // namespace asst::blackflow
