@@ -11,6 +11,7 @@ namespace asst
 namespace blackflow
 {
 struct RecruitmentDutyOffer;
+struct TerminalDutyIntent;
 }
 
 // 干员招募信息
@@ -63,7 +64,8 @@ private:
         bool is_rtl = false,
         bool require_strength = false,
         const blackflow::RecruitmentDutyOffer* duty_intent = nullptr,
-        const blackflow::BlackFlowRecruitmentDutyCatalog* known_catalog = nullptr);
+        const blackflow::BlackFlowRecruitmentDutyCatalog* known_catalog = nullptr,
+        const blackflow::TerminalDutyIntent* terminal_intent = nullptr);
     // 选择干员
     bool select_oper(const battle::roguelike::Recruitment& oper);
     bool select_oper(
