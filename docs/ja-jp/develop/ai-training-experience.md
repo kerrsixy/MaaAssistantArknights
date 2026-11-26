@@ -1271,3 +1271,13 @@ V2は正式BattleCancelSelectionの対応アルゴリズム、ClickRect、有効
 完全165基線から既存18TUを再コンパイルし305物件を継承して計323、新製品TU0。V1の18物件は流用しない。新native：78/0、旧回帰：420/0。未注入はpending。実全資源factoryは両flag・接続機器0で通過した。同一画像Debug独立実験は初回3508.754ms、warm三回285.642/303.307/317.004ms。warm計算単体は500ms未満だが、本機identity+selected-viewのみでcapture/device cancelを含まずproduction_latency_qualifiedはfalse。初回は超過し、受控時刻やwarm結果を実運用adoptの証明にしない。
 
 補助Run87は最終Bossに届かずN9false・680点。無人first endingは未証明でN10未解放。次の新N9で実選択・取消bool・normal二回・更新配置欄・同じマスの結果を確認する。オフライン資格と計時はR87修復済み、実機クリア、安定N10を意味しない。
+
+### 2026-11-26 段階167：一步之遥の実射程で火力担当を分ける
+
+補助Run87は第5層 ｢一步之遥｣ で敗北し、N9 game_pass=false、680点、最終Boss未入場だった。実6人はEW E2/90 S3L10、Mech E2/90 S2L10、Typhon E1/80 S2L7、Carda E1/60 S2L7、Podenco E1/60 S1L7、Cantabile E1/70 S1L7。167は当該資源の3配置と射程条件だけを変える。EW6,4Right→10,2LeftはC7,1/上門前9,1必須、Typhon4,5Up→3,5UpはA3,1のみ必須、医療5,5Up→1,6Upは左守備1,5を優先。Mech1,5Up、Carda6,3Upと順序は維持し、Cardaは基礎射程でB5,1/C7,1を担当する。治療優先範囲はHPS保証ではない。Podenco S1は発動中だけ左守備を治療し、3火力を治療しない。
+
+V1実76/4を保存する。4失敗はraw collector.frontを最終実行選択と誤解したためで、手札Cantabileは占有1,5のraw先頭に残り、生産do_best_deploy1717で占有を除く。V2資源はV1とbyte同一。旧ラベル・raw事実・射程/役割条件を保ち、4契約をraw候補存在+実dispatcher見証へ明示訂正、raw/common dispatch2件を追加する。元断言をそのまま緑化したのではない。当該ログ増分のNoLoc座標とDeployment action failedの名前/座標が必要で、欠落なら失敗。Controller前の試行のみでPlaced・実配置・存活ではない。後続占有はcontrolled fixture、Soul検査は無効で完全実機入力チェーンではない。
+
+通常/緊急のランダム植物・倍率・全map RNGは実機未検証。EA14は移動・転送・ブロック不可の2標的遠隔術敵で、3,4固定砲台ではない。3火力は3,4を直射せず、そこを宣言するのはroute46/47だけで48ではない。後段には射程内の宣言点もある。新Typhonは盲点脅威に近く、Podencoは3高台を治療しない。盾/樹壁・Soulの盾起動・実ダメージ/回復/制御窓は未解決。EWが冷却/未知で除外された際、元順序はEW配置済みの必須条件ではない。総費用99はavailableやready時刻ではなく、射程緑はこれらの解決・安定保証ではない。
+
+最終資格は公開166の実DLL/323物件を継承しProbeだけ再コンパイル、製品再編0・新製品TU0。165基線V1 76/4とV2 78/0を別保存し、166統合結果と合算しない。最終統合native：78/0、同cohort普通占位と167全資源の互換回帰：78/0。実数未注入ならpending、factoryは最終記録に従う。166本番500ms全鎖の実機適合は未証明で本段階が修復したとはしない。範囲/経路根拠はrun87_step_away_counterfactual_readonly、run87_step_away_ash_hazard_readonlyと独立再審。Git前に5言語文書を同期する。新N9勝利・最終結末・N10実機通過の資格ではない。

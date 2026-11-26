@@ -1271,3 +1271,13 @@ V2는 정식BattleCancelSelection의 지원 알고리즘, ClickRect, 유효resou
 완전한165기반에서 기존18TU를 다시 컴파일하고305객체를 계승해 총323, 신규 제품TU0이다. V1의18객체는 재사용하지 않는다. 신규native: 78/0, 기존 회귀: 420/0. 미주입 수는pending이다. 실제 전체자원factory가 두flag모두 장치0으로 통과했다. 독립 동일 이미지Debug실험은 첫3508.754ms, warm세 번285.642/303.307/317.004ms였다. warm계산 자체는500ms미만이지만 본 머신identity+selected-view만 측정했고capture/device cancel은 제외했으므로production_latency_qualified는false다. 첫 호출은 초과했으며 통제 시각이나warm결과를 실제운용adopt증명으로 사용하지 않는다.
 
 보조Run87은 최종Boss에 도달하지 못하고N9false·680점으로 끝났다. 무인first ending은 미증명이며N10은 해금되지 않았다. 다음새N9에서 실제선택·취소bool·normal두 번·갱신배치 바·동일칸 결과를 확인해야 한다. 오프라인 자격과 로컬계시는R87수정완료, 실기클리어 또는 안정N10의 증거가 아니다.
+
+### 2026-11-26 단계167: 一步之遥의 실제 사거리로 화력 역할 분리
+
+보조Run87은5층 ‘一步之遥’에서 패배했다. N9 game_pass=false,680점이며 최종Boss에 진입하지 않았다. 실제6명은EW E2/90 S3L10,Mech E2/90 S2L10,Typhon E1/80 S2L7,Carda E1/60 S2L7,Podenco E1/60 S1L7,Cantabile E1/70 S1L7이다.167은 해당 자원의3배치와 사거리 계약만 바꾼다. EW6,4Right→10,2Left는C7,1/위쪽 문 앞9,1필수,Typhon4,5Up→3,5Up는A3,1만 필수,의료5,5Up→1,6Up는왼쪽 방어1,5우선이다. Mech1,5Up·Carda6,3Up와 순서는 유지하며Carda기본 사거리는B5,1/C7,1을 덮는다. 치료 선호 범위는HPS보장이 아니다. Podenco S1은 활성 창에서만 왼쪽 방어를 치료하고 세 출력은 치료하지 못한다.
+
+V1실제76/4를 보존한다.4실패는raw collector.front를 최종 실행 선택으로 오해한 결과다. 손패Cantabile은 점유된1,5의raw첫 행에 남을 수 있고 생산do_best_deploy1717이 점유 칸을 거른다. V2자원은V1과byte동일하다. 원래label·raw사실·사거리/역할 문턱을 보존하고4계약을raw행 존재+실제dispatcher증거로 명시 정정하며raw/common dispatch2검사를 추가한다. 같은 단언을 그대로 녹색으로 바꾼 것이 아니다. 이번native로그 증분의NoLoc좌표와Deployment action failed이름/좌표가 모두 필요하고 로그가 없으면 실패한다. Controller전 시도만 증명하며Placed·실제 배치·생존은 아니다. 후속 점유는controlled fixture이고Soul검사를 끄므로 전체live입력 체인이 아니다.
+
+일반/긴급 무작위 식물·배율·전체map RNG는 실기 검증이 필요하다. EA14는 이동·전송하며 저지 불가인2목표 원거리 마법 적으로3,4고정 포대가 아니다. 세 출력은3,4를 직접 덮지 않으며 그 점을 선언한 경로는46/47이고48은 아니다. 후반 일부 선언점에는 화력이 닿는다. 새Typhon은 근접 사각 위협에 더 가깝고Podenco는세 고지대를 치료하지 않는다. 방패/나무벽·Soul방패 발동·실제 피해/치료/제어 창은 미해결이다. EW쿨다운/미상으로 후보가 빠지면 기존 순서는EW배치 완료 선행조건이 아니다. 총99비용은available/ready시각이 아니며 사거리 녹색이 위험 해결·안정을 뜻하지 않는다.
+
+최종 자격은 정식166실제DLL/323객체를 계승하고Probe만 재컴파일하며 제품 재컴파일0·신규 제품TU0이다.165기반V1 76/4와V2 78/0는 별도 보존하고166통합 결과와 합산하지 않는다. 최종 통합native: 78/0,동일cohort일반 점유의167전체 자원 호환 회귀: 78/0. 실제 수 미주입 시pending이고factory는 최종 기록을 따른다.166생산500ms전체 체인의 실기 충족은 미증명이며 본 단계가 해결했다고 하지 않는다. 범위/경로 근거는run87_step_away_counterfactual_readonly·run87_step_away_ash_hazard_readonly·독립 재심이다. Git전에5언어 문서를 동기화한다. 새N9승리·최종 결말·N10실기 통과 증명이 아니다.
