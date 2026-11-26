@@ -68,6 +68,8 @@ private:
 
     const InventoryCleanupPolicy* resolve_policy(std::string* error) const;
 
+    static InventoryCleanupPolicy selection_policy(const InventoryCleanupPolicy& policy, bool mandatory);
+
     bool full_flag_visible(BlackFlowInventoryContext& context) const;
     std::vector<VisibleScrap> recognize(BlackFlowInventoryContext& context, const InventoryCleanupPolicy& policy) const;
     [[nodiscard]] bool same_view(const std::vector<VisibleScrap>& lhs, const std::vector<VisibleScrap>& rhs) const;
