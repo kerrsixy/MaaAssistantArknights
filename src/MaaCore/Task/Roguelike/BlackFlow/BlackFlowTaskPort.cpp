@@ -15,6 +15,7 @@
 #include "BlackFlowMovePreviewAnalyzer.h"
 #include "BlackFlowMovementRecognition.h"
 #include "MaaUtils/ImageIo.h"
+#include "MaaUtils/NoWarningCV.hpp"
 #include "Utils/WorkingDir.hpp"
 #include <fstream>
 
@@ -28,6 +29,7 @@
 #include "Utils/Logger.hpp"
 #include "Utils/StringMisc.hpp"
 #include "Vision/OCRer.h"
+#include "Vision/RegionOCRer.h"
 #include "Vision/Roguelike/RoguelikeParameterAnalyzer.h"
 
 namespace asst::blackflow
@@ -439,12 +441,14 @@ bool BlackFlowTaskPort::preview(
         else {
             // 逐个普通战斗节点探查；没有命中时保持 unknown，不能把 OCR 未命中
             // 当成“没有理想源”，否则会在下一次重规划时丢掉尚未探查完的节点。
-            LogInfo << __FUNCTION__ << "BlackFlow battle preview ideal source" << "unknown";
+            LogInfo << __FUNCTION__ << "BlackFlow battle preview ideal source"
+                    << "unknown";
         }
     }
     else if (*displayed_type == NodeType::BattleSavage) {
         // 理想源不会出现在险路恶敌。即使详情页出现相似文字，也不能写入节点事实。
-        LogInfo << __FUNCTION__ << "BlackFlow savage preview ideal source" << "skipped";
+        LogInfo << __FUNCTION__ << "BlackFlow savage preview ideal source"
+                << "skipped";
     }
     return true;
 }
@@ -533,39 +537,57 @@ std::optional<int> BlackFlowTaskPort::recognize_goal_life(const cv::Mat& image)
     if (!task || image.empty()) {
         return std::nullopt;
     }
-    OCRer analyzer(image);
+    RegionOCRer analyzer(image);
     analyzer.set_task_info(task);
-    const auto results = analyzer.analyze();
-    if (!results) {
+    if (!analyzer.analyze() || analyzer.get_result().score < 0.8) {
         return std::nullopt;
     }
-    std::optional<int> current;
-    for (const auto& result : *results) {
-        if (result.score < 0.95) {
-            continue;
-        }
-        std::string text = result.text;
-        std::erase(text, ' ');
-        const auto slash = text.find('/');
-        if (slash == std::string::npos || slash == 0 || slash + 1 == text.size() ||
-            text.find('/', slash + 1) != std::string::npos) {
-            continue;
-        }
-        const auto left = text.substr(0, slash), right = text.substr(slash + 1);
-        const auto digits = [](const std::string& value) {
-            return value.size() <= 3 && std::ranges::all_of(value, [](char x) { return x >= '0' && x <= '9'; });
-        };
-        int life = -1, maximum = -1;
-        if (!digits(left) || !digits(right) || !utils::chars_to_number(left, life) ||
-            !utils::chars_to_number(right, maximum) || maximum <= 0 || life > maximum) {
-            continue;
-        }
-        if (current && *current != life) {
-            return std::nullopt;
-        }
-        current = life;
+    std::string text = analyzer.get_result().text;
+    std::erase(text, ' ');
+    const auto slash = text.find('/');
+    if (slash == std::string::npos || slash == 0 || slash + 1 == text.size() ||
+        text.find('/', slash + 1) != std::string::npos) {
+        return std::nullopt;
     }
-    return current;
+    const auto left = text.substr(0, slash), right = text.substr(slash + 1);
+    const auto digits = [](const std::string& value) {
+        return value.size() <= 3 && std::ranges::all_of(value, [](char x) { return x >= '0' && x <= '9'; });
+    };
+    int life = -1, maximum = -1;
+    if (!digits(left) || !digits(right) || !utils::chars_to_number(left, life) ||
+        !utils::chars_to_number(right, maximum) || maximum <= 0 || life > maximum) {
+        return std::nullopt;
+    }
+    if (analyzer.get_result().score >= 0.95) {
+        return life;
+    }
+    // The current value is larger and cyan, while the denominator is smaller
+    // and gray. A weak mixed-font ratio cannot authorize the current value by
+    // itself: require a second high-confidence numeric reading to agree.
+    std::vector<cv::Mat> channels;
+    cv::split(image, channels);
+    if (channels.size() != 3) {
+        return std::nullopt;
+    }
+    cv::Mat brightness, normalized;
+    cv::max(channels[0], channels[1], brightness);
+    cv::max(brightness, channels[2], brightness);
+    cv::cvtColor(brightness, normalized, cv::COLOR_GRAY2BGR);
+    RegionOCRer current(normalized);
+    current.set_task_info(task);
+    current.set_bin_threshold(180);
+    if (!current.analyze() || current.get_result().score < 0.95) {
+        return std::nullopt;
+    }
+    const auto& current_text = current.get_result().text;
+    int independently_read = -1;
+    if (!digits(current_text) || !utils::chars_to_number(current_text, independently_read) ||
+        independently_read != life) {
+        return std::nullopt;
+    }
+    LogDebug << __FUNCTION__ << "Current life independently verified" << life << analyzer.get_result().score
+             << current.get_result().score;
+    return independently_read;
 }
 
 std::optional<int> BlackFlowTaskPort::recognize_ingots(const cv::Mat& image) const

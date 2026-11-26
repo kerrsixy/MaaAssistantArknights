@@ -38,6 +38,15 @@ protected:
 
 private:
     friend class RoguelikePreparedPrimaryTestAccess;
+    friend class BlackFlowFormationCapacityTestAccess;
+    static std::optional<std::size_t> read_formation_capacity(const cv::Mat& frame);
+    static bool append_formation_candidates(
+        std::vector<RoguelikeFormationImageAnalyzer::FormationOper>& selected,
+        const std::vector<RoguelikeFormationImageAnalyzer::FormationOper>& remaining,
+        std::size_t capacity);
+    mutable bool m_capacity_observation_only = false;
+    mutable bool m_use_observed_capacity = false;
+    std::optional<std::size_t> m_verified_formation_capacity;
     bool m_scan_failed = false;
     bool m_selection_input_issued = false;
     int cur_page = 1;
