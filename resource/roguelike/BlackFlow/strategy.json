@@ -969,38 +969,6 @@
                     }
                 },
                 {
-                    "id": "ending1_non_empty_reward_density",
-                    "description": "在不牺牲安全出口和关键目标的前提下，尽量多经过可获得奖励或信息的非空节点",
-                    "kind": "preferred",
-                    "floor_window": [
-                        1,
-                        5
-                    ],
-                    "rank": 0,
-                    "count": 99,
-                    "weight": 1,
-                    "reward_weight_min": 0,
-                    "selector": {
-                        "node_types": [
-                            "battle_elite",
-                            "battle_normal",
-                            "battle_savage",
-                            "duel",
-                            "expedition",
-                            "hide_battle",
-                            "hide_invisible",
-                            "incident",
-                            "light",
-                            "portal",
-                            "rest",
-                            "sacrifice",
-                            "scrap_shop",
-                            "shop",
-                            "wish"
-                        ]
-                    }
-                },
-                {
                     "id": "ending1_late_expedition",
                     "description": "第三至第五层优先经过先行一步",
                     "kind": "preferred",
@@ -2479,6 +2447,81 @@
                     "allow_fallback": false
                 }
             ]
+        },
+        {
+            "id": "ending_shared_reward_density",
+            "description": "保留第二、第三结局既有非空节点密度定义",
+            "milestones": [
+                {
+                    "id": "ending1_non_empty_reward_density",
+                    "description": "在不牺牲安全出口和关键目标的前提下，尽量多经过可获得奖励或信息的非空节点",
+                    "kind": "preferred",
+                    "floor_window": [
+                        1,
+                        5
+                    ],
+                    "rank": 0,
+                    "count": 99,
+                    "weight": 1,
+                    "reward_weight_min": 0,
+                    "selector": {
+                        "node_types": [
+                            "battle_elite",
+                            "battle_normal",
+                            "battle_savage",
+                            "duel",
+                            "expedition",
+                            "hide_battle",
+                            "hide_invisible",
+                            "incident",
+                            "light",
+                            "portal",
+                            "rest",
+                            "sacrifice",
+                            "scrap_shop",
+                            "shop",
+                            "wish"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "ending1_reward_density",
+            "description": "第一结局跳过溯源退出时，不将误入奇境计作保证奖励",
+            "milestones": [
+                {
+                    "id": "ending1_non_empty_reward_density",
+                    "description": "在不牺牲安全出口和关键目标的前提下，尽量多经过可获得奖励或信息的非空节点",
+                    "kind": "preferred",
+                    "floor_window": [
+                        1,
+                        5
+                    ],
+                    "rank": 0,
+                    "count": 99,
+                    "weight": 1,
+                    "reward_weight_min": 0,
+                    "selector": {
+                        "node_types": [
+                            "battle_elite",
+                            "battle_normal",
+                            "battle_savage",
+                            "duel",
+                            "expedition",
+                            "hide_battle",
+                            "hide_invisible",
+                            "incident",
+                            "light",
+                            "rest",
+                            "sacrifice",
+                            "scrap_shop",
+                            "shop",
+                            "wish"
+                        ]
+                    }
+                }
+            ]
         }
     ],
     "profiles": [
@@ -2625,6 +2668,7 @@
             "modules": [
                 "common_navigation",
                 "ending_development",
+                "ending1_reward_density",
                 "ending_scrap_trade",
                 "ending1_exit",
                 "ending1_survival_encounters"
@@ -2896,6 +2940,7 @@
             "modules": [
                 "common_navigation",
                 "ending_development",
+                "ending_shared_reward_density",
                 "ending_scrap_trade",
                 "ending2_route"
             ],
@@ -2978,6 +3023,7 @@
             "modules": [
                 "common_navigation",
                 "ending_development",
+                "ending_shared_reward_density",
                 "ending_scrap_trade",
                 "ending3_route"
             ],
