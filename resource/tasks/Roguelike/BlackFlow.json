@@ -1,4 +1,21 @@
 {
+    "BlackFlow@Roguelike@OpeningRewardItemPopup": {
+        "algorithm": "OcrDetect",
+        "roi": [
+            400,
+            220,
+            130,
+            60
+        ],
+        "text": [
+            "加工品",
+            "收藏品"
+        ],
+        "next": [
+            "BlackFlow@Roguelike@LastRewardConfirmLeave@(BlackFlow@Roguelike@CloseCollection)"
+        ],
+        "Doc": "Opening reward item overlay. Recognize its foreground label before background cards; retain the existing close-template check and bounded ProcessTask retry."
+    },
     "BlackFlow@Roguelike@MapGoalLife": {
         "algorithm": "OcrDetect",
         "roi": [
@@ -89,6 +106,7 @@
     "BlackFlow@Roguelike@Begin": {
         "baseTask": "Roguelike@Begin",
         "next": [
+            "BlackFlow@Roguelike@OpeningRewardItemPopup",
             "BlackFlow@Roguelike@StashedRecruitReady",
             "BlackFlow@Roguelike@BeginRecovery_DataSync",
             "BlackFlow@Roguelike@BeginRecovery_DailySupply",
@@ -1223,15 +1241,25 @@
             "maxTimes 只计点击；每次点击都把 LastRewardConfirmObserve 的执行次数清零。点击四次仍未生效时进入 RecoveryFailed 并停在当前画面。"
         ],
         "template": "BlackFlow@Roguelike@LastRewardConfirm.png",
-        "roi": [0, 474, 1280, 205],
+        "roi": [
+            0,
+            474,
+            1280,
+            205
+        ],
         "maxTimes": 4,
         "next": [
+            "BlackFlow@Roguelike@OpeningRewardItemPopup",
             "BlackFlow@Roguelike@LastRewardConfirmLeave@(BlackFlow@Roguelike@CloseCollection)",
             "BlackFlow@Roguelike@LastRewardConfirmObserve",
             "BlackFlow@Roguelike@LastRewardConfirmLeave#next"
         ],
-        "exceededNext": ["BlackFlow@Roguelike@RecoveryFailed"],
-        "reduceOtherTimes": ["BlackFlow@Roguelike@LastRewardConfirmObserve*2"]
+        "exceededNext": [
+            "BlackFlow@Roguelike@RecoveryFailed"
+        ],
+        "reduceOtherTimes": [
+            "BlackFlow@Roguelike@LastRewardConfirmObserve*2"
+        ]
     },
     "BlackFlow@Roguelike@LegacyCompletion-BabyShop": {
         "algorithm": "JustReturn",
@@ -3163,6 +3191,7 @@
         "Doc": "确认之后的后续任务列表，LastRewardConfirm、LastRewardConfirmObserve 与弹窗处理都用 #next 引用它。黑流的 CloseCollection 的 next 是 #next，只能写成 某任务@(CloseCollection) 的形式。",
         "algorithm": "JustReturn",
         "next": [
+            "BlackFlow@Roguelike@OpeningRewardItemPopup",
             "BlackFlow@Roguelike@RolesDefault",
             "BlackFlow@Roguelike@LastRewardConfirmLeave@(BlackFlow@Roguelike@CloseCollection)",
             "BlackFlow@Roguelike@LastRewardNext",
@@ -3196,10 +3225,20 @@
             "BlackFlow@Roguelike@LastReward5.png",
             "BlackFlow@Roguelike@LastReward6.png"
         ],
-        "roi": [82, 145, 1116, 310],
+        "roi": [
+            82,
+            145,
+            1116,
+            310
+        ],
         "postDelay": 1500,
-        "next": ["BlackFlow@Roguelike@LastReward-EnterPoint"],
-        "reduceOtherTimes": ["BlackFlow@Roguelike@LastReward-EnterPoint*4"]
+        "next": [
+            "BlackFlow@Roguelike@OpeningRewardItemPopup",
+            "BlackFlow@Roguelike@LastReward-EnterPoint"
+        ],
+        "reduceOtherTimes": [
+            "BlackFlow@Roguelike@LastReward-EnterPoint*4"
+        ]
     },
     "BlackFlow@Roguelike@LastRewardSelectObserve": {
         "template": [
