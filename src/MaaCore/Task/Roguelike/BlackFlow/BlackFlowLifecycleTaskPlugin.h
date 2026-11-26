@@ -32,6 +32,7 @@ private:
         OwnExploration,
         BeginActiveRecovery,
         RecoveryIdentity,
+        RecoveryRecruitSeen,
         RecoveryMapSeen,
         AlignRecoveryMap,
         StopActiveRecovery,
@@ -58,8 +59,14 @@ private:
     void stop_start_run(std::string_view status, const std::vector<std::string>& rewards = {});
     void complete_start_run(const std::vector<std::string>& rewards = {});
 
+    enum class RecoveryTrigger
+    {
+        DataSync,
+        WakeUp
+    };
+
     bool owns_current_exploration() const;
-    bool begin_active_recovery();
+    bool begin_active_recovery(RecoveryTrigger trigger = RecoveryTrigger::DataSync);
     bool accept_recovery_identity(std::string_view client, std::string_view uid);
     bool align_recovery_map(const BlackFlowPerceptionSnapshot& snapshot, std::string* error);
     void stop_active_recovery(std::string_view reason);
@@ -70,6 +77,10 @@ private:
     bool m_exploration_started = false;
     bool m_active_recovery = false;
     bool m_recovery_map_seen = false;
+    bool m_recovery_login_seen = false;
+    bool m_recovery_identity_verified = false;
+    bool m_recovery_recruit_seen = false;
+    mutable RecoveryTrigger m_pending_recovery_trigger = RecoveryTrigger::DataSync;
     std::string m_owned_run_id;
     std::string m_owned_uid;
     std::string m_owned_client;

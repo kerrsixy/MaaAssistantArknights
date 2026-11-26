@@ -1247,3 +1247,17 @@ Run87原程序於09:13:55停在登入頁，exit1、流程錯誤0、無結算；�
 發布context的精確recruit策略及真實exit2/錯誤數由獨立guard候選檢驗，不放寬未知來源、無人資格或原暫停保護。原87流程錯誤0不能抵消輔助嘗試的錯誤，也不能恢復其無人資格。後續僅限身分及存檔證據匹配的saved-only assisted；缺結算或大廳證據時不稱已完成，也不改為放棄後新開。
 
 最終新原生：24/0；舊回歸：102/0；guard：23/0。未注入實際數字即維持pending；factory與最終產物依獨立資格回執。本階段資格不是已實測斷線自動恢復、無人通過或獲勝；N9仍未勝，N10仍未解鎖。
+
+### 2026-11-26 階段165：招募中斷時保留目前探索並有界恢復
+
+164的Run87輔助續局已真實通過待招募入口，機械師E2實收並到第5層，之後在「一步之遙」失敗：N9 game_pass=false、680分、結算floor4、最終大廳正證；exit0、流程錯誤0、暫停0、fresh0、restore1不是無人通過。未進最終Boss，沒有結局標題或N10解鎖證明。原87登入中斷exit1及首次after-login01的exit2/流程錯誤2均保留，不以後續輔助恢復覆蓋。
+
+165採內部163候選，在招募確認/清理的同影格候選清單優先辨識正證DataSync或WakeUp。原Recruit先丟棄未實收的pending晉升，Lifecycle在恢復點擊前檢查本程序已完成StartExplore且run/UID/client完全相符；無所有權、重複觸發、超限或未知頁都原地停止保留。登入後須在真Home重新取得精確UID/client正證，才可Continue，經164雙正錨Recruit或既有Intro/Map。招募頁不是實收或地圖證據；仍須新鮮層名/地圖/AP經原Session.update對齊、清舊Running後才釋放原Routing。不棄局新開、不解除使用者暫停，冷啟動順序不變。
+
+產品三原始碼/標頭及一資源，繼承161來源及正式164資源、三舊TU、零新增產品TU，目標323物件，以最終manifest為準。首輪真Debug因Probe helper接受const配置卻呼叫僅nonconst的status()而C2662，build_exit1、native_exit=null，並非產品斷言失敗。原紀錄與工件保留。V2只移除測試形參const並將測試CRLF轉LF；產品、資源、六項輸入與全部業務斷言不變。V2從161重編三TU，不稱沿用首次失敗工程物件，兩輪實編3+3。
+
+V2其後實際build0/native1，在完整public ProcessTask用例SIGSEGV退出且無summary；這是第二個獨立失敗，不與V1編譯失敗混為一筆，也不把先前未印FAIL算通過。原紀錄沒有呼叫堆疊。唯讀來源確定空Assistant使Status為空，而成功DoNothing後ProcessTask仍需狀態記帳；此必然無效依賴不等於已證實實際異常PC。V3只替該完整用例提供真實但未連線的Assistant/Status，加兩項前後未連線/未啟動檢查；完整Active入口、原battle圖及原拒絕斷言皆保留。沒有新增Task.get(active)實際列印，不虛構runtime欄位。V3僅編Probe，沿用V2已編3個新產品及320繼承物件，共323，無第三輪產品重編。最終實數注入前仍pending。
+
+最終新原生：48/0；舊相容回歸：156/0；未注入數字即維持pending，factory與產物依最終資格紀錄。Probe正向fresh UID及地圖/AP是明確受控前提，不代表實際Controller登入或自動恢復成功。163自動live仍未證；空run_id的外部輔助續局不能憑此取得本程序所有權。資格不是實機通關、無人接受、N9勝利或穩定N10。
+
+原Probe仍輸出zero_controller_public_ProcessTask_runs=2；標籤已過時，實際是一例空實例加一例真實未連線實例。連線與遊戲輸入皆0，不改寫原紀錄。

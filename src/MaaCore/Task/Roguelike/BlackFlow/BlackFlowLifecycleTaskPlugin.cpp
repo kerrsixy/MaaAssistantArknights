@@ -51,6 +51,10 @@ bool BlackFlowLifecycleTaskPlugin::load_params(const json::value& params)
     m_exploration_started = false;
     m_active_recovery = false;
     m_recovery_map_seen = false;
+    m_recovery_login_seen = false;
+    m_recovery_identity_verified = false;
+    m_recovery_recruit_seen = false;
+    m_pending_recovery_trigger = RecoveryTrigger::DataSync;
     m_owned_run_id.clear();
     m_owned_uid.clear();
     m_owned_client.clear();
@@ -165,8 +169,17 @@ bool BlackFlowLifecycleTaskPlugin::verify(AsstMsg msg, const json::value& detail
         m_pending = PendingWork::OwnExploration;
         return true;
     }
-    if (msg == AsstMsg::SubTaskStart && task == "BlackFlow@Roguelike@BeginRecovery_DataSync" && m_exploration_started) {
+    if (msg == AsstMsg::SubTaskStart &&
+        ((task == "BlackFlow@Roguelike@BeginRecovery_DataSync" && m_exploration_started) ||
+         task == "BlackFlow@Roguelike@RecruitRecoveryDataSync" ||
+         task == "BlackFlow@Roguelike@ActiveRunRecoveryWakeUp")) {
+        m_pending_recovery_trigger =
+            task == "BlackFlow@Roguelike@ActiveRunRecoveryWakeUp" ? RecoveryTrigger::WakeUp : RecoveryTrigger::DataSync;
         m_pending = PendingWork::BeginActiveRecovery;
+        return true;
+    }
+    if (msg == AsstMsg::SubTaskStart && task == "BlackFlow@Roguelike@ActiveRunRecoveryStop") {
+        m_pending = PendingWork::StopActiveRecovery;
         return true;
     }
     if (m_active_recovery) {
@@ -174,8 +187,15 @@ bool BlackFlowLifecycleTaskPlugin::verify(AsstMsg msg, const json::value& detail
             m_pending = PendingWork::StopActiveRecovery;
             return true;
         }
+        if (msg == AsstMsg::SubTaskStart && m_recovery_login_seen && !m_recovery_identity_verified &&
+            (task == "BlackFlow@Roguelike@ResumeSavedContinue" || task == "BlackFlow@Roguelike@ResumeSavedRecruit" ||
+             task == "BlackFlow@Roguelike@ResumeFloorIntro" || task == "BlackFlow@Roguelike@ResumeSavedMap")) {
+            m_pending = PendingWork::StopActiveRecovery;
+            return true;
+        }
         if (msg == AsstMsg::SubTaskStart &&
-            (task == "BlackFlow@Roguelike@Abandon" || task == "BlackFlow@Roguelike@AbandonConfirm" ||
+            (task == "BlackFlow@Roguelike@StartExplore" || task == "BlackFlow@Roguelike@StartAction" ||
+             task == "BlackFlow@Roguelike@Abandon" || task == "BlackFlow@Roguelike@AbandonConfirm" ||
              task == "BlackFlow@Roguelike@ExitThenAbandon" || task == "BlackFlow@Roguelike@StrategyTerminated" ||
              task == "BlackFlow@Roguelike@ActiveRunRecoveryStop")) {
             m_pending = PendingWork::StopActiveRecovery;
@@ -185,12 +205,17 @@ bool BlackFlowLifecycleTaskPlugin::verify(AsstMsg msg, const json::value& detail
             m_pending = PendingWork::RecoveryIdentity;
             return true;
         }
+        if (msg == AsstMsg::SubTaskCompleted && task == "BlackFlow@Roguelike@ResumeSavedRecruit") {
+            m_pending = PendingWork::RecoveryRecruitSeen;
+            return true;
+        }
         if (msg == AsstMsg::SubTaskCompleted && task == "BlackFlow@Roguelike@ResumeSavedMap") {
             m_pending = PendingWork::RecoveryMapSeen;
             return true;
         }
         if (msg == AsstMsg::SubTaskCompleted && task == "BlackFlow@Roguelike@MapPrepare-Ready") {
-            m_pending = PendingWork::AlignRecoveryMap;
+            m_pending = m_recovery_recruit_seen && !m_recovery_map_seen ? PendingWork::RecoveryMapSeen
+                                                                        : PendingWork::AlignRecoveryMap;
             return true;
         }
     }
@@ -272,6 +297,10 @@ void BlackFlowLifecycleTaskPlugin::reset_in_run_variables()
     m_exploration_started = false;
     m_active_recovery = false;
     m_recovery_map_seen = false;
+    m_recovery_login_seen = false;
+    m_recovery_identity_verified = false;
+    m_recovery_recruit_seen = false;
+    m_pending_recovery_trigger = RecoveryTrigger::DataSync;
     m_owned_run_id.clear();
     m_owned_uid.clear();
     m_owned_client.clear();
@@ -316,7 +345,7 @@ bool BlackFlowLifecycleTaskPlugin::_run()
         return true;
     }
     if (work == PendingWork::BeginActiveRecovery) {
-        return begin_active_recovery();
+        return begin_active_recovery(std::exchange(m_pending_recovery_trigger, RecoveryTrigger::DataSync));
     }
     if (work == PendingWork::StopActiveRecovery) {
         stop_active_recovery("unrecognized saved exploration or unsafe recovery continuation");
@@ -331,6 +360,15 @@ bool BlackFlowLifecycleTaskPlugin::_run()
         }
         return true;
     }
+    if (work == PendingWork::RecoveryRecruitSeen) {
+        if (!owns_current_exploration() || (m_recovery_login_seen && !m_recovery_identity_verified)) {
+            stop_active_recovery("saved recruitment lacks current owned login identity proof");
+            return true;
+        }
+        m_recovery_recruit_seen = true;
+        report_active_recovery("recruitment_page_verified", "unfinished saved choice, not a committed recruitment");
+        return true;
+    }
     if (work == PendingWork::RecoveryMapSeen) {
         if (!owns_current_exploration()) {
             stop_active_recovery("map anchor belongs to an unverified exploration");
@@ -340,6 +378,9 @@ bool BlackFlowLifecycleTaskPlugin::_run()
         m_session->clear_current_floor();
         Task.set_task_base("BlackFlow@Roguelike@NextLevel", "Roguelike@NextLevel");
         report_active_recovery("map_anchor_verified");
+        // A resumed recruitment may return directly through the ordinary map
+        // acknowledgement. Let its existing routing hook recover the floor.
+        set_block(false);
         return true;
     }
     if (work == PendingWork::AlignRecoveryMap) {
@@ -694,14 +735,20 @@ bool BlackFlowLifecycleTaskPlugin::owns_current_exploration() const
            m_config->account_client() == m_owned_client;
 }
 
-bool BlackFlowLifecycleTaskPlugin::begin_active_recovery()
+bool BlackFlowLifecycleTaskPlugin::begin_active_recovery(RecoveryTrigger trigger)
 {
-    if (m_active_recovery) {
-        stop_active_recovery("DataSync repeated before the saved map was aligned");
+    if (!owns_current_exploration()) {
+        stop_active_recovery("recovery has no matching process-owned exploration identity");
         return true;
     }
-    if (!owns_current_exploration()) {
-        stop_active_recovery("DataSync has no matching process-owned exploration identity");
+    if (m_active_recovery) {
+        if (trigger == RecoveryTrigger::WakeUp && !m_recovery_login_seen) {
+            m_recovery_login_seen = true;
+            m_recovery_identity_verified = false;
+            report_active_recovery("login_transition", "same recovery episode; no retry budget reset");
+            return true;
+        }
+        stop_active_recovery("recovery trigger repeated before the saved map was aligned");
         return true;
     }
     auto* process = dynamic_cast<ProcessTask*>(m_task_ptr);
@@ -712,6 +759,9 @@ bool BlackFlowLifecycleTaskPlugin::begin_active_recovery()
     }
     m_active_recovery = true;
     m_recovery_map_seen = false;
+    m_recovery_login_seen = trigger == RecoveryTrigger::WakeUp;
+    m_recovery_identity_verified = false;
+    m_recovery_recruit_seen = false;
     if (!process->override_next(
             "BlackFlow@Roguelike@ResumeSavedContinue",
             { "BlackFlow@Roguelike@ActiveRunRecovery" }) ||
@@ -719,13 +769,19 @@ bool BlackFlowLifecycleTaskPlugin::begin_active_recovery()
         stop_active_recovery("saved continuation override could not be installed");
         return true;
     }
-    report_active_recovery("continuing", "DataSync retained the same native exploration");
+    report_active_recovery(
+        "continuing",
+        trigger == RecoveryTrigger::WakeUp ? "login retained the same native exploration"
+                                           : "DataSync retained the same native exploration");
     return true;
 }
 
 bool BlackFlowLifecycleTaskPlugin::accept_recovery_identity(std::string_view client, std::string_view uid)
 {
-    return m_active_recovery && owns_current_exploration() && client == m_owned_client && uid == m_owned_uid;
+    const bool accepted =
+        m_active_recovery && owns_current_exploration() && client == m_owned_client && uid == m_owned_uid;
+    m_recovery_identity_verified = accepted;
+    return accepted;
 }
 
 bool BlackFlowLifecycleTaskPlugin::align_recovery_map(const BlackFlowPerceptionSnapshot& snapshot, std::string* error)
@@ -733,6 +789,7 @@ bool BlackFlowLifecycleTaskPlugin::align_recovery_map(const BlackFlowPerceptionS
     // The map reader, not the previous client combat banner, closes the old page.
     // Require fresh observed AP here: normal reconciliation has a prediction fallback.
     if (!m_active_recovery || !m_recovery_map_seen || !owns_current_exploration() ||
+        (m_recovery_login_seen && !m_recovery_identity_verified) ||
         (!snapshot.run.action_points.has_value() && !snapshot.observation.hud_action_points.has_value()) ||
         !m_session->update(snapshot, error)) {
         if (error != nullptr && error->empty()) {
@@ -749,6 +806,9 @@ bool BlackFlowLifecycleTaskPlugin::align_recovery_map(const BlackFlowPerceptionS
     remove_recovery_override();
     m_active_recovery = false;
     m_recovery_map_seen = false;
+    m_recovery_login_seen = false;
+    m_recovery_identity_verified = false;
+    m_recovery_recruit_seen = false;
     report_active_recovery(
         "map_aligned",
         "fresh map reconciliation cleared the previous page without asserting victory");
@@ -778,10 +838,16 @@ void BlackFlowLifecycleTaskPlugin::report_active_recovery(std::string_view statu
 {
     auto info = basic_info_with_what("BlackFlowActiveRunRecovery");
     info["details"] = json::object {
-        { "status", std::string(status) }, { "reason", std::string(reason) },
-        { "run_id", m_owned_run_id },      { "uid", m_owned_uid },
-        { "client", m_owned_client },      { "map_anchor_verified", m_recovery_map_seen },
+        { "status", std::string(status) },
+        { "reason", std::string(reason) },
+        { "run_id", m_owned_run_id },
+        { "uid", m_owned_uid },
+        { "client", m_owned_client },
+        { "map_anchor_verified", m_recovery_map_seen },
         { "victory_inferred", false },
+        { "login_seen", m_recovery_login_seen },
+        { "fresh_identity_verified", m_recovery_identity_verified },
+        { "unfinished_recruitment_seen", m_recovery_recruit_seen },
     };
     callback(AsstMsg::SubTaskExtraInfo, info);
 }
