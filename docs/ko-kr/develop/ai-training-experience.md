@@ -1237,3 +1237,13 @@ TaskPort는 실제 노드preview의 같은 입력 프레임에서 신원과 비�
 기준은160리소스와156바이너리/소스 집합이다. 제품 소스/헤더13과 설정 리소스1,실제 의존 기존36TU·신규 제품0TU이며 일관된323객체가 목표다. 최종manifest를 따른다. 신규native:102/0;기존515항목:515/0. 실제 수 미제공은pending이다. V1은 두 소스 검토 공백으로 반려되었으며native실패가 아니다. 원래 후보와32개 동결 아티팩트를 보존하고 아티팩트 수를 통과 검사 수로 세지 않는다. 첫 실제gate와 새N9/N10통과는 미입증이다. 다른 단계를 합산하지 않고 다섯 언어 훈련 문서를 먼저 동기화한 뒤push한다.
 
 첫V2 Debug는 제품36TU를 모두 컴파일했지만 native탐침은exit6으로 조기 종료되어 전체summary가 없었다. 첫 통제fixture가floor1의3×5를floor4/5에 잘못 사용하여 실제Session이 거부했다. 원래 자격JSON·로그·실패 결과를 보존하며 실행된 앞부분이나summary부재를 전체 통과로 쓰지 않는다. V3는 탐침에서만 실제floor_profile을 사용해floor4=5×8,floor5=5×10으로 고치고 초기화 오류를 출력한다. 제품 소스/헤더13과 설정 리소스1은V2와 바이트가 같고 업무 단언을 완화하지 않았다. 새로 컴파일한36객체와 계승287객체로323을 재사용하고 탐침만 다시 컴파일한다. 새DLL링크와 전체 리소스 양쪽flag factory는 기기0·입력0으로 통과했다. V3와 기존515의 실제 수는 위 인수로 주입하고 미완료는pending으로 둔다. V1소스검토 반려와V2실제native fixture실패를 구분하여 전자를native실패로 꾸미거나 후자를 덮어쓰지 않는다. 첫live gate와 다음N9/N10통과는 미입증이다.
+
+### 2026-11-26 단계164: 저장 탐색 재개 후 모집 대기 화면 인식
+
+Run87 원래 프로세스는09:13:55 로그인 화면에서 exit1, 흐름 오류0, 결산 없이 끝났다. 원래 결과를 보존하며 오류0만으로 통과라 하지 않는다. 이후 native StartUp→Continue에서 저장 탐색의 양성 증거를 얻었다. saved-after-login01은 새로운 native UID 결합과 현재 run 대원6명의 명확한 기록 후 Continue를 눌렀으며 실제 모집 대기 목록으로 돌아왔다. 기존 복구 체인은 Intro/Map만 인식해 exit2와 흐름 오류2로 끝났고, 결산이나 새 탐색 시작은 없었다. 읽기 전용 native 캡처와 Windows 입력0 관찰은 run87_saved_recruit_native_fixture/receipt.json 및 run87_saved_recruit_window/observation.json에 있다.
+
+164는 ResumeSavedContinue와 ResumeSavedExploration에만 모집 대기 진입을 추가한다. ChooseOperFlag 템플릿과 VoucherStashRecruitmentPage OCR 양성 앵커가 모두 맞아야 기존 ChooseOper 소비자로 보낸다. 알 수 없는 화면이나 로그인 화면은 허용하지 않는다. 재탐색·가격·육성·업무 자격·선택 확인은 기존 체인을 사용한다. 앞선 Mech E2 선택은 입력 기록만 있고 획득 확정 증거가 없어 마지막으로 확인된 E1을 유지한다.
+
+별도 guard 후보가 정확한 recruit 배포 context와 실제 exit2/오류 수를 검사한다. 출처 불명, 무인 자격이나 기존 일시정지 보호를 완화하지 않는다. 원래87의 오류0으로 보조 시도의 오류를 지우거나 무인 자격을 복구하지 않는다. 이후는 신원·저장 증거가 일치하는 saved-only assisted로 한정한다. 결산·로비 증거 없이 완료라 하지 않고 포기 후 새 탐색으로 전환하지 않는다.
+
+최종 신규 native: 24/0, 기존 회귀: 102/0, guard: 23/0. 실제 수가 주입되지 않으면 pending을 유지한다. factory와 최종 산출물은 독립 자격 기록을 따른다. 본 자격은 연결 끊김 자동 복구의 실기 증명이나 무인 통과·승리가 아니다. N9은 아직 승리하지 않았고 N10도 해금되지 않았다.
