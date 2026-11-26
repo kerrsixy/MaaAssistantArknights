@@ -1237,3 +1237,13 @@ TaskPort在真實節點preview同一輸入影格讀取身分和費用，綁定�
 基線為160資源與156二進位/來源佇列。13個產品源/標頭與1個設定資源，實源閉包36個舊TU、0新增產品TU，目標完整一致323物件；最終構建與DLL依資格manifest。新原生：102/0；舊515項回歸：515/0。未注入實際計數則維持pending。V1因兩項原始碼審查缺口退回，不是native紅；原候選及32件凍結工件保留，不把工件數當測試通過數。首次實機gate、新N9或N10通關仍未獲證；其它階段成果不混入本項。先同步五語訓練文件再推送。
 
 首次V2 Debug的36個產品TU編譯成功，但原生探針exit6早停且無完整summary；首個受控夾具誤將floor1的3×5網格放到floor4/5，遭真實Session校驗拒絕。保留原資格JSON、日誌與紅結果，不把已執行前段或缺summary稱為完整通過。V3只在探針使用真實floor_profile：floor4為5×8、floor5為5×10，並輸出初始化錯誤；13個產品源/標頭與1個設定資源逐位元組等於V2，原業務斷言未放寬。復用本次36個新編譯物件及287個繼承物件組成323，僅重編探針；新DLL已連結、完整資源雙flag factory以0裝置/0輸入通過。V3新原生與舊515項最終計數按上列實際參數注入，未完成者仍pending。V1原始碼審查退回與V2真實native夾具紅分開記錄，不把前者虛構成native失敗，也不覆寫後者。首次live gate及下一N9/N10仍未獲證。
+
+### 2026-11-26 階段164：識別存檔恢復後的待招募頁面
+
+Run87原程序於09:13:55停在登入頁，exit1、流程錯誤0、無結算；原始結果保留，不能因錯誤數為0而算通過。隨後原生StartUp→Continue取得存檔存在的正證。saved-after-login01經本次原生UID重新綁定及六名current-run幹員明確回執後，點Continue確實回到待招募清單；舊恢復鏈只辨識Intro/Map，實際exit2、流程錯誤2，無結算、無新開局。原生唯讀截圖與Windows零輸入觀察分別見run87_saved_recruit_native_fixture/receipt.json及run87_saved_recruit_window/observation.json。
+
+164僅替ResumeSavedContinue與ResumeSavedExploration增加待招募入口：須同時命中ChooseOperFlag模板及VoucherStashRecruitmentPage OCR正錨，才回到既有ChooseOper消費者。不放行未知頁，也不把登入頁視為招募頁；招募重找、費用、練度、業務資格與選擇確認沿用原鏈。先前機械師E2選卡只有輸入回執，尚無實收正證，仍依最後確認的E1處理。
+
+發布context的精確recruit策略及真實exit2/錯誤數由獨立guard候選檢驗，不放寬未知來源、無人資格或原暫停保護。原87流程錯誤0不能抵消輔助嘗試的錯誤，也不能恢復其無人資格。後續僅限身分及存檔證據匹配的saved-only assisted；缺結算或大廳證據時不稱已完成，也不改為放棄後新開。
+
+最終新原生：24/0；舊回歸：102/0；guard：23/0。未注入實際數字即維持pending；factory與最終產物依獨立資格回執。本階段資格不是已實測斷線自動恢復、無人通過或獲勝；N9仍未勝，N10仍未解鎖。
