@@ -265,6 +265,9 @@ protected:
     std::map<std::pair<battle::OperNameTag, Point>, int> m_unverified_deployment_attempts;
     // Unknown evidence shares the bounded retry budget across operators on a tile.
     std::map<Point, int> m_unverified_deployment_tiles;
+    // Separate bounded UI-reclamation attempts. These are not placement
+    // failures; only a confirmed placement or a new battle replenishes them.
+    std::map<Point, int> m_ordinary_occupancy_recovery_attempts;
 
 private:
     InstHelper m_inst_helper;

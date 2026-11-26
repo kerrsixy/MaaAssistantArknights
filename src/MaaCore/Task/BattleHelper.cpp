@@ -63,6 +63,7 @@ void asst::BattleHelper::clear()
     m_used_tiles.clear();
     m_unverified_deployment_attempts.clear();
     m_unverified_deployment_tiles.clear();
+    m_ordinary_occupancy_recovery_attempts.clear();
 }
 
 bool asst::BattleHelper::calc_tiles_info(const std::string& stage_name, double shift_x, double shift_y)
@@ -638,7 +639,10 @@ bool asst::BattleHelper::deploy_oper(
             LogInfo << __FUNCTION__ << "Allowing unverified reserve operator deployment" << oper_name << loc;
             outcome = battle::DeploymentOutcome::Confirmed;
         }
-        if (outcome != battle::DeploymentOutcome::Confirmed) {
+        if (outcome == battle::DeploymentOutcome::RecoveryPending) {
+            ++m_ordinary_occupancy_recovery_attempts[loc];
+        }
+        if (outcome != battle::DeploymentOutcome::Confirmed && outcome != battle::DeploymentOutcome::RecoveryPending) {
             ++m_unverified_deployment_attempts[{ { oper.role, oper.name }, loc }];
             if (battle::shares_deployment_tile_retry_budget(
                     outcome,
@@ -651,9 +655,10 @@ bool asst::BattleHelper::deploy_oper(
                         << "quarantined" << !battle::deployment_retry_allowed(attempts);
             }
         }
-        else {
+        else if (outcome == battle::DeploymentOutcome::Confirmed) {
             m_unverified_deployment_attempts.erase({ { oper.role, oper.name }, loc });
             m_unverified_deployment_tiles.erase(loc);
+            m_ordinary_occupancy_recovery_attempts.erase(loc);
         }
         if (deployment_kind(oper) == battle::DeploymentKind::Consumable) {
             return outcome == battle::DeploymentOutcome::Confirmed;
@@ -833,6 +838,13 @@ asst::battle::DeploymentOutcome
                                 cancel_oper_selection();
                             }
                             else if (selection.selected_view && selection.camera_unchanged) {
+                                // Let a scoped exact-Soul consumer reuse our accepted
+                                // selection before cancel destroys its fresh identity.
+                                // RecoveryPending grants no placement acknowledgement.
+                                selection.received_ms = timestamp();
+                                if (consume_ordinary_occupancy_selection(selection, selected_image)) {
+                                    return battle::DeploymentOutcome::RecoveryPending;
+                                }
                                 selection.cancellation =
                                     cancel_owned_ordinary_occupancy_selection(selected_image, selection.observed_ms);
                             }

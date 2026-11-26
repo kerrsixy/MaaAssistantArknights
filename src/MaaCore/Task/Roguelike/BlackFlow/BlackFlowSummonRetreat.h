@@ -110,6 +110,13 @@ public:
         const battle::SelectedObjectObservation& observation,
         std::uint64_t sequence,
         std::uint64_t now_ms);
+    // Only a fresh, still-open exact Soul panel owned by an accepted ordinary
+    // inspection may enter reclamation. No new Select, timeout extension,
+    // Boss credential, placement success or removal evidence is invented.
+    SummonRetreatDecision adopt_reclaim_selection(
+        const battle::SelectedObjectObservation& inspection,
+        const SummonRetreatObservation& selected,
+        std::uint64_t now_ms);
     void input_result(SummonRetreatAction action, bool succeeded);
     void invalidate_input_permission() noexcept;
     // State-only query for diagnostics/tests. Real input additionally requires

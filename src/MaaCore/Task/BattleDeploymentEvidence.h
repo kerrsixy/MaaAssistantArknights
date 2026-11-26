@@ -32,7 +32,10 @@ enum class DeploymentOutcome
 {
     Unknown,
     Rejected,
-    Confirmed
+    Confirmed,
+    // Our exact occupant UI transaction owns recovery; this is not placement
+    // failure or success and must not consume a placement retry.
+    RecoveryPending
 };
 enum class DeploymentKind
 {
