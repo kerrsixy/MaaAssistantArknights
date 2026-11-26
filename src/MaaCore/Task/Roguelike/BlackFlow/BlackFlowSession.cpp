@@ -1586,6 +1586,7 @@ BlackFlowPlan BlackFlowSession::plan(std::string* error)
         const auto avoided_nodes = avoided_stage_nodes();
         request.forbidden_nodes = &avoided_nodes;
         request.probe_target = m_pending_probe_target;
+        request.route_search.time_budget_ms = 3000;
         result = BlackFlowPlanner {}.plan(request);
         Log.info(
             "BlackFlow strategy goals",
