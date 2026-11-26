@@ -3,9 +3,12 @@
 #include <filesystem>
 #include <utility>
 
+#include "Assistant.h"
 #include "Common/AsstBattleDef.h"
+#include "Config/Roguelike/BlackFlow/BlackFlowAccountProfile.h"
 #include "Config/TaskData.h"
 #include "Task/ProcessTask.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowResumeRoster.h"
 #include "Utils/Platform/Platform.h"
 
 // ------------------ 通用配置及插件 ------------------
@@ -354,6 +357,51 @@ bool asst::RoguelikeTask::set_params(const json::value& params)
     if (!params.get("battle_resume_stage", std::string()).empty()) {
         if (theme != RoguelikeTheme::BlackFlow) {
             return false;
+        }
+        // A saved battle cannot visit Home for a fresh UID scan. This Debug-only
+        // handoff is explicitly assisted and bound to the connected device;
+        // it never emits a fresh AccountBound or an unattended acceptance.
+        const auto roster_file = params.get("blackflow_resume_roster_file", std::string {});
+        if (!roster_file.empty()) {
+            const auto context = params.find<json::object>("battle_resume_context");
+            const auto context_value = context ? json::value(*context) : json::value();
+            const auto client = context_value.get("client", std::string {});
+            const auto uid = context_value.get("uid", std::string {});
+            const auto uuid = context_value.get("device_uuid", std::string {});
+            if (!context || !context_value.get("assisted", false) || params.get("starts_count", 1) != 0 ||
+                client.empty() || uid.empty() || uuid.empty() || !inst() || !inst()->connected() ||
+                inst()->get_uuid() != uuid) {
+                LogError << __FUNCTION__ << "Refused unbound assisted battle context";
+                return false;
+            }
+            std::string error;
+            auto profile = blackflow::BlackFlowAccountProfile::load(
+                utils::path(params.get("account_cache_file", std::string {})),
+                client,
+                uid,
+                &error);
+            const auto roster = json::open(utils::path(roster_file));
+            const auto restored =
+                profile && roster ? blackflow::parse_resume_roster(*roster, *profile, &error) : std::nullopt;
+            if (!restored) {
+                LogError << __FUNCTION__ << "Refused assisted battle roster" << error;
+                return false;
+            }
+            m_config_ptr->bind_account(client, uid);
+            if (!m_config_ptr->bind_account_profile(
+                    std::make_shared<blackflow::BlackFlowAccountProfile>(std::move(*profile)))) {
+                return false;
+            }
+            m_config_ptr->status().opers = *restored;
+            auto info = basic_info_with_what("BlackFlowAssistedBattleContextRestored");
+            info["details"] = json::object { { "client", client },
+                                             { "uid", uid },
+                                             { "device_uuid", uuid },
+                                             { "operators", restored->size() },
+                                             { "source", roster_file },
+                                             { "fresh_uid_ui_observation", false },
+                                             { "unattended_acceptance_eligible", false } };
+            callback(AsstMsg::SubTaskExtraInfo, info);
         }
         m_roguelike_task_ptr->set_tasks({ "BlackFlow@Roguelike@BattleResume" });
     }
