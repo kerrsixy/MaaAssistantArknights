@@ -553,6 +553,16 @@ bool asst::BattleHelper::deploy_oper(
     if (int min_duration = swipe_oper_task_ptr->special_params.at(4); duration < min_duration) {
         duration = min_duration;
     }
+    const bool inspect_ordinary = ordinary_occupancy_inspection_applies(oper);
+    const auto failed = m_unverified_deployment_attempts.find({ { oper.role, oper.name }, loc });
+    const bool retry_ordinary =
+        inspect_ordinary && failed != m_unverified_deployment_attempts.end() && failed->second > 0;
+    if (retry_ordinary) {
+        // Preserve the existing bounded retry budget. Controller acceptance is
+        // not deployment evidence; an unconfirmed drag gets more gesture time.
+        duration += 300;
+        LogInfo << __FUNCTION__ << "Retry ordinary deployment with longer drag" << oper_name << loc << duration;
+    }
     bool deploy_with_pause =
         ControlFeat::support(m_inst_helper.ctrler()->support_features(), ControlFeat::SWIPE_WITH_PAUSE);
     if (deploy_with_pause) {
@@ -566,6 +576,17 @@ bool asst::BattleHelper::deploy_oper(
         SwipeExtraDirection::None,
         swipe_oper_task_ptr->special_params.at(2) / 10.0,
         swipe_oper_task_ptr->special_params.at(3) / 10.0);
+
+#ifdef ASST_DEBUG
+    if (inspect_ordinary && input_accepted) {
+        // Post-action images cannot prove whether the held first gesture
+        // entered deployment selection on the requested tile.
+        utils::save_debug_image(
+            m_inst_helper.ctrler()->get_image(),
+            utils::path("debug/blackflow_deployment_drag"),
+            true);
+    }
+#endif
 
     // 拖动干员朝向
     if (deployment_direction != DeployDirection::None && input_accepted) {
@@ -776,6 +797,28 @@ asst::battle::DeploymentOutcome
                         selection.observed_ms = timestamp();
                         selected_image = m_inst_helper.ctrler()->get_image();
                         selection.identity = analyze_detail_page_object_identity(selected_image);
+                        // Reobserve this owned request during panel entry. Do
+                        // not issue another click or treat a missing identity
+                        // as a confirmed placement.
+                        for (int settle = 0; !selection.identity.unique && settle < 3 && !m_inst_helper.need_exit();
+                             ++settle) {
+                            if (!m_inst_helper.sleep(200)) {
+                                break;
+                            }
+                            const auto observed_ms = timestamp();
+                            auto next_image = m_inst_helper.ctrler()->get_image();
+                            if (next_image.empty() || next_image.size() != selected_image.size()) {
+                                break;
+                            }
+                            if (cv::norm(next_image, selected_image, cv::NORM_INF) == 0.0) {
+                                continue;
+                            }
+                            selected_image = std::move(next_image);
+                            selection.observed_ms = observed_ms;
+                            selection.identity = analyze_detail_page_object_identity(selected_image);
+                            LogInfo << __FUNCTION__ << "Reobserved owned deployment inspection" << oper.name << loc
+                                    << "attempt" << settle + 1 << "identity" << selection.identity.id;
+                        }
                         const auto expected_ids = BattleData.get_ids(oper.role, oper.name);
                         if (selection.identity.unique && expected_ids.size() == 1) {
                             evidence.target_identity_matches = selection.identity.id == expected_ids.front();
