@@ -51,6 +51,17 @@ const InventoryCleanupPolicy* BlackFlowInventoryCleanup::resolve_policy(std::str
     return &BlackFlowStrategy.inventory_cleanup_policy();
 }
 
+InventoryCleanupPolicy BlackFlowInventoryCleanup::selection_policy(const InventoryCleanupPolicy& policy, bool mandatory)
+{
+    auto selected = policy;
+    // A preferred retention threshold must not make mandatory overload removal
+    // impossible. Known items retain the configured least-value-first order.
+    if (mandatory) {
+        selected.discard_max_rank = static_cast<int>(selected.discard_priority.size());
+    }
+    return selected;
+}
+
 bool BlackFlowInventoryCleanup::full_flag_visible(BlackFlowInventoryContext& context) const
 {
     const auto task = Task.get<MatchTaskInfo>(std::string(FullFlagTask));
@@ -617,11 +628,10 @@ bool BlackFlowInventoryCleanup::run(BlackFlowInventoryContext& context, std::str
     context.report_cleanup_status("started");
     LogInfo << "BlackFlow inventory | event=cleanup_started";
 
-    if (!survey(context, *policy, error)) {
+    const auto mandatory_policy = selection_policy(*policy, true);
+    if (!survey(context, mandatory_policy, error)) {
         return abandon(context, error);
     }
-
-    const auto discardable = static_cast<std::size_t>(policy->discard_max_rank);
     // 背包格数有限，逐格丢完仍未解除即属本模块异常，此上限只用于防止死循环。
     const int attempts_limit = static_cast<int>(m_model.size()) + 1;
     // 超载解除后按策略再多丢若干件留出富余；解除前不赋值。
@@ -643,12 +653,14 @@ bool BlackFlowInventoryCleanup::run(BlackFlowInventoryContext& context, std::str
             return finish(context, true, error);
         }
 
+        const auto active_policy = selection_policy(*policy, !remaining_after_clear.has_value());
+        const auto discardable = static_cast<std::size_t>(active_policy.discard_max_rank);
         InventoryCell cell;
         InventorySlot slot {};
         std::optional<VisibleScrap> reached;
         const bool fallback_target = m_rank_fallback;
         if (fallback_target) {
-            if (!m_fallback_best.has_value()) {
+            if (!m_fallback_best.has_value() || m_fallback_best->rank >= discardable) {
                 if (const auto completed =
                         finish_without_extra_target(context, remaining_after_clear.has_value(), error);
                     completed.has_value()) {
@@ -707,7 +719,7 @@ bool BlackFlowInventoryCleanup::run(BlackFlowInventoryContext& context, std::str
                     m_failed.size());
                 m_failed.clear();
                 m_attempts.clear();
-                if (!survey(context, *policy, error)) {
+                if (!rewind_to_left(context, error) || !survey(context, mandatory_policy, error)) {
                     return abandon(context, error);
                 }
                 continue;
@@ -728,7 +740,7 @@ bool BlackFlowInventoryCleanup::run(BlackFlowInventoryContext& context, std::str
                     m_failed.size());
                 m_failed.clear();
                 m_attempts.clear();
-                if (!survey(context, *policy, error)) {
+                if (!survey(context, mandatory_policy, error)) {
                     return abandon(context, error);
                 }
                 continue;
@@ -762,7 +774,7 @@ bool BlackFlowInventoryCleanup::run(BlackFlowInventoryContext& context, std::str
                     m_failed.size());
                 m_failed.clear();
                 m_attempts.clear();
-                if (!rewind_to_left(context, error) || !survey(context, *policy, error)) {
+                if (!rewind_to_left(context, error) || !survey(context, mandatory_policy, error)) {
                     return abandon(context, error);
                 }
                 continue;
@@ -839,7 +851,7 @@ bool BlackFlowInventoryCleanup::run(BlackFlowInventoryContext& context, std::str
             LogInfo << "BlackFlow inventory | event=model_reset | reason=rank_fallback_discard";
             m_failed.clear();
             m_attempts.clear();
-            if (!survey(context, *policy, error)) {
+            if (!survey(context, mandatory_policy, error)) {
                 return abandon(context, error);
             }
             continue;
