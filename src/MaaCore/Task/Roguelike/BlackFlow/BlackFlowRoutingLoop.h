@@ -1,5 +1,8 @@
 #pragma once
 
+#include <array>
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -218,8 +221,53 @@ RoutingCycleOutcome execute_pending_routing_cycle(Session& session, IBlackFlowTa
     return execute_preview_cycle(session, port);
 }
 
+// Stack-only provenance for the mandatory refresh in this routing call.
+// A GUI/pending replan cannot opt in, and unknown state retains the old preflight.
 template <typename Session>
-RoutingCycleOutcome execute_replanning_cycle(Session& session, IBlackFlowTaskPort& port)
+std::optional<std::array<std::uint64_t, 7>> routing_observation_stamp(Session& session)
+{
+    if constexpr (requires {
+                      session.run_revision();
+                      session.movement_inventory_refresh_required();
+                      session.map_settle_required();
+                      session.current_floor();
+                      session.map().floor();
+                      session.map().snapshot();
+                      session.viewport().viewport_revision();
+                      session.pending_candidate();
+                      session.transaction();
+                      session.page_context();
+                  }) {
+        const auto floor = session.current_floor();
+        const auto& map = session.map().snapshot();
+        if (!floor || *floor <= 0 || session.run().floor != *floor || session.map().floor() != *floor ||
+            session.run_revision() == 0 || map.revision == 0 || session.viewport().viewport_revision() == 0 ||
+            map.find_node(session.run().current_node) == nullptr || session.movement_inventory_refresh_required() ||
+            session.map_settle_required() || session.pending_candidate() || session.transaction() ||
+            session.page_context()) {
+            return std::nullopt;
+        }
+        for (const auto& edge : map.edges()) {
+            if (edge.knowledge == EdgeKnowledge::Unknown || edge.evidence.forced_by_connectivity_constraint) {
+                return std::nullopt;
+            }
+        }
+        return std::array<std::uint64_t, 7> {
+            session.run_revision(),
+            static_cast<std::uint64_t>(*floor),
+            map.revision,
+            session.viewport().viewport_revision(),
+            session.run().current_node,
+            session.run().resources_revision,
+            session.run().costs.revision,
+        };
+    }
+    return std::nullopt;
+}
+
+template <typename Session>
+RoutingCycleOutcome
+    execute_replanning_cycle(Session& session, IBlackFlowTaskPort& port, bool mandatory_map_refreshed_this_call = false)
 {
     std::string error;
     if (session.terminated()) {
@@ -232,6 +280,7 @@ RoutingCycleOutcome execute_replanning_cycle(Session& session, IBlackFlowTaskPor
                      "listed combat title could not be bound; stopped after verified map cancellation" };
         }
     }
+    const auto before_planning = mandatory_map_refreshed_this_call ? routing_observation_stamp(session) : std::nullopt;
     BlackFlowPlan plan = session.plan(&error);
     if (!plan) {
         if constexpr (requires { session.has_avoided_stage_nodes(); }) {
@@ -253,16 +302,15 @@ RoutingCycleOutcome execute_replanning_cycle(Session& session, IBlackFlowTaskPor
     }
     const MoveCandidate candidate = *plan.decision.selected;
 
-    // A combat node as the first step is especially sensitive to a ghost map:
-    // the visible topology may have changed after an incident (for example
-    // Wandering Villager) while the cached route still looks valid.  Take one
-    // extra full perception pass before committing the first combat step.  If
-    // the map revision changes, discard the candidate and let the normal loop
-    // plan again from the refreshed topology.  A stable pass is cheap insurance
-    // and, crucially, does not spend a movement item just to probe the map.
+    // Only a same-call mandatory refresh followed by unchanged, memory-only
+    // planning can satisfy this preflight. Independent/GUI/pending replans
+    // retain the full refresh below; preview still verifies identity and cost.
+    const bool current_observation_verified = before_planning &&
+                                              before_planning == routing_observation_stamp(session) &&
+                                              !candidate.requires_preview_verification;
     if constexpr (requires { session.map(); }) {
         const Node* target = session.map().snapshot().find_node(candidate.target);
-        if (target != nullptr && is_combat_node_type(target->type)) {
+        if (target != nullptr && is_combat_node_type(target->type) && !current_observation_verified) {
             const std::uint64_t map_revision_before = session.map().snapshot().revision;
             const NodeId current_node_before = session.run().current_node;
             const std::uint64_t resources_revision_before = session.run().resources_revision;
@@ -406,7 +454,7 @@ RoutingCycleOutcome execute_routing_cycle(
         }
     }
 
-    return execute_replanning_cycle(session, port);
+    return execute_replanning_cycle(session, port, true);
 }
 } // namespace asst::blackflow
 
