@@ -394,6 +394,10 @@ bool BlackFlowTaskPort::preview(
         frame_id,
         utils::path_to_utf8_string(frame_path),
         frame_saved);
+    preview.identity_source_node = candidate.source;
+    preview.identity_target_node = candidate.target;
+    preview.identity_map_revision = viewport.map_revision();
+    preview.identity_viewport_revision = viewport.viewport_revision();
     const Rect clicked = shrink_to_center(*click_rect, 0.5);
     json::object facts {
         { "action_id", candidate.action_id },

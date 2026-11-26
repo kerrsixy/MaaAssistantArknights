@@ -473,6 +473,19 @@ struct MoveCandidate
     std::optional<NodeId> first_unclassified;
 };
 
+// Walk paths contain actual traversed nodes. Processing moves currently contain
+// only their target; geometric fly-over cells are not synthesized into this path.
+[[nodiscard]] inline bool
+    move_path_visits_any_node(const MoveCandidate& candidate, const std::unordered_set<NodeId>& nodes)
+{
+    for (const NodeId step : candidate.path) {
+        if (nodes.contains(step)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 struct MoveAction
 {
     MoveCandidate candidate;
@@ -511,6 +524,11 @@ struct MovePreview
     std::string identity_frame_path;
     bool identity_frame_saved = false;
     bool identity_same_frame = false;
+    // Bound at the original node-panel observation, never by a later consumer.
+    NodeId identity_source_node = InvalidNodeId;
+    NodeId identity_target_node = InvalidNodeId;
+    std::uint64_t identity_map_revision = 0;
+    std::uint64_t identity_viewport_revision = 0;
 };
 
 enum class MoveTransactionStage

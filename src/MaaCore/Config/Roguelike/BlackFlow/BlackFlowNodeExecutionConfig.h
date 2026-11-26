@@ -445,6 +445,11 @@ public:
 
     [[nodiscard]] int schema_version() const noexcept { return m_schema_version; }
 
+    [[nodiscard]] bool avoids_combat_stage(std::string_view title) const noexcept
+    {
+        return std::ranges::find(m_avoided_combat_stages, title) != m_avoided_combat_stages.end();
+    }
+
     bool parse_for_test(const json::value& json, std::string* error = nullptr);
 
 private:
@@ -470,6 +475,7 @@ private:
     bool sort_and_check_unique(std::vector<std::string>& value, const std::string& key) const;
     bool verify_task(const std::string& task, const std::string& field) const;
 
+    std::vector<std::string> m_avoided_combat_stages;
     int m_schema_version = 0;
     std::vector<blackflow::NodeExecutionRoute> m_routes;
     std::unordered_map<std::string, blackflow::NodeTaskResult> m_task_results;

@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -137,6 +138,14 @@ class BlackFlowSession
 public:
     bool initialize(std::string profile, std::string* error = nullptr);
     void reset_run();
+    // Exact current native exploration identity; reset_run clears this binding.
+    bool bind_routing_identity(std::string client, std::string uid, std::string run_id, std::string* error = nullptr);
+
+    // Consumed only after the existing cancel-to-map acknowledgement chain.
+    [[nodiscard]] bool ghost_preview_stop_pending() const noexcept { return m_ghost_preview_stop_pending; }
+
+    [[nodiscard]] bool has_avoided_stage_nodes() const;
+    [[nodiscard]] std::unordered_set<NodeId> avoided_stage_nodes() const;
     bool configure_diagnostics(DiagnosticSettings settings, std::string* error = nullptr);
 
     bool update(const BlackFlowPerceptionSnapshot& snapshot, std::string* error = nullptr);
@@ -354,6 +363,20 @@ private:
     RunState m_run;
     std::optional<int> m_current_floor;
     ResourceRegistry m_resources;
+
+    struct AvoidedCombatNode
+    {
+        int floor = 0;
+        std::uint64_t map_revision = 0;
+        std::uint64_t viewport_revision = 0;
+        MovePreview preview;
+    };
+
+    std::string m_routing_client;
+    std::string m_routing_uid;
+    std::string m_routing_run_id;
+    std::unordered_map<NodeId, AvoidedCombatNode> m_avoided_combat_nodes;
+    bool m_ghost_preview_stop_pending = false;
     std::unordered_set<std::string> m_unreachable_actions;
     std::optional<NodeId> m_pending_probe_target;
     std::optional<VerifiedMoveArc> m_verified_move_arc;

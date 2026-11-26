@@ -62,6 +62,18 @@ bool BlackFlowNodeExecutionConfig::parse(const json::value& json)
         LogError << __FUNCTION__ << "unsupported schema_version";
         return false;
     }
+    std::vector<std::string> avoided_combat_stages;
+    if (const auto names = json.find_value("avoided_combat_stages"); names) {
+        if (!names->is<std::vector<std::string>>()) {
+            LogError << __FUNCTION__ << "avoided_combat_stages must be a string array";
+            return false;
+        }
+        avoided_combat_stages = names->as<std::vector<std::string>>();
+        if (!verify_non_empty(avoided_combat_stages, "avoided_combat_stages") ||
+            !sort_and_check_unique(avoided_combat_stages, "avoided_combat_stages")) {
+            return false;
+        }
+    }
     std::vector<blackflow::NodeExecutionRoute> routes;
     std::unordered_set<std::string> route_ids;
     if (!parse_route(json, routes, route_ids)) {
@@ -135,6 +147,7 @@ bool BlackFlowNodeExecutionConfig::parse(const json::value& json)
     m_task_results = std::move(task_results);
     m_preview_names = std::move(preview_names);
     m_preview_name_types = std::move(preview_name_types);
+    m_avoided_combat_stages = std::move(avoided_combat_stages);
     return ret;
 }
 

@@ -1651,6 +1651,9 @@ BindingResolution resolve_binding_milestones(const BlackFlowPlanRequest& request
         if (request.forbidden_actions != nullptr) {
             options.forbidden_action_ids = *request.forbidden_actions;
         }
+        if (request.forbidden_nodes != nullptr) {
+            options.forbidden_node_ids = *request.forbidden_nodes;
+        }
 
         OnDemandStateGraph graph;
         if (!graph.initialize(*request.map, *request.run, std::move(options), &error)) {
@@ -1753,6 +1756,9 @@ PreviewSafetyVerification BlackFlowPlanner::verify_previewed_move_impl(
             if (request.forbidden_actions != nullptr) {
                 source_options.forbidden_action_ids = *request.forbidden_actions;
             }
+            if (request.forbidden_nodes != nullptr) {
+                source_options.forbidden_node_ids = *request.forbidden_nodes;
+            }
 
             OnDemandStateGraph source_graph;
             if (!source_graph.initialize(*request.map, *request.run, std::move(source_options), &result.error)) {
@@ -1786,6 +1792,9 @@ PreviewSafetyVerification BlackFlowPlanner::verify_previewed_move_impl(
     options.maximum_states = request.maximum_states;
     if (request.forbidden_actions != nullptr) {
         options.forbidden_action_ids = *request.forbidden_actions;
+    }
+    if (request.forbidden_nodes != nullptr) {
+        options.forbidden_node_ids = *request.forbidden_nodes;
     }
 
     OnDemandStateGraph graph;
@@ -1871,6 +1880,9 @@ BlackFlowPlan BlackFlowPlanner::plan_impl(const BlackFlowPlanRequest& request) c
     confirmed_options.maximum_states = request.maximum_states;
     if (request.forbidden_actions != nullptr) {
         confirmed_options.forbidden_action_ids = *request.forbidden_actions;
+    }
+    if (request.forbidden_nodes != nullptr) {
+        confirmed_options.forbidden_node_ids = *request.forbidden_nodes;
     }
 
     OnDemandStateGraph confirmed_graph;

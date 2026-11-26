@@ -1,6 +1,7 @@
 #include "BlackFlowSession.h"
 
 #include "BlackFlowMapTemplateMatcher.h"
+#include "Config/Roguelike/BlackFlow/BlackFlowNodeExecutionConfig.h"
 
 #include "BlackFlowRoutingLoop.h"
 
@@ -194,6 +195,11 @@ bool BlackFlowSession::initialize(std::string profile, std::string* error)
     m_run = RunState {};
     m_current_floor.reset();
     m_cultivated_animal_types.clear();
+    m_routing_client.clear();
+    m_routing_uid.clear();
+    m_routing_run_id.clear();
+    m_avoided_combat_nodes.clear();
+    m_ghost_preview_stop_pending = false;
     m_unreachable_actions.clear();
     m_pending_probe_target.reset();
     m_verified_move_arc.reset();
@@ -1034,6 +1040,7 @@ bool BlackFlowSession::merge_perception(
     const NodeId previous_current_node = m_observed_current_node;
     const bool new_floor = m_run.floor != 0 && m_run.floor != normalized->map.floor;
     if (new_floor) {
+        m_avoided_combat_nodes.clear();
         m_movement_inventory_refresh_required = true;
         m_facts.begin_floor();
         m_unreachable_actions.clear();
@@ -1493,6 +1500,49 @@ bool BlackFlowSession::update_in_place(const BlackFlowPerceptionSnapshot& snapsh
     return true;
 }
 
+bool
+    BlackFlowSession::bind_routing_identity(std::string client, std::string uid, std::string run_id, std::string* error)
+{
+    if (client.empty() || uid.empty() || run_id.empty()) {
+        if (error) {
+            *error = "routing account or exploration identity is unknown";
+        }
+        return false;
+    }
+    if ((!m_routing_client.empty() && m_routing_client != client) || (!m_routing_uid.empty() && m_routing_uid != uid) ||
+        (!m_routing_run_id.empty() && m_routing_run_id != run_id)) {
+        if (error) {
+            *error = "routing identity changed without a session reset";
+        }
+        return false;
+    }
+    m_routing_client = std::move(client);
+    m_routing_uid = std::move(uid);
+    m_routing_run_id = std::move(run_id);
+    return true;
+}
+
+std::unordered_set<NodeId> BlackFlowSession::avoided_stage_nodes() const
+{
+    std::unordered_set<NodeId> result;
+    for (const auto& [id, proof] : m_avoided_combat_nodes) {
+        const auto* node = m_map_version.map.snapshot().find_node(id);
+        if (proof.floor == m_run.floor && node && node->progress == NodeProgress::Active &&
+            !is_exit_node_type(node->type) && proof.preview.identity_client == m_routing_client &&
+            proof.preview.identity_uid == m_routing_uid && proof.preview.identity_run_id == m_routing_run_id) {
+            // Keep exact preview knowledge when generic map OCR returns a category,
+            // unknown type, or the base Rest/Light glyph of an occupied battle.
+            result.emplace(id);
+        }
+    }
+    return result;
+}
+
+bool BlackFlowSession::has_avoided_stage_nodes() const
+{
+    return !avoided_stage_nodes().empty();
+}
+
 BlackFlowPlan BlackFlowSession::plan(std::string* error)
 {
     BlackFlowPlan result;
@@ -1517,6 +1567,8 @@ BlackFlowPlan BlackFlowSession::plan(std::string* error)
         request.undemotable_binding_count = goals.undemotable_count;
         request.no_AP_is_terminal = m_policy->no_AP_is_terminal_floors.contains(m_run.floor);
         request.forbidden_actions = &m_unreachable_actions;
+        const auto avoided_nodes = avoided_stage_nodes();
+        request.forbidden_nodes = &avoided_nodes;
         request.probe_target = m_pending_probe_target;
         result = BlackFlowPlanner {}.plan(request);
         Log.info(
@@ -1707,6 +1759,15 @@ bool BlackFlowSession::begin_pending_transaction(std::string* error)
 
 bool BlackFlowSession::begin_transaction(const MoveCandidate& candidate, std::string* error)
 {
+    const auto avoided_nodes = avoided_stage_nodes();
+    if (m_ghost_preview_stop_pending || move_path_visits_any_node(candidate, avoided_nodes) ||
+        avoided_nodes.contains(candidate.target) ||
+        std::ranges::any_of(candidate.possible_landings, [&](NodeId node) { return avoided_nodes.contains(node); })) {
+        if (error) {
+            *error = "movement intention targets a source-confirmed avoided combat stage";
+        }
+        return false;
+    }
     auto proposed = MoveTransaction::propose(candidate, m_map_version.map.snapshot(), m_map_version.coordinates, error);
     if (!proposed.has_value()) {
         return false;
@@ -1744,6 +1805,68 @@ PreviewDisposition BlackFlowSession::accept_preview_in_place(MovePreview preview
     const MoveCandidate proposal = m_transaction->proposal();
     const Node* existing =
         proposal.target == InvalidNodeId ? nullptr : m_map_version.map.snapshot().find_node(proposal.target);
+    const bool optional_combat = is_combat_node_type(preview.displayed_type) &&
+                                 preview.displayed_type != NodeType::BattleBoss && existing &&
+                                 !is_exit_node_type(existing->type);
+    if (reachability == PreviewReachability::Reachable && optional_combat &&
+        BlackFlowNodeExecution.avoids_combat_stage(preview.stage_title)) {
+        const bool bound = preview.identity_revealed && preview.identity_same_frame &&
+                           !preview.identity_frame_key.empty() && !m_routing_client.empty() && !m_routing_uid.empty() &&
+                           !m_routing_run_id.empty() && preview.identity_client == m_routing_client &&
+                           preview.identity_uid == m_routing_uid && preview.identity_run_id == m_routing_run_id &&
+                           preview.identity_source_node == proposal.source &&
+                           preview.identity_target_node == proposal.target &&
+                           preview.identity_map_revision == m_map_version.map.snapshot().revision &&
+                           preview.identity_viewport_revision == m_map_version.coordinates.viewport_revision() &&
+                           m_transaction->map_revision() == m_map_version.map.snapshot().revision &&
+                           m_transaction->viewport_revision() == m_map_version.coordinates.viewport_revision();
+        if (!bound) {
+            if (error) {
+                *error = "avoided combat title lacks current routing/preview identity proof";
+            }
+            // Do not forge a node ban from an unbound title. Reuse the verified
+            // cancel-to-map chain, then stop in place instead of retrying forever.
+            m_ghost_preview_stop_pending = true;
+            cancel_transaction();
+            return PreviewDisposition::ReplanAfterDismiss;
+        }
+        m_avoided_combat_nodes.insert_or_assign(
+            proposal.target,
+            AvoidedCombatNode { m_run.floor,
+                                m_map_version.map.snapshot().revision,
+                                m_map_version.coordinates.viewport_revision(),
+                                preview });
+        LogInfo << __FUNCTION__ << "Avoided confirmed combat stage before move confirmation" << preview.stage_title
+                << "floor" << m_run.floor << "target" << proposal.target << "frame" << preview.identity_frame_key
+                << "UID" << preview.identity_uid << "run" << preview.identity_run_id << "map"
+                << m_map_version.map.snapshot().revision << "viewport" << m_map_version.coordinates.viewport_revision()
+                << "AP unchanged" << m_run.resources.action_points;
+        // Reuse the already saved panel frame; do not request another capture.
+        m_telemetry_events.emplace_back(
+            BlackFlowTelemetryEvent { "BlackFlowGhostStageAvoided",
+                                      json::object { { "stage", preview.stage_title },
+                                                     { "floor", m_run.floor },
+                                                     { "node", proposal.target },
+                                                     { "source", proposal.source },
+                                                     { "map_revision", preview.identity_map_revision },
+                                                     { "viewport_revision", preview.identity_viewport_revision },
+                                                     { "client", preview.identity_client },
+                                                     { "uid", preview.identity_uid },
+                                                     { "run_id", preview.identity_run_id },
+                                                     { "frame_key", preview.identity_frame_key },
+                                                     { "frame_path", preview.identity_frame_path },
+                                                     { "action_points_before", m_run.resources.action_points },
+                                                     { "action_points_after", m_run.resources.action_points },
+                                                     { "move_confirmed", false },
+                                                     { "replan_required", true } } });
+        m_transaction->cancel();
+        m_transaction.reset();
+        m_transaction_id.clear();
+        m_verified_move_arc.reset();
+        m_pending_candidate.reset();
+        m_last_plan.reset();
+        return PreviewDisposition::ReplanAfterDismiss;
+    }
     if (preview.reachability == PreviewReachability::Reachable && existing != nullptr &&
         existing->type == NodeType::HideBattle && preview.displayed_type == NodeType::BattleNormal) {
         preview.displayed_type = existing->type;
@@ -1891,6 +2014,8 @@ PreviewDisposition BlackFlowSession::accept_preview_in_place(MovePreview preview
         request.undemotable_binding_count = request.binding_milestone_candidates.size();
         request.no_AP_is_terminal = m_policy->no_AP_is_terminal_floors.contains(m_run.floor);
         request.forbidden_actions = &m_unreachable_actions;
+        const auto avoided_nodes = avoided_stage_nodes();
+        request.forbidden_nodes = &avoided_nodes;
         const PreviewSafetyVerification verification =
             BlackFlowPlanner {}.verify_previewed_move(request, proposal, preview.exact_action_point_cost);
         if (!verification.error.empty()) {
@@ -1936,6 +2061,17 @@ bool BlackFlowSession::validate_commit(std::string* error) const
     if (!m_transaction.has_value()) {
         if (error != nullptr) {
             *error = "move commit has no active transaction";
+        }
+        return false;
+    }
+    const auto avoided_nodes = avoided_stage_nodes();
+    if (m_ghost_preview_stop_pending || move_path_visits_any_node(m_transaction->proposal(), avoided_nodes) ||
+        avoided_nodes.contains(m_transaction->proposal().target) ||
+        std::ranges::any_of(m_transaction->proposal().possible_landings, [&](NodeId node) {
+            return avoided_nodes.contains(node);
+        })) {
+        if (error) {
+            *error = "move targets a source-confirmed avoided combat stage";
         }
         return false;
     }
