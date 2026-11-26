@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "Common/AsstTypes.h"
+#include "Task/BattleDeploymentEvidence.h"
 
 namespace asst::blackflow
 {
@@ -28,6 +29,7 @@ enum class SummonRetreatIntent
 {
     ProtectOwnerFromBoss,
     ReclaimDeploymentTile,
+    ObserveDeploymentOccupancy,
 };
 
 struct SummonRetreatObservation
@@ -48,6 +50,8 @@ struct SummonRetreatObservation
     std::string selected_name;
     std::string selected_id;
     bool retreat_button_present = false;
+    // Our pending request association, not an independent visual cell proof.
+    std::optional<Point> selection_request_tile;
 };
 
 enum class SummonRetreatEvidenceBasis
@@ -100,6 +104,12 @@ public:
     SummonRetreatDecision abandon(const SummonRetreatObservation& observation);
     bool acknowledge_normal(const SummonRetreatObservation& observation);
     bool complete_handoff();
+    // Adopt only the already accepted ordinary inspection. This purpose never
+    // grants Select or Retreat; it shares the existing UI handoff and ledger.
+    bool adopt_ordinary_selection(
+        const battle::SelectedObjectObservation& observation,
+        std::uint64_t sequence,
+        std::uint64_t now_ms);
     void input_result(SummonRetreatAction action, bool succeeded);
     void invalidate_input_permission() noexcept;
     // State-only query for diagnostics/tests. Real input additionally requires
@@ -127,6 +137,11 @@ public:
     }
 
     bool handoff_pending() const noexcept { return m_phase == Phase::HandingOff; }
+
+    std::optional<Point> non_soul_occupied_tile() const noexcept
+    {
+        return handoff_pending() ? m_non_soul_occupant_tile : std::nullopt;
+    }
 
 private:
     enum class Phase
@@ -168,6 +183,7 @@ private:
     std::uint64_t m_observed_ms = 0;
     std::uint64_t m_received_ms = 0;
     std::optional<InitialAliveCredential> m_initial_alive;
+    std::optional<Point> m_non_soul_occupant_tile;
     std::uint64_t m_started_ms = 0;
     bool m_boss_dead = false;
     SummonRetreatAction m_authorized_action = SummonRetreatAction::None;

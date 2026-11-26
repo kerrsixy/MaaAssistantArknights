@@ -1261,3 +1261,13 @@ Run87元プロセスは09:13:55にログイン画面で終了し、exit1、処�
 最終新native：48/0、旧互換回帰：156/0。未注入ならpending、factory/成果物は最終資格記録による。Probeの正方向fresh UIDと地図/APは受控前提で、実Controllerログインや自動復旧の証明ではない。内部163の自動live復旧は未証明。run_idが空の外部補助再開に本プロセス所有権を与えない。実機クリア・無人合格・N9勝利・安定N10とはしない。
 
 元Probeのzero_controller_public_ProcessTask_runs=2ラベルは旧表記のまま保持する。実際は空instance1例と実在する未接続instance1例であり、接続・ゲーム入力は共に0。元出力を書き換えない。
+
+### 2026-11-26 段階166：通常配置の正確な占有身元と実際の取消結果を保持
+
+R87無主地では6,3の施設名をMech職業で除外し、不明配置を再試行した。166はこの証拠経路だけを修正し、配置や利用可能な6,3の優先度は変えず、根拠のない4,3移動や50DPでの空き枠仮定を追加しない。V1は実native60/0だが、固定500ms取消後待機で500msを超える点とProcessTask完了がController取消受理ではない点のP1二件でソース差戻しとなった。元の緑記録と成果物を保持し、native赤を捏造しない。
+
+V2は正式BattleCancelSelectionの対応アルゴリズム、ClickRect、有効なresource矩形、副作用チェーン不在を検証する。未確認の所有済み通常選択だけが同じControllerの実クリックboolを使い、新Controller・資源は追加しない。現postDelay500は比較資料でボタン身元定数ではない。安定確認は元のfresh normal二回とfresh配置欄が担い、通常/Confirmed/他用途のProcessTask500は保持する。捕捉前observed・操作後received・500ms制限を変更しない。cold/遅延/未知schema/クリック失敗は清理の所有権だけを保ち、Blockedを書かない。通常adoptにSoul選択/撤退権や架空EW ownerを与えない。未資格157のReclaim foreign-device負証は接続せず、元のwrong-name取消と真Soul動作を保つ。live破壊/空き枠producerはなく、時間や観測欠落で解放を作らない。
+
+完全165基線から既存18TUを再コンパイルし305物件を継承して計323、新製品TU0。V1の18物件は流用しない。新native：78/0、旧回帰：420/0。未注入はpending。実全資源factoryは両flag・接続機器0で通過した。同一画像Debug独立実験は初回3508.754ms、warm三回285.642/303.307/317.004ms。warm計算単体は500ms未満だが、本機identity+selected-viewのみでcapture/device cancelを含まずproduction_latency_qualifiedはfalse。初回は超過し、受控時刻やwarm結果を実運用adoptの証明にしない。
+
+補助Run87は最終Bossに届かずN9false・680点。無人first endingは未証明でN10未解放。次の新N9で実選択・取消bool・normal二回・更新配置欄・同じマスの結果を確認する。オフライン資格と計時はR87修復済み、実機クリア、安定N10を意味しない。

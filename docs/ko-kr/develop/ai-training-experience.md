@@ -1261,3 +1261,13 @@ Run87 원래 프로세스는09:13:55 로그인 화면에서 exit1, 흐름 오류
 최종 신규native: 48/0, 기존 호환 회귀: 156/0. 실제 수 미주입 시 pending이며 factory/산출물은 최종 자격 기록을 따른다. Probe의 양성fresh UID와 지도/AP는 명시적 통제 전제이며 실제Controller로그인이나 자동 복구 증명이 아니다. 내부163자동live복구는 미증명이고 run_id가 빈 외부 보조 재개에 본 프로세스 소유권을 부여하지 않는다. 실기 클리어·무인 수락·N9승리·안정N10으로 주장하지 않는다.
 
 원Probe의zero_controller_public_ProcessTask_runs=2는 오래된 라벨로 보존한다. 실제는null인스턴스1개와 실제 미연결 인스턴스1개이며 연결·게임 입력은 모두0이다. 원출력을 수정하지 않는다.
+
+### 2026-11-26 단계166: 일반 배치의 정확한 점유 신원과 실제 취소 결과 보존
+
+R87無主地에서는6,3시설 이름을 Mech직업으로 걸러 불명 배치를 반복했다.166은 이 증거 경로만 수정한다. 기존 위치와 사용 가능한6,3우선순위를 유지하고 근거 없는4,3이동이나50DP청소 가정을 추가하지 않는다. V1실제native60/0은 보존하지만, 고정500ms취소 후 대기로500ms수명을 넘는 점과 ProcessTask완료가Controller취소 수락이 아니라는 두P1 때문에 소스가 반려됐다. 이를native실패로 꾸미지 않는다.
+
+V2는 정식BattleCancelSelection의 지원 알고리즘, ClickRect, 유효resource사각형, 부작용 체인 부재를 검사한다. 미확인 소유 일반 선택에서만 같은Controller의 실제click bool을 받으며 새Controller나 자원은 없다. 현postDelay500은 비교 증거이지 버튼 신원 상수가 아니다. 기존fresh normal두 번과fresh배치 바가 안정성을 확인하고 일반/Confirmed/다른 용도는 ProcessTask500을 유지한다. 캡처 전observed·실제 동작 후received·500ms제한은 바꾸지 않는다. cold/지연/미지schema/실패 클릭은 정리 소유권만 유지하고Blocked를 쓰지 않는다. 일반adopt에Soul선택/퇴각 권한이나 가짜EW owner를 주지 않는다. 미자격157 Reclaim foreign-device부정 증거는 연결하지 않고 기존wrong-name취소와 진짜Soul동작을 유지한다. live파괴/빈칸producer가 없으며 시간·관측 누락으로 해제를 만들지 않는다.
+
+완전한165기반에서 기존18TU를 다시 컴파일하고305객체를 계승해 총323, 신규 제품TU0이다. V1의18객체는 재사용하지 않는다. 신규native: 78/0, 기존 회귀: 420/0. 미주입 수는pending이다. 실제 전체자원factory가 두flag모두 장치0으로 통과했다. 독립 동일 이미지Debug실험은 첫3508.754ms, warm세 번285.642/303.307/317.004ms였다. warm계산 자체는500ms미만이지만 본 머신identity+selected-view만 측정했고capture/device cancel은 제외했으므로production_latency_qualified는false다. 첫 호출은 초과했으며 통제 시각이나warm결과를 실제운용adopt증명으로 사용하지 않는다.
+
+보조Run87은 최종Boss에 도달하지 못하고N9false·680점으로 끝났다. 무인first ending은 미증명이며N10은 해금되지 않았다. 다음새N9에서 실제선택·취소bool·normal두 번·갱신배치 바·동일칸 결과를 확인해야 한다. 오프라인 자격과 로컬계시는R87수정완료, 실기클리어 또는 안정N10의 증거가 아니다.

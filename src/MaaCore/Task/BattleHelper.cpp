@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <future>
+#include <limits>
 #include <thread>
 
 #include "Config/GeneralConfig.h"
@@ -618,7 +619,12 @@ bool asst::BattleHelper::deploy_oper(
         }
         if (outcome != battle::DeploymentOutcome::Confirmed) {
             ++m_unverified_deployment_attempts[{ { oper.role, oper.name }, loc }];
-            if (outcome == battle::DeploymentOutcome::Unknown) {
+            if (battle::shares_deployment_tile_retry_budget(
+                    outcome,
+                    input_accepted,
+                    ordinary_occupancy_inspection_applies(oper))) {
+                // Exact unexpected occupants must not lose the shared retry
+                // budget merely because Unknown became an explicit rejection.
                 const int attempts = ++m_unverified_deployment_tiles[loc];
                 LogWarn << __FUNCTION__ << "Unverified deployment tile" << loc << "attempts" << attempts
                         << "quarantined" << !battle::deployment_retry_allowed(attempts);
@@ -659,11 +665,69 @@ bool asst::BattleHelper::deploy_oper(
     });
 }
 
+bool asst::BattleHelper::ordinary_occupancy_inspection_applies(const battle::DeploymentOper& oper) const
+{
+    return ordinary_occupancy_inspection_enabled() && oper.role != battle::Role::Drone &&
+           !is_nameless_deployable(oper.name) && !oper.name.starts_with("预备干员") &&
+           !oper.name.starts_with("罗德岛临时雇员");
+}
+
+std::optional<asst::Rect>
+    asst::BattleHelper::ordinary_occupancy_cancel_rect(const TaskConstPtr& task, const cv::Mat& image)
+{
+    if (!task || image.empty() || task->name != "BattleCancelSelection" ||
+        task->algorithm != AlgorithmType::JustReturn || task->action != ProcessTaskAction::ClickRect ||
+        task->pre_delay != 0 || task->post_delay < 0 || task->max_times != (std::numeric_limits<int>::max)() ||
+        !task->required_page.empty() || !task->excluded_pages.empty() || !task->sub.empty() || !task->next.empty() ||
+        !task->on_error_next.empty() || !task->exceeded_next.empty() || !task->reduce_other_times.empty()) {
+        return std::nullopt;
+    }
+    const auto& rect = task->specific_rect;
+    if (rect.x < 0 || rect.y < 0 || rect.width <= 0 || rect.height <= 0 || rect.width > image.cols ||
+        rect.height > image.rows || rect.x > image.cols - rect.width || rect.y > image.rows - rect.height) {
+        return std::nullopt;
+    }
+    return rect;
+}
+
+asst::battle::SelectionCancellationReceipt
+    asst::BattleHelper::cancel_owned_ordinary_occupancy_selection(const cv::Mat& image, std::uint64_t observed_ms)
+{
+    battle::SelectionCancellationReceipt receipt;
+    if (!ordinary_occupancy_inspection_enabled()) {
+        return receipt;
+    }
+    const auto rect = ordinary_occupancy_cancel_rect(Task.get("BattleCancelSelection"), image);
+    receipt.schema_verified = rect.has_value();
+    const auto controller = m_inst_helper.ctrler();
+    if (!rect || m_inst_helper.need_exit() || !controller) {
+        return receipt;
+    }
+    // Only the accepted same-frame ordinary inspection (or its owned cleanup)
+    // reaches here. Reuse the existing Controller and the resource's rectangle;
+    // the existing two-normal/fresh-bar lease replaces the fixed post-action wait.
+    const auto now_ms = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+            .count());
+    if (!battle::selected_frame_is_fresh(observed_ms, now_ms)) {
+        return receipt;
+    }
+    receipt.input_attempted = true;
+    receipt.input_accepted = controller->click(*rect);
+    return receipt;
+}
+
 asst::battle::DeploymentOutcome
     asst::BattleHelper::verify_deployment(const battle::DeploymentOper& oper, const Point& loc, bool input_accepted)
 {
     battle::DeploymentEvidence evidence { .input_accepted = input_accepted };
     const auto kind = deployment_kind(oper);
+    const bool inspect_occupancy = ordinary_occupancy_inspection_applies(oper);
+    const auto timestamp = [] {
+        return static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+                .count());
+    };
     if (!input_accepted) {
         return battle::DeploymentOutcome::Rejected;
     }
@@ -674,7 +738,8 @@ asst::battle::DeploymentOutcome
         if (!m_inst_helper.sleep(200)) {
             break;
         }
-        BattlefieldMatcher bar(m_inst_helper.ctrler()->get_image());
+        const auto bar_image = m_inst_helper.ctrler()->get_image();
+        BattlefieldMatcher bar(bar_image);
         bar.set_object_of_interest({ .deployment = true });
         if (const auto result = bar.analyze();
             result && result->deployment.size() + 1 >= m_cur_deployment_opers.size()) {
@@ -691,7 +756,51 @@ asst::battle::DeploymentOutcome
             evidence.card_present = present;
         }
         evidence.absent_observations = evidence.card_present == false ? evidence.absent_observations + 1 : 0;
-        if (kind != battle::DeploymentKind::Consumable && click_oper_on_battlefield(loc)) {
+        battle::SelectedObjectObservation selection;
+        cv::Mat selected_image;
+        if (inspect_occupancy) {
+            selection.requested_tile = loc;
+            selection.card_present = evidence.card_present;
+            selection.normal_before_selection = ordinary_occupancy_normal_view(bar_image);
+            const auto position = m_normal_tile_info.find(loc);
+            const int camera_before = m_camera_count;
+            const auto shift_before = m_camera_shift;
+            if (kind != battle::DeploymentKind::Consumable && selection.normal_before_selection &&
+                position != m_normal_tile_info.end() && !m_inst_helper.need_exit()) {
+                // Consume the real controller receipt; the legacy click helper
+                // deliberately remains unchanged for all other callers.
+                selection.selection_input_accepted = m_inst_helper.ctrler()->click(position->second.pos);
+                if (selection.selection_input_accepted) {
+                    selection.selection_request_tile = loc;
+                    if (m_inst_helper.sleep(Task.get("BattleUseOper")->pre_delay) && !m_inst_helper.need_exit()) {
+                        selection.observed_ms = timestamp();
+                        selected_image = m_inst_helper.ctrler()->get_image();
+                        selection.identity = analyze_detail_page_object_identity(selected_image);
+                        const auto expected_ids = BattleData.get_ids(oper.role, oper.name);
+                        if (selection.identity.unique && expected_ids.size() == 1) {
+                            evidence.target_identity_matches = selection.identity.id == expected_ids.front();
+                        }
+                        selection.expected_identity_matches = evidence.target_identity_matches;
+                        selection.camera_unchanged = camera_before == m_camera_count && shift_before == m_camera_shift;
+                        selection.selected_view = ordinary_occupancy_selected_view(selected_image, selection.identity);
+                        if (!m_inst_helper.need_exit()) {
+                            if (battle::evaluate_deployment(kind, evidence) == battle::DeploymentOutcome::Confirmed) {
+                                // Preserve the original successful deployment's
+                                // ProcessTask path and its500ms post-delay.
+                                cancel_oper_selection();
+                            }
+                            else if (selection.selected_view && selection.camera_unchanged) {
+                                selection.cancellation =
+                                    cancel_owned_ordinary_occupancy_selection(selected_image, selection.observed_ms);
+                            }
+                        }
+                    }
+                }
+            }
+            selection.camera_unchanged = camera_before == m_camera_count && shift_before == m_camera_shift;
+            selection.received_ms = timestamp();
+        }
+        else if (kind != battle::DeploymentKind::Consumable && click_oper_on_battlefield(loc)) {
             const auto observed_name = analyze_detail_page_oper_name(m_inst_helper.ctrler()->get_image(), oper.role);
             if (!observed_name.empty()) {
                 evidence.target_identity_matches = observed_name == oper.name;
@@ -704,6 +813,12 @@ asst::battle::DeploymentOutcome
                 << (evidence.card_present ? static_cast<int>(*evidence.card_present) : -1) << "identity_matches"
                 << (evidence.target_identity_matches ? static_cast<int>(*evidence.target_identity_matches) : -1)
                 << "outcome" << static_cast<int>(outcome);
+        if (inspect_occupancy && outcome != battle::DeploymentOutcome::Confirmed &&
+            consume_ordinary_occupancy_selection(std::move(selection), selected_image)) {
+            // The existing single UI lease now owns recovery. Do not issue a
+            // second inspection or continue using this selected image.
+            return outcome;
+        }
         if (outcome != battle::DeploymentOutcome::Unknown) {
             return outcome;
         }
@@ -1534,6 +1649,27 @@ bool asst::BattleHelper::move_camera(const std::pair<double, double>& delta, boo
 
     calc_tiles_info(m_stage_name, -m_camera_shift.first, m_camera_shift.second);
     return update_deployment(true);
+}
+
+asst::battle::SelectedObjectIdentity asst::BattleHelper::analyze_detail_page_object_identity(const cv::Mat& image)
+{
+    battle::SelectedObjectIdentity result;
+    if (image.empty()) {
+        return result;
+    }
+    result.name = analyze_detail_page_oper_name(image, battle::Role::Unknown);
+    const auto ids = BattleData.get_ids(battle::Role::Unknown, result.name);
+    if (ids.size() != 1) {
+        return result;
+    }
+    const auto properties = BattleData.find_oper_by_id(ids.front());
+    if (!properties) {
+        return result;
+    }
+    result.id = ids.front();
+    result.unique = true;
+    result.device = properties->role == battle::Role::Drone;
+    return result;
 }
 
 std::string asst::BattleHelper::analyze_detail_page_oper_name(const cv::Mat& image, battle::Role role)
