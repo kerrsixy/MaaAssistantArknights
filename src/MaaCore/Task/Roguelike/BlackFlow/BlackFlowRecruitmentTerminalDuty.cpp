@@ -4,6 +4,7 @@
 #include <climits>
 #include <functional>
 #include <map>
+#include <unordered_set>
 
 #include "Config/Miscellaneous/BattleDataConfig.h"
 #include "Config/Miscellaneous/TilePack.h"
@@ -27,11 +28,16 @@ struct Alternative
 {
     battle::roguelike::DeployInfoWithRank plan;
     std::vector<std::string> groups;
+    std::string roster_duty;
+    bool preferred = false;
 };
 
 struct Slot
 {
     Point location;
+    std::vector<Point> locations;
+    std::string roster_duty;
+    bool alternative_presence = false;
     std::vector<Alternative> alternatives;
     int first_rank = INT_MAX;
     bool healing = false;
@@ -282,9 +288,23 @@ Model model(
         out.reason = "terminal_static_geometry_missing_keep_legacy";
         return out;
     }
+    std::map<int, std::string> declared_duties;
+    std::unordered_set<int> preferred_plans;
+    const auto& duties = RoguelikeCopilot.recruitment_duties(context.stage_name);
+    for (const auto& duty : duties) {
+        preferred_plans.insert(duty.preferred_plans.begin(), duty.preferred_plans.end());
+        for (const int index : duty.plans) {
+            declared_duties.emplace(index, duty.id);
+        }
+    }
     std::map<int, Alternative> alternatives;
     for (const auto& [group, plans] : stage->deploy_plan) {
         for (const auto& plan : plans) {
+            if (!duties.empty() && !declared_duties.contains(plan.plan_index)) {
+                // Explicit roster objectives may omit auxiliary battle tasks,
+                // such as tokens and optional healing. Deployment is unchanged.
+                continue;
+            }
             if (plan.kill_lower_bound != 0 || plan.kill_upper_bound != 9999 || plan.max_deployments != INT_MAX ||
                 !plan.exclusive_locations.empty() ||
                 RoguelikeCopilot.maximum_deploy_cost(context.stage_name, plan.plan_index)) {
@@ -293,6 +313,10 @@ Model model(
             }
             const auto [it, inserted] = alternatives.try_emplace(plan.plan_index, Alternative { .plan = plan });
             static_cast<void>(inserted);
+            if (!duties.empty()) {
+                it->second.roster_duty = declared_duties.at(plan.plan_index);
+                it->second.preferred = preferred_plans.contains(plan.plan_index);
+            }
             it->second.plan.rank = std::min(it->second.plan.rank, plan.rank);
             it->second.groups.push_back(group);
         }
@@ -314,13 +338,23 @@ Model model(
                            { "heal", points(p.required_range_tiles) },
                            { "persistent", p.require_persistent_blocking },
                            { "minblock", p.minimum_base_block_count },
+                           { "roster_duty", alt.roster_duty },
+                           { "preferred", alt.preferred },
                            { "rank", p.rank } });
-        const auto existing = std::ranges::find_if(out.slots, [&](const auto& s) { return s.location == p.location; });
+        const auto existing = std::ranges::find_if(out.slots, [&](const auto& s) {
+            return alt.roster_duty.empty() ? s.location == p.location : s.roster_duty == alt.roster_duty;
+        });
         const auto slot_index = static_cast<std::size_t>(existing - out.slots.begin());
         if (existing == out.slots.end()) {
-            out.slots.push_back(Slot { .location = p.location });
+            out.slots.push_back(
+                Slot { .location = p.location,
+                       .roster_duty = alt.roster_duty,
+                       .alternative_presence = !alt.roster_duty.empty() });
         }
         auto& slot = out.slots[slot_index];
+        if (std::ranges::find(slot.locations, p.location) == slot.locations.end()) {
+            slot.locations.push_back(p.location);
+        }
         slot.first_rank = std::min(slot.first_rank, p.rank);
         slot.healing = slot.healing || !p.required_range_tiles.empty();
         slot.blocking = slot.blocking || p.require_persistent_blocking || p.minimum_base_block_count > 0;
@@ -409,7 +443,8 @@ Model model(
             const auto subset = [](const auto& left, const auto& right) {
                 return std::ranges::all_of(left, [&](Point p) { return std::ranges::find(right, p) != right.end(); });
             };
-            if (!subset(a.plan.required_attack_tiles, b.plan.required_attack_tiles) &&
+            if (!out.slots[out.target].alternative_presence &&
+                !subset(a.plan.required_attack_tiles, b.plan.required_attack_tiles) &&
                 !subset(b.plan.required_attack_tiles, a.plan.required_attack_tiles)) {
                 out.reason = "terminal_incomparable_same_site_output_requirements_keep_legacy";
                 return out;
@@ -473,11 +508,32 @@ int acquired_body_coverage(
     int required_coverage = 0;
     for (const auto& alternative : m.slots[m.target].alternatives) {
         if (admits(target_body, alternative, *stage, context, catalog, geometry).value_or(false)) {
+            if (m.slots[m.target].alternative_presence) {
+                // A named alternative goal is satisfied once. Different areas
+                // and directions are not ranked by a count of unrelated tiles.
+                return 1;
+            }
             required_coverage =
                 std::max(required_coverage, static_cast<int>(alternative.plan.required_attack_tiles.size()));
         }
     }
     return required_coverage;
+}
+
+bool preferred_output_body(
+    const Model& model,
+    const Body& body,
+    const BlackFlowRecruitmentDutyCatalog& catalog,
+    const TerminalDutyContext& context)
+{
+    const auto stage = RoguelikeCopilot.get_stage_data(context.stage_name);
+    if (!stage || !model.slots[model.target].alternative_presence) {
+        return false;
+    }
+    const auto geometry = TilePack::calc(context.stage_name);
+    return std::ranges::any_of(model.slots[model.target].alternatives, [&](const auto& alternative) {
+        return alternative.preferred && admits(body, alternative, *stage, context, catalog, geometry).value_or(false);
+    });
 }
 
 int completes(
@@ -544,6 +600,7 @@ TerminalOutputHopeForecast forecast_terminal_output_hope(
     result.template_terms = model.template_terms;
     result.roster_terms = model.roster_terms;
     json::array applicable;
+    bool best_preferred = false;
     std::size_t rejected = 0;
     for (const auto& q : quotes) {
         const auto& observed = q.offer;
@@ -624,13 +681,17 @@ TerminalOutputHopeForecast forecast_terminal_output_hope(
             ++rejected;
             continue;
         }
-        if (!result.expected_hope || *observed.hope_cost < *result.expected_hope) {
+        const bool preferred = terminal_duty_detail::preferred_output_body(model, projected, catalog, context);
+        if (!result.expected_hope || (preferred && !best_preferred) ||
+            (preferred == best_preferred && *observed.hope_cost < *result.expected_hope)) {
             result.expected_hope = *observed.hope_cost;
+            best_preferred = preferred;
         }
         applicable.emplace_back(
             json::object { { "observed_quote", recruitment_quote_to_json(q) },
                            { "projected_planned_skill", planned.selected },
                            { "projected_effective_rank", *rank },
+                           { "preferred_alternative", preferred },
                            { "same_observed_partial_price_context", q.scope.price_context == scope.price_context },
                            { "actual_future_offer", false } });
     }
@@ -639,12 +700,20 @@ TerminalOutputHopeForecast forecast_terminal_output_hope(
     result.evidence = json::object {
         { "objective", "expected_acquisition_budget_not_global_combat_dominance" },
         { "expected_hope", result.expected_hope ? json::value(*result.expected_hope) : json::value(nullptr) },
+        { "preferred_alternative", best_preferred },
         { "native_quote_pool", applicable },
         { "rejected_quote_count", rejected },
         { "current_price_context_complete", scope.price_context_complete },
         { "price_or_future_card_guaranteed", false },
         { "partial_or_changed_modifiers_unresolved", true },
-        { "missing_site", json::array { model.slots[model.target].location.x, model.slots[model.target].location.y } },
+        { "missing_site",
+          model.slots[model.target].locations.size() == 1
+              ? json::value(json::array { model.slots[model.target].location.x, model.slots[model.target].location.y })
+              : json::value(nullptr) },
+        { "candidate_output_sites", terminal_duty_detail::points(model.slots[model.target].locations) },
+        { "output_duty", model.slots[model.target].roster_duty },
+        { "coverage_measure",
+          model.slots[model.target].alternative_presence ? "one_declared_alternative" : "nested_required_tiles" },
         { "optional_current_support_value_zero", false },
         { "DPS_HPS_or_survival_proven", false }
     };
@@ -731,6 +800,7 @@ TerminalDutyDecision choose_terminal_output_duty(
     std::optional<std::size_t> best;
     int best_score = INT_MIN;
     int best_coverage = 0;
+    bool best_preferred = false;
     for (std::size_t i = 0; i < offers.size(); ++i) {
         const auto& offer = offers[i];
         const auto key = [&](const auto& e) {
@@ -747,10 +817,14 @@ TerminalDutyDecision choose_terminal_output_duty(
         if (coverage <= 0) {
             continue;
         }
-        if (!best || coverage > best_coverage || (coverage == best_coverage && found->existing_score > best_score)) {
+        const bool preferred = preferred_output_body(m, offer_body(offer), catalog, context);
+        if (!best || coverage > best_coverage ||
+            (coverage == best_coverage &&
+             ((preferred && !best_preferred) || (preferred == best_preferred && found->existing_score > best_score)))) {
             best = i;
             best_score = found->existing_score;
             best_coverage = coverage;
+            best_preferred = preferred;
         }
     }
     if (!best) {
@@ -767,23 +841,32 @@ TerminalDutyDecision choose_terminal_output_duty(
                                          .stage_name = context.stage_name,
                                          .template_terms = m.template_terms,
                                          .roster_terms = m.roster_terms };
-    result.evidence = json::object { { "scope", "configured_ending1_static_contract_projection_not_DPS_or_survival" },
-                                     { "stage", context.stage_name },
-                                     { "merged_slots", m.slots.size() },
-                                     { "existing_independent_assignments", m.slots.size() - 1 },
-                                     { "selected_required_output_tiles", best_coverage },
-                                     { "missing_output_site",
-                                       json::array { m.slots[m.target].location.x, m.slots[m.target].location.y } },
-                                     { "legacy", legacy_name },
-                                     { "selected", offers[*best].name },
-                                     { "hope", context.hope },
-                                     { "legacy_hope_cost", *legacy->hope_cost },
-                                     { "selected_hope_cost", *offers[*best].hope_cost },
-                                     { "hope_cost_delta", *offers[*best].hope_cost - *legacy->hope_cost },
-                                     { "hope_remaining", context.hope - *offers[*best].hope_cost },
-                                     { "tie_break", "existing_eligible_priority_only_after_strict_new_contract_gain" },
-                                     { "battle_DP_and_HPS_verified", false },
-                                     { "future_enemy_DEF_observed", false } };
+    result.evidence = json::object {
+        { "scope", "configured_ending1_static_contract_projection_not_DPS_or_survival" },
+        { "stage", context.stage_name },
+        { "merged_slots", m.slots.size() },
+        { "existing_independent_assignments", m.slots.size() - 1 },
+        { "selected_required_output_tiles", best_coverage },
+        { "selected_preferred_alternative", best_preferred },
+        { "missing_output_site",
+          m.slots[m.target].locations.size() == 1
+              ? json::value(json::array { m.slots[m.target].location.x, m.slots[m.target].location.y })
+              : json::value(nullptr) },
+        { "candidate_output_sites", terminal_duty_detail::points(m.slots[m.target].locations) },
+        { "output_duty", m.slots[m.target].roster_duty },
+        { "coverage_measure",
+          m.slots[m.target].alternative_presence ? "one_declared_alternative" : "nested_required_tiles" },
+        { "legacy", legacy_name },
+        { "selected", offers[*best].name },
+        { "hope", context.hope },
+        { "legacy_hope_cost", *legacy->hope_cost },
+        { "selected_hope_cost", *offers[*best].hope_cost },
+        { "hope_cost_delta", *offers[*best].hope_cost - *legacy->hope_cost },
+        { "hope_remaining", context.hope - *offers[*best].hope_cost },
+        { "tie_break", "declared_preferred_alternative_then_existing_eligible_priority_after_contract_gain" },
+        { "battle_DP_and_HPS_verified", false },
+        { "future_enemy_DEF_observed", false }
+    };
     return result;
 }
 

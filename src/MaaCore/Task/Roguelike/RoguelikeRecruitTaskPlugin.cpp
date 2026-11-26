@@ -1828,6 +1828,14 @@ bool asst::RoguelikeRecruitTaskPlugin::can_afford(const Recruitment& oper, int h
                 << oper.hope_cost.value_or(-1) << hope;
         return false;
     }
+    const int reserve =
+        RoguelikeRecruit.get_oper_info(m_config->get_theme(), oper.name).minimum_hope_after_paid_recruitment;
+    if (reserve > 0 && !m_initail_recruit && !m_config->status().opers.contains(oper.name) && oper.hope_cost &&
+        *oper.hope_cost > 0 && (hope < 0 || hope - *oper.hope_cost < reserve)) {
+        LogInfo << __FUNCTION__ << "Paid recruitment would cross the configured hope reserve" << oper.name << "price"
+                << *oper.hope_cost << "hope" << hope << "reserve" << reserve;
+        return false;
+    }
     return true;
 }
 

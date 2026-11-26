@@ -1,118 +1,444 @@
 {
     "stage_name": "永无安宁",
     "doc": [
-        "四职责可测方案，ro6_b_4，Nov1原表；实机待验证，不代表通关或DPS/生存证明。",
-        "常驻主挡7,1下→真医疗8,2左先占→EW6,2下→第二输出6,3右。保留原主挡名单/资格、直接医疗名单及费用预留，不增无关第5人或工人。",
-        "EW实际E2/S3L10基础3-9直接覆盖B6,5及原猎手4,2/4,4；A3,2不在主弹选敌范围，只可条件化依赖附近目标溅射，不承诺三点全直接选中。",
-        "第二输出最低精一，真实基础范围须同时覆盖C10,2与8,1门前。精一攻城手4-3可过，普通3-1术师不满足；任务组仅检索，实际range门才给资格，不写死必须提丰。",
-        "纯烬精一/精二3-17在8,2左均覆盖7,1主挡、6,2EW、6,3第二输出；不以精二治疗几何冒称精一HPS相同。该位距C中心2格且在C到A传送线，痛吼/承伤/治疗量风险未解决。",
-        "医疗必须先占以减少后上被魂占格；第二6,3在EW魂域，后下需新鲜画面检查及既有精确回收，不能假定魂可随便撤。若第二先下再EW可预占，但额外费用会延后核心，属于独立未测顺序。",
-        "实际run80无合格第二输出，此四役不齐；缺人时当前计划不会自动停止其它角色，退化到B窗口单核而非完整打法，不以同一人填两格。未加姓名特判、定时等待、Boss死亡推断或AOE半径假设。",
-        "Run80原生卡价Carda18/Mech21/Pure16/EW24，旧三前置55、含EW79；去掉Carda后前置37、含EW61，再加第二输出当局实际c。Mech19的条件才是53/77对35/59，不冒充本场实付。省18DP不等于提前18秒；费用与操作/SP时序未跑。"
+        "2026-11-26 Run88 N9无人工接管到达最终战但失败851分；不能把流程完成当通关。",
+        "按用户最新一结局教程：EW保持6,2朝下；蓝门下7,1专给桃金娘等投锋爆费，不由情报官占用。",
+        "机械师由7,1右移两格到9,1朝下；结构性原理在9,2朝左。召唤物按实际可用、费用和空格处理，不当永久阻挡。",
+        "异格凯尔希8,2朝下带S2，E1/E2基础y-6就覆盖EW6,2、机械师9,1、召唤物9,2；S2对敌优先、治疗发生在命中目标附近，不能把几何范围当持续HPS保证。",
+        "有遥则7,2朝右，S2第二次后持续无限；有圣聆初雪则EW正下6,3，沿现配置S2自动启动，不能用主动点击把无限技能关掉。",
+        "近卫优先争取精二塔露拉S3，精一不作为Boss主输出；暂选8,3朝左，该格同时在异格凯尔希与遥基础范围内。",
+        "予愿安洁莉娜在奶范围内作为输出备选；本候选暂选8,3朝上，必须核对实际职业地形与本局技能。",
+        "予愿安洁莉娜打Boss必须本局精二，优先S3其次S2；奶范围内暂选8,3朝上，S2移动后须动态回读位置。",
+        "各预设位置若被EW魂影占用，必须走身份确认、精确撤退和新鲜空格证据，再放目标，不能仅凭名字或过期账本清格。",
+        "recruitment_duties声明队伍建设的最小职责与输出备选；未列入的辅助部署仍可在战斗使用，不强求招齐每个名字。范围资格不等于N9伤害或生存已验证。",
+        "医疗职责允许异格凯尔希、遥或实际基础范围覆盖的常规医疗独立满足，不因没抓到指定六星就禁用已有奶；同一干员不能同时充当两个独立抓人职责。",
+        "用户确认：本局精二S2提丰为T0，保留实际模组资格；新约能天使、酒神、凛御银灰为T1备选。优选输出先比较本局合法职责，再比较该职责里的优选方案，不用全局997分压过T0。",
+        "澄闪与荒芜拉普兰德作为T2清杂辅助部署，不纳入Boss主输出达标职责；其范围资格不代表Boss伤害或生存已验证。",
+        "备用常规医疗8,2朝左只要求覆盖EW6,2、塔露拉8,3和下方输出6,3/8,3，不冒充能奶到右侧机械师9,1及其召唤物9,2；异格凯尔希或遥仍承担更宽的实际治疗职责。",
+        "原始level_rogue6_b-4的8,1为tile_pollution_roadf/buildableType NONE，不可部署；塔露拉改用8,3的MELEE地块。raw候选存在不是地形合法或Placed证据。"
     ],
     "deploy_plan_only": true,
     "reserve_deploy_cost": true,
     "deploy_plan": [
         {
-            "groups": ["机械师", "重装", "奶盾"],
-            "operator_names": [
-                "机械师",
-                "斩业星熊",
-                "黍",
-                "塞雷娅",
-                "余",
-                "临光",
-                "深律",
-                "星熊",
-                "年",
-                "涤火杰西卡",
-                "信仰搅拌机",
-                "雷蛇",
-                "深巡",
-                "瑕光",
-                "蛇屠箱",
-                "泡泡",
-                "古米",
-                "石棉",
-                "暮落",
-                "车尔尼",
-                "可颂",
-                "拜松",
-                "闪击",
-                "吽",
-                "暴雨",
-                "角峰",
-                "坚雷",
-                "斑点",
-                "卡缇",
-                "米格鲁",
-                "预备干员-重装"
+            "groups": [
+                "投锋"
             ],
-            "location": [7, 1],
+            "operator_names": [
+                "桃金娘"
+            ],
+            "location": [
+                7,
+                1
+            ],
             "direction": "down",
-            "minimum_elite": 1,
-            "require_persistent_blocking": true,
-            "required_attack_tiles": [[7, 1]],
-            "prefer_group_order": true
+            "prefer_group_order": true,
+            "minimum_elite": 1
         },
         {
-            "groups": ["元素奶", "单奶", "群奶", "奶"],
-            "operator_names": [
-                "纯烬艾雅法拉",
-                "蜜莓",
-                "桑葚",
-                "哈洛德",
-                "褐果",
-                "Touch",
-                "流明",
-                "絮雨",
-                "闪灵",
-                "赫默",
-                "华法琳",
-                "图耶",
-                "亚叶",
-                "苏苏洛",
-                "末药",
-                "嘉维尔",
-                "清流",
-                "安赛尔",
-                "芙蓉",
-                "锡兰",
-                "预备干员-后勤"
+            "groups": [
+                "机械师"
             ],
-            "location": [8, 2],
-            "direction": "left",
+            "operator_names": [
+                "机械师"
+            ],
+            "location": [
+                9,
+                1
+            ],
+            "direction": "down",
+            "prefer_group_order": true,
             "minimum_elite": 1,
-            "required_range_tiles": [
-                [7, 1],
-                [6, 2],
-                [6, 3]
+            "require_persistent_blocking": true,
+            "required_attack_tiles": [
+                [
+                    9,
+                    1
+                ]
             ]
         },
         {
-            "groups": ["益达"],
-            "operator_names": ["维什戴尔"],
-            "location": [6, 2],
+            "groups": [
+                "群奶"
+            ],
+            "operator_names": [
+                "凯尔希·思衡托"
+            ],
+            "location": [
+                8,
+                2
+            ],
+            "direction": "down",
+            "prefer_group_order": true,
+            "minimum_elite": 1,
+            "required_range_tiles": [
+                [
+                    9,
+                    1
+                ],
+                [
+                    9,
+                    2
+                ],
+                [
+                    6,
+                    2
+                ],
+                [
+                    6,
+                    3
+                ],
+                [
+                    7,
+                    2
+                ],
+                [
+                    8,
+                    3
+                ]
+            ]
+        },
+        {
+            "groups": [
+                "益达"
+            ],
+            "operator_names": [
+                "维什戴尔"
+            ],
+            "location": [
+                6,
+                2
+            ],
             "direction": "down",
             "minimum_elite": 2,
             "required_attack_tiles": [
-                [6, 5],
-                [4, 2],
-                [4, 4]
+                [
+                    6,
+                    5
+                ],
+                [
+                    4,
+                    2
+                ],
+                [
+                    4,
+                    4
+                ]
             ]
         },
         {
-            "groups": ["狙击", "术师", "高台输出"],
+            "groups": [
+                "其他地面"
+            ],
+            "operator_names": [
+                "结构性原理"
+            ],
+            "location": [
+                9,
+                2
+            ],
+            "direction": "left",
+            "prefer_group_order": true
+        },
+        {
+            "groups": [
+                "塔露拉"
+            ],
+            "operator_names": [
+                "塔露拉"
+            ],
+            "location": [
+                8,
+                3
+            ],
+            "direction": "left",
+            "prefer_group_order": true,
+            "minimum_elite": 2,
+            "required_attack_tiles": [
+                [
+                    8,
+                    3
+                ]
+            ]
+        },
+        {
+            "groups": [
+                "群奶",
+                "辅助"
+            ],
+            "operator_names": [
+                "遥"
+            ],
+            "location": [
+                7,
+                2
+            ],
+            "direction": "right",
+            "prefer_group_order": true,
+            "minimum_elite": 1,
+            "required_range_tiles": [
+                [
+                    6,
+                    2
+                ],
+                [
+                    8,
+                    2
+                ],
+                [
+                    9,
+                    1
+                ],
+                [
+                    8,
+                    3
+                ]
+            ]
+        },
+        {
+            "groups": [
+                "术师"
+            ],
+            "operator_names": [
+                "圣聆初雪"
+            ],
+            "location": [
+                6,
+                3
+            ],
+            "direction": "down",
+            "prefer_group_order": true,
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [
+                    6,
+                    5
+                ]
+            ],
+            "exclude_starting_core": true
+        },
+        {
+            "groups": [
+                "其他地面"
+            ],
+            "operator_names": [
+                "予愿安洁莉娜"
+            ],
+            "location": [
+                8,
+                3
+            ],
+            "direction": "up",
+            "prefer_group_order": true,
+            "minimum_elite": 2,
+            "required_attack_tiles": [
+                [
+                    8,
+                    2
+                ]
+            ],
+            "exclude_starting_core": true
+        },
+        {
+            "groups": [
+                "近卫",
+                "重装",
+                "情报官"
+            ],
+            "operator_names": [
+                "赤刃明霄陈",
+                "斩业星熊",
+                "凛御银灰"
+            ],
+            "location": [
+                4,
+                2
+            ],
+            "direction": "left",
+            "prefer_group_order": true,
+            "minimum_elite": 2,
+            "required_attack_tiles": [
+                [
+                    3,
+                    2
+                ]
+            ],
+            "exclude_starting_core": true
+        },
+        {
+            "groups": [
+                "狙击",
+                "术师",
+                "高台输出"
+            ],
             "exclude_starting_core": true,
-            "excluded_operator_names": ["维什戴尔"],
-            "location": [6, 3],
+            "excluded_operator_names": [
+                "维什戴尔"
+            ],
+            "location": [
+                6,
+                3
+            ],
             "direction": "right",
             "minimum_elite": 1,
             "required_attack_tiles": [
-                [10, 2],
-                [8, 1]
+                [
+                    10,
+                    2
+                ],
+                [
+                    8,
+                    1
+                ]
             ],
             "prefer_group_order": true
+        },
+        {
+            "groups": [
+                "单奶",
+                "群奶"
+            ],
+            "location": [
+                8,
+                2
+            ],
+            "direction": "left",
+            "minimum_elite": 1,
+            "prefer_group_order": true,
+            "required_range_tiles": [
+                [
+                    6,
+                    2
+                ],
+                [
+                    8,
+                    3
+                ],
+                [
+                    6,
+                    3
+                ]
+            ]
+        },
+        {
+            "groups": [
+                "提丰"
+            ],
+            "operator_names": [
+                "提丰"
+            ],
+            "location": [
+                6,
+                3
+            ],
+            "direction": "right",
+            "minimum_elite": 2,
+            "prefer_group_order": true,
+            "required_attack_tiles": [
+                [
+                    10,
+                    2
+                ],
+                [
+                    8,
+                    1
+                ]
+            ],
+            "exclude_starting_core": true
+        },
+        {
+            "groups": [
+                "新能",
+                "元素",
+                "辅助"
+            ],
+            "operator_names": [
+                "新约能天使",
+                "酒神"
+            ],
+            "location": [
+                6,
+                3
+            ],
+            "direction": "down",
+            "minimum_elite": 2,
+            "prefer_group_order": true,
+            "required_attack_tiles": [
+                [
+                    6,
+                    5
+                ]
+            ],
+            "exclude_starting_core": true
+        },
+        {
+            "groups": [
+                "术师"
+            ],
+            "operator_names": [
+                "澄闪",
+                "荒芜拉普兰德"
+            ],
+            "location": [
+                6,
+                3
+            ],
+            "direction": "down",
+            "minimum_elite": 1,
+            "prefer_group_order": true,
+            "required_attack_tiles": [
+                [
+                    6,
+                    5
+                ]
+            ],
+            "exclude_starting_core": true
+        }
+    ],
+    "recruitment_duties": [
+        {
+            "id": "income",
+            "plans": [
+                0
+            ]
+        },
+        {
+            "id": "blocking",
+            "plans": [
+                1
+            ]
+        },
+        {
+            "id": "medical",
+            "plans": [
+                2,
+                6,
+                11
+            ]
+        },
+        {
+            "id": "primary_output",
+            "plans": [
+                3
+            ]
+        },
+        {
+            "id": "supplemental_output",
+            "plans": [
+                5,
+                7,
+                8,
+                9,
+                10,
+                12,
+                13
+            ],
+            "preferred_plans": [
+                5,
+                7,
+                8,
+                12
+            ]
         }
     ]
 }
