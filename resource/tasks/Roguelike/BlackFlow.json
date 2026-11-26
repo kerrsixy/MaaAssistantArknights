@@ -704,6 +704,18 @@
             600,
             25,
             25
+        ],
+        "next": [
+            "BlackFlow@Roguelike@DropsFlag",
+            "BlackFlow@Roguelike@ChooseOperFlag",
+            "BlackFlow@Roguelike@StageEncounterSpecialClose",
+            "BlackFlow@Roguelike@TraderRandomShopping",
+            "BlackFlow@Roguelike@StageTraderLeave",
+            "BlackFlow@Roguelike@StartAction",
+            "BlackFlow@Roguelike@Stages#next",
+            "BlackFlow@Roguelike@StartUpThemes#next",
+            "BlackFlow@Roguelike@StageTraderLeave",
+            "BlackFlow@Roguelike@SettlementContinueRetry"
         ]
     },
     "BlackFlow@Roguelike@CloseCollection": {
@@ -7003,5 +7015,33 @@
             "BlackFlow@Roguelike@ActiveRunRecoveryStop"
         ],
         "Doc": "Bounded reobservation when a foreground login reward is still animating; no input, identity or exploration completion is inferred."
+    },
+    "BlackFlow@Roguelike@MissionCompletedContinue": {
+        "reduceOtherTimes": [
+            "BlackFlow@Roguelike@SettlementContinueRetry*3"
+        ],
+        "Doc": "A normal battle-success entry resets only the bounded post-success retry budget. The retry loop never re-enters this task."
+    },
+    "BlackFlow@Roguelike@SettlementContinueRetry": {
+        "baseTask": "BlackFlow@Roguelike@BeginRecovery_Victory",
+        "action": "ClickRect",
+        "specificRect": [
+            960,
+            600,
+            160,
+            60
+        ],
+        "preDelay": 300,
+        "postDelay": 700,
+        "maxTimes": 3,
+        "exceededNext": [],
+        "onErrorNext": [],
+        "reduceOtherTimes": [],
+        "next": [
+            "BlackFlow@Roguelike@ClickToDrops#next"
+        ],
+        "Doc": "Only an arrow AND the exact success page permit another continue click in the empty right-hand area. No battle/result callback is re-emitted. Three extra clicks per normal success entry; persistent success after the cap reports PageTransitionFailed.",
+        "template": "Roguelike@ExitThenAbandon.png",
+        "requiredPage": "BlackFlow@Roguelike@BattleSuccessPage"
     }
 }

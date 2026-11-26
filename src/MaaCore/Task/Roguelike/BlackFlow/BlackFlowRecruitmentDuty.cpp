@@ -934,6 +934,24 @@ json::value
     };
 }
 
+std::optional<int> current_roster_preparation_rank(const std::string& name, const RoguelikeOper& current, int slot)
+{
+    const auto& prep = current.preparation;
+    const auto identity = RoguelikeTraining.unique_identity(name);
+    if (identity.empty() || prep.operator_id != identity || slot < 1 || slot > 3 || prep.training_sequence == 0 ||
+        prep.selection_sequence < prep.training_sequence || prep.selected_skill != slot) {
+        return std::nullopt;
+    }
+    // These are direct facts about the existing run instance. They do not
+    // establish ordinary origin or the training of a future promoted offer.
+    return normalize_displayed_skill_level_for_run(
+        name,
+        slot,
+        current.elite,
+        current.level,
+        prep.displayed_skill_levels[slot - 1]);
+}
+
 void evaluate_recruitment_output(
     RecruitmentDutyOffer& offer,
     const BlackFlowRecruitmentDutyCatalog& catalog,
@@ -1056,24 +1074,16 @@ void evaluate_recruitment_output(
             const auto plan = resolve_recruitment_skill_plan(cfg.skill, cfg.alternate_skill, availability);
             int rank = -1;
             std::string rank_source = "unknown_origin_or_training";
-            const auto& prep = old.preparation;
-            const auto origin =
-                origins ? origins->find(context.client, context.uid, context.run_id, id, old) : std::nullopt;
-            if (origin && origin->ordinary) {
-                if (plan.selected > 0 && prep.operator_id == id && prep.training_sequence > 0 &&
-                    prep.selection_sequence >= prep.training_sequence && prep.selected_skill == plan.selected) {
-                    rank = normalize_displayed_skill_level_for_run(
-                               name,
-                               plan.selected,
-                               old.elite,
-                               old.level,
-                               prep.displayed_skill_levels[plan.selected - 1])
-                               .value_or(-1);
-                    if (rank > 0) {
-                        rank_source = "current_phase_normalized_preparation";
-                    }
-                }
-                if (rank < 1) {
+            const auto observed_rank = current_roster_preparation_rank(name, old, plan.selected);
+            if (observed_rank) {
+                rank = *observed_rank;
+                rank_source = "current_phase_normalized_preparation";
+            }
+            // Account fallback still requires a confirmed ordinary instance.
+            if (rank < 1) {
+                const auto origin =
+                    origins ? origins->find(context.client, context.uid, context.run_id, id, old) : std::nullopt;
+                if (origin && origin->ordinary) {
                     rank = account->skill_level_for_run(name, plan.selected, old.elite, old.level).value_or(-1);
                     if (rank > 0) {
                         rank_source = "confirmed_ordinary_uid_account_training";
@@ -1569,4 +1579,4 @@ json::value recruitment_duty_to_json(const RecruitmentDutyOffer& x)
           "battle_survival" }
     };
 }
-}
+} // namespace asst::blackflow

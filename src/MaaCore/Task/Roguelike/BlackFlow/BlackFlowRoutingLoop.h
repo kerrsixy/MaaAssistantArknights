@@ -317,18 +317,75 @@ RoutingCycleOutcome execute_replanning_cycle(Session& session, IBlackFlowTaskPor
     return execute_preview_cycle(session, port);
 }
 
+// This cheap UI gate permits only inventory observation, never planning on the stored map.
+[[nodiscard]] bool movement_inventory_map_ready(const cv::Mat& image);
+
 template <typename Session>
-RoutingCycleOutcome execute_routing_cycle(Session& session, IBlackFlowTaskPort& port)
+bool session_allows_inventory_before_refresh(Session& session)
+{
+    if constexpr (requires {
+                      session.profile();
+                      session.map().floor();
+                      session.map().snapshot();
+                      session.run();
+                      session.pending_candidate();
+                      session.page_context();
+                      session.transaction();
+                      session.completed_page_changes_floor();
+                      session.ghost_preview_stop_pending();
+                  }) {
+        const auto floor = session.current_floor();
+        if (!session_requires_movement_inventory_observation(session) || session.profile().empty() || !floor ||
+            session.run().floor != *floor || session.map().floor() != *floor ||
+            session.map().snapshot().revision == 0 ||
+            session.map().snapshot().find_node(session.run().current_node) == nullptr || session.pending_candidate() ||
+            session.completed_page_changes_floor() || session.ghost_preview_stop_pending()) {
+            return false;
+        }
+        const auto* transaction = session.transaction();
+        // A processing move is charged only when the fresh map reconciles it.
+        // Inventory must not clear or restore that pending charge first.
+        if (transaction && (transaction->stage() != MoveTransactionStage::PageResolved ||
+                            transaction->proposal().movement != MovementKind::Walk)) {
+            return false;
+        }
+        const auto& page = session.page_context();
+        return !page || (transaction && page->resolution_reported && page->floor == *floor &&
+                         page->node == transaction->proposal().target);
+    }
+    return false;
+}
+
+template <typename Session>
+RoutingCycleOutcome execute_routing_cycle(
+    Session& session,
+    IBlackFlowTaskPort& port,
+    bool inventory_entry_verified = false,
+    bool* inventory_preflight_allowed = nullptr)
 {
     std::string error;
     // 终止判定先于地图重建：楼层识别就可能已经把这一局判完，那就不该再为一张用不上的地图折腾。
     if (session.terminated()) {
         return { RoutingCycleStatus::SessionTerminated, {}, {} };
     }
+    if (inventory_entry_verified && inventory_preflight_allowed && *inventory_preflight_allowed &&
+        session_allows_inventory_before_refresh(session)) {
+        *inventory_preflight_allowed = false;
+        return { RoutingCycleStatus::MovementInventoryObservationRequired, {}, {} };
+    }
+    if (inventory_preflight_allowed) {
+        *inventory_preflight_allowed = false;
+    }
     if (!refresh_with_retries(session, port, &error)) {
         return { RoutingCycleStatus::NeedsPageRecovery, "map_rebuild_failed", std::move(error) };
     }
+    if (inventory_preflight_allowed) {
+        *inventory_preflight_allowed = true;
+    }
     if (session_requires_movement_inventory_observation(session)) {
+        if (inventory_preflight_allowed) {
+            *inventory_preflight_allowed = false;
+        }
         return { RoutingCycleStatus::MovementInventoryObservationRequired, {}, {} };
     }
     if (session_requires_map_settle(session)) {

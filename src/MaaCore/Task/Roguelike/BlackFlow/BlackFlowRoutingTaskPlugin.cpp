@@ -3,7 +3,9 @@
 #include "BlackFlowRoutingLoop.h"
 
 #include "Config/TaskData.h"
+#include "Controller/Controller.h"
 #include "Utils/Logger.hpp"
+#include "Vision/Matcher.h"
 
 namespace asst::blackflow
 {
@@ -11,6 +13,28 @@ namespace
 {
 // 首次完整确认耗尽时关闭预览面板并重新选择；再次耗尽时重开当前局。
 constexpr int MoveConfirmationDismissRetryLimit = 1;
+}
+
+bool movement_inventory_map_ready(const cv::Mat& image)
+{
+    if (image.empty()) {
+        return false;
+    }
+    const auto matches = [&](std::string_view task) {
+        const auto info = Task.get<MatchTaskInfo>(task);
+        if (info == nullptr) {
+            return false;
+        }
+        Matcher matcher(image);
+        matcher.set_task_info(info);
+        return matcher.analyze().has_value();
+    };
+    if (Task.get("BlackFlow@Roguelike@InventoryCleanupClose") == nullptr ||
+        Task.get("BlackFlow@Roguelike@MovePreviewConfirm") == nullptr) {
+        return false;
+    }
+    return matches("BlackFlow@Roguelike@MapPrepare-Ready") && !matches("BlackFlow@Roguelike@InventoryCleanupClose") &&
+           !matches("BlackFlow@Roguelike@MovePreviewConfirm");
 }
 
 bool BlackFlowRoutingTaskPlugin::verify(AsstMsg msg, const json::value& details) const
@@ -53,6 +77,7 @@ void BlackFlowRoutingTaskPlugin::reset_in_run_variables()
     m_map_recovery_stage = MapRecoveryStage::None;
     m_replan_current_map = false;
     m_move_confirmation_dismiss_retries = 0;
+    m_inventory_preflight_allowed = true;
 }
 
 bool BlackFlowRoutingTaskPlugin::_run()
@@ -92,22 +117,27 @@ bool BlackFlowRoutingTaskPlugin::_run()
     }
 
     std::string identity_error;
-    if (!m_session->bind_routing_identity(
-            m_config->account_client(),
-            m_config->account_uid(),
-            m_config->status().run_id,
-            &identity_error) &&
-        m_session->has_avoided_stage_nodes()) {
+    const bool identity_verified = m_session->bind_routing_identity(
+        m_config->account_client(),
+        m_config->account_uid(),
+        m_config->status().run_id,
+        &identity_error);
+    if (!identity_verified && m_session->has_avoided_stage_nodes()) {
         m_session->fail("routing_identity_unverified", identity_error, FailureDisposition::StopTask);
         Task.set_task_base("BlackFlow@Roguelike@RoutingAction", "BlackFlow@Roguelike@StrategyTerminated-Enter");
         report_outputs();
         return true;
     }
     m_session->set_observed_difficulty(m_config->get_observed_difficulty());
+    const bool inventory_entry_verified = work == PendingWork::ObserveAndPlan && !m_replan_current_map &&
+                                          identity_verified && m_inventory_preflight_allowed &&
+                                          session_allows_inventory_before_refresh(*m_session) &&
+                                          movement_inventory_map_ready(ctrler()->get_image());
     const RoutingCycleOutcome cycle =
         work == PendingWork::ResumePendingMove ? execute_pending_routing_cycle(*m_session, *m_port)
-        : work == PendingWork::ReplanCurrentMap || m_replan_current_map ? execute_replanning_cycle(*m_session, *m_port)
-                                                                        : execute_routing_cycle(*m_session, *m_port);
+        : work == PendingWork::ReplanCurrentMap || m_replan_current_map
+            ? execute_replanning_cycle(*m_session, *m_port)
+            : execute_routing_cycle(*m_session, *m_port, inventory_entry_verified, &m_inventory_preflight_allowed);
     LogInfo << __FUNCTION__ << "BlackFlow routing cycle outcome" << "status" << static_cast<int>(cycle.status)
             << "failure" << cycle.failure_code << "error" << cycle.error;
     if (cycle.status == RoutingCycleStatus::NoSafeStageAlternative) {

@@ -295,6 +295,11 @@ private:
     std::string m_public_skill_sha;
 };
 
+// Current-run instance facts only. This does not resolve an acquired target's
+// promotion, ordinary/temporary origin, account training or future lifetime.
+[[nodiscard]] std::optional<int>
+    current_roster_preparation_rank(const std::string& name, const RoguelikeOper& current, int slot);
+
 void evaluate_recruitment_output(
     RecruitmentDutyOffer& offer,
     const BlackFlowRecruitmentDutyCatalog& catalog,
