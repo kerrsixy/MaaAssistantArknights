@@ -1,6 +1,7 @@
 #include "BattleDataConfig.h"
 
 #include "Utils/Logger.hpp"
+#include "Utils/StringMisc.hpp"
 #include <meojson/json.hpp>
 
 bool asst::BattleDataConfig::parse(const json::value& json)
@@ -19,6 +20,12 @@ bool asst::BattleDataConfig::parse(const json::value& json)
         std::string name_jp = char_data_json.get("name_jp", "");
         std::string name_kr = char_data_json.get("name_kr", "");
         std::string name_tw = char_data_json.get("name_tw", "");
+
+        // Data exports can contain invisible boundary spaces in facility names.
+        // Normalize all locales at ingestion; keep internal spaces and exact identity matching.
+        for (auto* localized : { &name, &name_en, &name_jp, &name_kr, &name_tw }) {
+            utils::string_trim(*localized);
+        }
 
         data_ptr->name = name;
         data_ptr->name_en = name_en;
