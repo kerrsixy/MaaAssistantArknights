@@ -22,10 +22,12 @@ bool asst::RoguelikeCopilotConfig::load(const std::filesystem::path& path)
     auto previous_openings = m_hunter_openings;
     auto previous_reservations = m_reserved_core_groups;
     auto previous_cost_limits = m_maximum_deploy_costs;
+    auto previous_duties = m_recruitment_duties;
     using StageMap = decltype(m_stage_data);
     using OpeningMap = decltype(m_hunter_openings);
     using ReservationMap = decltype(m_reserved_core_groups);
     using CostLimitMap = decltype(m_maximum_deploy_costs);
+    using DutyMap = decltype(m_recruitment_duties);
 
     struct LoadRollback
     {
@@ -37,6 +39,8 @@ bool asst::RoguelikeCopilotConfig::load(const std::filesystem::path& path)
         ReservationMap& old_reservations;
         CostLimitMap& cost_limits;
         CostLimitMap& old_cost_limits;
+        DutyMap& duties;
+        DutyMap& old_duties;
         bool accepted = false;
 
         ~LoadRollback()
@@ -47,10 +51,12 @@ bool asst::RoguelikeCopilotConfig::load(const std::filesystem::path& path)
                 openings.swap(old_openings);
                 reservations.swap(old_reservations);
                 cost_limits.swap(old_cost_limits);
+                duties.swap(old_duties);
             }
         }
     } rollback { m_stage_data,           previous_stages,       m_hunter_openings,      previous_openings,
-                 m_reserved_core_groups, previous_reservations, m_maximum_deploy_costs, previous_cost_limits };
+                 m_reserved_core_groups, previous_reservations, m_maximum_deploy_costs, previous_cost_limits,
+                 m_recruitment_duties,   previous_duties };
 
     std::unordered_map<std::string, int> batch_names;
     std::unordered_set<std::string> referenced_bases;
@@ -103,6 +109,10 @@ bool asst::RoguelikeCopilotConfig::load(const std::filesystem::path& path)
         };
         if (base != m_stage_data.end() && cap_table(base->first) != cap_table(key)) {
             LogError << __FUNCTION__ << "Variant deployment cost caps conflict with base" << key;
+            ret = false;
+        }
+        if (base != m_stage_data.end() && recruitment_duties(base->first) != recruitment_duties(key)) {
+            LogError << __FUNCTION__ << "Variant recruitment duties conflict with base" << key;
             ret = false;
         }
     }
@@ -158,6 +168,14 @@ std::optional<asst::blackflow::HunterOpening>
 {
     const auto it = m_hunter_openings.find(stage_name);
     return it == m_hunter_openings.end() ? std::nullopt : std::optional(it->second);
+}
+
+const std::vector<asst::RoguelikeRosterDuty>&
+    asst::RoguelikeCopilotConfig::recruitment_duties(const std::string& stage_name) const
+{
+    static const std::vector<RoguelikeRosterDuty> empty;
+    const auto found = m_recruitment_duties.find(stage_name);
+    return found == m_recruitment_duties.end() ? empty : found->second;
 }
 
 bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
@@ -457,6 +475,59 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
         }
     }
 
+    std::vector<RoguelikeRosterDuty> recruitment_duties;
+    if (json.contains("recruitment_duties")) {
+        const auto declared = json.find<json::array>("recruitment_duties");
+        const auto plans = json.find<json::array>("deploy_plan");
+        if (!declared || declared->empty() || !plans || plans->empty()) {
+            LogError << __FUNCTION__ << "Recruitment duties require nonempty deployment plans" << stage_name;
+            return false;
+        }
+        std::unordered_set<std::string> ids;
+        std::unordered_set<int> claimed;
+        for (const auto& duty : *declared) {
+            if (!duty.is_object()) {
+                LogError << __FUNCTION__ << "Recruitment duty must be an object" << stage_name;
+                return false;
+            }
+            const auto id = duty.find<std::string>("id");
+            const auto indices = duty.find<json::array>("plans");
+            const auto preferred = duty.find<json::array>("preferred_plans");
+            const bool shape_valid = duty.as_object().size() == 2 || (duty.as_object().size() == 3 && preferred);
+            if (!shape_valid || (duty.contains("preferred_plans") && (!preferred || preferred->empty())) || !id ||
+                id->empty() || id->size() > 128 || !ids.emplace(*id).second || !indices || indices->empty()) {
+                LogError << __FUNCTION__ << "Invalid or duplicate recruitment duty" << stage_name;
+                return false;
+            }
+            RoguelikeRosterDuty parsed { .id = *id };
+            for (const auto& index : *indices) {
+                if (!index.is_number() || !std::isfinite(index.as_double()) || index.as_double() < 0 ||
+                    index.as_double() >= static_cast<double>(plans->size()) ||
+                    std::trunc(index.as_double()) != index.as_double() || !claimed.emplace(index.as_integer()).second) {
+                    LogError << __FUNCTION__ << "Recruitment duty reuses or misses a deployment plan" << stage_name;
+                    return false;
+                }
+                parsed.plans.push_back(index.as_integer());
+            }
+            if (preferred) {
+                std::unordered_set<int> unique;
+                for (const auto& index : *preferred) {
+                    if (!index.is_number() || !std::isfinite(index.as_double()) || index.as_double() < 0 ||
+                        index.as_double() >= static_cast<double>(plans->size()) ||
+                        std::trunc(index.as_double()) != index.as_double() ||
+                        std::ranges::find(parsed.plans, index.as_integer()) == parsed.plans.end() ||
+                        !unique.emplace(index.as_integer()).second) {
+                        LogError << __FUNCTION__ << "Preferred plans must be a unique subset of the roster duty"
+                                 << stage_name;
+                        return false;
+                    }
+                    parsed.preferred_plans.push_back(index.as_integer());
+                }
+            }
+            recruitment_duties.push_back(std::move(parsed));
+        }
+    }
+
     std::optional<blackflow::HunterOpening> hunter_opening;
     if (json.contains("hunter_bait_plan") || json.contains("hunter_bait_plans")) {
         std::string error;
@@ -497,6 +568,12 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
     }
     else {
         m_maximum_deploy_costs.insert_or_assign(stage_name, std::move(maximum_deploy_costs));
+    }
+    if (recruitment_duties.empty()) {
+        m_recruitment_duties.erase(stage_name);
+    }
+    else {
+        m_recruitment_duties.insert_or_assign(stage_name, std::move(recruitment_duties));
     }
     m_stage_data.insert_or_assign(std::move(stage_name), std::move(data));
     return true;

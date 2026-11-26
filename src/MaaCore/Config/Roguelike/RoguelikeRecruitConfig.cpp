@@ -2,6 +2,7 @@
 #include "Config/Miscellaneous/BattleDataConfig.h"
 
 #include <algorithm>
+#include <cmath>
 #include <meojson/json.hpp>
 #include <ranges>
 
@@ -282,6 +283,15 @@ bool asst::RoguelikeRecruitConfig::parse(const json::value& json)
             oper_info.is_key = oper_json.get("is_key", oper_info.is_key);
             oper_info.is_start = oper_json.get("is_start", oper_info.is_start);
             oper_info.auto_retreat = oper_json.get("auto_retreat", oper_info.auto_retreat);
+            if (oper_json.contains("minimum_hope_after_paid_recruitment")) {
+                const auto& reserve = oper_json.at("minimum_hope_after_paid_recruitment");
+                if (!reserve.is_number() || !std::isfinite(reserve.as_double()) || reserve.as_double() < 0 ||
+                    reserve.as_double() > 1'000'000 || std::trunc(reserve.as_double()) != reserve.as_double()) {
+                    LogError << __FUNCTION__ << "Invalid paid recruitment hope reserve" << theme << name;
+                    return false;
+                }
+                oper_info.minimum_hope_after_paid_recruitment = reserve.as_integer();
+            }
             if (const auto module = oper_json.find<json::object>("account_module")) {
                 AccountModuleRecruitPolicy policy;
                 policy.module_id = module->get("module_id", "");

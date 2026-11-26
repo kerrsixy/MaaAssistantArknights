@@ -67,6 +67,7 @@ struct RoguelikeOperInfo
     battle::SkillUsage alternate_skill_usage = battle::SkillUsage::Possibly; // 备选技能使用模式
     int alternate_skill_times = 1;                                           // 备选技能使用次数
     int auto_retreat = 0;                                                    // 部署几秒后自动撤退
+    int minimum_hope_after_paid_recruitment = 0;
     std::optional<AccountModuleRecruitPolicy> account_module;
 };
 
