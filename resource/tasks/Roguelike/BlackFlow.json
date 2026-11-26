@@ -1,4 +1,15 @@
 {
+    "BlackFlow@Roguelike@MapGoalLife": {
+        "algorithm": "OcrDetect",
+        "roi": [
+            168,
+            28,
+            95,
+            35
+        ],
+        "text": [],
+        "Doc": "Read a complete current/max life ratio only after map identity succeeds; low-confidence or conflicting text stays unknown."
+    },
     "BlackFlowAccount@ModulePanelTitle": {
         "Doc": "Exact requested module title in the management panel; the caller supplies the title filter.",
         "algorithm": "OcrDetect",

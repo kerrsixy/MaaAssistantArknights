@@ -293,6 +293,8 @@ bool BlackFlowTaskPort::refresh(
             next.run.action_points = *action_points;
             next.observation.hud_action_points = *action_points;
         }
+        next.run.goal_life_observed = true;
+        next.run.goal_life = recognize_goal_life(image);
         if (const auto ingots = recognize_ingots(image); ingots.has_value()) {
             next.run.ingots = *ingots;
         }
@@ -523,6 +525,47 @@ std::optional<int> BlackFlowTaskPort::recognize_action_points(const cv::Mat& ima
         return std::nullopt;
     }
     return value;
+}
+
+std::optional<int> BlackFlowTaskPort::recognize_goal_life(const cv::Mat& image)
+{
+    const auto task = Task.get<OcrTaskInfo>("BlackFlow@Roguelike@MapGoalLife");
+    if (!task || image.empty()) {
+        return std::nullopt;
+    }
+    OCRer analyzer(image);
+    analyzer.set_task_info(task);
+    const auto results = analyzer.analyze();
+    if (!results) {
+        return std::nullopt;
+    }
+    std::optional<int> current;
+    for (const auto& result : *results) {
+        if (result.score < 0.95) {
+            continue;
+        }
+        std::string text = result.text;
+        std::erase(text, ' ');
+        const auto slash = text.find('/');
+        if (slash == std::string::npos || slash == 0 || slash + 1 == text.size() ||
+            text.find('/', slash + 1) != std::string::npos) {
+            continue;
+        }
+        const auto left = text.substr(0, slash), right = text.substr(slash + 1);
+        const auto digits = [](const std::string& value) {
+            return value.size() <= 3 && std::ranges::all_of(value, [](char x) { return x >= '0' && x <= '9'; });
+        };
+        int life = -1, maximum = -1;
+        if (!digits(left) || !digits(right) || !utils::chars_to_number(left, life) ||
+            !utils::chars_to_number(right, maximum) || maximum <= 0 || life > maximum) {
+            continue;
+        }
+        if (current && *current != life) {
+            return std::nullopt;
+        }
+        current = life;
+    }
+    return current;
 }
 
 std::optional<int> BlackFlowTaskPort::recognize_ingots(const cv::Mat& image) const

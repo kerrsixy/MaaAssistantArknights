@@ -421,6 +421,9 @@ struct RunResources
     std::unordered_map<MovementKind, int> movement_charges;
     std::unordered_map<MovementKind, int> movement_pieces;
 
+    // Unknown until a complete current/max ratio is read on a recognized map.
+    int goal_life = -1;
+
     bool operator==(const RunResources&) const noexcept = default;
 };
 
