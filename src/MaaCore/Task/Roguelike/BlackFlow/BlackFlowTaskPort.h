@@ -74,6 +74,8 @@ struct MovementPanelObservation
 struct RunObservation
 {
     std::optional<int> action_points;
+    std::optional<int> goal_life;
+    bool goal_life_observed = false;
     std::optional<int> hope;
     std::optional<int> ingots;
     std::optional<int> seeds;
@@ -231,6 +233,8 @@ private:
     class ProcessTaskContext;
 
     [[nodiscard]] std::optional<int> recognize_action_points(const cv::Mat& image) const;
+    friend class BlackFlowLifeRoutingTestAccess;
+    static std::optional<int> recognize_goal_life(const cv::Mat& image);
     [[nodiscard]] std::optional<int> recognize_ingots(const cv::Mat& image) const;
     [[nodiscard]] std::optional<std::pair<int, int>> recognize_movement_capacity(const cv::Mat& image) const;
     bool classify_entered_page(const cv::Mat& image, EnteredPageObservation& observation, std::string* error) const;

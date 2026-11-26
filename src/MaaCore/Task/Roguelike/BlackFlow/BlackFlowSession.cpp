@@ -327,6 +327,8 @@ bool BlackFlowSession::synchronize_resource_facts(std::string* error)
         { "current_floor", m_run.floor },
         { "action_points", m_run.resources.action_points },
         { "ingots", m_run.resources.ingots },
+        { "goal_life", m_run.resources.goal_life },
+        { "goal_life_known", m_run.resources.goal_life >= 0 ? 1 : 0 },
         { "seeds", m_run.resources.seeds },
         { "sellable_scraps", m_run.resources.sellable_scraps },
         { "white_model_bird_count", m_run.resources.white_model_birds },
@@ -339,7 +341,7 @@ bool BlackFlowSession::synchronize_resource_facts(std::string* error)
         { "persistent_reach_battle_boss_count", m_resources.read("persistent_reach_battle_boss", m_run).value_or(0) },
     };
     for (const auto& [name, value] : values) {
-        if (name == "painted_liberi_owned") {
+        if (name == "painted_liberi_owned" || name == "goal_life_known") {
             if (!set_fact(name, value != 0, error)) {
                 return false;
             }
@@ -539,6 +541,13 @@ bool BlackFlowSession::apply_run_observation(const RunObservation& observation, 
         }
         return false;
     }
+    if (observation.goal_life &&
+        (!observation.goal_life_observed || *observation.goal_life < 0 || *observation.goal_life > 999)) {
+        if (error) {
+            *error = "goal life requires a fresh nonnegative map observation";
+        }
+        return false;
+    }
     const RunResources resources_before = m_run.resources;
     const auto cross_floor_expired_before = m_run.cross_floor_expired;
     auto assign_nonnegative = [&](const std::optional<int>& value, int& target, std::string_view name) {
@@ -569,6 +578,11 @@ bool BlackFlowSession::apply_run_observation(const RunObservation& observation, 
         !assign_nonnegative(observation.sellable_scraps, m_run.resources.sellable_scraps, "sellable scraps") ||
         !assign_nonnegative(observation.white_model_birds, m_run.resources.white_model_birds, "white model birds")) {
         return false;
+    }
+    if (observation.goal_life_observed) {
+        // A failed fresh map reading invalidates the old value. Partial movement
+        // observations do not manufacture either a new value or a loss of life.
+        m_run.resources.goal_life = observation.goal_life.value_or(-1);
     }
     if (observation.movement_capacity.has_value()) {
         m_run.resources.movement_capacity = capacity;
@@ -901,6 +915,8 @@ void BlackFlowSession::queue_decision()
         { "predicted_cost", move.predicted_action_point_cost },
         { "exact_cost", cost },
         { "action_points_before", m_run.resources.action_points },
+        { "goal_life", m_run.resources.goal_life },
+        { "goal_life_known", m_run.resources.goal_life >= 0 },
         { "action_points_after", expected_after },
         { "safe_requirement", requirement },
         { "safety_margin", margin },
