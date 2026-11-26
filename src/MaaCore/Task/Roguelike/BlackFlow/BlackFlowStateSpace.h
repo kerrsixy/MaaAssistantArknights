@@ -59,6 +59,7 @@ struct StateExpansionOptions
     SafetyGoalProgressId initial_goal_progress_id = InvalidSafetyGoalProgressId;
     bool use_compact_actions = true;
     std::size_t maximum_states = 2'000'000;
+    std::unordered_set<NodeId> forbidden_node_ids;
 };
 
 struct OnDemandSafetyOutcome

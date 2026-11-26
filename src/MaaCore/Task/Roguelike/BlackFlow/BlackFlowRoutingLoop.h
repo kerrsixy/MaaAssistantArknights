@@ -23,6 +23,7 @@ enum class RoutingCycleStatus
     SessionTerminated,
     NeedsPageRecovery,
     Failed,
+    NoSafeStageAlternative,
 };
 
 struct RoutingCycleOutcome
@@ -224,8 +225,22 @@ RoutingCycleOutcome execute_replanning_cycle(Session& session, IBlackFlowTaskPor
     if (session.terminated()) {
         return { RoutingCycleStatus::SessionTerminated, {}, {} };
     }
+    if constexpr (requires { session.ghost_preview_stop_pending(); }) {
+        if (session.ghost_preview_stop_pending()) {
+            return { RoutingCycleStatus::NoSafeStageAlternative,
+                     "ghost_preview_identity_unverified",
+                     "listed combat title could not be bound; stopped after verified map cancellation" };
+        }
+    }
     BlackFlowPlan plan = session.plan(&error);
     if (!plan) {
+        if constexpr (requires { session.has_avoided_stage_nodes(); }) {
+            if (session.has_avoided_stage_nodes()) {
+                return { RoutingCycleStatus::NoSafeStageAlternative,
+                         "no_safe_ghost_alternative",
+                         "no confirmed safe route remains with source-confirmed combat exclusions: " + error };
+            }
+        }
         Log.error(
             "BlackFlow planning failed",
             "error",

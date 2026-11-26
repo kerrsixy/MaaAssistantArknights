@@ -682,7 +682,12 @@ std::optional<std::vector<CompactMoveAction>>
     std::vector<CompactMoveAction> result;
     result.reserve(generated.size());
     for (MoveAction& move : generated) {
-        if (m_options.forbidden_action_ids.contains(move.candidate.action_id)) {
+        if (m_options.forbidden_action_ids.contains(move.candidate.action_id) ||
+            m_options.forbidden_node_ids.contains(move.candidate.target) ||
+            move_path_visits_any_node(move.candidate, m_options.forbidden_node_ids) ||
+            std::ranges::any_of(move.possible_landings, [&](NodeId node) {
+                return m_options.forbidden_node_ids.contains(node);
+            })) {
             continue;
         }
         CompactMoveAction action;

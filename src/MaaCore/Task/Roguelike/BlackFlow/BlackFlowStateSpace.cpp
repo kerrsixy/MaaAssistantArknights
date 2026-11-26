@@ -587,7 +587,12 @@ const std::vector<OnDemandSafetyAction>* OnDemandStateGraph::actions(SafetyState
             const RunState run = materialize(source);
             const auto moves = enumerate_move_actions(*m_map, run, m_options.graph_layer);
             for (const MoveAction& move : moves) {
-                if (m_options.forbidden_action_ids.contains(move.candidate.action_id)) {
+                if (m_options.forbidden_action_ids.contains(move.candidate.action_id) ||
+                    m_options.forbidden_node_ids.contains(move.candidate.target) ||
+                    move_path_visits_any_node(move.candidate, m_options.forbidden_node_ids) ||
+                    std::ranges::any_of(move.possible_landings, [&](NodeId node) {
+                        return m_options.forbidden_node_ids.contains(node);
+                    })) {
                     continue;
                 }
                 OnDemandSafetyAction action;

@@ -91,6 +91,18 @@ bool BlackFlowRoutingTaskPlugin::_run()
         return true;
     }
 
+    std::string identity_error;
+    if (!m_session->bind_routing_identity(
+            m_config->account_client(),
+            m_config->account_uid(),
+            m_config->status().run_id,
+            &identity_error) &&
+        m_session->has_avoided_stage_nodes()) {
+        m_session->fail("routing_identity_unverified", identity_error, FailureDisposition::StopTask);
+        Task.set_task_base("BlackFlow@Roguelike@RoutingAction", "BlackFlow@Roguelike@StrategyTerminated-Enter");
+        report_outputs();
+        return true;
+    }
     m_session->set_observed_difficulty(m_config->get_observed_difficulty());
     const RoutingCycleOutcome cycle =
         work == PendingWork::ResumePendingMove ? execute_pending_routing_cycle(*m_session, *m_port)
@@ -98,6 +110,14 @@ bool BlackFlowRoutingTaskPlugin::_run()
                                                                         : execute_routing_cycle(*m_session, *m_port);
     LogInfo << __FUNCTION__ << "BlackFlow routing cycle outcome" << "status" << static_cast<int>(cycle.status)
             << "failure" << cycle.failure_code << "error" << cycle.error;
+    if (cycle.status == RoutingCycleStatus::NoSafeStageAlternative) {
+        // This entry follows verified map cancellation/replanning, not an
+        // abandon/restart or a user-pause transition.
+        m_session->fail(cycle.failure_code, cycle.error, FailureDisposition::StopTask);
+        Task.set_task_base("BlackFlow@Roguelike@RoutingAction", "BlackFlow@Roguelike@StrategyTerminated-Enter");
+        report_outputs();
+        return true;
+    }
     if (cycle.status == RoutingCycleStatus::NeedsPageRecovery) {
         // 返回地图时按钮状态和实际镜头比例可能不同步。先在地图内重置镜头，
         // 仍失败才退出重进一次；每一阶段都有界，不能在相同失败帧上无限循环。

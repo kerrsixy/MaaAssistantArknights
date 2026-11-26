@@ -38,6 +38,7 @@ struct BlackFlowPlanRequest
     // 预留行动力，路线可以一直走到付不起下一步为止。
     bool no_AP_is_terminal = false;
     const std::unordered_set<std::string>* forbidden_actions = nullptr;
+    const std::unordered_set<NodeId>* forbidden_nodes = nullptr;
     std::optional<NodeId> probe_target;
     std::size_t maximum_states = 2'000'000;
     RouteSearchOptions route_search;
