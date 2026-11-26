@@ -1441,3 +1441,13 @@ V2按当前正式BattleCancelSelection的受支持算法、ClickRect、合法res
 在165完整基线上重新编译18个既有消费者，另305个对象继承，共323、0新增产品TU；V2不复用V1那18个编译对象。新原生：78/0；旧回归：420/0，未注入就pending；实际全资源双flag factory零设备通过。独立同帧Debug实验首轮3508.754ms，warm三轮285.642/303.307/317.004ms；warm计算本身未超过500，但这是本机identity+selected-view，不含capture及device cancel，production_latency_qualified仍false。首轮明显超时，不能用受控事务时钟或本机warm绿宣称生产负证可adopt。
 
 R87辅助续局最终N9false、680分，未到最终Boss；无人first ending未证，N10未解锁。下一轮新N9须用实际选中、真实取消bool、两normal、部署栏与同格结果验证闭环；本机计时和离线资格都不是R87已修、实机通关或稳定N10证明。
+
+### 2026-11-26 阶段167：一步之遥按实际范围拆分火力职责
+
+Run87辅助续局在第五层“一步之遥”失败，N9 game_pass=false、680分，不是最终Boss。实际六人为EW E2/90 S3L10、机械师E2/90 S2L10、提丰E1/80 S2L7、卡达E1/60 S2L7、波登可E1/60 S1L7、晓歌E1/70 S1L7。167只改该图资源三处站位及对应范围合同：EW由6,4Right移10,2Left，required_attack_tiles改为C7,1与上门前9,1；提丰由4,5Up移3,5Up，required只留A3,1；医疗由5,5Up移1,6Up，preferred只保左挡1,5。机械师1,5Up、卡达6,3Up及顺序不变，卡达基础范围保B5,1/C7,1。偏好治疗格不等于硬HPS保证，波登可S1只在技能窗口治疗左挡，不奶三输出。
+
+V1实际76/4完整保留。四项红来自把raw collector.front误当最终可执行选择：已占1,5时，在手晓歌仍可排raw首项，生产do_best_deploy在1717才跳过占格。V2资源与V1逐字节相同，保留原标签、raw晓歌事实和范围/角色门；四项测试合同明确改为raw含预期行加真实dispatcher见证，另增两项raw/common dispatch检查，不称原断言原样变绿。姓名与坐标都须匹配本次真实日志增量的NoLoc和Deployment action failed；缺日志也失败。故只证明Controller前尝试，不证明Placed、实际落人或生存。后续占位由controlled fixture提交，Soul检查在该探针关闭，不冒充完整实机输入链。
+
+普通/紧急随机植物、倍率及全图RNG仍待实机。EA14灰烬艺术品是移动、传送、不可挡的双目标法伤远程敌，不是3,4固定炮台；三输出不直射3,4，但route46/47经过该点、48不经过，后段部分声明点仍有覆盖。新提丰更近盲区威胁，波登可不再奶三高台；盾与树墙、魂影触盾、实际伤害/治疗/控制窗口未知。EW冷却或未知等被过滤时，旧顺序不是“EW已部署”的硬前置。21+24+24+18+12=99费不代表available或ready时刻。范围绿色不能抵消这些风险，亦不保证新站位稳定。
+
+最终资格继承正式166实际DLL与323对象，只重编Probe、0产品重编、0新产品TU。原165基线的V1 76/4及V2 78/0分别保留，不与新166集成回放混算。最终集成新原生：78/0；同cohort普通占位对167完整资源的兼容回归：78/0。未注入实际数则pending，factory依最终回执。166生产500ms整链时效仍未实测证明，本阶段不将其算作已修。范围/路线依据见run87_step_away_counterfactual_readonly、run87_step_away_ash_hazard_readonly与独立复审。五语文档先于Git同步；本阶段资格不是新N9、最终结局或N10实机通过。

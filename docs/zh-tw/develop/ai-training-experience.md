@@ -1271,3 +1271,13 @@ V2校驗正式BattleCancelSelection的支援演算法、ClickRect、合法resour
 在165完整基線重編18個既有消費者，另305物件繼承，共323、0新增產品TU；V2不沿用V1那18個物件。新原生：78/0；舊回歸：420/0，未注入即pending；實際全資源雙flag factory零設備通過。獨立同影格Debug實驗首輪3508.754ms，warm三輪285.642/303.307/317.004ms；warm計算本身未過500，但只是本機identity+selected-view，不含capture及device cancel，production_latency_qualified仍false。首輪明顯逾時，受控交易時鐘或本機warm綠都不能證明正式負證可adopt。
 
 R87輔助續局最終N9false、680分，未到最終Boss；無人first ending未證，N10未解鎖。下一輪新N9須以真實選中、取消bool、兩normal、部署欄與同格結果驗證閉環；本機計時與離線資格不是R87已修、實機通關或穩定N10證明。
+
+### 2026-11-26 階段167：一步之遙依實際範圍拆分火力職責
+
+Run87輔助續局於第五層 ｢一步之遙｣ 敗北，N9 game_pass=false、680分，並非最終Boss。實際六人為EW E2/90 S3L10、機械師E2/90 S2L10、提豐E1/80 S2L7、卡達E1/60 S2L7、波登可E1/60 S1L7、曉歌E1/70 S1L7。167只改該圖資源三處與範圍合同：EW由6,4Right移10,2Left，required_attack_tiles改C7,1及上門前9,1；提豐由4,5Up移3,5Up，required只留A3,1；醫療由5,5Up移1,6Up，preferred只保左擋1,5。機械師1,5Up、卡達6,3Up及順序不變，卡達基礎範圍保B5,1/C7,1。治療偏好不是硬HPS保證，波登可S1僅技能窗口奶左擋，不奶三輸出。
+
+V1實際76/4完整保留。四紅是誤把raw collector.front當最終可執行選擇：1,5已占時，在手曉歌仍可排raw首項，生產do_best_deploy於1717才略過占格。V2資源與V1逐字節相同，保原標籤、raw曉歌事實及範圍/角色門；四項測試合同明改為raw含預期行加真dispatcher見證，另加兩項raw/common dispatch，不稱原斷言原樣轉綠。姓名/座標均須命中當次真實日誌增量的NoLoc和Deployment action failed，缺記錄亦失敗。只證Controller前嘗試，不證Placed、實際落人或存活。後續占位是controlled fixture，探針關閉Soul檢查，不冒充完整實機輸入鏈。
+
+普通/緊急的隨機植物、倍率與全圖RNG仍待實機。EA14灰燼藝術品會移動、傳送、不可擋並有雙目標法傷遠程攻擊，不是3,4固定炮台；三輸出不直射3,4，但只有route46/47經該點，48不經，後段部分宣告點仍可覆蓋。新提豐更近盲區威脅，波登可不再奶三高台；盾/樹牆、魂影觸盾與真實傷害/治療/控制窗口未知。EW冷卻或未知而被過濾時，原順序不是 ｢EW已部署｣ 硬前置。99總費不是available或ready時間；範圍綠不能抵消風險或保證穩定。
+
+最終資格沿用正式166真DLL及323物件，只重編Probe，產品重編0、新產品TU0。原165基線V1 76/4與V2 78/0分別保留，不和新166整合結果混算。最終整合原生：78/0；同cohort普通占位對167完整資源的相容回歸：78/0。未注入實數則pending，factory依最終紀錄。166生產500ms整鏈時效仍未實測證明，本階段不算已修。範圍/路線依據見run87_step_away_counterfactual_readonly、run87_step_away_ash_hazard_readonly及獨立復審。五語文件先於Git同步；資格不是新N9、最終結局或N10實機通過。
