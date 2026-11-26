@@ -533,6 +533,37 @@ InventoryDiscardOutcome BlackFlowInventoryCleanup::discard(
     return discard_inventory_item(context, scrap, observe_inventory_discard_readiness, error);
 }
 
+std::optional<bool> BlackFlowInventoryCleanup::finish_without_extra_target(
+    BlackFlowInventoryContext& context,
+    bool overload_cleared,
+    std::string* error)
+{
+    if (!overload_cleared || context.interrupted()) {
+        return std::nullopt;
+    }
+    const auto full = Task.get<MatchTaskInfo>(std::string(FullFlagTask));
+    const auto close = Task.get<MatchTaskInfo>(std::string(CloseTask));
+    const cv::Mat image = context.capture();
+    if (!full || !close || image.empty()) {
+        return std::nullopt;
+    }
+    // Require a fresh inventory page and absence of its overload marker on
+    // the same image. Missing or battle frames cannot waive required cleanup.
+    Matcher page(image);
+    page.set_task_info(close);
+    if (!page.analyze()) {
+        return std::nullopt;
+    }
+    Matcher overloaded(image);
+    overloaded.set_task_info(full);
+    if (overloaded.analyze()) {
+        return std::nullopt;
+    }
+    LogInfo << "BlackFlow inventory | event=optional_cleanup_skipped | reason=no_extra_candidate | discarded="
+            << m_discarded;
+    return finish(context, true, error);
+}
+
 bool BlackFlowInventoryCleanup::finish(BlackFlowInventoryContext& context, bool report, std::string* error)
 {
     if (!context.execute({ std::string(CloseTask) }, error)) {
@@ -618,6 +649,11 @@ bool BlackFlowInventoryCleanup::run(BlackFlowInventoryContext& context, std::str
         const bool fallback_target = m_rank_fallback;
         if (fallback_target) {
             if (!m_fallback_best.has_value()) {
+                if (const auto completed =
+                        finish_without_extra_target(context, remaining_after_clear.has_value(), error);
+                    completed.has_value()) {
+                    return *completed;
+                }
                 set_error(error, "rank fallback has no discardable candidate");
                 return abandon(context, error);
             }
@@ -656,6 +692,11 @@ bool BlackFlowInventoryCleanup::run(BlackFlowInventoryContext& context, std::str
                 break;
             }
             if (picked == nullptr) {
+                if (const auto completed =
+                        finish_without_extra_target(context, remaining_after_clear.has_value(), error);
+                    completed.has_value()) {
+                    return *completed;
+                }
                 if (m_rescans > 0) {
                     set_error(error, "no discardable scrap left after a rescan");
                     return abandon(context, error);

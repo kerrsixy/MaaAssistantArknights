@@ -390,6 +390,12 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
                 maximum_deploy_costs.emplace(info.plan_index, cap.as_integer());
             }
 
+            if (deploy_info.contains("allow_auto_skill") && !deploy_info.at("allow_auto_skill").is<bool>()) {
+                LogError << __FUNCTION__ << "Invalid deployment automatic skill permission" << stage_name;
+                return false;
+            }
+            info.allow_auto_skill = deploy_info.get("allow_auto_skill", true);
+
             info.max_deployments = deploy_info.get("max_deployments", INT_MAX);
             if (info.max_deployments < 1) {
                 LogError << __FUNCTION__ << "Deployment limit must be positive" << stage_name;

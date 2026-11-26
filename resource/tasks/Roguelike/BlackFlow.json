@@ -143,6 +143,7 @@
             "BlackFlow@Roguelike@MissionFailedFlag2",
             "BlackFlow@Roguelike@ResumeSavedContinue",
             "BlackFlow@Roguelike@ResumeSavedRecruit",
+            "BlackFlow@Roguelike@ResumeSavedInventory",
             "BlackFlow@Roguelike@ResumeFloorIntro",
             "BlackFlow@Roguelike@ResumeSavedMap"
         ],
@@ -156,6 +157,7 @@
             "BlackFlow@Roguelike@BeginRecovery_Victory",
             "BlackFlow@Roguelike@MissionFailedFlag2",
             "BlackFlow@Roguelike@ResumeSavedRecruit",
+            "BlackFlow@Roguelike@ResumeSavedInventory",
             "BlackFlow@Roguelike@ResumeFloorIntro",
             "BlackFlow@Roguelike@ResumeSavedMap"
         ]
@@ -167,6 +169,48 @@
         "requiredPage": "BlackFlow@Roguelike@VoucherStashRecruitmentPage",
         "action": "DoNothing",
         "next": ["BlackFlow@Roguelike@ChooseOper"]
+    },
+    "BlackFlow@Roguelike@SavedInventoryPage": {
+        "Doc": "Inventory identity requires the type label and collapse template on the same frame. It does not select, discard, move or start combat.",
+        "algorithm": "OcrDetect",
+        "roi": [
+            1010,
+            70,
+            260,
+            70
+        ],
+        "text": [
+            "类型"
+        ],
+        "fullMatch": true,
+        "action": "DoNothing",
+        "next": []
+    },
+    "BlackFlow@Roguelike@ResumeSavedInventory": {
+        "Doc": "An assisted saved-only continuation can close a positively recognized inventory page, then must acknowledge the real map.",
+        "baseTask": "BlackFlow@Roguelike@InventoryCleanupClose",
+        "template": "BlackFlow@Roguelike@MovementInventoryCollapse.png",
+        "requiredPage": "BlackFlow@Roguelike@SavedInventoryPage",
+        "action": "DoNothing",
+        "next": [
+            "BlackFlow@Roguelike@ResumeSavedInventoryCollapse"
+        ],
+        "maxTimes": 1,
+        "exceededNext": [],
+        "reduceOtherTimes": []
+    },
+    "BlackFlow@Roguelike@ResumeSavedInventoryCollapse": {
+        "baseTask": "BlackFlow@Roguelike@InventoryCleanupClose",
+        "template": "BlackFlow@Roguelike@MovementInventoryCollapse.png",
+        "requiredPage": "BlackFlow@Roguelike@SavedInventoryPage",
+        "action": "ClickSelf",
+        "next": [
+            "BlackFlow@Roguelike@ResumeSavedMap",
+            "#self"
+        ],
+        "maxTimes": 2,
+        "exceededNext": [],
+        "reduceOtherTimes": []
     },
     "BlackFlow@Roguelike@ResumeSavedMap": {
         "Doc": "层名也显示在商店等页面上；恢复必须先确认地图缩放锚点，之后交给正常层名回执。",

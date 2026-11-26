@@ -1267,6 +1267,23 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_hard_requirements_met(
     return covers(plan.required_attack_tiles) && covers(plan.required_range_tiles) && hunter_candidate_allowed();
 }
 
+void asst::RoguelikeBattleTaskPlugin::configure_deployed_skill(
+    const battle::OperNameTag& oper,
+    std::optional<int> plan_index)
+{
+    const auto& recruit = RoguelikeRecruit.get_oper_info(m_config->get_theme(), oper);
+    auto usage = recruit.skill_usage;
+    if (plan_index) {
+        const auto plan = prepared_plan(*plan_index);
+        if (!plan || !plan->allow_auto_skill) {
+            usage = battle::SkillUsage::NotUse;
+            LogInfo << __FUNCTION__ << "Automatic skill denied for deployment duty" << oper.name << *plan_index;
+        }
+    }
+    m_skill_usage[oper] = usage;
+    m_skill_times[oper] = recruit.skill_times;
+}
+
 bool asst::RoguelikeBattleTaskPlugin::deployment_cost_wait_required(
     const battle::DeploymentOper& oper,
     int observed_cost)
@@ -1789,9 +1806,7 @@ asst::blackflow::AuthoredPlanResult asst::RoguelikeBattleTaskPlugin::do_best_dep
             auto deployed_time = std::chrono::steady_clock::now();
             m_deployed_time.insert_or_assign(oper_tag, deployed_time);
             // 获取技能用法和使用次数
-            const auto& oper_info = RoguelikeRecruit.get_oper_info(m_config->get_theme(), oper_tag);
-            m_skill_usage[oper_tag] = oper_info.skill_usage;
-            m_skill_times[oper_tag] = oper_info.skill_times;
+            configure_deployed_skill(oper_tag, deploy_plan.plan_index);
             Log.info("    best deploy is", deploy_plan.oper_name, "with rank", deploy_plan.rank);
             observe_hunter_after_deployment();
             return blackflow::AuthoredPlanResult::Handled;
@@ -2285,9 +2300,7 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
         auto deployed_time = std::chrono::steady_clock::now();
         m_deployed_time.insert_or_assign(oper_tag, deployed_time);
         // 获取技能用法和使用次数
-        const auto& oper_info = RoguelikeRecruit.get_oper_info(m_config->get_theme(), oper_tag);
-        m_skill_usage[oper_tag] = oper_info.skill_usage;
-        m_skill_times[oper_tag] = oper_info.skill_times;
+        configure_deployed_skill(oper_tag);
 
         if (urgent_home_opt) {
             m_urgent_home_index.pop_front();

@@ -156,6 +156,7 @@ protected:
         const battle::roguelike::DeployInfoWithRank& plan,
         bool check_hunter) const;
     std::optional<battle::roguelike::DeployInfoWithRank> prepared_plan(int plan_index) const;
+    void configure_deployed_skill(const battle::OperNameTag& oper, std::optional<int> plan_index = std::nullopt);
     bool prepared_runtime_eligible(
         const battle::DeploymentOper& oper,
         Point location,
