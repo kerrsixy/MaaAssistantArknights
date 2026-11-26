@@ -133,6 +133,32 @@ bool BlackFlowSummonRetreat::adopt_ordinary_selection(
     return true;
 }
 
+SummonRetreatDecision BlackFlowSummonRetreat::adopt_reclaim_selection(
+    const asst::battle::SelectedObjectObservation& inspection,
+    const SummonRetreatObservation& selected,
+    std::uint64_t now_ms)
+{
+    if (m_intent != SummonRetreatIntent::ReclaimDeploymentTile || m_phase != Phase::Idle ||
+        m_allowed_tiles.size() != 1 || m_allowed_tiles.front() == m_owner_tile ||
+        !asst::battle::owns_selected_object_request(inspection) || !inspection.selected_view ||
+        inspection.requested_tile != m_allowed_tiles.front() || inspection.card_present != true ||
+        inspection.expected_identity_matches != false || !inspection.identity.unique || !inspection.identity.device ||
+        inspection.identity.name != m_summon_name || inspection.identity.id != m_summon_id ||
+        inspection.cancellation.input_attempted || selected.battle_key != m_battle_key || m_battle_key.empty() ||
+        selected.sequence <= m_sequence || selected.observed_ms != inspection.observed_ms ||
+        selected.received_ms != inspection.received_ms || selected.received_ms < selected.observed_ms ||
+        now_ms < selected.received_ms || !asst::battle::selected_frame_is_fresh(selected.observed_ms, now_ms) ||
+        selected.user_paused || !selected.owner_present || selected.normal_view || !selected.selection_view ||
+        !selected.retreat_button_present || selected.selection_request_tile != inspection.requested_tile ||
+        selected.selected_name != m_summon_name || selected.selected_id != m_summon_id) {
+        return {};
+    }
+    m_pending_tile = inspection.requested_tile;
+    m_started_ms = inspection.observed_ms;
+    m_phase = Phase::Verifying;
+    return observe(selected);
+}
+
 SummonRetreatDecision BlackFlowSummonRetreat::observe(const SummonRetreatObservation& observation)
 {
     m_authorized_action = SummonRetreatAction::None;

@@ -620,6 +620,110 @@ bool asst::RoguelikeBattleTaskPlugin::consume_ordinary_occupancy_selection(
             std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
                 .count());
     };
+    if (!observation.cancellation.input_attempted) {
+        // This stage retains its existing Boss-Alive protection policy;
+        // ordinary occupancy must not open a separate reclamation bypass.
+        if (m_stage_name == "狂热敬虔") {
+            return false;
+        }
+        // This hook also runs before ordinary cancellation. Only an exact Soul
+        // in the current EW's real range can adopt that still-open selection;
+        // all other identities keep the original cancellation/negative path.
+        const battle::OperNameTag owner { battle::Role::Sniper, "维什戴尔" };
+        const auto deployed = m_battlefield_opers.find(owner);
+        const auto direction = m_observed_deploy_directions.find(owner);
+        const auto elite = m_oper_elite.find(owner.name);
+        const bool cooling = std::ranges::any_of(m_cur_deployment_opers, [&](const auto& card) {
+            return card.role == owner.role && card.name == owner.name && card.cooling;
+        });
+        const auto where = m_normal_tile_info.find(observation.requested_tile);
+        if (need_exit() || m_waiting_for_manual_resume || image.empty() || !observation.selected_view ||
+            !observation.identity.unique || !observation.identity.device || observation.identity.name != "魂灵之影" ||
+            observation.identity.id != "token_10035_wisdel_wward" || deployed == m_battlefield_opers.end() || cooling ||
+            direction == m_observed_deploy_directions.end() || elite == m_oper_elite.end() || elite->second < 0 ||
+            elite->second > 2 || observation.requested_tile == deployed->second || where == m_normal_tile_info.end() ||
+            where->second.buildable == battle::LocationType::None ||
+            where->second.buildable == battle::LocationType::Invalid ||
+            BattleData.get_range(owner.role, owner.name, elite->second) == BattleDataConfig::EmptyRange) {
+            return false;
+        }
+        if (const auto used = m_ordinary_occupancy_recovery_attempts.find(observation.requested_tile);
+            used != m_ordinary_occupancy_recovery_attempts.end() && !battle::deployment_retry_allowed(used->second)) {
+            // Do not turn a persistent Soul into unlimited placement-budget
+            // exemptions. Ordinary verification/cancellation stays available.
+            return false;
+        }
+        battle::DeploymentOper ew;
+        ew.role = owner.role;
+        ew.name = owner.name;
+        const auto range = get_attack_range(ew, direction->second);
+        if (std::ranges::find(range, observation.requested_tile - deployed->second) == range.end()) {
+            return false;
+        }
+        SummonRetreatObservation selected;
+        selected.battle_key = m_config->status().run_id + ":" + m_stage_name;
+        selected.sequence = ++m_soul_sequence;
+        selected.observed_ms = observation.observed_ms;
+        selected.received_ms = observation.received_ms;
+        selected.owner_present = true;
+        // The producer's positive selected_view already excluded pause,
+        // normal and terminal UI on this exact immutable frame. Reuse that
+        // classification instead of spending this same500ms lease twice.
+        selected.user_paused = false;
+        selected.normal_view = false;
+        selected.selection_view = observation.selected_view;
+        selected.selected_name = observation.identity.name;
+        selected.selected_id = observation.identity.id;
+        selected.retreat_button_present = m_soul_observer->retreat_button(image, m_retreat_button_pos);
+        selected.selection_request_tile = observation.selection_request_tile;
+        auto transaction = std::make_unique<BlackFlowSummonRetreat>(
+            selected.battle_key,
+            "魂灵之影",
+            "token_10035_wisdel_wward",
+            deployed->second,
+            std::vector<Point> { observation.requested_tile },
+            SummonRetreatIntent::ReclaimDeploymentTile);
+        const auto decision = transaction->adopt_reclaim_selection(observation, selected, timestamp());
+        if (decision.action != SummonRetreatAction::RetreatSelection || need_exit()) {
+            return false;
+        }
+        const auto authority =
+            transaction
+                ->authorize_input(decision.action, selected, timestamp(), deployed->second, observation.requested_tile);
+        if (!authority.allowed) {
+            return false;
+        }
+        // No evidence IO or second click on the cell before the input. The
+        // ordinary accepted inspection already owns this exact selected panel.
+        const bool accepted = ctrler()->click(m_retreat_button_pos);
+        transaction->input_result(decision.action, accepted);
+        if (!accepted) {
+            // No exemption on a rejected input. The original ordinary owner
+            // still performs its freshness-qualified cancel and bounded retry.
+            LogWarn << __FUNCTION__ << "Exact Soul reclamation input rejected; retain ordinary failure budget";
+            return false;
+        }
+        m_soul_retreat = std::move(transaction);
+        m_soul_selection_owned = true;
+        auto info = basic_info_with_what("BlackFlowSoulReclaimFromOrdinarySelection");
+        info["details"] = json::object { { "stage", m_stage_name },
+                                         { "observed_ms", selected.observed_ms },
+                                         { "received_ms", selected.received_ms },
+                                         { "checked_ms", authority.checked_ms },
+                                         { "requested_tile",
+                                           json::array { observation.requested_tile.x, observation.requested_tile.y } },
+                                         { "selected_name", selected.selected_name },
+                                         { "selected_id", selected.selected_id },
+                                         { "input_accepted", accepted },
+                                         { "removal_confirmed", false },
+                                         { "ordinary_deployment_still_required", true },
+                                         { "cancel_before_reclaim", false } };
+        SoulEvidenceRecord record;
+        record.kind = SoulEvidenceKind::Callback;
+        record.payload = std::move(info);
+        store_soul_evidence(std::move(record), {}, true);
+        return true;
+    }
     // The producer already classified this exact captured frame before its
     // cancellation input. Reuse that result without a second CV pass or clock.
     observation.selected_view = observation.selected_view && !image.empty();
