@@ -65,6 +65,15 @@ protected:
 
     bool verify_deployment_enabled() const override { return true; }
 
+    bool ordinary_occupancy_inspection_enabled() const override;
+    bool ordinary_occupancy_normal_view(const cv::Mat& image) const override;
+    bool ordinary_occupancy_selected_view(const cv::Mat& image, const battle::SelectedObjectIdentity& identity)
+        const override;
+    bool consume_ordinary_occupancy_selection(battle::SelectedObjectObservation observation, const cv::Mat& image)
+        override;
+    // Called only after the existing do_once fresh deployment-bar update.
+    bool complete_blackflow_selection_handoff();
+
     bool deployment_target_allowed(const battle::DeploymentOper& oper, const Point& loc) const override;
     void set_dynamic_tile_observation(std::unordered_map<Point, battle::TileAvailability> observation);
 

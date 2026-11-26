@@ -25,6 +25,7 @@ void BlackFlowSummonRetreat::reset_transaction()
 {
     m_phase = Phase::Idle;
     m_pending_tile.reset();
+    m_non_soul_occupant_tile.reset();
     m_initial_alive.reset();
     m_started_ms = 0;
     m_normal_ack_count = 0;
@@ -46,6 +47,7 @@ bool BlackFlowSummonRetreat::accept(const SummonRetreatObservation& observation)
         observation.observed_ms < m_observed_ms || observation.received_ms < observation.observed_ms ||
         observation.received_ms - observation.observed_ms > 500) {
         m_initial_alive.reset();
+        m_non_soul_occupant_tile.reset();
         return false;
     }
     m_sequence = observation.sequence;
@@ -77,6 +79,7 @@ bool BlackFlowSummonRetreat::acknowledge_normal(const SummonRetreatObservation& 
         return false;
     }
     if (!accept(observation)) {
+        m_non_soul_occupant_tile.reset();
         return false;
     }
     if (m_normal_ack_count == 0 || observation.observed_ms - m_normal_ack_first_ms > 1500) {
@@ -102,6 +105,34 @@ bool BlackFlowSummonRetreat::complete_handoff()
     return true;
 }
 
+bool BlackFlowSummonRetreat::adopt_ordinary_selection(
+    const asst::battle::SelectedObjectObservation& observation,
+    std::uint64_t sequence,
+    std::uint64_t now_ms)
+{
+    if (m_intent != SummonRetreatIntent::ObserveDeploymentOccupancy || m_phase != Phase::Idle ||
+        !asst::battle::owns_selected_object_request(observation) || m_allowed_tiles.size() != 1 ||
+        observation.requested_tile != m_allowed_tiles.front() || sequence <= m_sequence || m_battle_key.empty()) {
+        return false;
+    }
+    // Ownership of our accepted input can outlive its image. An old image
+    // grants neither occupancy publication nor any input permission. Recovery
+    // still requires the existing fresh observations and normal handoff.
+    m_pending_tile = observation.requested_tile;
+    m_sequence = sequence;
+    m_observed_ms = observation.observed_ms;
+    m_received_ms = observation.received_ms;
+    m_started_ms = observation.observed_ms;
+    m_initial_alive.reset();
+    m_authorized_action = SummonRetreatAction::None;
+    m_phase =
+        asst::battle::cancellation_input_accepted(observation.cancellation) ? Phase::AwaitNormalAck : Phase::Verifying;
+    if (asst::battle::non_soul_occupancy_evidence(observation, m_summon_id, now_ms)) {
+        m_non_soul_occupant_tile = observation.requested_tile;
+    }
+    return true;
+}
+
 SummonRetreatDecision BlackFlowSummonRetreat::observe(const SummonRetreatObservation& observation)
 {
     m_authorized_action = SummonRetreatAction::None;
@@ -109,7 +140,8 @@ SummonRetreatDecision BlackFlowSummonRetreat::observe(const SummonRetreatObserva
         return {};
     }
     const bool protect = m_intent == SummonRetreatIntent::ProtectOwnerFromBoss;
-    if (!protect && (m_allowed_tiles.size() != 1 || m_allowed_tiles.front() == m_owner_tile)) {
+    const bool ordinary = m_intent == SummonRetreatIntent::ObserveDeploymentOccupancy;
+    if (!protect && !ordinary && (m_allowed_tiles.size() != 1 || m_allowed_tiles.front() == m_owner_tile)) {
         return {};
     }
     if (protect && observation.boss == BossVitalState::ConfirmedDead) {
@@ -123,7 +155,13 @@ SummonRetreatDecision BlackFlowSummonRetreat::observe(const SummonRetreatObserva
     }
     // The actor does not own the user's pause and may not cancel or resume it.
     if (observation.user_paused) {
+        m_non_soul_occupant_tile.reset();
         return {};
+    }
+    if (ordinary) {
+        // Ordinary adoption cannot discover a new target or remove anything.
+        // Only cleanup of the already owned selection is available.
+        return m_phase == Phase::Verifying && observation.selection_view ? cancel() : SummonRetreatDecision {};
     }
     if (m_phase == Phase::AwaitNormalAck || m_phase == Phase::HandingOff) {
         return {};
@@ -167,6 +205,9 @@ SummonRetreatDecision BlackFlowSummonRetreat::observe(const SummonRetreatObserva
         }
         if ((!observation.selected_name.empty() && observation.selected_name != m_summon_name) ||
             (!observation.selected_id.empty() && observation.selected_id != m_summon_id)) {
+            // Keep original reclamation cleanup behavior. Its ProcessTask
+            // completion is not a raw Controller cancellation receipt; only
+            // ordinary adoption has the qualified negative producer.
             return cancel();
         }
         if (observation.selected_name == m_summon_name && observation.selected_id == m_summon_id &&
@@ -223,6 +264,7 @@ void BlackFlowSummonRetreat::input_result(SummonRetreatAction action, bool succe
             m_phase = Phase::AwaitNormalAck;
         }
         else {
+            m_non_soul_occupant_tile.reset();
             m_phase = Phase::Verifying;
         }
     }
@@ -230,7 +272,9 @@ void BlackFlowSummonRetreat::input_result(SummonRetreatAction action, bool succe
 
 bool BlackFlowSummonRetreat::authorized(SummonRetreatAction action) const noexcept
 {
-    if (action == SummonRetreatAction::None || action != m_authorized_action) {
+    if ((m_intent == SummonRetreatIntent::ObserveDeploymentOccupancy &&
+         action != SummonRetreatAction::CancelSelection) ||
+        action == SummonRetreatAction::None || action != m_authorized_action) {
         return false;
     }
     if (action == SummonRetreatAction::CancelSelection) {
@@ -328,5 +372,6 @@ SummonRetreatAuthorization BlackFlowSummonRetreat::authorize_input(
 void BlackFlowSummonRetreat::invalidate_input_permission() noexcept
 {
     m_initial_alive.reset();
+    m_non_soul_occupant_tile.reset();
     m_authorized_action = SummonRetreatAction::None;
 }

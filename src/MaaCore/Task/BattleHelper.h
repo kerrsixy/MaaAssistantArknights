@@ -70,6 +70,26 @@ protected:
 
     virtual bool verify_deployment_enabled() const { return false; }
 
+    virtual bool ordinary_occupancy_inspection_enabled() const { return false; }
+
+    bool ordinary_occupancy_inspection_applies(const battle::DeploymentOper& oper) const;
+
+    virtual bool ordinary_occupancy_normal_view(const cv::Mat&) const { return false; }
+
+    virtual bool ordinary_occupancy_selected_view(const cv::Mat&, const battle::SelectedObjectIdentity&) const
+    {
+        return false;
+    }
+
+    static std::optional<Rect> ordinary_occupancy_cancel_rect(const TaskConstPtr& task, const cv::Mat& image);
+    battle::SelectionCancellationReceipt
+        cancel_owned_ordinary_occupancy_selection(const cv::Mat& image, std::uint64_t observed_ms);
+
+    virtual bool consume_ordinary_occupancy_selection(battle::SelectedObjectObservation, const cv::Mat&)
+    {
+        return false;
+    }
+
     virtual bool deployment_target_allowed(const battle::DeploymentOper&, const Point&) const { return true; }
 
     virtual battle::DeploymentKind deployment_kind(const battle::DeploymentOper& oper) const
@@ -197,6 +217,7 @@ protected:
     bool move_camera(const std::pair<double, double>& delta, bool keep_kills = false);
 
     std::string analyze_detail_page_oper_name(const cv::Mat& image, battle::Role role);
+    battle::SelectedObjectIdentity analyze_detail_page_object_identity(const cv::Mat& image);
     std::optional<Rect> get_oper_rect_on_deployment(battle::Role role, const std::string& name) const;
 
     int elapsed_time();

@@ -1261,3 +1261,13 @@ V2其後實際build0/native1，在完整public ProcessTask用例SIGSEGV退出且
 最終新原生：48/0；舊相容回歸：156/0；未注入數字即維持pending，factory與產物依最終資格紀錄。Probe正向fresh UID及地圖/AP是明確受控前提，不代表實際Controller登入或自動恢復成功。163自動live仍未證；空run_id的外部輔助續局不能憑此取得本程序所有權。資格不是實機通關、無人接受、N9勝利或穩定N10。
 
 原Probe仍輸出zero_controller_public_ProcessTask_runs=2；標籤已過時，實際是一例空實例加一例真實未連線實例。連線與遊戲輸入皆0，不改寫原紀錄。
+
+### 2026-11-26 階段166：普通部署保留精確占位身分與真實取消回執
+
+R87無主地曾把6,3的 ｢丰饶树冢｣ 按機械師職業濾成未知並重複試放。166僅修普通占位證據鏈，不改關卡站位或6,3可用時優先權，不盲換4,3、不花50假定清格。V1原生實際60/0，但原始碼審查有兩項P1：固定500ms取消後等待讓完整負證超過500ms，ProcessTask完成也不等於Controller接受取消。保留原綠結果與工件，這是原始碼退回，不捏造native紅。
+
+V2校驗正式BattleCancelSelection的支援演算法、ClickRect、合法resource矩形及無副作用鏈；只在未確認普通選中作用域復用同一Controller並取得真點擊bool，不新增Controller或資源。當前postDelay500僅供對照，不是按鈕身分常數。該窄路徑由原兩次fresh normal與fresh部署欄確認穩定，常規/Confirmed/其它用途仍保留原ProcessTask500。捕獲前observed、實際操作後received及500ms門不重標、不放寬；冷/慢/未知schema/點擊失敗只保租約清理，不寫Blocked。普通adopt不取得Soul選中/撤退權、不假造EW owner；未資格157的Reclaim foreign-device負證不接入，保留原wrong-name取消與真Soul。仍無live毀壞/空格producer，不以時間或缺失觀測假解封。
+
+在165完整基線重編18個既有消費者，另305物件繼承，共323、0新增產品TU；V2不沿用V1那18個物件。新原生：78/0；舊回歸：420/0，未注入即pending；實際全資源雙flag factory零設備通過。獨立同影格Debug實驗首輪3508.754ms，warm三輪285.642/303.307/317.004ms；warm計算本身未過500，但只是本機identity+selected-view，不含capture及device cancel，production_latency_qualified仍false。首輪明顯逾時，受控交易時鐘或本機warm綠都不能證明正式負證可adopt。
+
+R87輔助續局最終N9false、680分，未到最終Boss；無人first ending未證，N10未解鎖。下一輪新N9須以真實選中、取消bool、兩normal、部署欄與同格結果驗證閉環；本機計時與離線資格不是R87已修、實機通關或穩定N10證明。

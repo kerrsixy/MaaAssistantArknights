@@ -2153,28 +2153,9 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
         if (!m_soul_retreat || !m_soul_retreat->handoff_pending()) {
             return true;
         }
-        const auto intent = m_soul_retreat->intent();
-        const auto tile = m_soul_retreat->pending_tile();
-        if (!m_soul_retreat->complete_handoff()) {
+        if (!complete_blackflow_selection_handoff()) {
             return true;
         }
-        m_soul_selection_owned = false;
-        m_soul_retreat.reset();
-        auto released = basic_info_with_what("BlackFlowSoulUiReleased");
-        released["details"] = json::object {
-            { "stage", m_stage_name },
-            { "intent",
-              intent == blackflow::SummonRetreatIntent::ReclaimDeploymentTile ? "reclaim_deployment_tile"
-                                                                              : "protect_owner_from_boss" },
-            { "requested_tile", tile ? json::array { tile->x, tile->y } : json::array {} },
-            { "fresh_deployment_bar", true },
-            { "ordinary_deployment_still_required", true },
-            { "removal_confirmed", false },
-        };
-        blackflow::SoulEvidenceRecord release_record;
-        release_record.kind = blackflow::SoulEvidenceKind::Callback;
-        release_record.payload = std::move(released);
-        store_soul_evidence(std::move(release_record), {}, true);
     }
     if (m_hunter_prelude && !m_hunter_main_allowed) {
         auto hunter_frame = ctrler()->get_image();
@@ -2919,7 +2900,12 @@ std::vector<asst::Point> asst::RoguelikeBattleTaskPlugin::available_locations(co
     auto type = BattleData.get_location_type(oper.role, oper.name);
     auto locations = available_locations(
         type == LocationType::Invalid || type == LocationType::None ? get_role_usual_location(oper.role) : type);
-    std::erase_if(locations, [&](const Point& loc) { return !deployment_retry_allowed(oper, loc); });
+    std::erase_if(locations, [&](const Point& loc) {
+        const auto observed = m_dynamic_tile_observation.find(loc);
+        return (observed != m_dynamic_tile_observation.end() &&
+                observed->second == battle::TileAvailability::Blocked) ||
+               !deployment_retry_allowed(oper, loc);
+    });
     return locations;
 }
 
@@ -2938,8 +2924,28 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_target_allowed(const Deployment
 void asst::RoguelikeBattleTaskPlugin::set_dynamic_tile_observation(
     std::unordered_map<Point, battle::TileAvailability> observation)
 {
+    const bool strict_requested = !observation.empty();
+    for (const auto& [tile, old_state] : m_dynamic_tile_observation) {
+        if (old_state != battle::TileAvailability::Blocked) {
+            continue;
+        }
+        const auto incoming = observation.find(tile);
+        if (incoming == observation.end() || incoming->second != battle::TileAvailability::Deployable) {
+            observation[tile] = battle::TileAvailability::Blocked;
+        }
+    }
+    for (const auto& [tile, state] : observation) {
+        if (state == battle::TileAvailability::Deployable) {
+            // No live destruction producer exists yet. This positive API must
+            // be called only with independently verified current deployability.
+            m_unverified_deployment_tiles.erase(tile);
+            std::erase_if(m_unverified_deployment_attempts, [&](const auto& entry) {
+                return entry.first.second == tile;
+            });
+        }
+    }
     m_dynamic_tile_observation = std::move(observation);
-    m_dynamic_tile_observation_enabled = !m_dynamic_tile_observation.empty();
+    m_dynamic_tile_observation_enabled = strict_requested;
     LogInfo << __FUNCTION__ << "Dynamic tile observation updated" << m_dynamic_tile_observation.size();
 }
 

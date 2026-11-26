@@ -33,6 +33,7 @@ bool
                         : required_tile                          ? SummonRetreatIntent::ReclaimDeploymentTile
                                                                  : SummonRetreatIntent::ProtectOwnerFromBoss;
     const bool reclaim = intent == SummonRetreatIntent::ReclaimDeploymentTile;
+    const bool ordinary = intent == SummonRetreatIntent::ObserveDeploymentOccupancy;
     const auto timestamp = [] {
         return static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
@@ -139,8 +140,14 @@ bool
               !diagnostic_owner_tile ? json::array {}
                                      : json::array { diagnostic_owner_tile->x, diagnostic_owner_tile->y } },
             { "allowed_sites_known_in_this_invocation", diagnostic_allowed_sites_known },
-            { "intent", reclaim ? "reclaim_deployment_tile" : "protect_owner_from_boss" },
-            { "proposal_source", reclaim ? "required_deployment_tile_inspection" : "soul_appearance" },
+            { "intent",
+              ordinary  ? "ordinary_deployment_occupancy"
+              : reclaim ? "reclaim_deployment_tile"
+                        : "protect_owner_from_boss" },
+            { "proposal_source",
+              ordinary  ? "ordinary_deployment_verification"
+              : reclaim ? "required_deployment_tile_inspection"
+                        : "soul_appearance" },
             { "allowed_sites", allowed_sites },
             { "candidates", candidates },
             { "boss_state", static_cast<int>(observation.boss) },
@@ -227,7 +234,10 @@ bool
             auto info = basic_info_with_what("BlackFlowSoulRetreat");
             info["details"] = json::object {
                 { "stage", m_stage_name },
-                { "intent", reclaim ? "reclaim_deployment_tile" : "protect_owner_from_boss" },
+                { "intent",
+                  ordinary  ? "ordinary_deployment_occupancy"
+                  : reclaim ? "reclaim_deployment_tile"
+                            : "protect_owner_from_boss" },
                 { "event", event },
                 { "input_authorization", authority_json() },
                 { "local_body_reobservation", diagnostic_local_retry },
@@ -266,7 +276,7 @@ bool
         diagnostic_speculative_soul_count = 0;
         diagnostic_speculative_souls_discarded = false;
         std::future<BossBodyEvidence> boss_future;
-        if (!observation.user_paused && !cleanup && !reclaim && (selected || observation.normal_view)) {
+        if (!observation.user_paused && !cleanup && !reclaim && !ordinary && (selected || observation.normal_view)) {
             const auto* observer = m_soul_observer.get();
             boss_future =
                 std::async(std::launch::async | std::launch::deferred, [observer, frame, selected, local_body_search] {
@@ -276,11 +286,14 @@ bool
         }
         if (!observation.user_paused && selected && !observation.normal_view) {
             observation.retreat_button_present = m_soul_observer->retreat_button(frame, m_retreat_button_pos);
-            if (!cleanup) {
-                observation.selected_name = analyze_detail_page_oper_name(frame, Role::Unknown);
-                const auto ids = BattleData.get_ids(Role::Drone, observation.selected_name);
-                if (ids.size() == 1) {
-                    observation.selected_id = ids.front();
+            if (!cleanup || ordinary) {
+                const auto identity = analyze_detail_page_object_identity(frame);
+                observation.selected_name = identity.name;
+                if (identity.unique && identity.device) {
+                    observation.selected_id = identity.id;
+                }
+                if (m_soul_selection_owned && m_soul_retreat) {
+                    observation.selection_request_tile = m_soul_retreat->pending_tile();
                 }
             }
             observation.selection_view = observation.retreat_button_present || !observation.selected_name.empty();
@@ -337,7 +350,10 @@ bool
         auto info = basic_info_with_what("BlackFlowSoulUiNormalAck");
         info["details"] = json::object {
             { "stage", m_stage_name },
-            { "intent", reclaim ? "reclaim_deployment_tile" : "protect_owner_from_boss" },
+            { "intent",
+              ordinary  ? "ordinary_deployment_occupancy"
+              : reclaim ? "reclaim_deployment_tile"
+                        : "protect_owner_from_boss" },
             { "positive_normal_frames", 2 },
             { "first_observed_ms", first_observed },
             { "second_observed_ms", observation.observed_ms },
@@ -558,11 +574,115 @@ bool
             diagnose("cancel_input_freshness_or_context_rejected", observation, decision, evidence_frame);
             return true;
         }
-        const bool accepted = cancel_oper_selection();
+        const bool accepted =
+            ordinary ? battle::cancellation_input_accepted(
+                           cancel_owned_ordinary_occupancy_selection(evidence_frame, observation.observed_ms))
+                     : cancel_oper_selection();
         m_soul_retreat->input_result(decision.action, accepted);
         record("cancel_owned_selection", observation, accepted, evidence_frame);
         diagnose("cancel_input_receipt", observation, decision, evidence_frame, accepted);
     }
+    return true;
+}
+
+bool asst::RoguelikeBattleTaskPlugin::ordinary_occupancy_inspection_enabled() const
+{
+    return m_config->get_theme() == RoguelikeTheme::BlackFlow && m_soul_observer != nullptr;
+}
+
+bool asst::RoguelikeBattleTaskPlugin::ordinary_occupancy_normal_view(const cv::Mat& image) const
+{
+    return ordinary_occupancy_inspection_enabled() && !m_soul_selection_owned && !need_exit() &&
+           !m_waiting_for_manual_resume && !m_soul_observer->paused(image) && m_soul_observer->normal_running(image);
+}
+
+bool asst::RoguelikeBattleTaskPlugin::ordinary_occupancy_selected_view(
+    const cv::Mat& image,
+    const battle::SelectedObjectIdentity& identity) const
+{
+    return ordinary_occupancy_inspection_enabled() && !m_soul_selection_owned && !need_exit() && !image.empty() &&
+           !m_soul_observer->paused(image) && !m_soul_observer->normal_running(image) &&
+           !m_soul_observer->battle_end_scene(image).has_value() &&
+           (identity.unique || m_soul_observer->retreat_button(image, m_retreat_button_pos));
+}
+
+bool asst::RoguelikeBattleTaskPlugin::consume_ordinary_occupancy_selection(
+    battle::SelectedObjectObservation observation,
+    const cv::Mat& image)
+{
+    using namespace blackflow;
+    if (!ordinary_occupancy_inspection_enabled() || m_soul_selection_owned ||
+        !battle::owns_selected_object_request(observation)) {
+        return false;
+    }
+    const auto timestamp = [] {
+        return static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+                .count());
+    };
+    // The producer already classified this exact captured frame before its
+    // cancellation input. Reuse that result without a second CV pass or clock.
+    observation.selected_view = observation.selected_view && !image.empty();
+    const auto key = m_config->status().run_id + ":" + m_stage_name;
+    auto transaction = std::make_unique<BlackFlowSummonRetreat>(
+        key,
+        "魂灵之影",
+        "token_10035_wisdel_wward",
+        Point {}, // Ordinary purpose has no owner and never reads this value.
+        std::vector<Point> { observation.requested_tile },
+        SummonRetreatIntent::ObserveDeploymentOccupancy);
+    const auto adopted_ms = timestamp();
+    if (!transaction->adopt_ordinary_selection(observation, ++m_soul_sequence, adopted_ms)) {
+        return false;
+    }
+    m_soul_retreat = std::move(transaction);
+    m_soul_selection_owned = true;
+    LogInfo << __FUNCTION__ << "Ordinary deployment inspection adopted by existing UI lease"
+            << observation.requested_tile << observation.identity.name << observation.identity.id << "select accepted"
+            << observation.selection_input_accepted << "cancel schema" << observation.cancellation.schema_verified
+            << "cancel attempted" << observation.cancellation.input_attempted << "cancel accepted"
+            << observation.cancellation.input_accepted << "observed_ms" << observation.observed_ms << "received_ms"
+            << observation.received_ms << "adopted_ms" << adopted_ms << "negative qualified"
+            << battle::non_soul_occupancy_evidence(observation, "token_10035_wisdel_wward", adopted_ms);
+    return true;
+}
+
+bool asst::RoguelikeBattleTaskPlugin::complete_blackflow_selection_handoff()
+{
+    if (need_exit() || !m_soul_selection_owned || !m_soul_retreat || !m_soul_retreat->handoff_pending()) {
+        return false;
+    }
+    const auto intent = m_soul_retreat->intent();
+    const auto tile = m_soul_retreat->pending_tile();
+    const auto occupied_tile = m_soul_retreat->non_soul_occupied_tile();
+    if (!m_soul_retreat->complete_handoff()) {
+        return false;
+    }
+    if (occupied_tile) {
+        // This is a negative observation only. Do not turn unrelated
+        // unknown tiles into globally forbidden deployment sites.
+        m_dynamic_tile_observation[*occupied_tile] = battle::TileAvailability::Blocked;
+    }
+    m_soul_selection_owned = false;
+    m_soul_retreat.reset();
+    auto released = basic_info_with_what("BlackFlowSoulUiReleased");
+    released["details"] = json::object {
+        { "stage", m_stage_name },
+        { "intent",
+          intent == blackflow::SummonRetreatIntent::ObserveDeploymentOccupancy ? "ordinary_deployment_occupancy"
+          : intent == blackflow::SummonRetreatIntent::ReclaimDeploymentTile    ? "reclaim_deployment_tile"
+                                                                               : "protect_owner_from_boss" },
+        { "non_soul_occupied_tile",
+          occupied_tile ? json::array { occupied_tile->x, occupied_tile->y } : json::array {} },
+        { "requested_tile", tile ? json::array { tile->x, tile->y } : json::array {} },
+        { "fresh_deployment_bar", true },
+        { "ordinary_deployment_still_required", true },
+        { "removal_confirmed", false },
+    };
+    blackflow::SoulEvidenceRecord release_record;
+    release_record.kind = blackflow::SoulEvidenceKind::Callback;
+    release_record.payload = std::move(released);
+    store_soul_evidence(std::move(release_record), {}, true);
     return true;
 }
 
