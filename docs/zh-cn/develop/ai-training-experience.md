@@ -1417,3 +1417,17 @@ Run87原进程在09:13:55结束于登录页，exit1、流程错误0、无结算�
 发布context的精准recruit策略与真实exit2/错误计数由独立guard候选核验，不借此放宽未知来源、无人资格或原有暂停保护。原87的流程错误0不能抵消辅助尝试的错误，也不能恢复其无人资格。后续仅限身份与存档证据匹配的saved-only assisted；没有结算或大厅证明时不得声称已结束，更不改为弃局新开。
 
 最终新原生：24/0；旧回归：102/0；guard：23/0。未注入实际计数就保持pending；factory与最终产物以独立资格回执为准。本阶段资格不是断线自动恢复已实测、不是无人通过或获胜；N9尚未获胜，N10尚未解锁。
+
+### 2026-11-26 阶段165：招募中断时保留当前探索并有界恢复
+
+164的Run87辅助续局已真实通过待招募入口，机械师E2实收并到达第5层，随后在“一步之遥”失败：N9 game_pass=false、680分、结算floor4、最终大厅正证；exit0、流程错误0、暂停0、fresh0、restore1不代表无人通过。未进入最终Boss、没有结局标题或N10解锁证明。原87登录中断exit1及首次after-login01的exit2/流程错误2继续保留，不能用后续辅助恢复覆盖旧结果。
+
+165采用内部163候选，在招募确认/清理的同帧候选列表中优先识别正证DataSync或WakeUp。既有Recruit先丢弃未实收的pending晋升，再由Lifecycle在任何恢复点击前检查本进程已完成StartExplore且run/UID/client仍完全匹配；缺所有权、重复触发、超限或未知页均原地停止保留。登录后须在真实Home重新取得精确UID/client正证，才能Continue并进入164双正锚Recruit或原Intro/Map。招募页不是实收或地图证据；最终还须新鲜层名/地图/AP经原Session.update对齐，清除旧Running后才释放原Routing。不弃局新开、不解除用户暂停，冷启动原顺序不变。
+
+产品为三源码/头及一个资源，继承161源与正式164资源、三旧TU、零新增产品TU，目标323对象，以最终manifest为准。首个真实Debug因Probe helper接收const配置却调用仅nonconst的status()而C2662编译失败，build_exit1、native_exit=null：不是产品断言红。原日志与工件保留。V2仅去掉该测试形参const，并将测试CRLF规范为LF；产品、资源、六项输入及全部业务断言不变。V2从161重新实编三TU，不能称复用首次失败项目对象，两轮为3+3。
+
+V2随后实际build0/native1，在完整public ProcessTask用例SIGSEGV退出且无summary；这是第二个独立红，不能与V1编译失败合并，也不能把此前未打印FAIL当通过数。原日志无调用栈。只读源码证据确定空Assistant会令Status为空，而成功执行DoNothing后ProcessTask仍须状态记账；这是一条必然无效依赖路径，不等于已定位实际异常PC。V3仅在该完整用例提供真实但未连接的Assistant/Status，加入两项前后未连接/未启动检查；完整Active入口、原battle帧和原拒绝断言保留。未添加实际Task.get(active)打印，不能虚构运行时字段。V3只编Probe，复用V2已编3个新产品对象与320继承对象，合计323；没有第三轮产品重编。最终实际结果注入前仍pending。
+
+最终新原生：48/0；旧兼容回归：156/0；未注入计数保持pending，factory及产物依最终资格回执。Probe中的正向fresh UID与地图/AP为明确受控前提，不是实际Controller登录或自动恢复成功。163自动live仍未证；当前空run_id的外部辅助续局也不能凭此获得本进程所有权。资格不等于实机通关、无人接受、N9获胜或稳定N10。
+
+原Probe输出仍保留zero_controller_public_ProcessTask_runs=2字段；此标签已过时，实际是一例空实例加一例真实未连接实例。连接与游戏输入仍均为0，不改写原始报告。

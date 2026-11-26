@@ -337,12 +337,27 @@
         "roi": [958, 530, 322, 189]
     },
     "BlackFlow@Roguelike@ChooseOper": {
-        "next": ["BlackFlow@Roguelike@ChooseOperConfirm", "BlackFlow@Roguelike@ChooseOperConfirm#next"]
+        "next": [
+            "BlackFlow@Roguelike@RecruitRecoveryDataSync",
+            "BlackFlow@Roguelike@ActiveRunRecoveryWakeUp",
+            "BlackFlow@Roguelike@ChooseOperConfirm",
+            "BlackFlow@Roguelike@ChooseOperConfirm#next"
+        ]
     },
     "BlackFlow@Roguelike@ChooseOperConfirm": {
-        "template": ["BlackFlow@Roguelike@ChooseOperConfirm.png", "BlackFlow@Roguelike@ChooseOperConfirmWithBuff.png"],
-        "roi": [1016, 602, 264, 118],
+        "template": [
+            "BlackFlow@Roguelike@ChooseOperConfirm.png",
+            "BlackFlow@Roguelike@ChooseOperConfirmWithBuff.png"
+        ],
+        "roi": [
+            1016,
+            602,
+            264,
+            118
+        ],
         "next": [
+            "BlackFlow@Roguelike@RecruitRecoveryDataSync",
+            "BlackFlow@Roguelike@ActiveRunRecoveryWakeUp",
             "BlackFlow@Roguelike@RecruitSkip",
             "BlackFlow@Roguelike@RecruitShopReturn",
             "BlackFlow@Roguelike@StageEncounterGiveUpRecruitConfirm",
@@ -2001,6 +2016,8 @@
     },
     "BlackFlow@Roguelike@RecruitWithoutButton": {
         "next": [
+            "BlackFlow@Roguelike@RecruitRecoveryDataSync",
+            "BlackFlow@Roguelike@ActiveRunRecoveryWakeUp",
             "BlackFlow@Roguelike@RecruitOther",
             "BlackFlow@Roguelike@RecruitShopReturn",
             "BlackFlow@Roguelike@StageTraderLeave",
@@ -3474,14 +3491,23 @@
     "StashedRecruit@BlackFlow@Roguelike@ChooseOper": {
         "baseTask": "BlackFlow@Roguelike@ChooseOper",
         "next": [
+            "BlackFlow@Roguelike@RecruitRecoveryDataSync",
+            "BlackFlow@Roguelike@ActiveRunRecoveryWakeUp",
             "StashedRecruit@BlackFlow@Roguelike@ChooseOperConfirm",
             "StashedRecruit@BlackFlow@Roguelike@RecruitWithoutButton"
         ]
     },
     "StashedRecruit@BlackFlow@Roguelike@ChooseOperConfirm": {
         "baseTask": "BlackFlow@Roguelike@ChooseOperConfirm",
-        "template": ["BlackFlow@Roguelike@ChooseOperConfirm.png", "BlackFlow@Roguelike@ChooseOperConfirmWithBuff.png"],
-        "next": ["BlackFlow@Roguelike@StashedRecruitPostConfirm"]
+        "template": [
+            "BlackFlow@Roguelike@ChooseOperConfirm.png",
+            "BlackFlow@Roguelike@ChooseOperConfirmWithBuff.png"
+        ],
+        "next": [
+            "BlackFlow@Roguelike@RecruitRecoveryDataSync",
+            "BlackFlow@Roguelike@ActiveRunRecoveryWakeUp",
+            "BlackFlow@Roguelike@StashedRecruitPostConfirm"
+        ]
     },
     "StashedRecruit@BlackFlow@Roguelike@RecruitSkip": {
         "baseTask": "Roguelike@RecruitSkip",
@@ -3494,6 +3520,8 @@
         "algorithm": "JustReturn",
         "action": "DoNothing",
         "next": [
+            "BlackFlow@Roguelike@RecruitRecoveryDataSync",
+            "BlackFlow@Roguelike@ActiveRunRecoveryWakeUp",
             "StashedRecruit@BlackFlow@Roguelike@RecruitSkip",
             "BlackFlow@Roguelike@StashedRecruitReceipt",
             "BlackFlow@Roguelike@StashedRecruitOptionsReceipt",
@@ -3996,12 +4024,15 @@
         "action": "DoNothing",
         "next": [
             "BlackFlow@Roguelike@BeginRecovery_DataSync",
+            "BlackFlow@Roguelike@ActiveRunRecoveryWakeUp",
             "BlackFlow@Roguelike@BeginRecovery_DailySupply",
             "BlackFlow@Roguelike@MonthlySummaryDismiss",
             "BlackFlow@Roguelike@BeginRecovery_Announcement",
             "BlackFlow@Roguelike@TrainingSummaryContinue",
+            "BlackFlow@Roguelike@ActiveRunRecoveryLoginLoading",
             "BlackFlow@Roguelike@ActiveRunRecoveryHome",
             "BlackFlow@Roguelike@ResumeSavedContinue",
+            "BlackFlow@Roguelike@ResumeSavedRecruit",
             "BlackFlow@Roguelike@ResumeFloorIntro",
             "BlackFlow@Roguelike@ResumeSavedMap",
             "BlackFlow@Roguelike@ActiveRunRecoveryStop"
@@ -4028,5 +4059,52 @@
         "algorithm": "JustReturn",
         "action": "DoNothing",
         "next": []
+    },
+    "BlackFlow@Roguelike@ActiveRunRecoveryWakeUp": {
+        "Doc": "Only the positive original WakeUp template. Same-native owned identity is checked before this click; fresh Home identity is required before saved continuation. No generic startup successors.",
+        "baseTask": "StartToWakeUp",
+        "template": "StartToWakeUp.png",
+        "action": "ClickSelf",
+        "maxTimes": 3,
+        "next": [
+            "BlackFlow@Roguelike@ActiveRunRecovery"
+        ],
+        "exceededNext": [
+            "BlackFlow@Roguelike@ActiveRunRecoveryStop"
+        ],
+        "onErrorNext": [
+            "BlackFlow@Roguelike@ActiveRunRecoveryStop"
+        ]
+    },
+    "BlackFlow@Roguelike@ActiveRunRecoveryLoginLoading": {
+        "Doc": "Bounded positive loading-icon wait within the same owned recovery episode; unknown screens stop preserved.",
+        "baseTask": "LoadingIcon",
+        "template": "LoadingIcon.png",
+        "action": "DoNothing",
+        "postDelay": 500,
+        "maxTimes": 20,
+        "next": [
+            "BlackFlow@Roguelike@ActiveRunRecovery"
+        ],
+        "exceededNext": [
+            "BlackFlow@Roguelike@ActiveRunRecoveryStop"
+        ],
+        "onErrorNext": [
+            "BlackFlow@Roguelike@ActiveRunRecoveryStop"
+        ]
+    },
+    "BlackFlow@Roguelike@RecruitRecoveryDataSync": {
+        "Doc": "Recruitment-specific positive DataSync. Unlike cold startup it always requires process-owned exploration before its original dismiss action.",
+        "baseTask": "BlackFlow@Roguelike@BeginRecovery_DataSync",
+        "next": [
+            "BlackFlow@Roguelike@ActiveRunRecovery"
+        ],
+        "maxTimes": 3,
+        "exceededNext": [
+            "BlackFlow@Roguelike@ActiveRunRecoveryStop"
+        ],
+        "onErrorNext": [
+            "BlackFlow@Roguelike@ActiveRunRecoveryStop"
+        ]
     }
 }

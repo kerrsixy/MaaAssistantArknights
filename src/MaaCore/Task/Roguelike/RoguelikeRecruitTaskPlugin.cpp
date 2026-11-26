@@ -50,6 +50,13 @@ bool asst::RoguelikeRecruitTaskPlugin::verify(AsstMsg msg, const json::value& de
     const auto is_task = [&](std::string_view name) {
         return task == name || task.ends_with("@" + std::string(name));
     };
+    const bool interrupted =
+        m_config->get_theme() == RoguelikeTheme::BlackFlow &&
+        (is_task("BeginRecovery_DataSync") || is_task("RecruitRecoveryDataSync") || is_task("ActiveRunRecoveryWakeUp"));
+    if (m_pending_recruitment && msg == AsstMsg::SubTaskStart && interrupted) {
+        m_recruitment_event = RecruitmentEvent::Discard;
+        return true;
+    }
     const bool cancelled = task.find("GiveUp") != std::string::npos ||
                            task.find("ReserveRecruitmentVoucher") != std::string::npos ||
                            task.find("VoucherStashConfirm") != std::string::npos || is_task("StashedRecruitLeave");
@@ -132,7 +139,7 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
 
     const auto event = std::exchange(m_recruitment_event, RecruitmentEvent::Select);
     if (event == RecruitmentEvent::Discard) {
-        discard_pending_recruitment("cancelled_or_failed");
+        discard_pending_recruitment("cancelled_failed_or_interrupted_before_receipt");
         return true;
     }
     if (event == RecruitmentEvent::Confirm) {
