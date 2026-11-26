@@ -1,31 +1,94 @@
 {
-    "BlackFlow@Roguelike@OpeningRewardItemPopup": {
+    "BlackFlow@Roguelike@ResumeSavedPreparation": {
+        "algorithm": "MatchTemplate",
+        "template": "Roguelike@QuickFormation.png",
+        "roi": [
+            817,
+            0,
+            402,
+            146
+        ],
+        "requiredPage": "BlackFlow@Roguelike@FormationCapacity",
+        "action": "DoNothing",
+        "next": [
+            "BlackFlow@Roguelike@QuickFormation"
+        ],
+        "Doc": "Saved-only continuation on a verified preparation page. Actual before-click capacity validation and normal Skills-page confirmation remain mandatory. No abandon or new exploration branch."
+    },
+    "BlackFlow@Roguelike@FormationCapacity": {
         "algorithm": "OcrDetect",
         "roi": [
-            400,
-            220,
-            130,
-            60
+            173,
+            668,
+            84,
+            36
+        ],
+        "text": [],
+        "Doc": "Selected/current capacity ratio on the regular preparation page; read before opening quick formation and require the same-frame preparation header."
+    },
+    "BlackFlow@Roguelike@OpeningRewardContext": {
+        "algorithm": "OcrDetect",
+        "roi": [
+            500,
+            0,
+            300,
+            80
         ],
         "text": [
-            "加工品",
-            "收藏品"
+            "选择支援",
+            "选择招募组合"
         ],
+        "action": "DoNothing"
+    },
+    "BlackFlow@Roguelike@OpeningRolesReady": {
+        "algorithm": "OcrDetect",
+        "roi": [
+            500,
+            0,
+            300,
+            80
+        ],
+        "text": [
+            "选择招募组合"
+        ],
+        "postDelay": 750,
         "next": [
-            "BlackFlow@Roguelike@LastRewardConfirmLeave@(BlackFlow@Roguelike@CloseCollection)"
+            "BlackFlow@Roguelike@OpeningRewardItemPopup",
+            "BlackFlow@Roguelike@RolesDefault"
         ],
-        "Doc": "Opening reward item overlay. Recognize its foreground label before background cards; retain the existing close-template check and bounded ProcessTask retry."
+        "Doc": "Recognized recruitment-combination page stays in its bounded opening workflow, before generic exit/abandon fallback."
+    },
+    "BlackFlow@Roguelike@OpeningRewardItemPopup": {
+        "algorithm": "MatchTemplate",
+        "template": "BlackFlow@Roguelike@CloseCollection.png",
+        "roi": [
+            600,
+            500,
+            100,
+            100
+        ],
+        "requiredPage": "BlackFlow@Roguelike@OpeningRewardContext",
+        "action": "ClickSelf",
+        "postDelay": 500,
+        "next": [
+            "BlackFlow@Roguelike@LastRewardConfirmLeave#next"
+        ],
+        "Doc": "Same-frame opening header and original close control; covers unlabeled collectible rewards without item-name rules."
     },
     "BlackFlow@Roguelike@MapGoalLife": {
         "algorithm": "OcrDetect",
         "roi": [
-            168,
-            28,
-            95,
-            35
+            170,
+            29,
+            65,
+            32
         ],
         "text": [],
-        "Doc": "Read a complete current/max life ratio only after map identity succeeds; low-confidence or conflicting text stays unknown."
+        "Doc": "Read complete current/max ratio after map identity, excluding shield. A weak mixed-font ratio requires a second high-confidence current-value reading to agree; otherwise unknown.",
+        "binThreshold": [
+            80,
+            255
+        ]
     },
     "BlackFlowAccount@ModulePanelTitle": {
         "Doc": "Exact requested module title in the management panel; the caller supplies the title filter.",
@@ -107,6 +170,7 @@
         "baseTask": "Roguelike@Begin",
         "next": [
             "BlackFlow@Roguelike@OpeningRewardItemPopup",
+            "BlackFlow@Roguelike@OpeningRolesReady",
             "BlackFlow@Roguelike@StashedRecruitReady",
             "BlackFlow@Roguelike@BeginRecovery_DataSync",
             "BlackFlow@Roguelike@BeginRecovery_DailySupply",
@@ -168,6 +232,7 @@
         "algorithm": "JustReturn",
         "action": "DoNothing",
         "next": [
+            "BlackFlow@Roguelike@ResumeSavedPreparation",
             "BlackFlow@Roguelike@BeginRecovery_Victory",
             "BlackFlow@Roguelike@MissionFailedFlag2",
             "BlackFlow@Roguelike@ResumeSavedContinue",
@@ -176,7 +241,9 @@
             "BlackFlow@Roguelike@ResumeFloorIntro",
             "BlackFlow@Roguelike@ResumeSavedMap"
         ],
-        "reduceOtherTimes": ["BlackFlow@Roguelike@ResumeFloorIntro*2"]
+        "reduceOtherTimes": [
+            "BlackFlow@Roguelike@ResumeFloorIntro*2"
+        ]
     },
     "BlackFlow@Roguelike@ResumeSavedContinue": {
         "baseTask": "BlackFlow@Roguelike@Continue",

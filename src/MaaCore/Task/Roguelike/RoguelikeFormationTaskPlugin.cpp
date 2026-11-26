@@ -8,6 +8,9 @@
 #include "Controller/Controller.h"
 #include "Task/ProcessTask.h"
 #include "Utils/Logger.hpp"
+#include "Utils/StringMisc.hpp"
+#include "Vision/Matcher.h"
+#include "Vision/RegionOCRer.h"
 #include <ranges>
 
 bool asst::RoguelikeFormationTaskPlugin::load_params([[maybe_unused]] const json::value& params)
@@ -34,33 +37,108 @@ bool asst::RoguelikeFormationTaskPlugin::on_run_fails()
 
 bool asst::RoguelikeFormationTaskPlugin::verify(AsstMsg msg, const json::value& details) const
 {
-    if (msg != AsstMsg::SubTaskCompleted || details.get("subtask", std::string()) != "ProcessTask") {
+    if ((msg != AsstMsg::SubTaskStart && msg != AsstMsg::SubTaskCompleted) ||
+        details.get("subtask", std::string()) != "ProcessTask" ||
+        !RoguelikeConfig::is_valid_theme(m_config->get_theme())) {
         return false;
     }
-
-    if (!RoguelikeConfig::is_valid_theme(m_config->get_theme())) {
-        Log.error("Roguelike name doesn't exist!");
-        return false;
+    const std::string prefix = m_config->get_theme() + "@";
+    const std::string task = details.get("details", "task", std::string());
+    std::string_view name = task;
+    if (name.starts_with(prefix)) {
+        name.remove_prefix(prefix.size());
     }
-    const std::string roguelike_name = m_config->get_theme() + "@";
-    const std::string& task = details.get("details", "task", "");
-    std::string_view task_view = task;
-    if (task_view.starts_with(roguelike_name)) {
-        task_view.remove_prefix(roguelike_name.length());
+    if (name == "Roguelike@QuickFormation") {
+        if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+            m_use_observed_capacity = true;
+            m_capacity_observation_only = msg == AsstMsg::SubTaskStart;
+            return true;
+        }
+        return msg == AsstMsg::SubTaskCompleted;
     }
-    if (task_view == "Roguelike@QuickFormation" ||
-        (m_config->get_theme() == RoguelikeTheme::BlackFlow && task_view == "Roguelike@DuelQuickFormation")) {
+    if (name == "Roguelike@DuelQuickFormation" && m_config->get_theme() == RoguelikeTheme::BlackFlow &&
+        msg == AsstMsg::SubTaskCompleted) {
+        m_use_observed_capacity = false;
+        m_capacity_observation_only = false;
         return true;
     }
-    else {
+    return false;
+}
+
+std::optional<std::size_t> asst::RoguelikeFormationTaskPlugin::read_formation_capacity(const cv::Mat& frame)
+{
+    const auto anchor = Task.get<MatchTaskInfo>("BlackFlow@Roguelike@QuickFormation");
+    const auto task = Task.get<OcrTaskInfo>("BlackFlow@Roguelike@FormationCapacity");
+    if (frame.empty() || !anchor || !task) {
+        return std::nullopt;
+    }
+    Matcher page(frame);
+    page.set_task_info(anchor);
+    if (!page.analyze()) {
+        return std::nullopt;
+    }
+    RegionOCRer ratio(frame);
+    ratio.set_task_info(task);
+    if (!ratio.analyze() || ratio.get_result().score < 0.95) {
+        return std::nullopt;
+    }
+    auto text = ratio.get_result().text;
+    std::erase(text, ' ');
+    const auto slash = text.find('/');
+    if (slash == std::string::npos || slash == 0 || slash + 1 == text.size() ||
+        text.find('/', slash + 1) != std::string::npos) {
+        return std::nullopt;
+    }
+    const auto current = text.substr(0, slash), maximum = text.substr(slash + 1);
+    const auto digits = [](const std::string& value) {
+        return value.size() <= 2 && std::ranges::all_of(value, [](char x) { return x >= '0' && x <= '9'; });
+    };
+    int selected = -1, capacity = -1;
+    if (!digits(current) || !digits(maximum) || !utils::chars_to_number(current, selected) ||
+        !utils::chars_to_number(maximum, capacity) || capacity <= 0 || selected > capacity) {
+        return std::nullopt;
+    }
+    return static_cast<std::size_t>(capacity);
+}
+
+bool asst::RoguelikeFormationTaskPlugin::append_formation_candidates(
+    std::vector<RoguelikeFormationImageAnalyzer::FormationOper>& selected,
+    const std::vector<RoguelikeFormationImageAnalyzer::FormationOper>& remaining,
+    std::size_t capacity)
+{
+    if (capacity == 0) {
         return false;
     }
+    if (selected.size() > capacity) {
+        selected.resize(capacity);
+    }
+    std::ranges::copy(remaining | std::views::take(capacity - selected.size()), std::back_inserter(selected));
+    return true;
 }
 
 bool asst::RoguelikeFormationTaskPlugin::_run()
 {
     LogTraceFunction;
 
+    if (m_capacity_observation_only) {
+        m_verified_formation_capacity.reset();
+        m_verified_formation_capacity = read_formation_capacity(ctrler()->get_image());
+        if (!m_verified_formation_capacity) {
+            LogError << __FUNCTION__ << "Preparation capacity is unverified before opening formation";
+            return false;
+        }
+        m_config->status().formation_upper_limit = static_cast<int>(*m_verified_formation_capacity);
+        auto info = basic_info_with_what("BlackFlowFormationCapacityObserved");
+        info["details"] = json::object { { "capacity", *m_verified_formation_capacity },
+                                         { "source", "same_frame_preparation_header_and_selected_capacity_ratio" },
+                                         { "before_opening_operator_list", true } };
+        callback(AsstMsg::SubTaskExtraInfo, info);
+        return true;
+    }
+    if (m_use_observed_capacity && !m_verified_formation_capacity) {
+        LogError << __FUNCTION__ << "Formation cannot use an assumed member limit";
+        return false;
+    }
     if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_task_ptr) {
         if (const auto battle = m_task_ptr->find_plugin<RoguelikeBattleTaskPlugin>()) {
             battle->invalidate_prepared_primary();
@@ -73,6 +151,11 @@ bool asst::RoguelikeFormationTaskPlugin::_run()
     }
 
     observe_preparation(frame, formation_analyzer.get_result());
+    if (m_use_observed_capacity && std::ranges::count_if(formation_analyzer.get_result(), [&](const auto& oper) {
+                                       return !RoguelikeRecruit.is_oper_excluded(m_config->get_theme(), oper.name);
+                                   }) > static_cast<std::ptrdiff_t>(*m_verified_formation_capacity)) {
+        return clear_and_reselect();
+    }
 
     size_t pre_selected = 0;
     size_t select_count = 0;
@@ -205,7 +288,10 @@ bool asst::RoguelikeFormationTaskPlugin::clear_and_reselect()
         return priority_of(lhs.name) > priority_of(rhs.name);
     });
 
-    std::ranges::move(oper_list | std::views::take(13 - sorted_oper_list.size()), std::back_inserter(sorted_oper_list));
+    const std::size_t member_limit = m_use_observed_capacity ? m_verified_formation_capacity.value_or(0) : 13;
+    if (!append_formation_candidates(sorted_oper_list, oper_list, member_limit)) {
+        return false;
+    }
 
     std::vector<std::string> legacy_names;
     for (const auto& card : sorted_oper_list) {
@@ -218,6 +304,10 @@ bool asst::RoguelikeFormationTaskPlugin::clear_and_reselect()
     }
     role = plan_primary_members(all, legacy_names);
     if (role) {
+        if (role->requested_members.size() > member_limit) {
+            LogError << __FUNCTION__ << "Formation role proposal exceeds the observed capacity";
+            return false;
+        }
         std::vector<RoguelikeFormationImageAnalyzer::FormationOper> proposed;
         for (const auto& name : role->requested_members) {
             const auto found = std::ranges::find_if(all_operators, [&](const auto& x) { return x.name == name; });
