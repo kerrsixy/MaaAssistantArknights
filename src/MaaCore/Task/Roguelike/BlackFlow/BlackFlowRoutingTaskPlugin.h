@@ -35,6 +35,8 @@ private:
     MapRecoveryStage m_map_recovery_stage = MapRecoveryStage::None;
     // 当前选点阶段跨回调沿用更新后的地图，直到行动提交、背包清理、会话终止或重置。
     bool m_replan_current_map = false;
+    // A failed/partial inventory attempt must return through a full map refresh.
+    bool m_inventory_preflight_allowed = true;
     int m_move_confirmation_dismiss_retries = 0;
 };
 } // namespace asst::blackflow
