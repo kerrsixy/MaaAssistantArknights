@@ -634,6 +634,7 @@ struct DeployInfoWithRank
     bool require_persistent_blocking = false;
     int minimum_base_block_count = 0;
     std::vector<Point> required_range_tiles;
+    bool allow_auto_skill = true;
 };
 
 struct ForceDeployDirection

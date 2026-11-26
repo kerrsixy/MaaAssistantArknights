@@ -10,90 +10,192 @@
         "优先蓝门前 (4,1) 重装兜住右路，再部署卡达 (4,5) 左、EW (4,2) 上。反伤虫来临前优先在 (6,6) 用另一名重装拦截，避免虫进入卡达左向攻击范围，医疗 (6,3) 下支援。砾等短时单位不作为蓝门持续阻挡的首选。",
         "这是依据路线与范围重建的候选作业，尚未取得本版实机过关证据；仅使用下列明确落点，禁止通用兜底把输出补到反伤路线附近。",
         "run37正常首漏的费用时间线：本局初始10，卡达18、机械师19；18费时机械师仅差1费，旧作业无reserve_deploy_cost，卡达先花18后机械师延至14:58:04.491，首漏夹在14:58:02至06。初始10由本局0/21原图及关卡options.initialCost交叉验证，不能混入p14教程5秒的15费。候选启用既有核心费用预留，先等到19部署既定4,1阻挡，不重排相同序列。实际首敌到门截止、生存和击杀仍待新局验证。",
-        "阶段88隔离候选v2：不存在的纯奶组改为既有元素奶组，6,3朝左；本场精英等级下的基础治疗范围必须覆盖4,1、4,2、4,5。此位置不覆盖6,6下路挡者，不得按四人治疗预算。未招到或射程不符则跳过；不把波登可技能治疗冒称持续普通治疗，不保证抵消反伤。原顺序不变，时序和奶量待实机。"
+        "阶段88隔离候选v2：不存在的纯奶组改为既有元素奶组，6,3朝左；本场精英等级下的基础治疗范围必须覆盖4,1、4,2、4,5。此位置不覆盖6,6下路挡者，不得按四人治疗预算。未招到或射程不符则跳过；不把波登可技能治疗冒称持续普通治疗，不保证抵消反伤。原顺序不变，时序和奶量待实机。",
+        "卡达4,5左承担颂水贤者首击后跳职责，禁止自动开主动技能。run91本场虽10耐久未降并通过，S2已实际开启，会扩大攻击范围并随机眩晕；不能把过关当首击与后跳链条已稳定。此许可随实际部署职责生效，不全局禁用其他地图卡达技能、不把本场EW退场直接归因为S2。"
     ],
     "deploy_plan": [
         {
-            "groups": ["机械师", "重装", "铁卫", "奶盾"],
-            "location": [4, 1],
+            "groups": [
+                "机械师",
+                "重装",
+                "铁卫",
+                "奶盾"
+            ],
+            "location": [
+                4,
+                1
+            ],
             "direction": "right"
         },
         {
-            "groups": ["术师"],
-            "operator_names": ["卡达"],
-            "location": [4, 5],
-            "direction": "left"
+            "groups": [
+                "术师"
+            ],
+            "operator_names": [
+                "卡达"
+            ],
+            "location": [
+                4,
+                5
+            ],
+            "direction": "left",
+            "allow_auto_skill": false
         },
         {
-            "groups": ["益达"],
-            "operator_names": ["维什戴尔"],
-            "location": [4, 2],
+            "groups": [
+                "益达"
+            ],
+            "operator_names": [
+                "维什戴尔"
+            ],
+            "location": [
+                4,
+                2
+            ],
             "direction": "up"
         },
         {
-            "groups": ["机械师", "重装", "铁卫", "奶盾"],
-            "location": [6, 6],
+            "groups": [
+                "机械师",
+                "重装",
+                "铁卫",
+                "奶盾"
+            ],
+            "location": [
+                6,
+                6
+            ],
             "direction": "right"
         },
         {
-            "groups": ["元素奶"],
-            "location": [6, 3],
+            "groups": [
+                "元素奶"
+            ],
+            "location": [
+                6,
+                3
+            ],
             "direction": "left",
             "minimum_elite": 1,
             "required_range_tiles": [
-                [4, 1],
-                [4, 2],
-                [4, 5]
+                [
+                    4,
+                    1
+                ],
+                [
+                    4,
+                    2
+                ],
+                [
+                    4,
+                    5
+                ]
             ]
         }
     ],
     "force_deploy_direction": [
         {
-            "location": [3, 2],
-            "role": ["Caster"],
-            "operator_names": ["卡达"],
+            "location": [
+                3,
+                2
+            ],
+            "role": [
+                "Caster"
+            ],
+            "operator_names": [
+                "卡达"
+            ],
             "direction": "left"
         },
         {
-            "location": [3, 4],
-            "role": ["Caster"],
-            "operator_names": ["卡达"],
+            "location": [
+                3,
+                4
+            ],
+            "role": [
+                "Caster"
+            ],
+            "operator_names": [
+                "卡达"
+            ],
             "direction": "left"
         },
         {
-            "location": [3, 5],
-            "role": ["Caster"],
-            "operator_names": ["卡达"],
+            "location": [
+                3,
+                5
+            ],
+            "role": [
+                "Caster"
+            ],
+            "operator_names": [
+                "卡达"
+            ],
             "direction": "left"
         },
         {
-            "location": [4, 2],
-            "role": ["Caster"],
-            "operator_names": ["卡达"],
+            "location": [
+                4,
+                2
+            ],
+            "role": [
+                "Caster"
+            ],
+            "operator_names": [
+                "卡达"
+            ],
             "direction": "left"
         },
         {
-            "location": [4, 4],
-            "role": ["Caster"],
-            "operator_names": ["卡达"],
+            "location": [
+                4,
+                4
+            ],
+            "role": [
+                "Caster"
+            ],
+            "operator_names": [
+                "卡达"
+            ],
             "direction": "left"
         },
         {
-            "location": [4, 5],
-            "role": ["Caster"],
-            "operator_names": ["卡达"],
+            "location": [
+                4,
+                5
+            ],
+            "role": [
+                "Caster"
+            ],
+            "operator_names": [
+                "卡达"
+            ],
             "direction": "left"
         },
         {
-            "location": [6, 3],
-            "role": ["Caster"],
-            "operator_names": ["卡达"],
+            "location": [
+                6,
+                3
+            ],
+            "role": [
+                "Caster"
+            ],
+            "operator_names": [
+                "卡达"
+            ],
             "direction": "left"
         },
         {
-            "location": [7, 3],
-            "role": ["Caster"],
-            "operator_names": ["卡达"],
+            "location": [
+                7,
+                3
+            ],
+            "role": [
+                "Caster"
+            ],
+            "operator_names": [
+                "卡达"
+            ],
             "direction": "left"
         }
     ],

@@ -40,6 +40,8 @@ public:
     bool run(BlackFlowInventoryContext& context, std::string* error);
 
 private:
+    friend class BlackFlowInventoryCleanupTestAccess;
+
     struct Shift
     {
         int distance = 0;
@@ -88,6 +90,8 @@ private:
         std::string* error) const;
     InventoryDiscardOutcome discard(BlackFlowInventoryContext& context, const VisibleScrap& scrap, std::string* error);
 
+    std::optional<bool>
+        finish_without_extra_target(BlackFlowInventoryContext& context, bool overload_cleared, std::string* error);
     bool finish(BlackFlowInventoryContext& context, bool report, std::string* error);
     bool abandon(BlackFlowInventoryContext& context, std::string* error) const;
 
