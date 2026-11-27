@@ -66,8 +66,9 @@ asst::RoguelikeBattleTaskPlugin::~RoguelikeBattleTaskPlugin()
 
 bool asst::RoguelikeBattleTaskPlugin::verify(AsstMsg msg, const json::value& details) const
 {
-    // AbstractTask invokes verify/run synchronously before forwarding the callback.
-    // Cache one passive classification here; callbacks and all work stay in _run.
+    // AbstractTask invokes verify/run synchronously before forwarding the
+    // callback. Cache one passive classification here; callbacks and all work
+    // stay in _run.
     if (m_pause_transition && m_pause_transition->pending()) {
         const bool process = details.get("subtask", std::string()) == "ProcessTask";
         const bool failed = msg == AsstMsg::SubTaskError || msg == AsstMsg::SubTaskStopped ||
@@ -961,7 +962,9 @@ void asst::RoguelikeBattleTaskPlugin::prioritize_prepared_authored(std::vector<D
                                { "legacy_task_rank", priority.rank },
                                { "duplicate_task_rows_removed", static_cast<int>(task_rows.size() - 1) },
                                { "observed_DP", m_cost },
-                               { "self_decay_ally_ammo_heal_and_steal_opportunity_cost_not_survival_proof", true },
+                               { "self_decay_ally_ammo_heal_and_steal_opportunity_cost_not_survival_"
+                                 "proof",
+                                 true },
                                { "scope", "nonincreasing_DP_first_mode_ground_reference_not_global_strength" } };
             callback(AsstMsg::SubTaskExtraInfo, receipt);
         }
@@ -1194,6 +1197,27 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_hard_requirements_met(
     const battle::roguelike::DeployInfoWithRank& plan,
     bool check_hunter) const
 {
+    if (const auto prerequisite = RoguelikeCopilot.deployment_prerequisite(m_stage_name, plan.plan_index)) {
+        const auto& condition = prerequisite->get();
+        const bool all_match = std::ranges::all_of(condition.all_of, [&](const auto& required) {
+            const auto occupied = m_used_tiles.find(required.location);
+            // Only verified, currently retained identity-bearing occupancy may
+            // satisfy a dependency. Attempt counters and quarantined placements
+            // are not evidence that the terrain action completed.
+            if (occupied == m_used_tiles.end() || m_blacklist_location.contains(required.location) ||
+                m_unverified_deployment_tiles.contains(required.location) ||
+                std::ranges::any_of(m_unverified_deployment_attempts, [&](const auto& failed) {
+                    return failed.first.second == required.location && failed.second > 0;
+                })) {
+                return false;
+            }
+            return occupied->second.role == required.role &&
+                   std::ranges::find(required.operator_names, occupied->second.name) != required.operator_names.end();
+        });
+        if (all_match != condition.matches) {
+            return false;
+        }
+    }
     if (const auto cap = RoguelikeCopilot.maximum_deploy_cost(m_stage_name, plan.plan_index);
         cap && (oper.cost <= 0 || oper.cost > *cap)) {
         // Cost0 also represents OCR failure; a capped opener cannot claim it is
@@ -1541,8 +1565,10 @@ bool asst::RoguelikeBattleTaskPlugin::request_authored_budget_reobservation(
         blackflow::AuthoredBudgetReobservation::NeedsReobservation) {
         return false;
     }
-    LogInfo << __FUNCTION__ << "Authored readiness/budget observations need one ordinary reobservation" << oper.name
-            << "plan" << plan.plan_index << "card cost" << oper.cost << "observed cost" << m_cost
+    LogInfo << __FUNCTION__
+            << "Authored readiness/budget observations need one ordinary "
+               "reobservation"
+            << oper.name << "plan" << plan.plan_index << "card cost" << oper.cost << "observed cost" << m_cost
             << "same-frame affordability unproven; no deployment input authorized";
     return true;
 }
@@ -1992,7 +2018,9 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
 
     // Goal life is visible beside the top HUD gate. Read this existing frame
     // for diagnostics only; never update exploration HP or drive battle input.
-    if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_soul_observer) {
+    // A selected Soul owns a short input lease. Defer this diagnostic-only
+    // HUD read until release; the positive terminal and pause guards remain.
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow && m_soul_observer && !m_soul_selection_owned) {
         consume_goal_life_observation(m_soul_observer->goal_life(image));
     }
 
@@ -2098,7 +2126,9 @@ bool asst::RoguelikeBattleTaskPlugin::do_once(cv::Mat& image, const cv::Mat& ima
             }
         }
         if (m_waiting_for_manual_resume) {
-            LogInfo << __FUNCTION__ << "Observed strong running view after pause without automation input";
+            LogInfo << __FUNCTION__
+                    << "Observed strong running view after pause without automation "
+                       "input";
             m_waiting_for_manual_resume = false;
             // Resume ordinary automation from the next natural capture, without
             // issuing input from this classification/recovery frame.
@@ -2463,7 +2493,8 @@ std::optional<asst::battle::DeploymentOper>
     asst::RoguelikeBattleTaskPlugin::calc_best_oper(bool urgent_home, bool cost_observed) const
 {
     // Only the reviewed base-skill duty may be deferred. Authored or uncertain
-    // placement paths keep their existing behavior; this does not classify all Medics.
+    // placement paths keep their existing behavior; this does not classify all
+    // Medics.
     const auto defer_idle_opening_healing = [&](const DeploymentOper& oper) {
         if (m_config->get_theme() != RoguelikeTheme::BlackFlow || !m_deploy_plan.empty() || !m_first_deploy) {
             return false;
@@ -2831,7 +2862,9 @@ void asst::RoguelikeBattleTaskPlugin::flush_pause_classification(const char* rej
         }
     }
     catch (...) {
-        LogWarn << __FUNCTION__ << "Pause classification could not be emitted; acceptance remains unresolved";
+        LogWarn << __FUNCTION__
+                << "Pause classification could not be emitted; acceptance remains "
+                   "unresolved";
     }
 }
 
