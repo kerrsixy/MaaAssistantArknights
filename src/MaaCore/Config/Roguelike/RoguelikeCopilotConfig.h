@@ -1,6 +1,7 @@
 #pragma once
 #include "Config/AbstractConfig.h"
 
+#include <functional>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -19,6 +20,21 @@ struct RoguelikeRosterDuty
     bool operator==(const RoguelikeRosterDuty&) const = default;
 };
 
+struct RoguelikeOccupantRequirement
+{
+    Point location;
+    battle::Role role = battle::Role::Unknown;
+    std::vector<std::string> operator_names;
+    bool operator==(const RoguelikeOccupantRequirement&) const = default;
+};
+
+struct RoguelikeDeploymentPrerequisite
+{
+    std::vector<RoguelikeOccupantRequirement> all_of;
+    bool matches = true;
+    bool operator==(const RoguelikeDeploymentPrerequisite&) const = default;
+};
+
 class RoguelikeCopilotConfig final : public MAA_NS::SingletonHolder<RoguelikeCopilotConfig>, public AbstractConfig
 {
 public:
@@ -31,6 +47,10 @@ public:
     const std::vector<std::string>& reserved_core_groups(const std::string& stage_name) const;
     std::optional<int> maximum_deploy_cost(const std::string& stage_name, int plan_index) const;
     const std::vector<RoguelikeRosterDuty>& recruitment_duties(const std::string& stage_name) const;
+    // Borrowed reference expires at the next load attempt (including a rejected
+    // load) or when this configuration is destroyed. Do not retain across loads.
+    std::optional<std::reference_wrapper<const RoguelikeDeploymentPrerequisite>>
+        deployment_prerequisite(const std::string& stage_name, int plan_index) const;
     std::optional<blackflow::HunterOpening> get_hunter_opening(const std::string& stage_name) const;
 
 protected:
@@ -40,6 +60,8 @@ protected:
     std::unordered_map<std::string, std::vector<std::string>> m_reserved_core_groups;
     std::unordered_map<std::string, std::unordered_map<int, int>> m_maximum_deploy_costs;
     std::unordered_map<std::string, std::vector<RoguelikeRosterDuty>> m_recruitment_duties;
+    std::unordered_map<std::string, std::unordered_map<int, RoguelikeDeploymentPrerequisite>>
+        m_deployment_prerequisites;
 };
 
 inline static auto& RoguelikeCopilot = RoguelikeCopilotConfig::get_instance();

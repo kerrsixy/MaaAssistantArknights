@@ -11,429 +11,193 @@
     "reserve_deploy_cost": true,
     "deploy_plan": [
         {
-            "groups": [
-                "投锋"
-            ],
-            "operator_names": [
-                "桃金娘"
-            ],
-            "location": [
-                7,
-                1
-            ],
+            "groups": ["投锋"],
+            "operator_names": ["桃金娘"],
+            "location": [7, 1],
             "direction": "down",
             "prefer_group_order": true,
             "minimum_elite": 1
         },
         {
-            "groups": [
-                "机械师"
-            ],
-            "operator_names": [
-                "机械师"
-            ],
-            "location": [
-                9,
-                1
-            ],
+            "groups": ["机械师"],
+            "operator_names": ["机械师"],
+            "location": [9, 1],
             "direction": "down",
             "prefer_group_order": true,
             "minimum_elite": 1,
             "require_persistent_blocking": true,
-            "required_attack_tiles": [
-                [
-                    9,
-                    1
-                ]
-            ]
+            "required_attack_tiles": [[9, 1]]
         },
         {
-            "groups": [
-                "群奶"
-            ],
-            "operator_names": [
-                "凯尔希·思衡托"
-            ],
-            "location": [
-                8,
-                2
-            ],
+            "groups": ["群奶"],
+            "operator_names": ["凯尔希·思衡托"],
+            "location": [8, 2],
             "direction": "down",
             "prefer_group_order": true,
             "minimum_elite": 1,
             "required_range_tiles": [
-                [
-                    9,
-                    1
-                ],
-                [
-                    9,
-                    2
-                ],
-                [
-                    6,
-                    2
-                ],
-                [
-                    6,
-                    3
-                ],
-                [
-                    7,
-                    2
-                ],
-                [
-                    8,
-                    3
-                ]
+                [9, 1],
+                [9, 2],
+                [6, 2],
+                [6, 3],
+                [7, 2],
+                [8, 3]
             ]
         },
         {
-            "groups": [
-                "益达"
-            ],
-            "operator_names": [
-                "维什戴尔"
-            ],
-            "location": [
-                6,
-                3
-            ],
+            "groups": ["益达"],
+            "operator_names": ["维什戴尔"],
+            "location": [6, 3],
             "direction": "left",
             "minimum_elite": 2,
             "required_attack_tiles": [
-                [
-                    3,
-                    2
-                ],
-                [
-                    6,
-                    5
-                ],
-                [
-                    4,
-                    2
-                ],
-                [
-                    4,
-                    4
-                ]
+                [3, 2],
+                [6, 5],
+                [4, 2],
+                [4, 4]
             ]
         },
         {
-            "groups": [
-                "其他地面"
-            ],
-            "operator_names": [
-                "结构性原理"
-            ],
-            "location": [
-                9,
-                2
-            ],
+            "groups": ["其他地面"],
+            "operator_names": ["结构性原理"],
+            "location": [9, 2],
             "direction": "left",
             "prefer_group_order": true
         },
         {
-            "groups": [
-                "塔露拉"
-            ],
-            "operator_names": [
-                "塔露拉"
-            ],
-            "location": [
-                8,
-                3
-            ],
+            "groups": ["塔露拉"],
+            "operator_names": ["塔露拉"],
+            "location": [8, 3],
             "direction": "left",
             "prefer_group_order": true,
             "minimum_elite": 2,
-            "required_attack_tiles": [
-                [
-                    8,
-                    3
-                ]
-            ]
+            "required_attack_tiles": [[8, 3]]
         },
         {
-            "groups": [
-                "群奶",
-                "辅助"
-            ],
-            "operator_names": [
-                "遥"
-            ],
-            "location": [
-                7,
-                2
-            ],
+            "groups": ["群奶", "辅助"],
+            "operator_names": ["遥"],
+            "location": [7, 2],
             "direction": "right",
             "prefer_group_order": true,
             "minimum_elite": 1,
             "required_range_tiles": [
-                [
-                    6,
-                    2
-                ],
-                [
-                    8,
-                    2
-                ],
-                [
-                    9,
-                    1
-                ],
-                [
-                    8,
-                    3
-                ],
-                [
-                    6,
-                    3
-                ]
+                [6, 2],
+                [8, 2],
+                [9, 1],
+                [8, 3],
+                [6, 3]
             ]
         },
         {
-            "groups": [
-                "术师"
-            ],
-            "operator_names": [
-                "圣聆初雪"
-            ],
-            "location": [
-                6,
-                3
-            ],
+            "groups": ["术师"],
+            "operator_names": ["圣聆初雪"],
+            "location": [6, 3],
             "direction": "down",
             "prefer_group_order": true,
             "minimum_elite": 1,
-            "required_attack_tiles": [
-                [
-                    6,
-                    5
-                ]
-            ],
+            "required_attack_tiles": [[6, 5]],
             "exclude_starting_core": true
         },
         {
-            "groups": [
-                "其他地面"
-            ],
-            "operator_names": [
-                "予愿安洁莉娜"
-            ],
-            "location": [
-                8,
-                3
-            ],
+            "groups": ["其他地面"],
+            "operator_names": ["予愿安洁莉娜"],
+            "location": [8, 3],
             "direction": "up",
             "prefer_group_order": true,
             "minimum_elite": 2,
-            "required_attack_tiles": [
-                [
-                    8,
-                    2
-                ]
-            ],
+            "required_attack_tiles": [[8, 2]],
             "exclude_starting_core": true
         },
         {
-            "groups": [
-                "近卫",
-                "重装",
-                "情报官"
-            ],
-            "operator_names": [
-                "赤刃明霄陈",
-                "斩业星熊",
-                "凛御银灰"
-            ],
-            "location": [
-                4,
-                2
-            ],
+            "groups": ["近卫", "重装", "情报官"],
+            "operator_names": ["赤刃明霄陈", "斩业星熊", "凛御银灰"],
+            "location": [4, 2],
             "direction": "left",
             "prefer_group_order": true,
             "minimum_elite": 2,
-            "required_attack_tiles": [
-                [
-                    3,
-                    2
-                ]
-            ],
+            "required_attack_tiles": [[3, 2]],
             "exclude_starting_core": true
         },
         {
-            "groups": [
-                "狙击",
-                "术师",
-                "高台输出"
-            ],
+            "groups": ["狙击", "术师", "高台输出"],
             "exclude_starting_core": true,
-            "excluded_operator_names": [
-                "维什戴尔"
-            ],
-            "location": [
-                6,
-                2
-            ],
+            "excluded_operator_names": ["维什戴尔"],
+            "location": [6, 2],
             "direction": "right",
             "minimum_elite": 1,
             "required_attack_tiles": [
-                [
-                    10,
-                    2
-                ],
-                [
-                    8,
-                    1
-                ]
+                [10, 2],
+                [8, 1]
             ],
             "prefer_group_order": true
         },
         {
-            "groups": [
-                "单奶",
-                "群奶"
-            ],
-            "location": [
-                8,
-                2
-            ],
+            "groups": ["单奶", "群奶", "凯尔希"],
+            "location": [8, 2],
             "direction": "left",
             "minimum_elite": 1,
             "prefer_group_order": true,
             "required_range_tiles": [
-                [
-                    6,
-                    2
-                ],
-                [
-                    8,
-                    3
-                ],
-                [
-                    6,
-                    3
-                ]
+                [6, 2],
+                [8, 3],
+                [6, 3]
             ]
         },
         {
-            "groups": [
-                "提丰"
-            ],
-            "operator_names": [
-                "提丰"
-            ],
-            "location": [
-                6,
-                2
-            ],
+            "groups": ["提丰"],
+            "operator_names": ["提丰"],
+            "location": [6, 2],
             "direction": "right",
             "minimum_elite": 2,
             "prefer_group_order": true,
             "required_attack_tiles": [
-                [
-                    10,
-                    2
-                ],
-                [
-                    8,
-                    1
-                ]
+                [10, 2],
+                [8, 1]
             ],
             "exclude_starting_core": true
         },
         {
-            "groups": [
-                "新能",
-                "元素",
-                "辅助"
-            ],
-            "operator_names": [
-                "新约能天使",
-                "酒神"
-            ],
-            "location": [
-                6,
-                3
-            ],
+            "groups": ["新能", "元素", "辅助"],
+            "operator_names": ["新约能天使", "酒神"],
+            "location": [6, 3],
             "direction": "down",
             "minimum_elite": 2,
             "prefer_group_order": true,
-            "required_attack_tiles": [
-                [
-                    6,
-                    5
-                ]
-            ],
+            "required_attack_tiles": [[6, 5]],
             "exclude_starting_core": true
         },
         {
-            "groups": [
-                "术师"
-            ],
-            "operator_names": [
-                "澄闪",
-                "荒芜拉普兰德"
-            ],
-            "location": [
-                6,
-                3
-            ],
+            "groups": ["术师"],
+            "operator_names": ["澄闪", "荒芜拉普兰德"],
+            "location": [6, 3],
             "direction": "down",
             "minimum_elite": 1,
             "prefer_group_order": true,
-            "required_attack_tiles": [
-                [
-                    6,
-                    5
-                ]
-            ],
+            "required_attack_tiles": [[6, 5]],
             "exclude_starting_core": true
         }
     ],
     "recruitment_duties": [
         {
             "id": "income",
-            "plans": [
-                0
-            ]
+            "plans": [0]
         },
         {
             "id": "blocking",
-            "plans": [
-                1
-            ]
+            "plans": [1]
         },
         {
             "id": "medical",
-            "plans": [
-                2,
-                6,
-                11
-            ]
+            "plans": [2, 6, 11]
         },
         {
             "id": "primary_output",
-            "plans": [
-                3
-            ]
+            "plans": [3]
         },
         {
             "id": "supplemental_output",
-            "plans": [
-                5,
-                8,
-                9,
-                10,
-                12
-            ],
-            "preferred_plans": [
-                5,
-                8,
-                12
-            ]
+            "plans": [5, 8, 9, 10, 12],
+            "preferred_plans": [5, 8, 12]
         }
     ]
 }

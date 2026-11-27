@@ -1,0 +1,139 @@
+{
+    "stage_name": "进退趋同#total30",
+    "doc": [
+        "Phase213 isolated B30 controlled candidate, not live proven. Rear EW8,2Left trades9,1 early fire for direct7,1+8,1 gate interception and one central keeper5,3; other3 keepers require unquantified splash, never claimed direct coverage.",
+        "Known ro6B: 32 SPAWN includes2 friendly miners notCountInTotal, hence enemyHUD30. A38/C34 remain unchanged. Two real predeploy total30 frames gate this profile before deployment.",
+        "MEDIC-only reviewed names from Nov1 pinned character table restrict broad groups. Pod/Abjurer/Bard conditional healing excluded. OriginalKal E1 ordinary3-8 covers upperEW8,2+block7,1; lowerAlt ordinaryy6 covers lowerblock7,6+output8,5. S2 damage/self-heal/reflect timing not assumed safe.",
+        "Lower block gives Mechanist group preference, preserving fallback persistent blocker. Both actual medical roles precede lower secondary output. Six final authored roles preserve raw characterLimit6. Actual final HPS/DPS/cost/elemental damage still need live observation.",
+        "Final controlled order: EW24 -> upper ordinary healer Kal19 -> preferred lower Mechanist19 -> upper persistent blocker Luo17 -> lower MEDIC Alt19 -> lower secondary Carda18. Price-prefix only, no natural/skill DP timings invented. Early upper healing takes priority over Carda and both secondary combat roles; lower pressure tradeoff remains live risk."
+    ],
+    "deploy_plan_only": true,
+    "reserve_deploy_cost": true,
+    "reserve_starting_core_groups": ["益达"],
+    "deploy_plan": [
+        {
+            "groups": ["益达"],
+            "location": [8, 2],
+            "direction": "left",
+            "minimum_elite": 2,
+            "required_attack_tiles": [
+                [7, 1],
+                [8, 1],
+                [5, 3]
+            ]
+        },
+        {
+            "groups": ["元素奶", "单奶", "群奶", "凯尔希"],
+            "location": [4, 2],
+            "direction": "right",
+            "minimum_elite": 1,
+            "required_range_tiles": [
+                [7, 1],
+                [8, 2]
+            ],
+            "operator_names": [
+                "Lancet-2",
+                "Touch",
+                "亚叶",
+                "凯尔希",
+                "凯尔希·思衡托",
+                "华法琳",
+                "哈洛德",
+                "嘉维尔",
+                "图耶",
+                "夜莺",
+                "安赛尔",
+                "微风",
+                "明椒",
+                "末药",
+                "桑葚",
+                "流明",
+                "清流",
+                "白面鸮",
+                "絮雨",
+                "纯烬艾雅法拉",
+                "芙蓉",
+                "苏苏洛",
+                "莎草",
+                "蜜莓",
+                "褐果",
+                "调香师",
+                "赫默",
+                "锡兰",
+                "闪灵",
+                "预备干员-后勤"
+            ]
+        },
+        {
+            "groups": ["机械师", "地面阻挡"],
+            "location": [7, 6],
+            "direction": "left",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true
+        },
+        {
+            "groups": ["地面阻挡", "机械师"],
+            "location": [7, 1],
+            "direction": "left",
+            "minimum_elite": 1,
+            "require_persistent_blocking": true
+        },
+        {
+            "groups": ["元素奶", "单奶", "群奶", "凯尔希"],
+            "location": [6, 5],
+            "direction": "right",
+            "minimum_elite": 1,
+            "required_range_tiles": [
+                [7, 6],
+                [8, 5]
+            ],
+            "operator_names": [
+                "Lancet-2",
+                "Touch",
+                "亚叶",
+                "凯尔希",
+                "凯尔希·思衡托",
+                "华法琳",
+                "哈洛德",
+                "嘉维尔",
+                "图耶",
+                "夜莺",
+                "安赛尔",
+                "微风",
+                "明椒",
+                "末药",
+                "桑葚",
+                "流明",
+                "清流",
+                "白面鸮",
+                "絮雨",
+                "纯烬艾雅法拉",
+                "芙蓉",
+                "苏苏洛",
+                "莎草",
+                "蜜莓",
+                "褐果",
+                "调香师",
+                "赫默",
+                "锡兰",
+                "闪灵",
+                "预备干员-后勤"
+            ]
+        },
+        {
+            "groups": ["狙击", "高台输出", "术师"],
+            "location": [8, 5],
+            "direction": "down",
+            "minimum_elite": 1,
+            "exclude_starting_core": true,
+            "required_attack_tiles": [
+                [7, 6],
+                [9, 6]
+            ]
+        }
+    ],
+    "variant_of": "进退趋同",
+    "when": {
+        "total_enemies": 30
+    }
+}

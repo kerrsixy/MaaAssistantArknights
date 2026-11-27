@@ -23,11 +23,13 @@ bool asst::RoguelikeCopilotConfig::load(const std::filesystem::path& path)
     auto previous_reservations = m_reserved_core_groups;
     auto previous_cost_limits = m_maximum_deploy_costs;
     auto previous_duties = m_recruitment_duties;
+    auto previous_prerequisites = m_deployment_prerequisites;
     using StageMap = decltype(m_stage_data);
     using OpeningMap = decltype(m_hunter_openings);
     using ReservationMap = decltype(m_reserved_core_groups);
     using CostLimitMap = decltype(m_maximum_deploy_costs);
     using DutyMap = decltype(m_recruitment_duties);
+    using PrerequisiteMap = decltype(m_deployment_prerequisites);
 
     struct LoadRollback
     {
@@ -41,6 +43,8 @@ bool asst::RoguelikeCopilotConfig::load(const std::filesystem::path& path)
         CostLimitMap& old_cost_limits;
         DutyMap& duties;
         DutyMap& old_duties;
+        PrerequisiteMap& prerequisites;
+        PrerequisiteMap& old_prerequisites;
         bool accepted = false;
 
         ~LoadRollback()
@@ -52,11 +56,12 @@ bool asst::RoguelikeCopilotConfig::load(const std::filesystem::path& path)
                 reservations.swap(old_reservations);
                 cost_limits.swap(old_cost_limits);
                 duties.swap(old_duties);
+                prerequisites.swap(old_prerequisites);
             }
         }
-    } rollback { m_stage_data,           previous_stages,       m_hunter_openings,      previous_openings,
-                 m_reserved_core_groups, previous_reservations, m_maximum_deploy_costs, previous_cost_limits,
-                 m_recruitment_duties,   previous_duties };
+    } rollback { m_stage_data,           previous_stages,       m_hunter_openings,          previous_openings,
+                 m_reserved_core_groups, previous_reservations, m_maximum_deploy_costs,     previous_cost_limits,
+                 m_recruitment_duties,   previous_duties,       m_deployment_prerequisites, previous_prerequisites };
 
     std::unordered_map<std::string, int> batch_names;
     std::unordered_set<std::string> referenced_bases;
@@ -109,6 +114,16 @@ bool asst::RoguelikeCopilotConfig::load(const std::filesystem::path& path)
         };
         if (base != m_stage_data.end() && cap_table(base->first) != cap_table(key)) {
             LogError << __FUNCTION__ << "Variant deployment cost caps conflict with base" << key;
+            ret = false;
+        }
+        const auto prerequisites = [&](const std::string& name) {
+            const auto found = m_deployment_prerequisites.find(name);
+            return found == m_deployment_prerequisites.end()
+                       ? std::unordered_map<int, RoguelikeDeploymentPrerequisite> {}
+                       : found->second;
+        };
+        if (base != m_stage_data.end() && prerequisites(base->first) != prerequisites(key)) {
+            LogError << __FUNCTION__ << "Variant deployment prerequisite rules conflict" << key;
             ret = false;
         }
         if (base != m_stage_data.end() && recruitment_duties(base->first) != recruitment_duties(key)) {
@@ -176,6 +191,20 @@ const std::vector<asst::RoguelikeRosterDuty>&
     static const std::vector<RoguelikeRosterDuty> empty;
     const auto found = m_recruitment_duties.find(stage_name);
     return found == m_recruitment_duties.end() ? empty : found->second;
+}
+
+std::optional<std::reference_wrapper<const asst::RoguelikeDeploymentPrerequisite>>
+    asst::RoguelikeCopilotConfig::deployment_prerequisite(const std::string& stage_name, int plan_index) const
+{
+    const auto stage = m_deployment_prerequisites.find(stage_name);
+    if (stage == m_deployment_prerequisites.end()) {
+        return std::nullopt;
+    }
+    const auto found = stage->second.find(plan_index);
+    if (found == stage->second.end()) {
+        return std::nullopt;
+    }
+    return std::cref(found->second);
 }
 
 bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
@@ -375,12 +404,61 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
     }
 
     std::unordered_map<int, int> maximum_deploy_costs;
+    std::unordered_map<int, RoguelikeDeploymentPrerequisite> deployment_prerequisites;
     if (auto opt = json.find<json::array>("deploy_plan")) {
         int rank = 1;
         int plan_index = 0;
         for (auto& deploy_info : opt.value()) {
             DeployInfoWithRank info;
             info.plan_index = plan_index++;
+            if (deploy_info.contains("deployment_prerequisite")) {
+                const auto value = deploy_info.find<json::object>("deployment_prerequisite");
+                if (!value || value->size() != 2 || !value->contains("all_of") || !value->contains("matches") ||
+                    !value->at("matches").is<bool>()) {
+                    LogError << __FUNCTION__ << "Invalid deployment prerequisite object" << stage_name;
+                    return false;
+                }
+                const auto& requirements = value->at("all_of");
+                if (!requirements.is_array() || requirements.as_array().empty() || requirements.as_array().size() > 8) {
+                    LogError << __FUNCTION__ << "Deployment prerequisites need 1 to 8 occupants" << stage_name;
+                    return false;
+                }
+                RoguelikeDeploymentPrerequisite prerequisite;
+                prerequisite.matches = value->at("matches").as_boolean();
+                std::unordered_set<Point> locations;
+                for (const auto& requirement : requirements.as_array()) {
+                    if (!requirement.is_object() || requirement.as_object().size() != 3) {
+                        return false;
+                    }
+                    const auto location = requirement.find<json::array>("location");
+                    const auto role = requirement.find<std::string>("role");
+                    const auto names = requirement.find<json::array>("operator_names");
+                    if (!location || location->size() != 2 || !(*location)[0].is<int>() || !(*location)[1].is<int>() ||
+                        (*location)[0].as_double() < 0 || (*location)[1].as_double() < 0 ||
+                        (*location)[0].as_double() > std::numeric_limits<int>::max() ||
+                        (*location)[1].as_double() > std::numeric_limits<int>::max() || !role ||
+                        battle::get_role_type(*role) == battle::Role::Unknown || !names || names->empty() ||
+                        names->size() > 16) {
+                        return false;
+                    }
+                    RoguelikeOccupantRequirement occupant;
+                    occupant.location = { (*location)[0].as_integer(), (*location)[1].as_integer() };
+                    occupant.role = battle::get_role_type(*role);
+                    if (!locations.emplace(occupant.location).second) {
+                        return false;
+                    }
+                    std::unordered_set<std::string> distinct_names;
+                    for (const auto& name : *names) {
+                        if (!name.is_string() || name.as_string().empty() || name.as_string().size() > 256 ||
+                            !distinct_names.emplace(name.as_string()).second) {
+                            return false;
+                        }
+                        occupant.operator_names.emplace_back(name.as_string());
+                    }
+                    prerequisite.all_of.emplace_back(std::move(occupant));
+                }
+                deployment_prerequisites.emplace(info.plan_index, std::move(prerequisite));
+            }
             if (deploy_info.contains("maximum_deploy_cost")) {
                 const auto& cap = deploy_info.at("maximum_deploy_cost");
                 if (!cap.is<int>() || cap.as_double() < 0 || cap.as_double() > std::numeric_limits<int>::max()) {
@@ -580,6 +658,12 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
     }
     else {
         m_recruitment_duties.insert_or_assign(stage_name, std::move(recruitment_duties));
+    }
+    if (deployment_prerequisites.empty()) {
+        m_deployment_prerequisites.erase(stage_name);
+    }
+    else {
+        m_deployment_prerequisites.insert_or_assign(stage_name, std::move(deployment_prerequisites));
     }
     m_stage_data.insert_or_assign(std::move(stage_name), std::move(data));
     return true;
