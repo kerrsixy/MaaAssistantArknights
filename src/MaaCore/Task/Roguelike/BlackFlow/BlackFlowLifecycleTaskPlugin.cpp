@@ -2,9 +2,12 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
+#include <chrono>
 #include <iterator>
 #include <utility>
 
+#include "BlackFlowAccountTaskPlugin.h"
 #include "Config/Roguelike/BlackFlow/BlackFlowStrategyConfig.h"
 #include "Config/TaskData.h"
 #include "Controller/Controller.h"
@@ -14,6 +17,12 @@
 #include "Vision/OCRer.h"
 
 #include "Utils/Logger.hpp"
+
+#ifdef _WIN32
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
 
 namespace asst::blackflow
 {
@@ -47,6 +56,14 @@ std::pair<std::string, std::string> classify_unreported_termination(const std::s
 
 bool BlackFlowLifecycleTaskPlugin::load_params(const json::value& params)
 {
+    m_saved_resume_only = false;
+#ifdef ASST_DEBUG
+    m_saved_resume_only =
+        params.get("starts_count", 1) == 0 && !params.get("blackflow_resume_roster_file", std::string {}).empty() &&
+        params.get("battle_resume_stage", std::string {}).empty() &&
+        !params.get("blackflow_saved_shop_service_only", false) && !params.get("blackflow_life_game_only", false) &&
+        !params.get("stashed_recruit_service_only", false);
+#endif
     remove_recovery_override();
     m_exploration_started = false;
     m_active_recovery = false;
@@ -165,6 +182,29 @@ bool BlackFlowLifecycleTaskPlugin::verify(AsstMsg msg, const json::value& detail
     }
 
     const std::string task = details.get("details", "task", "");
+    if (m_saved_resume_only && msg == AsstMsg::SubTaskCompleted &&
+        (task == "BlackFlow@Roguelike@ResumeSavedMap" || task == "BlackFlow@Roguelike@ResumeSavedPreparation" ||
+         task == "BlackFlow@Roguelike@ResumeSavedRecruit" || task == "BlackFlow@Roguelike@ResumeFloorIntro")) {
+        const auto result = details.find<json::object>("details");
+        const auto rectangle =
+            result ? json::value(*result).get("result", json::object {}).find<json::array>("rect") : std::nullopt;
+        const auto required_page = details.get("details", "required_page", "");
+        const bool floor_intro = task == "BlackFlow@Roguelike@ResumeFloorIntro";
+        if (details.get("details", "algorithm", "") != (floor_intro ? "OcrDetect" : "MatchTemplate") || !rectangle ||
+            rectangle->size() != 4 || !(*rectangle)[2].is_number() || !(*rectangle)[3].is_number() ||
+            (*rectangle)[2].as_integer() <= 0 || (*rectangle)[3].as_integer() <= 0 ||
+            (floor_intro && (required_page != "BlackFlow@Roguelike@ResumeFloorIntroPage" ||
+                             floor_from_title(details.get("details", "result", "text", "")) == 0)) ||
+            (task == "BlackFlow@Roguelike@ResumeSavedPreparation" &&
+             required_page != "BlackFlow@Roguelike@FormationCapacity") ||
+            (task == "BlackFlow@Roguelike@ResumeSavedRecruit" &&
+             required_page != "BlackFlow@Roguelike@VoucherStashRecruitmentPage")) {
+            return false;
+        }
+        m_pending = PendingWork::AdoptSavedExploration;
+        m_pending_details = details;
+        return true;
+    }
     if (msg == AsstMsg::SubTaskCompleted && task == "BlackFlow@Roguelike@StartExplore") {
         m_pending = PendingWork::OwnExploration;
         return true;
@@ -293,6 +333,7 @@ bool BlackFlowLifecycleTaskPlugin::verify(AsstMsg msg, const json::value& detail
 
 void BlackFlowLifecycleTaskPlugin::reset_in_run_variables()
 {
+    m_saved_resume_only = false;
     remove_recovery_override();
     m_exploration_started = false;
     m_active_recovery = false;
@@ -336,6 +377,10 @@ bool BlackFlowLifecycleTaskPlugin::_run()
     m_terminal_trigger.clear();
     m_terminal_pre_task.clear();
 
+    if (work == PendingWork::AdoptSavedExploration) {
+        set_block(false);
+        return adopt_saved_exploration(details);
+    }
     if (work == PendingWork::OwnExploration) {
         m_exploration_started = true;
         m_owned_run_id = m_config->status().run_id;
@@ -725,6 +770,56 @@ void BlackFlowLifecycleTaskPlugin::check_start_run_utopia(int floor)
     // 没有实托邦就放弃这一局，回到准备局。走策略结束的放弃流程，放弃确认后由 ResetAfterAbandon 切回准备局
     m_session->conclude_and_restart("start_run_utopia_missed", "first_floor_without_utopia");
     report_outputs();
+}
+
+bool BlackFlowLifecycleTaskPlugin::adopt_saved_exploration(const json::value& details)
+{
+    // Account-plugin ExtraInfo is sent outward, not to sibling plugins. Query
+    // the real startup plugin, whose gate is set only after native UID success.
+    const auto account = m_task_ptr ? m_task_ptr->find_plugin<BlackFlowAccountTaskPlugin>() : nullptr;
+    if (!m_saved_resume_only || m_config->get_theme() != RoguelikeTheme::BlackFlow || !m_session || !account ||
+        !account->has_verified_current_native_identity() || !m_config->status().run_id.empty()) {
+        return true;
+    }
+    const auto client = m_config->account_client();
+    const auto uid = m_config->account_uid();
+    if (client.empty() || uid.empty()) {
+        return true;
+    }
+    // A new identity cannot authorize observations collected before adoption.
+    // Keep the restored roster and current phase, but require preparation and
+    // stage/page evidence to be acquired normally under the new run identity.
+    for (auto& [name, oper] : m_config->status().opers) {
+        static_cast<void>(name);
+        oper.preparation = {};
+    }
+    m_session->reset_run();
+    if (m_port) {
+        m_port->reset_run();
+    }
+    static std::atomic<unsigned long long> saved_sequence { 0 };
+#ifdef _WIN32
+    const auto pid = _getpid();
+#else
+    const auto pid = ::getpid();
+#endif
+    const auto stamp = std::chrono::system_clock::now().time_since_epoch().count();
+    m_config->status().run_id = m_config->get_theme() + "-saved-" + std::to_string(pid) + "-" + std::to_string(stamp) +
+                                "-" + std::to_string(++saved_sequence);
+    m_exploration_started = true;
+    m_owned_run_id = m_config->status().run_id;
+    m_owned_client = client;
+    m_owned_uid = uid;
+    auto info = basic_info_with_what("BlackFlowSavedRunIdentityEstablished");
+    info["details"] = json::object { { "client", client },
+                                     { "uid", uid },
+                                     { "run_id", m_owned_run_id },
+                                     { "entry_task", details.get("details", "task", "") },
+                                     { "native_identity_verified", true },
+                                     { "assisted", true },
+                                     { "unattended_acceptance_eligible", false } };
+    callback(AsstMsg::SubTaskExtraInfo, info);
+    return true;
 }
 
 bool BlackFlowLifecycleTaskPlugin::owns_current_exploration() const

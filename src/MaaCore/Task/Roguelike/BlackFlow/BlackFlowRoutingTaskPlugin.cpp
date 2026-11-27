@@ -1,4 +1,5 @@
 #include "BlackFlowRoutingTaskPlugin.h"
+#include "BlackFlowCombatReadiness.h"
 
 #include "BlackFlowRoutingLoop.h"
 
@@ -128,6 +129,11 @@ bool BlackFlowRoutingTaskPlugin::_run()
         report_outputs();
         return true;
     }
+    m_session->observe_combat_roster_scope(combat_roster_scope(
+        m_config->status(),
+        m_config->account_client(),
+        m_config->account_uid(),
+        m_config->get_core_char()));
     m_session->set_observed_difficulty(m_config->get_observed_difficulty());
     const bool inventory_entry_verified = work == PendingWork::ObserveAndPlan && !m_replan_current_map &&
                                           identity_verified && m_inventory_preflight_allowed &&

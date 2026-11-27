@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "Config/AbstractConfig.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowCombatReadinessTypes.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowNodeExecutionTypes.h"
 
 namespace json::_reflection
@@ -450,6 +451,10 @@ public:
         return std::ranges::find(m_avoided_combat_stages, title) != m_avoided_combat_stages.end();
     }
 
+    // Borrowed until the next successful configuration load.
+    [[nodiscard]] std::optional<std::reference_wrapper<const blackflow::CombatReadinessProfile>>
+        combat_readiness_profile(std::string_view title) const noexcept;
+
     bool parse_for_test(const json::value& json, std::string* error = nullptr);
 
 private:
@@ -475,6 +480,7 @@ private:
     bool sort_and_check_unique(std::vector<std::string>& value, const std::string& key) const;
     bool verify_task(const std::string& task, const std::string& field) const;
 
+    std::vector<blackflow::CombatReadinessProfile> m_combat_readiness_profiles;
     std::vector<std::string> m_avoided_combat_stages;
     int m_schema_version = 0;
     std::vector<blackflow::NodeExecutionRoute> m_routes;

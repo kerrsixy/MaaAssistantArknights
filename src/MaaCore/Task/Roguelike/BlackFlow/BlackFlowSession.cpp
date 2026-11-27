@@ -1,4 +1,5 @@
 #include "BlackFlowSession.h"
+#include "BlackFlowCombatReadiness.h"
 
 #include "BlackFlowMapTemplateMatcher.h"
 #include "Config/Roguelike/BlackFlow/BlackFlowNodeExecutionConfig.h"
@@ -198,6 +199,7 @@ bool BlackFlowSession::initialize(std::string profile, std::string* error)
     m_routing_client.clear();
     m_routing_uid.clear();
     m_routing_run_id.clear();
+    m_combat_roster_scope.clear();
     m_avoided_combat_nodes.clear();
     m_ghost_preview_stop_pending = false;
     m_unreachable_actions.clear();
@@ -1544,8 +1546,16 @@ std::unordered_set<NodeId> BlackFlowSession::avoided_stage_nodes() const
     for (const auto& [id, proof] : m_avoided_combat_nodes) {
         const auto* node = m_map_version.map.snapshot().find_node(id);
         if (proof.floor == m_run.floor && node && node->progress == NodeProgress::Active &&
-            !is_exit_node_type(node->type) && proof.preview.identity_client == m_routing_client &&
-            proof.preview.identity_uid == m_routing_uid && proof.preview.identity_run_id == m_routing_run_id) {
+            !is_exit_node_type(node->type) &&
+            (!proof.combat_roster_scope || *proof.combat_roster_scope == m_combat_roster_scope) &&
+            (!proof.combat_roster_scope ||
+             (BlackFlowNodeExecution.combat_readiness_profile(proof.preview.stage_title) &&
+              proof.preview.combat_readiness &&
+              proof.preview.combat_readiness->profile_terms ==
+                  combat_readiness_profile_terms(
+                      BlackFlowNodeExecution.combat_readiness_profile(proof.preview.stage_title)->get()))) &&
+            proof.preview.identity_client == m_routing_client && proof.preview.identity_uid == m_routing_uid &&
+            proof.preview.identity_run_id == m_routing_run_id) {
             // Keep exact preview knowledge when generic map OCR returns a category,
             // unknown type, or the base Rest/Light glyph of an occupied battle.
             result.emplace(id);
@@ -1825,8 +1835,17 @@ PreviewDisposition BlackFlowSession::accept_preview_in_place(MovePreview preview
     const bool optional_combat = is_combat_node_type(preview.displayed_type) &&
                                  preview.displayed_type != NodeType::BattleBoss && existing &&
                                  !is_exit_node_type(existing->type);
+    const auto requirement = BlackFlowNodeExecution.combat_readiness_profile(preview.stage_title);
+    const bool readiness_applies = optional_combat && requirement.has_value();
+    const bool readiness_bound =
+        readiness_applies && preview.combat_readiness && !m_combat_roster_scope.empty() &&
+        preview.combat_readiness->roster_scope == m_combat_roster_scope &&
+        preview.combat_readiness->profile_id == requirement->get().id &&
+        preview.combat_readiness->profile_terms == combat_readiness_profile_terms(requirement->get());
+    const bool readiness_rejected =
+        readiness_applies && (!readiness_bound || preview.combat_readiness->state != CombatReadinessState::Supported);
     if (reachability == PreviewReachability::Reachable && optional_combat &&
-        BlackFlowNodeExecution.avoids_combat_stage(preview.stage_title)) {
+        (BlackFlowNodeExecution.avoids_combat_stage(preview.stage_title) || readiness_rejected)) {
         const bool bound = preview.identity_revealed && preview.identity_same_frame &&
                            !preview.identity_frame_key.empty() && !m_routing_client.empty() && !m_routing_uid.empty() &&
                            !m_routing_run_id.empty() && preview.identity_client == m_routing_client &&
@@ -1847,12 +1866,21 @@ PreviewDisposition BlackFlowSession::accept_preview_in_place(MovePreview preview
             cancel_transaction();
             return PreviewDisposition::ReplanAfterDismiss;
         }
+        if (readiness_rejected && !readiness_bound) {
+            preview.combat_readiness = CombatReadinessEvidence {
+                .profile_id = requirement->get().id,
+                .profile_terms = combat_readiness_profile_terms(requirement->get()),
+                .roster_scope = m_combat_roster_scope,
+                .reason = "Current preview readiness evidence missing or not bound to roster/profile"
+            };
+        }
         m_avoided_combat_nodes.insert_or_assign(
             proposal.target,
             AvoidedCombatNode { m_run.floor,
                                 m_map_version.map.snapshot().revision,
                                 m_map_version.coordinates.viewport_revision(),
-                                preview });
+                                preview,
+                                readiness_rejected ? std::optional(m_combat_roster_scope) : std::nullopt });
         LogInfo << __FUNCTION__ << "Avoided confirmed combat stage before move confirmation" << preview.stage_title
                 << "floor" << m_run.floor << "target" << proposal.target << "frame" << preview.identity_frame_key
                 << "UID" << preview.identity_uid << "run" << preview.identity_run_id << "map"
@@ -1860,22 +1888,26 @@ PreviewDisposition BlackFlowSession::accept_preview_in_place(MovePreview preview
                 << "AP unchanged" << m_run.resources.action_points;
         // Reuse the already saved panel frame; do not request another capture.
         m_telemetry_events.emplace_back(
-            BlackFlowTelemetryEvent { "BlackFlowGhostStageAvoided",
-                                      json::object { { "stage", preview.stage_title },
-                                                     { "floor", m_run.floor },
-                                                     { "node", proposal.target },
-                                                     { "source", proposal.source },
-                                                     { "map_revision", preview.identity_map_revision },
-                                                     { "viewport_revision", preview.identity_viewport_revision },
-                                                     { "client", preview.identity_client },
-                                                     { "uid", preview.identity_uid },
-                                                     { "run_id", preview.identity_run_id },
-                                                     { "frame_key", preview.identity_frame_key },
-                                                     { "frame_path", preview.identity_frame_path },
-                                                     { "action_points_before", m_run.resources.action_points },
-                                                     { "action_points_after", m_run.resources.action_points },
-                                                     { "move_confirmed", false },
-                                                     { "replan_required", true } } });
+            BlackFlowTelemetryEvent {
+                readiness_rejected ? "BlackFlowCombatReadinessAvoided" : "BlackFlowGhostStageAvoided",
+                json::object { { "stage", preview.stage_title },
+                               { "floor", m_run.floor },
+                               { "node", proposal.target },
+                               { "source", proposal.source },
+                               { "map_revision", preview.identity_map_revision },
+                               { "viewport_revision", preview.identity_viewport_revision },
+                               { "client", preview.identity_client },
+                               { "uid", preview.identity_uid },
+                               { "run_id", preview.identity_run_id },
+                               { "frame_key", preview.identity_frame_key },
+                               { "frame_path", preview.identity_frame_path },
+                               { "action_points_before", m_run.resources.action_points },
+                               { "action_points_after", m_run.resources.action_points },
+                               { "readiness",
+                                 preview.combat_readiness ? combat_readiness_to_json(*preview.combat_readiness)
+                                                          : json::value(nullptr) },
+                               { "move_confirmed", false },
+                               { "replan_required", true } } });
         m_transaction->cancel();
         m_transaction.reset();
         m_transaction_id.clear();

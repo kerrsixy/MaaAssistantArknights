@@ -1,5 +1,7 @@
 #pragma once
 
+#include "BlackFlowCombatReadinessTypes.h"
+
 #include <array>
 #include <cstdint>
 #include <limits>
@@ -518,6 +520,7 @@ struct MovePreview
     bool ideal_source_known = false;
     std::string ideal_source;
     std::string stage_title;
+    std::optional<CombatReadinessEvidence> combat_readiness;
     std::optional<NodeOccupation> occupation;
     // Exact existing preview frame; this is observation provenance, not a new capture.
     std::string identity_client;

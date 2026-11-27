@@ -19,6 +19,8 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::load_params(const json::value&
     m_refresh_requested = params.get("scan_account_modules", true);
     m_cache_file = params.get("account_cache_file", std::string {});
     m_verified = false;
+    m_native_verified_client.clear();
+    m_native_verified_uid.clear();
     m_refresh_attempted = false;
     m_module_refresh_complete = false;
     set_retry_times(0);
@@ -26,6 +28,12 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::load_params(const json::value&
     m_resume_roster_file = params.get("blackflow_resume_roster_file", std::string {});
 #endif
     return m_config->get_theme() == RoguelikeTheme::BlackFlow;
+}
+
+bool asst::blackflow::BlackFlowAccountTaskPlugin::has_verified_current_native_identity() const
+{
+    return m_verified && !m_native_verified_client.empty() && !m_native_verified_uid.empty() &&
+           m_config->account_client() == m_native_verified_client && m_config->account_uid() == m_native_verified_uid;
 }
 
 bool asst::blackflow::BlackFlowAccountTaskPlugin::verify(AsstMsg msg, const json::value& details) const
@@ -195,6 +203,8 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
         callback(AsstMsg::SubTaskExtraInfo, restored_info);
     }
 #endif
+    m_native_verified_client = client;
+    m_native_verified_uid = account.uid();
     m_verified = true;
     auto info = basic_info_with_what("BlackFlowAccountBound");
     info["details"] = json::object { { "client", client },

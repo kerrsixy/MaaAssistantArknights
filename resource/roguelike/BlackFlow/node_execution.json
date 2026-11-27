@@ -4,9 +4,7 @@
         {
             "id": "final_encounter",
             "page_intent": "default",
-            "node_types": [
-                "final"
-            ],
+            "node_types": ["final"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-FinalEncounter",
@@ -15,12 +13,7 @@
         {
             "id": "combat",
             "page_intent": "default",
-            "node_types": [
-                "battle_normal",
-                "battle_elite",
-                "battle_savage",
-                "hide_battle"
-            ],
+            "node_types": ["battle_normal", "battle_elite", "battle_savage", "hide_battle"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Combat",
@@ -29,9 +22,7 @@
         {
             "id": "boss",
             "page_intent": "default",
-            "node_types": [
-                "battle_boss"
-            ],
+            "node_types": ["battle_boss"],
             "rank": 1,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Combat",
@@ -40,13 +31,8 @@
         {
             "id": "floor5_boss",
             "page_intent": "default",
-            "floor_window": [
-                5,
-                5
-            ],
-            "node_types": [
-                "battle_boss"
-            ],
+            "floor_window": [5, 5],
+            "node_types": ["battle_boss"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Floor5Boss",
@@ -55,16 +41,7 @@
         {
             "id": "encounter",
             "page_intent": "default",
-            "node_types": [
-                "incident",
-                "wish",
-                "rest",
-                "sacrifice",
-                "evacuate",
-                "duel",
-                "portal",
-                "fate"
-            ],
+            "node_types": ["incident", "wish", "rest", "sacrifice", "evacuate", "duel", "portal", "fate"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Encounter",
@@ -73,9 +50,7 @@
         {
             "id": "door",
             "page_intent": "default",
-            "node_types": [
-                "door"
-            ],
+            "node_types": ["door"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Door",
@@ -84,10 +59,7 @@
         {
             "id": "pass_through",
             "page_intent": "default",
-            "node_types": [
-                "light",
-                "empty"
-            ],
+            "node_types": ["light", "empty"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-PassThrough",
@@ -96,9 +68,7 @@
         {
             "id": "default_employ",
             "page_intent": "default",
-            "node_types": [
-                "employ"
-            ],
+            "node_types": ["employ"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Employ",
@@ -107,9 +77,7 @@
         {
             "id": "default_shop",
             "page_intent": "default",
-            "node_types": [
-                "shop"
-            ],
+            "node_types": ["shop"],
             "rank": 1,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Purchase",
@@ -118,13 +86,8 @@
         {
             "id": "floor3_shop",
             "page_intent": "default",
-            "floor_window": [
-                3,
-                3
-            ],
-            "node_types": [
-                "shop"
-            ],
+            "floor_window": [3, 3],
+            "node_types": ["shop"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Purchase",
@@ -133,13 +96,8 @@
         {
             "id": "floor5_shop",
             "page_intent": "default",
-            "floor_window": [
-                5,
-                5
-            ],
-            "node_types": [
-                "shop"
-            ],
+            "floor_window": [5, 5],
+            "node_types": ["shop"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Purchase",
@@ -148,9 +106,7 @@
         {
             "id": "default_scrap_shop",
             "page_intent": "default",
-            "node_types": [
-                "scrap_shop"
-            ],
+            "node_types": ["scrap_shop"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Shop",
@@ -159,9 +115,7 @@
         {
             "id": "default_expedition",
             "page_intent": "default",
-            "node_types": [
-                "expedition"
-            ],
+            "node_types": ["expedition"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Encounter",
@@ -178,13 +132,8 @@
         {
             "id": "floor1_burn_investment_shop",
             "page_intent": "shop.invest_continue",
-            "floor_window": [
-                1,
-                1
-            ],
-            "node_types": [
-                "shop"
-            ],
+            "floor_window": [1, 1],
+            "node_types": ["shop"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Investment",
@@ -193,13 +142,8 @@
         {
             "id": "floor1_investment_shop",
             "page_intent": "shop.invest",
-            "floor_window": [
-                1,
-                1
-            ],
-            "node_types": [
-                "shop"
-            ],
+            "floor_window": [1, 1],
+            "node_types": ["shop"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Investment",
@@ -208,13 +152,8 @@
         {
             "id": "seed_priority_shop",
             "page_intent": "shop.seed_priority",
-            "floor_window": [
-                1,
-                2
-            ],
-            "node_types": [
-                "shop"
-            ],
+            "floor_window": [1, 2],
+            "node_types": ["shop"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-SeedPriority",
@@ -223,13 +162,8 @@
         {
             "id": "floor3_seed_priority_shop",
             "page_intent": "shop.seed_priority_floor3",
-            "floor_window": [
-                3,
-                3
-            ],
-            "node_types": [
-                "shop"
-            ],
+            "floor_window": [3, 3],
+            "node_types": ["shop"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-SeedPriority",
@@ -238,13 +172,8 @@
         {
             "id": "cultivate_scrap_shop",
             "page_intent": "scrap_shop.cultivate",
-            "floor_window": [
-                1,
-                3
-            ],
-            "node_types": [
-                "scrap_shop"
-            ],
+            "floor_window": [1, 3],
+            "node_types": ["scrap_shop"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Cultivate",
@@ -253,13 +182,8 @@
         {
             "id": "trade_scrap_shop",
             "page_intent": "scrap_shop.trade",
-            "floor_window": [
-                1,
-                5
-            ],
-            "node_types": [
-                "scrap_shop"
-            ],
+            "floor_window": [1, 5],
+            "node_types": ["scrap_shop"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-ScrapTrade",
@@ -268,13 +192,8 @@
         {
             "id": "ending2_sandtable_a",
             "page_intent": "incident.ending2_sandtable_a",
-            "floor_window": [
-                1,
-                4
-            ],
-            "node_types": [
-                "incident"
-            ],
+            "floor_window": [1, 4],
+            "node_types": ["incident"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Ending2SandtableA",
@@ -283,13 +202,8 @@
         {
             "id": "ending2_hidden_entry",
             "page_intent": "incident.ending2_sandtable_a",
-            "floor_window": [
-                1,
-                4
-            ],
-            "node_types": [
-                "hide_invisible"
-            ],
+            "floor_window": [1, 4],
+            "node_types": ["hide_invisible"],
             "rank": 10,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Default",
@@ -298,13 +212,8 @@
         {
             "id": "ending2_sandtable_b",
             "page_intent": "shop.ending2_sandtable_b",
-            "floor_window": [
-                1,
-                4
-            ],
-            "node_types": [
-                "shop"
-            ],
+            "floor_window": [1, 4],
+            "node_types": ["shop"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Ending2SandtableB",
@@ -313,16 +222,9 @@
         {
             "id": "ending3_expedition_option2",
             "page_intent": "expedition.ending3_option2",
-            "floor_window": [
-                1,
-                4
-            ],
-            "node_types": [
-                "expedition"
-            ],
-            "event_names": [
-                "先行一步"
-            ],
+            "floor_window": [1, 4],
+            "node_types": ["expedition"],
+            "event_names": ["先行一步"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Ending3Option2",
@@ -331,13 +233,8 @@
         {
             "id": "ending3_expedition_entry",
             "page_intent": "expedition.ending3_option2",
-            "floor_window": [
-                1,
-                4
-            ],
-            "node_types": [
-                "expedition"
-            ],
+            "floor_window": [1, 4],
+            "node_types": ["expedition"],
             "rank": 10,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Ending3Option2",
@@ -346,13 +243,8 @@
         {
             "id": "ending3_hidden_entry",
             "page_intent": "expedition.ending3_option2",
-            "floor_window": [
-                1,
-                4
-            ],
-            "node_types": [
-                "hide_invisible"
-            ],
+            "floor_window": [1, 4],
+            "node_types": ["hide_invisible"],
             "rank": 20,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-Default",
@@ -361,13 +253,8 @@
         {
             "id": "floor1_portal_entry",
             "page_intent": "portal.enter",
-            "floor_window": [
-                1,
-                1
-            ],
-            "node_types": [
-                "portal"
-            ],
+            "floor_window": [1, 1],
+            "node_types": ["portal"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-PortalFloor1",
@@ -376,13 +263,8 @@
         {
             "id": "floor2_portal_entry",
             "page_intent": "portal.enter",
-            "floor_window": [
-                2,
-                2
-            ],
-            "node_types": [
-                "portal"
-            ],
+            "floor_window": [2, 2],
+            "node_types": ["portal"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-PortalFloor2",
@@ -391,13 +273,8 @@
         {
             "id": "floor3_portal_entry",
             "page_intent": "portal.enter",
-            "floor_window": [
-                3,
-                3
-            ],
-            "node_types": [
-                "portal"
-            ],
+            "floor_window": [3, 3],
+            "node_types": ["portal"],
             "rank": 0,
             "alias": "BlackFlow@Roguelike@NodeDispatchAction",
             "task": "BlackFlow@Roguelike@Page-PortalFloor3",
@@ -761,7 +638,25 @@
             "node_type": "fate"
         }
     ],
-    "avoided_combat_stages": [
-        "未来见闻"
+    "avoided_combat_stages": ["未来见闻"],
+    "combat_readiness_profiles": [
+        {
+            "id": "convergence_authored_sustain_v1",
+            "stage_title": "进退趋同",
+            "variants": [
+                {
+                    "stage_key": "进退趋同",
+                    "ordinary_healing_plans": [3, 5]
+                },
+                {
+                    "stage_key": "进退趋同#total30",
+                    "ordinary_healing_plans": [1, 4]
+                },
+                {
+                    "stage_key": "进退趋同#total34",
+                    "ordinary_healing_plans": [3]
+                }
+            ]
+        }
     ]
 }

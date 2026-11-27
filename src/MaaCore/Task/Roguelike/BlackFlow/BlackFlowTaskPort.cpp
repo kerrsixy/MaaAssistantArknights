@@ -1,4 +1,5 @@
 #include "BlackFlowTaskPort.h"
+#include "BlackFlowCombatReadiness.h"
 #include "Task/Roguelike/RoguelikeConfig.h"
 
 #include "BlackFlowInventoryCleanup.h"
@@ -402,6 +403,24 @@ bool BlackFlowTaskPort::preview(
     preview.identity_target_node = candidate.target;
     preview.identity_map_revision = viewport.map_revision();
     preview.identity_viewport_revision = viewport.viewport_revision();
+    if (const auto requirement = BlackFlowNodeExecution.combat_readiness_profile(preview.stage_title);
+        requirement && m_account_config) {
+        BlackFlowRecruitmentDutyCatalog catalog;
+        catalog.load(
+            ResDir.get() / utils::path("roguelike/BlackFlow/recruitment_duties.json"),
+            ResDir.get() / utils::path("roguelike/BlackFlow/operator_training.json"),
+            ResDir.get() / utils::path("battle_data.json"));
+        // A partial current-run roster can prove presence, never absence.
+        preview.combat_readiness = evaluate_combat_readiness(
+            requirement->get(),
+            catalog,
+            m_account_config->status(),
+            m_account_config->account_client(),
+            m_account_config->account_uid(),
+            m_account_config->get_core_char());
+        LogInfo << __FUNCTION__ << "BlackFlow preview necessary-duty evidence"
+                << combat_readiness_to_json(*preview.combat_readiness);
+    }
     const Rect clicked = shrink_to_center(*click_rect, 0.5);
     json::object facts {
         { "action_id", candidate.action_id },
