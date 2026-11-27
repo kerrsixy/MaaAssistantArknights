@@ -765,8 +765,8 @@ void asst::RoguelikeBattleTaskPlugin::prepare_primary_from_selection(
     const auto stage = preparation_stage_context();
     const bool role_verified =
         proposal && stage && blackflow::formation_proposal_matches_actual(*proposal, *stage, m_config->status(), names);
+    batch.stage = stage;
     if (role_verified) {
-        batch.stage = *stage;
         batch.primary_role_candidates = proposal->primary_candidates;
     }
     auto observation = basic_info_with_what("BlackFlowPreparedPrimaryComponents");
@@ -1229,6 +1229,22 @@ bool asst::RoguelikeBattleTaskPlugin::deployment_hard_requirements_met(
         (!plan.operator_names.empty() &&
          std::ranges::find(plan.operator_names, oper.name) == plan.operator_names.end())) {
         return false;
+    }
+    if (plan.required_selected_skill != 0) {
+        // This is a current selection lease, independent of any physical DPS model.
+        // The pending batch is consumed once at stage entry and cleared on reset.
+        if (plan.required_selected_skill < 1 || plan.required_selected_skill > 3 || !prepared_primary_current() ||
+            !m_active_prepared_primary->stage) {
+            return false;
+        }
+        const auto observed = m_config->status().opers.find(oper.name);
+        const auto entry =
+            std::ranges::find(m_active_prepared_primary->entries, oper.name, &blackflow::PreparedPrimaryEntry::name);
+        if (observed == m_config->status().opers.end() || entry == m_active_prepared_primary->entries.end() ||
+            elite_status == m_oper_elite.end() || observed->second.elite != elite_status->second ||
+            !blackflow::current_roster_preparation_rank(oper.name, observed->second, plan.required_selected_skill)) {
+            return false;
+        }
     }
     if (std::ranges::any_of(plan.exclusive_locations, [&](const Point& location) {
             return m_used_tiles.contains(location);

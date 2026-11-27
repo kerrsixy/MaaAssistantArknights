@@ -619,6 +619,8 @@ struct DeployInfoWithRank
     int plan_index = 0;
     int max_deployments = INT_MAX;
     int minimum_elite = 0;
+    // Zero preserves unconstrained plans; 1..3 requires current battle preparation evidence.
+    int required_selected_skill = 0;
     std::vector<std::string> operator_names;
     std::vector<std::string> excluded_operator_names;
     bool exclude_starting_core = false;

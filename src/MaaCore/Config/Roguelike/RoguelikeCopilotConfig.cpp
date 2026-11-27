@@ -484,6 +484,14 @@ bool asst::RoguelikeCopilotConfig::parse(const json::value& json)
                 LogError << __FUNCTION__ << "Invalid deployment elite requirement" << stage_name;
                 return false;
             }
+            if (deploy_info.contains("required_selected_skill")) {
+                const auto& selected = deploy_info.at("required_selected_skill");
+                if (!selected.is<int>() || selected.as_double() < 1 || selected.as_double() > 3) {
+                    LogError << __FUNCTION__ << "Invalid deployment selected skill requirement" << stage_name;
+                    return false;
+                }
+                info.required_selected_skill = selected.as_integer();
+            }
             info.operator_names = deploy_info.get("operator_names", std::vector<std::string> {});
             info.excluded_operator_names = deploy_info.get("excluded_operator_names", std::vector<std::string> {});
             info.exclude_starting_core = deploy_info.get("exclude_starting_core", false);
