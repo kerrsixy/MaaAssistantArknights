@@ -2726,6 +2726,47 @@ std::optional<asst::battle::DeploymentOper>
         return candidate.cost < current.cost;
     };
 
+    // Recover an observed empty home with a real persistent blocker before
+    // the legacy role order can choose a temporary blocker. Opening and stale
+    // budget paths retain their existing fallback behavior.
+    std::optional<DeploymentOper> urgent_persistent_blocker;
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow && urgent_home && !m_first_deploy && cost_observed &&
+        m_cost >= 0 && !m_melee_full && m_cur_home_index < m_homes.size() && m_cur_home_index < m_homes_status.size() &&
+        m_homes_status[m_cur_home_index].wait_blocking) {
+        const bool home_already_blocked = std::ranges::any_of(m_blocking_for_home_index, [&](const auto& entry) {
+            const auto occupied = m_used_tiles.find(entry.first);
+            return entry.second == m_cur_home_index && occupied != m_used_tiles.end() &&
+                   persistent_blocking_available(occupied->second);
+        });
+        if (!home_already_blocked) {
+            for (const auto& oper : cur_available) {
+                if (oper.cooling || oper.cost <= 0 || oper.cost > m_cost || DiceSet.contains(oper.name) ||
+                    get_position_full(oper) || m_battlefield_opers.contains({ oper.role, oper.name }) ||
+                    !persistent_blocking_available({ oper.role, oper.name })) {
+                    continue;
+                }
+                const auto observed = m_config->status().opers.find(oper.name);
+                const auto elite = m_oper_elite.find(oper.name);
+                if (observed == m_config->status().opers.end() || elite == m_oper_elite.end() ||
+                    observed->second.elite != elite->second) {
+                    continue;
+                }
+                const auto blocks =
+                    RoguelikeTraining.base_block_count(oper.name, elite->second, observed->second.level);
+                if (!blocks || *blocks <= 0) {
+                    continue;
+                }
+                const auto where = calc_best_loc(oper);
+                if (!where || !deployment_target_allowed(oper, where->placed)) {
+                    continue;
+                }
+                if (!urgent_persistent_blocker || prefer_oper(oper, *urgent_persistent_blocker)) {
+                    urgent_persistent_blocker = oper;
+                }
+            }
+        }
+    }
+
     const auto pick_oper = [&](bool focused, bool affordable_only) -> std::optional<DeploymentOper> {
         if (!focused) {
             std::optional<DeploymentOper> best;
@@ -2781,7 +2822,10 @@ std::optional<asst::battle::DeploymentOper>
     // 先满足当前防线的职业需求；若该职业全部等费，则退化到任何买得起的干员，
     // 让未知关卡至少先形成输出/阻挡，而不是等待高费卡直到漏怪。
     const bool focused = use_air_defense || use_blocking || use_medic;
-    std::optional<DeploymentOper> best_oper = pick_oper(focused, true);
+    std::optional<DeploymentOper> best_oper = urgent_persistent_blocker;
+    if (!best_oper) {
+        best_oper = pick_oper(focused, true);
+    }
     if (!best_oper && focused) {
         best_oper = pick_oper(false, true);
         if (best_oper) {
