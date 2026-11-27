@@ -5,7 +5,8 @@
         "沿用现有能力组、精英和实际射程门禁，不新增干员名单。单挡自然先占下路；两挡第二名在核心之后补上。核心资格未知或未达原E2/射程条件时，不宣称上路有足够输出。",
         "保留蓝门禁放和后传送9,1/9,6覆盖约束。有限费用反事实只比较相同已读价格之先后，不预测实际费用恢复或动作秒数。",
         "run73 B6单挡损11；B8双挡上路首只掠食者打掉清道夫后、核心才落地。新顺序需实测起技/敌方首波，普通攻击覆盖不是单守能力证明。",
-        "Run80实录20:51:40.364为当前17费、卡达18费等待、纯烬16费可用却被保费跳过；此次只提前现有下路医疗。治疗几何覆盖不等于足够HPS、能阻止神经损伤或保证上下路存活，下一轮需验证实际落地与离场/漏怪时点。"
+        "Run80实录20:51:40.364为当前17费、卡达18费等待、纯烬16费可用却被保费跳过；此次只提前现有下路医疗。治疗几何覆盖不等于足够HPS、能阻止神经损伤或保证上下路存活，下一轮需验证实际落地与离场/漏怪时点。",
+        "Phase220: medical tasks reuse the exact reviewed ordinary MEDIC groups and name qualification from B30, generated from that single source; original positions, directions, elite/range requirements and order remain. This fixes A/C group exclusion of canonical Kal and group medics, not operator power or HPS. Conditional non-medical healing remains excluded."
     ],
     "replacement_home": [
         {
@@ -46,13 +47,45 @@
             "require_persistent_blocking": true
         },
         {
-            "groups": ["元素奶", "单奶"],
+            "groups": ["元素奶", "单奶", "群奶", "凯尔希"],
             "location": [6, 5],
             "direction": "right",
             "minimum_elite": 1,
             "required_range_tiles": [
                 [7, 6],
                 [8, 5]
+            ],
+            "operator_names": [
+                "Lancet-2",
+                "Touch",
+                "亚叶",
+                "凯尔希",
+                "凯尔希·思衡托",
+                "华法琳",
+                "哈洛德",
+                "嘉维尔",
+                "图耶",
+                "夜莺",
+                "安赛尔",
+                "微风",
+                "明椒",
+                "末药",
+                "桑葚",
+                "流明",
+                "清流",
+                "白面鸮",
+                "絮雨",
+                "纯烬艾雅法拉",
+                "芙蓉",
+                "苏苏洛",
+                "莎草",
+                "蜜莓",
+                "褐果",
+                "调香师",
+                "赫默",
+                "锡兰",
+                "闪灵",
+                "预备干员-后勤"
             ]
         },
         {
@@ -67,13 +100,45 @@
             ]
         },
         {
-            "groups": ["元素奶", "单奶"],
+            "groups": ["元素奶", "单奶", "群奶", "凯尔希"],
             "location": [4, 2],
             "direction": "right",
             "minimum_elite": 1,
             "required_range_tiles": [
                 [7, 1],
                 [6, 2]
+            ],
+            "operator_names": [
+                "Lancet-2",
+                "Touch",
+                "亚叶",
+                "凯尔希",
+                "凯尔希·思衡托",
+                "华法琳",
+                "哈洛德",
+                "嘉维尔",
+                "图耶",
+                "夜莺",
+                "安赛尔",
+                "微风",
+                "明椒",
+                "末药",
+                "桑葚",
+                "流明",
+                "清流",
+                "白面鸮",
+                "絮雨",
+                "纯烬艾雅法拉",
+                "芙蓉",
+                "苏苏洛",
+                "莎草",
+                "蜜莓",
+                "褐果",
+                "调香师",
+                "赫默",
+                "锡兰",
+                "闪灵",
+                "预备干员-后勤"
             ]
         }
     ]

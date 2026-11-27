@@ -2,6 +2,7 @@
 
 #include "BlackFlowRecruitmentDuty.h"
 #include "BlackFlowRecruitmentQuoteLedger.h"
+#include "Config/Miscellaneous/TilePack.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowVoucherStash.h"
 
 namespace asst::blackflow
@@ -82,6 +83,18 @@ struct TerminalHopeReservationDecision
     const std::string& selected_name,
     int selected_page,
     const VoucherStashObservation& current_stash);
+
+// Reuses the authored group/name/phase/terrain/range qualification with current
+// selected preparation only. No account maximum or configured skill fallback.
+[[nodiscard]] std::optional<bool> admits_current_authored_duty(
+    const std::string& name,
+    const RoguelikeOper& oper,
+    const battle::roguelike::DeployInfoWithRank& plan,
+    const std::vector<std::string>& groups,
+    const battle::roguelike::CombatData& stage,
+    const TerminalDutyContext& context,
+    const BlackFlowRecruitmentDutyCatalog& catalog,
+    const TilePack::result_type& geometry);
 
 // Bounded ending1 roster construction objective, not a DPS dominance claim.
 // Actual offers/eligibility keep their original module, origin and price gates.

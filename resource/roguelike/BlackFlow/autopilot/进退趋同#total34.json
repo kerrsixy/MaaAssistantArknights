@@ -3,7 +3,8 @@
     "doc": [
         "Private C-only profile; game stage has no dispatcher to this key yet. Never install as a Chinese-name replacement without a verified variant gate.",
         "Actual run75 C: cheap single-use upper opener, upper EW, lower persistent3 blocker, sole lower healer, lower physical output, lower arts-capable supplementary output. DPS/timing not live proven.",
-        "Only the deployment plan overrides the verified base; A38/B32 and unknown totals retain base. Two independent no-prompt fresh HUD readings are required before any deployment."
+        "Only the deployment plan overrides the verified base; A38/B32 and unknown totals retain base. Two independent no-prompt fresh HUD readings are required before any deployment.",
+        "Phase220: medical tasks reuse the exact reviewed ordinary MEDIC groups and name qualification from B30, generated from that single source; original positions, directions, elite/range requirements and order remain. This fixes A/C group exclusion of canonical Kal and group medics, not operator power or HPS. Conditional non-medical healing remains excluded."
     ],
     "deploy_plan_only": true,
     "reserve_deploy_cost": true,
@@ -39,7 +40,7 @@
             "exclude_starting_core": true
         },
         {
-            "groups": ["元素奶", "单奶"],
+            "groups": ["元素奶", "单奶", "群奶", "凯尔希"],
             "location": [6, 5],
             "direction": "right",
             "minimum_elite": 1,
@@ -47,6 +48,38 @@
                 [7, 6],
                 [8, 5],
                 [7, 5]
+            ],
+            "operator_names": [
+                "Lancet-2",
+                "Touch",
+                "亚叶",
+                "凯尔希",
+                "凯尔希·思衡托",
+                "华法琳",
+                "哈洛德",
+                "嘉维尔",
+                "图耶",
+                "夜莺",
+                "安赛尔",
+                "微风",
+                "明椒",
+                "末药",
+                "桑葚",
+                "流明",
+                "清流",
+                "白面鸮",
+                "絮雨",
+                "纯烬艾雅法拉",
+                "芙蓉",
+                "苏苏洛",
+                "莎草",
+                "蜜莓",
+                "褐果",
+                "调香师",
+                "赫默",
+                "锡兰",
+                "闪灵",
+                "预备干员-后勤"
             ]
         },
         {

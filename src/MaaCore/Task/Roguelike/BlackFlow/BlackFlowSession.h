@@ -144,6 +144,8 @@ public:
     // Consumed only after the existing cancel-to-map acknowledgement chain.
     [[nodiscard]] bool ghost_preview_stop_pending() const noexcept { return m_ghost_preview_stop_pending; }
 
+    void observe_combat_roster_scope(std::string scope) { m_combat_roster_scope = std::move(scope); }
+
     [[nodiscard]] bool has_avoided_stage_nodes() const;
     [[nodiscard]] std::unordered_set<NodeId> avoided_stage_nodes() const;
     bool configure_diagnostics(DiagnosticSettings settings, std::string* error = nullptr);
@@ -370,8 +372,10 @@ private:
         std::uint64_t map_revision = 0;
         std::uint64_t viewport_revision = 0;
         MovePreview preview;
+        std::optional<std::string> combat_roster_scope;
     };
 
+    std::string m_combat_roster_scope;
     std::string m_routing_client;
     std::string m_routing_uid;
     std::string m_routing_run_id;

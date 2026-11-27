@@ -1,4 +1,5 @@
 #include "BlackFlowNodeExecutionConfig.h"
+#include "Task/Roguelike/BlackFlow/BlackFlowCombatReadiness.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -40,6 +41,14 @@ std::optional<blackflow::NodeType>
     return found == m_preview_name_types.end() ? std::nullopt : std::optional<blackflow::NodeType>(found->second);
 }
 
+std::optional<std::reference_wrapper<const blackflow::CombatReadinessProfile>>
+    BlackFlowNodeExecutionConfig::combat_readiness_profile(std::string_view title) const noexcept
+{
+    const auto found =
+        std::ranges::find(m_combat_readiness_profiles, title, &blackflow::CombatReadinessProfile::stage_title);
+    return found == m_combat_readiness_profiles.end() ? std::nullopt : std::optional(std::cref(*found));
+}
+
 bool BlackFlowNodeExecutionConfig::parse_for_test(const json::value& json, std::string* error)
 {
     try {
@@ -60,6 +69,15 @@ bool BlackFlowNodeExecutionConfig::parse(const json::value& json)
     const auto schema_version = json.find<int>("schema_version");
     if (!schema_version || *schema_version != 3) {
         LogError << __FUNCTION__ << "unsupported schema_version";
+        return false;
+    }
+    std::string readiness_error;
+    const auto profile_input = json.find_value("combat_readiness_profiles");
+    const auto profiles = blackflow::parse_combat_readiness_profiles(
+        profile_input ? *profile_input : json::value(json::array {}),
+        &readiness_error);
+    if (!profiles) {
+        LogError << __FUNCTION__ << readiness_error;
         return false;
     }
     std::vector<std::string> avoided_combat_stages;
@@ -142,6 +160,10 @@ bool BlackFlowNodeExecutionConfig::parse(const json::value& json)
     }
     std::ranges::sort(preview_names);
 
+    if (!ret) {
+        return false;
+    }
+    m_combat_readiness_profiles = *profiles;
     m_schema_version = *schema_version;
     m_routes = std::move(routes);
     m_task_results = std::move(task_results);

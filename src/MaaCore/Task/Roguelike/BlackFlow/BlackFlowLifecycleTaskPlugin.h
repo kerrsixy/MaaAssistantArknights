@@ -18,6 +18,7 @@ protected:
 
 private:
     friend class BlackFlowActiveRecovery151TestAccess;
+    friend class BlackFlowSavedIdentity219TestAccess;
 
     enum class PendingWork
     {
@@ -30,6 +31,7 @@ private:
         CheckStartRunReward,
         StartRunRewardPageMissing,
         OwnExploration,
+        AdoptSavedExploration,
         BeginActiveRecovery,
         RecoveryIdentity,
         RecoveryRecruitSeen,
@@ -65,6 +67,7 @@ private:
         WakeUp
     };
 
+    bool adopt_saved_exploration(const json::value& details);
     bool owns_current_exploration() const;
     bool begin_active_recovery(RecoveryTrigger trigger = RecoveryTrigger::DataSync);
     bool accept_recovery_identity(std::string_view client, std::string_view uid);
@@ -74,6 +77,7 @@ private:
     void remove_recovery_override();
 
     // Process-local ownership, never restored from a cache or a requested difficulty.
+    bool m_saved_resume_only = false;
     bool m_exploration_started = false;
     bool m_active_recovery = false;
     bool m_recovery_map_seen = false;

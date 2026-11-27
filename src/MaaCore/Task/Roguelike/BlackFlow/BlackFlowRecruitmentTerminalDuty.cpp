@@ -912,3 +912,34 @@ bool terminal_output_refind_matches(
     return true;
 }
 }
+
+namespace asst::blackflow
+{
+std::optional<bool> admits_current_authored_duty(
+    const std::string& name,
+    const RoguelikeOper& oper,
+    const battle::roguelike::DeployInfoWithRank& plan,
+    const std::vector<std::string>& groups,
+    const battle::roguelike::CombatData& stage,
+    const TerminalDutyContext& context,
+    const BlackFlowRecruitmentDutyCatalog& catalog,
+    const TilePack::result_type& geometry)
+{
+    if (stage.force_ban_medic) {
+        return false;
+    }
+    const auto& prep = oper.preparation;
+    terminal_duty_detail::Body body { .name = name,
+                                      .id = RoguelikeTraining.unique_identity(name),
+                                      .elite = oper.elite,
+                                      .level = oper.level,
+                                      .skill = prep.selected_skill,
+                                      .rank =
+                                          current_roster_preparation_rank(name, oper, prep.selected_skill).value_or(-1),
+                                      .source = "current_run_selected_preparation_only" };
+    if (plan.required_selected_skill != 0 && plan.required_selected_skill != body.skill) {
+        return std::nullopt;
+    }
+    return terminal_duty_detail::admits(body, { .plan = plan, .groups = groups }, stage, context, catalog, geometry);
+}
+}
