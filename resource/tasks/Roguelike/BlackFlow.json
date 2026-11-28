@@ -175,6 +175,7 @@
             "BlackFlow@Roguelike@AccountAnnouncementClose",
             "BlackFlow@Roguelike@AccountMissionCompletedReturn",
             "BlackFlow@Roguelike@AccountHome",
+            "BlackFlow@Roguelike@AccountHomeCurrent",
             "BlackFlow@Roguelike@AccountFloorIntro",
             "BlackFlow@Roguelike@AccountMapReturn",
             "BlackFlow@Roguelike@AccountReturn",
@@ -317,6 +318,23 @@
             "BlackFlow@Roguelike@AccountAnnouncementClose",
             "BlackFlow@Roguelike"
         ]
+    },
+    "BlackFlow@Roguelike@AccountHomeCurrent": {
+        "Doc": "Current home layout: require both the operator entry and terminal title in the same frame; preserve the original theme matcher separately.",
+        "algorithm": "OcrDetect",
+        "text": ["干员", "Operator"],
+        "fullMatch": true,
+        "roi": [900, 280, 300, 150],
+        "requiredPage": "BlackFlow@Roguelike@AccountHomeTerminal",
+        "action": "DoNothing",
+        "next": ["BlackFlow@Roguelike@AccountRead"]
+    },
+    "BlackFlow@Roguelike@AccountHomeTerminal": {
+        "algorithm": "OcrDetect",
+        "text": ["终端", "Terminal"],
+        "fullMatch": true,
+        "roi": [850, 85, 250, 100],
+        "action": "DoNothing"
     },
     "BlackFlow@Roguelike@AccountDailySupply": {
         "baseTask": "BlackFlow@Roguelike@BeginRecovery_DailySupply",
@@ -3852,7 +3870,11 @@
     "BlackFlowAccountScan@ReturnHome": {
         "algorithm": "JustReturn",
         "action": "DoNothing",
-        "next": ["BlackFlowAccountScan@Home", "BlackFlowAccountScan@Home@QuickSwitch@ToHome#next"]
+        "next": [
+            "BlackFlowAccountScan@Home",
+            "BlackFlowAccountScan@HomeCurrent",
+            "BlackFlowAccountScan@Home@QuickSwitch@ToHome#next"
+        ]
     },
     "BlackFlowAccountScan@Home": {
         "baseTask": "Home",
@@ -3863,6 +3885,10 @@
     "BlackFlowAccountScan@HomeEntry": {
         "baseTask": "OperBoxHomeDirect",
         "next": ["OperBoxBegin"]
+    },
+    "BlackFlowAccountScan@HomeCurrent": {
+        "baseTask": "BlackFlow@Roguelike@AccountHomeCurrent",
+        "next": []
     },
     "BlackFlowAccountScan@TutorialEntry": {
         "baseTask": "OperBoxTutorialClose",
