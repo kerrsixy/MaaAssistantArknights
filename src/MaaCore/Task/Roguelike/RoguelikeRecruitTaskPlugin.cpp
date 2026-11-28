@@ -1044,8 +1044,14 @@ asst::RoguelikeRecruitTaskPlugin::CandidateAssessment asst::RoguelikeRecruitTask
         const auto& policy = *recruit_info.account_module;
         const auto& account = m_config->account_profile();
         const auto evidence = account ? account->module_evidence(oper_info.name, policy.module_id) : std::nullopt;
-        const bool ready = account && account->module_available(oper_info.name, policy.module_id, policy.minimum_level);
-        module_unknown = !evidence || !evidence->verified;
+        const auto default_oper = account ? account->find_operator(oper_info.name) : std::nullopt;
+        const bool default_known = default_oper && default_oper->get().current_default.has_value();
+        const bool default_ready =
+            account && account->module_default_available(oper_info.name, policy.module_id, policy.minimum_level);
+        const bool ready = account &&
+                           account->module_available(oper_info.name, policy.module_id, policy.minimum_level) &&
+                           default_ready;
+        module_unknown = !evidence || !evidence->verified || !default_known;
         const int before = priority;
         priority = policy.adjust_priority(priority, chars_map.contains(oper_info.name), ready);
         auto decision = basic_info_with_what("BlackFlowRecruitmentModuleGate");
@@ -1057,6 +1063,8 @@ asst::RoguelikeRecruitTaskPlugin::CandidateAssessment asst::RoguelikeRecruitTask
             { "known", evidence.has_value() },
             { "module_level", evidence ? evidence->level : -1 },
             { "ready", ready },
+            { "default_known", default_known },
+            { "default_ready", default_ready },
             { "priority_before", before },
             { "priority_after", priority },
         };

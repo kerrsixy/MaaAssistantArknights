@@ -1,9 +1,28 @@
 #include "BlackFlowAccountScanCatalog.h"
 
 #include <algorithm>
+#include <cctype>
 #include <set>
 
 #include "Utils/Logger.hpp"
+
+std::string asst::blackflow::normalize_account_module_code(std::string text)
+{
+    for (const auto& [glyph, code] : { std::pair { std::string("α"), std::string("A") },
+                                       std::pair { std::string("β"), std::string("B") },
+                                       std::pair { std::string("Δ"), std::string("D") } }) {
+        for (auto at = text.find(glyph); at != std::string::npos; at = text.find(glyph)) {
+            text.replace(at, glyph.size(), code);
+        }
+    }
+    std::erase_if(text, [](unsigned char ch) { return std::isspace(ch) != 0; });
+    for (auto& ch : text) {
+        if (ch >= 'a' && ch <= 'z') {
+            ch = static_cast<char>(ch - 'a' + 'A');
+        }
+    }
+    return text;
+}
 
 namespace asst::blackflow::account_scan_catalog
 {
@@ -92,6 +111,28 @@ std::optional<asst::blackflow::BlackFlowAccountScanCatalog>
                        .max_level = target.at("max_level").as_integer() },
             .minimum_level = target.at("minimum_level").as_integer(),
         };
+        std::set<std::string> owner_ids, icons, codes;
+        if (const auto owner_codes = target.find<json::array>("owner_module_codes")) {
+            for (const auto& entry : *owner_codes) {
+                if (!entry.is_object() || entry.get("operator_id", "") != parsed.operator_id ||
+                    !entry.contains("module_id") || !account_scan_catalog::text(entry.at("module_id")) ||
+                    !entry.contains("type_icon") || !account_scan_catalog::text(entry.at("type_icon")) ||
+                    !entry.contains("code") || !account_scan_catalog::text(entry.at("code"))) {
+                    return fail("Invalid full-owner module code identity");
+                }
+                auto code = normalize_account_module_code(entry.at("code").as_string());
+                auto id = entry.at("module_id").as_string();
+                auto icon = entry.at("type_icon").as_string();
+                if (code.empty() || !owner_ids.insert(id).second || !icons.insert(icon).second ||
+                    !codes.insert(code).second) {
+                    return fail("Ambiguous full-owner module code map");
+                }
+                parsed.owner_module_codes.push_back({ std::move(id), std::move(icon), std::move(code) });
+            }
+            if (!owner_ids.contains(parsed.panel.module_id)) {
+                return fail("Required module absent from owner code map");
+            }
+        }
         if (!names.insert(parsed.operator_name).second || !identifiers.insert(parsed.operator_id).second ||
             !modules.insert(parsed.panel.module_id).second || !titles.insert(parsed.panel.display_title).second) {
             return fail("Account module scan target identity is duplicated or ambiguous");

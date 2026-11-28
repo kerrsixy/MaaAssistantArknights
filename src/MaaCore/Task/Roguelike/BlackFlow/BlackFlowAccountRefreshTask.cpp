@@ -23,6 +23,7 @@
 #include "Vision/Roguelike/BlackFlow/BlackFlowAccountListOrderAnalyzer.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowAccountTargetLocator.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowAccountTrainingAnalyzer.h"
+#include "Vision/Roguelike/BlackFlow/BlackFlowCurrentModuleAnalyzer.h"
 
 namespace asst::blackflow
 {
@@ -103,6 +104,7 @@ bool BlackFlowAccountRefreshTask::action(const std::string& task, const std::sha
     // Retry the pending recognition with a new frame, not the completed action.
     process.set_retry_times(2);
     process.set_times_limit("OperProgress@ReturnToOperBoxWalk", 4);
+    process.set_times_limit("BlackFlowAccountScan@ReturnToDetail", 3);
     process.set_times_limit("BlackFlowAccountScan@Home@QuickSwitch@ToHome@Open", 3);
     process.set_times_limit("BlackFlowAccountScan@Home@QuickSwitch@ToHome@Entry", 3);
     return process.run();
@@ -315,6 +317,13 @@ bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const Ac
             }
         }
     }
+    if (module) {
+        const auto& strength = strength_observer->observation();
+        configure_module_default(
+            *module,
+            strength ? strength->source_image : cv::Mat {},
+            !m_observation.unknown_targets.contains(oper_name));
+    }
     // An unrecognized detail/manager frame cannot silently resume page scanning.
     if (!action("OperProgress@ReturnToOperBox")) {
         return false;
@@ -335,6 +344,110 @@ bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const Ac
     }
     m_verified_page = restored.get_result();
     return true;
+}
+
+bool BlackFlowAccountRefreshTask::record_module_default(
+    const AccountModuleScanTarget& target,
+    const cv::Mat& detail,
+    const char* capture_kind)
+{
+    const auto current = BlackFlowCurrentModuleAnalyzer(detail).analyze(target);
+    if (!current) {
+        return false;
+    }
+    const auto stamp =
+        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+            .count();
+    const auto directory = UserDir.get() / "BlackFlowEvidence" / "account_module_default";
+    std::error_code error;
+    std::filesystem::create_directories(directory, error);
+    const auto file = directory / utils::path(target.operator_id + "_" + std::to_string(stamp) + ".png");
+    if (error || !MAA_NS::imwrite(file, detail)) {
+        return false;
+    }
+    m_observation.module_defaults.insert_or_assign(target.operator_name, FreshAccountModuleDefault { *current, file });
+    auto info = basic_info_with_what("BlackFlowAccountModuleDefaultObserved");
+    info["details"] =
+        json::object { { "operator", target.operator_name },
+                       { "operator_id", target.operator_id },
+                       { "module_id", current->module_id },
+                       { "code", current->code },
+                       { "level", current->level },
+                       { "capture_kind", capture_kind },
+                       { "required_default_ready",
+                         current->module_id == target.panel.module_id && current->level >= target.minimum_level },
+                       { "evidence_file", utils::path_to_utf8_string(file) },
+                       { "current_battle_equipment_proven", false } };
+    callback(AsstMsg::SubTaskExtraInfo, info);
+    return current->module_id == target.panel.module_id && current->level >= target.minimum_level;
+}
+
+void BlackFlowAccountRefreshTask::configure_module_default(
+    const AccountModuleScanTarget& target,
+    const cv::Mat& initial_detail,
+    bool module_ready)
+{
+    m_observation.default_attempted.insert(target.operator_name);
+    if (!initial_detail.empty() && record_module_default(target, initial_detail, "initial_detail")) {
+        return;
+    }
+    if (!module_ready || target.owner_module_codes.empty() || need_exit() ||
+        std::chrono::steady_clock::now() >= m_scan_deadline) {
+        return;
+    }
+    const auto panel = BlackFlowModulePanelAnalyzer(ctrler()->get_image()).analyze(target.panel);
+    if (!panel || !panel->evidence.unlocked || panel->evidence.level < target.minimum_level) {
+        return;
+    }
+    auto select = Task.get("BlackFlowAccountScan@SelectModuleCard");
+    if (!select) {
+        return;
+    }
+    const auto previous = select->specific_rect;
+    const auto& title = panel->title_rect;
+    select->specific_rect = { title.x + title.width / 2, title.y + title.height / 2, 1, 1 };
+    m_observation.module_defaults.erase(target.operator_name);
+    const bool selected = action("BlackFlowAccountScan@SelectModuleCard");
+    select->specific_rect = previous;
+    if (!selected) {
+        return;
+    }
+    // Selection is not configuration. Only a complete positive blue control
+    // belonging to this exact MAX card can authorize one default-setting input.
+    const auto button = BlackFlowModulePanelAnalyzer(ctrler()->get_image()).set_default_button(target.panel);
+    if (button) {
+        auto apply = Task.get("BlackFlowAccountScan@SetDefault");
+        if (!apply) {
+            return;
+        }
+        const auto old_rect = apply->specific_rect;
+        apply->specific_rect = { button->x + button->width / 2, button->y + button->height / 2, 1, 1 };
+        const bool input = action("BlackFlowAccountScan@SetDefault");
+        apply->specific_rect = old_rect;
+        auto info = basic_info_with_what("BlackFlowAccountModuleDefaultInput");
+        info["details"] = json::object { { "operator", target.operator_name },
+                                         { "module_id", target.panel.module_id },
+                                         { "input_completed", input },
+                                         { "readback_required", true } };
+        callback(AsstMsg::SubTaskExtraInfo, info);
+        if (!input) {
+            return;
+        }
+    }
+    // Absence of SetDefault is never a success receipt. Even an already-default
+    // card must return to a fresh exact-operator detail code/stage observation.
+    if (!action("BlackFlowAccountScan@ReturnToDetail")) {
+        return;
+    }
+    for (int shot = 0; shot < 3 && !need_exit(); ++shot) {
+        if (record_module_default(target, ctrler()->get_image(), "fresh_readback")) {
+            return;
+        }
+        if (shot != 2 && !sleep(300)) {
+            return;
+        }
+    }
+    LogWarn << __FUNCTION__ << "Required default module readback remains unknown or different" << target.operator_name;
 }
 
 bool BlackFlowAccountRefreshTask::_run()

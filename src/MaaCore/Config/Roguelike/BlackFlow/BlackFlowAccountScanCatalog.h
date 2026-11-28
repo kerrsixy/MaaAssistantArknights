@@ -23,7 +23,18 @@ struct AccountModuleScanTarget
     std::string operator_name;
     ModulePanelTarget panel;
     int minimum_level = 3;
+
+    struct OwnerModuleCode
+    {
+        std::string module_id;
+        std::string type_icon;
+        std::string code;
+    };
+
+    std::vector<OwnerModuleCode> owner_module_codes;
 };
+
+[[nodiscard]] std::string normalize_account_module_code(std::string text);
 
 // Original-table identity metadata is not account ownership or equipped-module evidence.
 class BlackFlowAccountScanCatalog

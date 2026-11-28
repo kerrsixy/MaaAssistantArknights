@@ -36,6 +36,12 @@ struct FreshAccountDetailStrength
     std::optional<AccountTrainingEvidence> training;
 };
 
+struct FreshAccountModuleDefault
+{
+    AccountModuleDefaultEvidence observation;
+    std::filesystem::path evidence_file;
+};
+
 struct AccountRefreshObservation
 {
     std::string client;
@@ -47,6 +53,8 @@ struct AccountRefreshObservation
     bool roster_complete = false;
     bool stopped_at_repeated_page = false;
     bool returned_same_uid = false;
+    std::map<std::string, FreshAccountModuleDefault> module_defaults;
+    std::set<std::string> default_attempted;
 
     [[nodiscard]] bool required_modules_complete() const noexcept { return unknown_targets.empty(); }
 };
@@ -73,6 +81,11 @@ private:
     bool ensure_batch_edit_disabled();
     bool visit_target(const OperBoxInfo& oper, const AccountModuleScanTarget* module);
     bool action(const std::string& task, const std::shared_ptr<AbstractTaskPlugin>& observer = nullptr);
+    void configure_module_default(
+        const AccountModuleScanTarget& target,
+        const cv::Mat& initial_detail,
+        bool module_ready);
+    bool record_module_default(const AccountModuleScanTarget& target, const cv::Mat& detail, const char* capture_kind);
     std::vector<AccountModuleScanTarget> m_targets;
     std::set<std::string> m_attempted;
     std::set<std::string> m_opening_training_names;

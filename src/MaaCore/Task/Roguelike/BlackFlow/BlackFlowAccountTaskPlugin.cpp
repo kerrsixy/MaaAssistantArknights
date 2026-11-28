@@ -1,5 +1,6 @@
 #include "BlackFlowAccountTaskPlugin.h"
 
+#include <algorithm>
 #include <chrono>
 
 #include "BlackFlowAccountRefreshTask.h"
@@ -63,6 +64,10 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
     std::string cache_error;
     json::array refresh_unknown_targets;
     std::size_t fresh_strength_count = 0;
+    std::size_t fresh_default_count = 0;
+    json::array default_unknown_targets;
+    json::array default_not_ready_targets;
+    std::vector<AccountModuleScanTarget> refreshed_targets;
     if (m_refresh_requested && !m_refresh_attempted) {
         // Set before any navigation: this startup task must never repeat a partial refresh.
         m_refresh_attempted = true;
@@ -105,6 +110,21 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
             return false;
         }
         const auto& observed = refresh.observation();
+        refreshed_targets = catalog->targets();
+        for (const auto& target : refreshed_targets) {
+            const auto current = observed.module_defaults.find(target.operator_name);
+            if (current != observed.module_defaults.end() && current->second.observation.verified &&
+                current->second.observation.module_id == target.panel.module_id &&
+                current->second.observation.level >= target.minimum_level) {
+                ++fresh_default_count;
+            }
+            else {
+                default_not_ready_targets.emplace_back(target.operator_name);
+                if (current == observed.module_defaults.end() || !current->second.observation.verified) {
+                    default_unknown_targets.emplace_back(target.operator_name);
+                }
+            }
+        }
         const auto stamp = std::to_string(
             std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
                 .count());
@@ -165,10 +185,21 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
     const bool cache_loaded = profile.has_value();
     size_t cached_operator_count = 0;
     size_t cached_training_count = 0;
+    size_t cached_default_count = 0;
+    bool default_reload_complete = false;
     bool cached_roster_complete = false;
     if (profile) {
         cached_operator_count = profile->operator_count();
         cached_training_count = profile->training_operator_count();
+        cached_default_count = profile->default_operator_count();
+        default_reload_complete =
+            !refreshed_targets.empty() && std::ranges::all_of(refreshed_targets, [&](const auto& target) {
+                return profile->module_available(target.operator_name, target.panel.module_id, target.minimum_level) &&
+                       profile->module_default_available(
+                           target.operator_name,
+                           target.panel.module_id,
+                           target.minimum_level);
+            });
         cached_roster_complete = profile->roster_complete();
         if (!m_config->bind_account_profile(std::make_shared<BlackFlowAccountProfile>(std::move(*profile)))) {
             return false;
@@ -215,6 +246,12 @@ bool asst::blackflow::BlackFlowAccountTaskPlugin::_run()
                                      { "cache_file", utils::path_to_utf8_string(cache_path) },
                                      { "cached_operator_count", cached_operator_count },
                                      { "cached_training_operator_count", cached_training_count },
+                                     { "cached_default_operator_count", cached_default_count },
+                                     { "fresh_required_default_count", fresh_default_count },
+                                     { "default_unknown_targets", std::move(default_unknown_targets) },
+                                     { "default_not_ready_targets", std::move(default_not_ready_targets) },
+                                     { "default_reload_complete", default_reload_complete },
+                                     { "current_battle_equipment_proven", false },
                                      { "full_skill_training_scan_complete", false },
                                      { "cached_roster_complete", cached_roster_complete },
                                      { "fresh_scan_complete", false },

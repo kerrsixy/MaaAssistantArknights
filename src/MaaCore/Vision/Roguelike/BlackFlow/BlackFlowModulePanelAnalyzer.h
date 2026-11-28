@@ -27,5 +27,7 @@ public:
     using ResultOpt = std::optional<Result>;
 
     [[nodiscard]] ResultOpt analyze(const ModulePanelTarget& target) const;
+    // A positive full two-line control on this exact MAX card proves selection.
+    [[nodiscard]] std::optional<Rect> set_default_button(const ModulePanelTarget& target) const;
 };
 }

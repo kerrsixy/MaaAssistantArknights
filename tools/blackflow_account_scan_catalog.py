@@ -24,6 +24,23 @@ def positive_level(value, field):
     return value
 
 
+def owner_module_codes(equipment, owner):
+    result, identifiers, icons, codes = [], set(), set(), set()
+    for module_id in equipment["charEquip"][owner]:
+        module = equipment["equipDict"][module_id]
+        if module.get("charId") != owner or module.get("uniEquipId") != module_id:
+            raise ValueError("Full owner module identity mismatch")
+        icon = required_text(module.get("typeIcon"), "module type icon")
+        first = required_text(module.get("typeName1"), "module code prefix")
+        suffix = module.get("typeName2") or ""
+        code = (first + suffix).upper().replace(" ", "")
+        if module_id in identifiers or icon in icons or code in codes:
+            raise ValueError("Ambiguous full owner module code")
+        identifiers.add(module_id); icons.add(icon); codes.add(code)
+        result.append({"operator_id": owner, "module_id": module_id, "type_icon": icon, "code": code})
+    return result
+
+
 def build_catalog(recruitment, characters, equipment, battle_equipment, snapshot_label):
     if not isinstance(recruitment, dict) or recruitment.get("theme") != "BlackFlow":
         raise ValueError("Expected BlackFlow recruitment rules")
@@ -101,6 +118,7 @@ def build_catalog(recruitment, characters, equipment, battle_equipment, snapshot
                 "display_title": title,
                 "max_level": maximum,
                 "minimum_level": minimum,
+                "owner_module_codes": owner_module_codes(equipment, owner),
             }
         )
     return {

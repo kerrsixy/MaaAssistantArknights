@@ -169,6 +169,23 @@ std::optional<BlackFlowAccountProfile> BlackFlowAccountProfile::parse(
                 return reject("account skill training identity or strength is invalid: " + name);
             }
         }
+        if (value.get("default_latest_attempt", "state", "") == "known" && value.contains("current_default_module")) {
+            const auto& current = value.at("current_default_module");
+            const int level = current.get("level", 0);
+            if (current.is_object() && current.get("verified", false) && current.get("client", "") == client &&
+                current.get("uid", "") == uid && current.get("operator_id", "") == oper.id &&
+                current.get("source_kind", "") == "exact_same_uid_operator_detail_current_module" &&
+                !current.get("module_id", "").empty() && !current.get("code", "").empty() &&
+                !current.get("evidence_file", "").empty() && !current.get("observed_at", "").empty() &&
+                current.get("observed_at", "") == value.get("default_latest_attempt", "observed_at", "") &&
+                level >= 1 && level <= 3) {
+                oper.current_default = AccountModuleDefaultEvidence { oper.id,
+                                                                      current.get("module_id", ""),
+                                                                      current.get("code", ""),
+                                                                      level,
+                                                                      true };
+            }
+        }
         if (value.contains("attribute_trust")) {
             // An invalid optional attribute is a data-quality unknown. It must
             // not invalidate the otherwise usable UID-bound roster/training.
@@ -249,5 +266,25 @@ bool BlackFlowAccountProfile::module_available(const std::string& name, const st
     const auto module = module_evidence(name, module_id);
     return minimum_level >= 1 && minimum_level <= 3 && module.has_value() && module->verified && module->unlocked &&
            module->level >= minimum_level;
+}
+
+bool BlackFlowAccountProfile::module_default_available(
+    const std::string& name,
+    const std::string& module_id,
+    int minimum_level) const
+{
+    const auto oper = find_operator(name);
+    if (!oper || !oper->get().current_default) {
+        return false;
+    }
+    const auto& current = *oper->get().current_default;
+    return minimum_level >= 1 && minimum_level <= 3 && current.verified && current.module_id == module_id &&
+           current.operator_id == oper->get().id && current.level >= minimum_level;
+}
+
+std::size_t BlackFlowAccountProfile::default_operator_count() const noexcept
+{
+    return static_cast<std::size_t>(
+        std::ranges::count_if(m_operators, [](const auto& entry) { return entry.second.current_default.has_value(); }));
 }
 }

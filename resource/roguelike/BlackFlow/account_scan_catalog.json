@@ -13,7 +13,21 @@
             "module_id": "uniequip_002_mcnist",
             "display_title": "机械师特勤证章",
             "max_level": 3,
-            "minimum_level": 3
+            "minimum_level": 3,
+            "owner_module_codes": [
+                {
+                    "operator_id": "char_4230_mcnist",
+                    "module_id": "uniequip_001_mcnist",
+                    "type_icon": "original",
+                    "code": "ORIGINAL"
+                },
+                {
+                    "operator_id": "char_4230_mcnist",
+                    "module_id": "uniequip_002_mcnist",
+                    "type_icon": "so-a",
+                    "code": "SOA"
+                }
+            ]
         },
         {
             "operator_id": "char_206_gnosis",
@@ -21,7 +35,33 @@
             "module_id": "uniequip_004_gnosis",
             "display_title": "灵知特限证章",
             "max_level": 3,
-            "minimum_level": 3
+            "minimum_level": 3,
+            "owner_module_codes": [
+                {
+                    "operator_id": "char_206_gnosis",
+                    "module_id": "uniequip_001_gnosis",
+                    "type_icon": "original",
+                    "code": "ORIGINAL"
+                },
+                {
+                    "operator_id": "char_206_gnosis",
+                    "module_id": "uniequip_002_gnosis",
+                    "type_icon": "umd-x",
+                    "code": "UMDX"
+                },
+                {
+                    "operator_id": "char_206_gnosis",
+                    "module_id": "uniequip_003_gnosis",
+                    "type_icon": "umd-y",
+                    "code": "UMDY"
+                },
+                {
+                    "operator_id": "char_206_gnosis",
+                    "module_id": "uniequip_004_gnosis",
+                    "type_icon": "isw-a",
+                    "code": "ISWA"
+                }
+            ]
         },
         {
             "operator_id": "char_4039_horn",
@@ -29,7 +69,33 @@
             "module_id": "uniequip_004_horn",
             "display_title": "号角特限证章",
             "max_level": 3,
-            "minimum_level": 3
+            "minimum_level": 3,
+            "owner_module_codes": [
+                {
+                    "operator_id": "char_4039_horn",
+                    "module_id": "uniequip_001_horn",
+                    "type_icon": "original",
+                    "code": "ORIGINAL"
+                },
+                {
+                    "operator_id": "char_4039_horn",
+                    "module_id": "uniequip_002_horn",
+                    "type_icon": "for-x",
+                    "code": "FORX"
+                },
+                {
+                    "operator_id": "char_4039_horn",
+                    "module_id": "uniequip_003_horn",
+                    "type_icon": "for-y",
+                    "code": "FORY"
+                },
+                {
+                    "operator_id": "char_4039_horn",
+                    "module_id": "uniequip_004_horn",
+                    "type_icon": "isw-a",
+                    "code": "ISWA"
+                }
+            ]
         },
         {
             "operator_id": "char_437_mizuki",
@@ -37,7 +103,33 @@
             "module_id": "uniequip_004_mizuki",
             "display_title": "水月特限证章",
             "max_level": 3,
-            "minimum_level": 3
+            "minimum_level": 3,
+            "owner_module_codes": [
+                {
+                    "operator_id": "char_437_mizuki",
+                    "module_id": "uniequip_001_mizuki",
+                    "type_icon": "original",
+                    "code": "ORIGINAL"
+                },
+                {
+                    "operator_id": "char_437_mizuki",
+                    "module_id": "uniequip_002_mizuki",
+                    "type_icon": "amb-x",
+                    "code": "AMBX"
+                },
+                {
+                    "operator_id": "char_437_mizuki",
+                    "module_id": "uniequip_003_mizuki",
+                    "type_icon": "amb-y",
+                    "code": "AMBY"
+                },
+                {
+                    "operator_id": "char_437_mizuki",
+                    "module_id": "uniequip_004_mizuki",
+                    "type_icon": "isw-a",
+                    "code": "ISWA"
+                }
+            ]
         },
         {
             "operator_id": "char_2012_typhon",
@@ -45,7 +137,33 @@
             "module_id": "uniequip_004_typhon",
             "display_title": "提丰特限证章",
             "max_level": 3,
-            "minimum_level": 3
+            "minimum_level": 3,
+            "owner_module_codes": [
+                {
+                    "operator_id": "char_2012_typhon",
+                    "module_id": "uniequip_001_typhon",
+                    "type_icon": "original",
+                    "code": "ORIGINAL"
+                },
+                {
+                    "operator_id": "char_2012_typhon",
+                    "module_id": "uniequip_002_typhon",
+                    "type_icon": "sie-x",
+                    "code": "SIEX"
+                },
+                {
+                    "operator_id": "char_2012_typhon",
+                    "module_id": "uniequip_003_typhon",
+                    "type_icon": "sie-y",
+                    "code": "SIEY"
+                },
+                {
+                    "operator_id": "char_2012_typhon",
+                    "module_id": "uniequip_004_typhon",
+                    "type_icon": "isw-a",
+                    "code": "ISWA"
+                }
+            ]
         }
     ],
     "source_files": {

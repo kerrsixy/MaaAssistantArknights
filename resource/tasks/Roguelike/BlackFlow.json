@@ -3749,6 +3749,48 @@
         "action": "DoNothing",
         "next": []
     },
+    "BlackFlowAccountScan@CurrentModuleCode": {
+        "algorithm": "OcrDetect",
+        "roi": [1072, 560, 76, 34],
+        "withoutDet": true,
+        "text": [],
+        "action": "DoNothing",
+        "next": []
+    },
+    "BlackFlowAccountScan@CurrentModuleStage": {
+        "algorithm": "OcrDetect",
+        "roi": [1152, 526, 88, 36],
+        "withoutDet": true,
+        "text": [],
+        "action": "DoNothing",
+        "next": []
+    },
+    "BlackFlowAccountScan@SetDefaultWords": {
+        "algorithm": "OcrDetect",
+        "roi": [1206, 90, 74, 540],
+        "text": [],
+        "fullMatch": true,
+        "action": "DoNothing",
+        "next": []
+    },
+    "BlackFlowAccountScan@SelectModuleCard": {
+        "algorithm": "JustReturn",
+        "requiredPage": "BlackFlowAccountScan@ModulePage",
+        "action": "ClickRect",
+        "specificRect": [0, 0, 1, 1],
+        "postDelay": 500,
+        "next": []
+    },
+    "BlackFlowAccountScan@SetDefault": {
+        "baseTask": "BlackFlowAccountScan@SelectModuleCard",
+        "Doc": "One input only after exact MAX target and its complete blue two-line SetDefault control; input does not prove success."
+    },
+    "BlackFlowAccountScan@ReturnToDetail": {
+        "baseTask": "ReturnButton",
+        "template": ["Return.png", "Return-White.png"],
+        "next": ["BlackFlowAccountScan@TrainingDetail", "BlackFlowAccountScan@ReturnToDetail"],
+        "maxTimes": 3
+    },
     "BlackFlowAccountScan@CloseBatchEdit": {
         "baseTask": "BlackFlowAccountScan@BatchEditLabel",
         "action": "ClickRect",

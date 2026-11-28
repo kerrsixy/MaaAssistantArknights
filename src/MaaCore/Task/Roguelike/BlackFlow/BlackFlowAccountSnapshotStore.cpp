@@ -264,6 +264,41 @@ std::optional<json::value> BlackFlowAccountSnapshotStore::merge(
         }
         oper["module_slots"] = std::move(slots);
     }
+    for (const auto& name : observed.default_attempted) {
+        if (!staged["operators"].contains(name)) {
+            continue;
+        }
+        auto& oper = staged["operators"][name];
+        const auto receipt = observed.module_defaults.find(name);
+        oper["default_latest_attempt"] = json::object { { "observed_at", stamp }, { "state", "unknown" } };
+        if (receipt == observed.module_defaults.end()) {
+            continue;
+        }
+        const auto& value = receipt->second.observation;
+        const auto target = std::ranges::find(targets, name, &AccountModuleScanTarget::operator_name);
+        const bool mapped =
+            target != targets.end() && std::ranges::any_of(target->owner_module_codes, [&](const auto& code) {
+                return code.module_id == value.module_id && code.code == normalize_account_module_code(value.code);
+            });
+        std::error_code image_error;
+        if (!mapped || !value.verified || value.operator_id != oper.get("id", "") || value.level < 1 ||
+            value.level > 3 || receipt->second.evidence_file.empty() ||
+            !std::filesystem::is_regular_file(receipt->second.evidence_file, image_error) || image_error) {
+            return fail("Current module default receipt identity, mapping or image is invalid");
+        }
+        oper["current_default_module"] =
+            json::object { { "operator_id", value.operator_id },
+                           { "module_id", value.module_id },
+                           { "code", normalize_account_module_code(value.code) },
+                           { "level", value.level },
+                           { "verified", true },
+                           { "client", observed.client },
+                           { "uid", observed.uid },
+                           { "observed_at", stamp },
+                           { "source_kind", "exact_same_uid_operator_detail_current_module" },
+                           { "evidence_file", utils::path_to_utf8_string(receipt->second.evidence_file) } };
+        oper["default_latest_attempt"]["state"] = "known";
+    }
     json::array unknown;
     for (const auto& target : targets) {
         if (!known.contains(target.operator_name)) {

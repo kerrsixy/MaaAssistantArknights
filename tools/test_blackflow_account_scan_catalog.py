@@ -35,6 +35,9 @@ def fixture():
                     "uniEquipId": "module_A",
                     "uniEquipName": "Exact badge A",
                     "charId": "char_A",
+                    "typeIcon": "isw-a",
+                    "typeName1": "ISW",
+                    "typeName2": "A",
                 }
             },
             "charEquip": {"char_A": ["module_A"]},
@@ -46,6 +49,25 @@ def fixture():
 class AccountScanCatalogTest(unittest.TestCase):
     def build(self, data):
         return catalog.build_catalog(*data, "explicit snapshot label")
+
+    def test_full_owner_code_collision_is_rejected(self):
+        data = fixture()
+        other = copy.deepcopy(data[2]["equipDict"]["module_A"])
+        other["uniEquipId"] = "module_B"
+        other["typeIcon"] = "different-icon"
+        data[2]["equipDict"]["module_B"] = other
+        data[2]["charEquip"]["char_A"].append("module_B")
+        with self.assertRaises(ValueError):
+            self.build(data)
+
+    def test_full_owner_mismatch_is_rejected(self):
+        data = fixture()
+        other = copy.deepcopy(data[2]["equipDict"]["module_A"])
+        other.update(uniEquipId="module_B", charId="char_B", typeIcon="different-icon", typeName2="B")
+        data[2]["equipDict"]["module_B"] = other
+        data[2]["charEquip"]["char_A"].append("module_B")
+        with self.assertRaises(ValueError):
+            self.build(data)
 
     def test_exact_owner_title_and_original_maximum(self):
         result = self.build(fixture())
@@ -59,6 +81,7 @@ class AccountScanCatalogTest(unittest.TestCase):
                     "display_title": "Exact badge A",
                     "max_level": 3,
                     "minimum_level": 3,
+                    "owner_module_codes": [{"operator_id": "char_A", "module_id": "module_A", "type_icon": "isw-a", "code": "ISWA"}],
                 }
             ],
         )
