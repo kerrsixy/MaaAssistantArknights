@@ -2277,17 +2277,24 @@
     "BlackFlow@Roguelike@ScrapTradeRefresh": {
         "baseTask": "BlackFlow@Roguelike@CultivateRefresh",
         "template": "BlackFlow@Roguelike@CultivateRefresh.png",
-        "next": ["BlackFlow@Roguelike@ScrapTradeRefreshConfirm"]
+        "next": ["BlackFlow@Roguelike@ScrapTradeRefreshConfirm", "BlackFlow@Roguelike@ScrapTradeRefreshReceiptWait"]
     },
     "BlackFlow@Roguelike@ScrapTradeRefresh-Enter": {
         "algorithm": "JustReturn",
         "next": ["BlackFlow@Roguelike@ScrapTradeRefresh"]
     },
     "BlackFlow@Roguelike@ScrapTradeRefreshConfirm": {
-        "Doc": "BlackFlowScrapTradeTaskPlugin 监听完成回调，记入刷新次数。",
+        "Doc": "One confirmation input only. The plugin requires a fresh wallet debit and a complete changed shelf before recording refresh success.",
         "baseTask": "BlackFlow@Roguelike@CultivateRefreshConfirm",
         "template": "BlackFlow@Roguelike@CultivateRefreshConfirm.png",
-        "next": ["#self", "BlackFlow@Roguelike@ScrapTradeDecision"]
+        "next": ["BlackFlow@Roguelike@ScrapTradeRefreshReceiptWait"]
+    },
+    "BlackFlow@Roguelike@ScrapTradeRefreshReceiptWait": {
+        "Doc": "Read-only receipt wait. At most three plugin observations; no repeated confirmation clicks.",
+        "algorithm": "JustReturn",
+        "action": "DoNothing",
+        "postDelay": 600,
+        "next": ["BlackFlow@Roguelike@ScrapTradeDecision"]
     },
     "BlackFlow@Roguelike@ScrapTradeSaleFailed": {
         "algorithm": "JustReturn"
@@ -3733,6 +3740,21 @@
         "algorithm": "JustReturn",
         "action": "DoNothing",
         "next": ["BlackFlowAccountScan@HomeEntry", "BlackFlowAccountScan@TutorialEntry", "OperBoxBegin"]
+    },
+    "BlackFlowAccountScan@BatchEditLabel": {
+        "algorithm": "OcrDetect",
+        "roi": [620, 15, 105, 50],
+        "text": ["批量编辑"],
+        "fullMatch": true,
+        "action": "DoNothing",
+        "next": []
+    },
+    "BlackFlowAccountScan@CloseBatchEdit": {
+        "baseTask": "BlackFlowAccountScan@BatchEditLabel",
+        "action": "ClickRect",
+        "specificRect": [0, 0, 1, 1],
+        "postDelay": 500,
+        "Doc": "Only after a positive yellow-rook plus exact batch-label observation; caller supplies the freshly observed rook glyph center and requires a fresh disabled-state receipt."
     },
     "BlackFlowAccountScan@Select": {
         "algorithm": "JustReturn",

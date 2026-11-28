@@ -1,5 +1,6 @@
 #include "BlackFlowTaskPort.h"
 #include "BlackFlowCombatReadiness.h"
+#include "BlackFlowMovementCapacity.h"
 #include "Task/Roguelike/RoguelikeConfig.h"
 
 #include "BlackFlowInventoryCleanup.h"
@@ -78,23 +79,6 @@ std::optional<int> recognize_integer(const cv::Mat& image, std::string_view task
         return std::nullopt;
     }
     return value;
-}
-
-std::optional<std::pair<int, int>> recognize_movement_capacity_from_text(std::string text)
-{
-    std::erase_if(text, [](unsigned char value) { return std::isspace(value) != 0; });
-    const std::size_t slash = text.find('/');
-    if (slash == std::string::npos) {
-        return std::nullopt;
-    }
-    int occupied = 0;
-    int capacity = 0;
-    if (!utils::chars_to_number(text.substr(0, slash), occupied) ||
-        !utils::chars_to_number(text.substr(slash + 1), capacity) || occupied < 0 || capacity <= 0 ||
-        occupied > capacity || capacity > 64) {
-        return std::nullopt;
-    }
-    return std::pair { occupied, capacity };
 }
 
 std::optional<std::string>

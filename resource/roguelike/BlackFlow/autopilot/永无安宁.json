@@ -1,11 +1,12 @@
 {
     "stage_name": "永无安宁",
     "doc": [
-        "受控首领方案：EW(6,3)朝左直接覆盖左侧(3,2)与下方(6,5)刷新点；右侧输出(6,2)朝右覆盖(10,2)。提丰精一与精二均按实际职责检查，不把精一当精二。",
-        "EW三技能扩大溅射，原直击缺口不等于旧位绝对无法伤到Boss。本方案减少对越界溅射的依赖，尚未证明实际技能伤害、生存或通关。",
-        "思衡托(8,2)朝下保留基础治疗范围核验；机械师(9,1)朝下、召唤物(9,2)朝左。遥及普通医疗仍按各自范围选位，不把几何覆盖当已实际治疗。",
-        "(6,3)其他输出仅在EW退场或缺席后作替补，不计作独立补充输出成阵。圣聆初雪下移一格会落地面格，不能强放。",
-        "中下路和第7列补刀窗口减少；重点观察飞机横穿(4至6,5)后是否存活，以及下路抵达(9,2)的敌群。不因三个刷新点几何覆盖就宣称稳定通关。"
+        "候选：首领A(3,2)、B(6,5)、C(10,2)分别检查；EW(6,3)朝左维持原直接攻击职责。B点优先持久三挡(7,4)朝右，不再因缺机械师完全不下已有盾；普攻优先高阻挡数，痛吼范围内分摊，不能把最近距离当作唯一选敌规则。",
+        "遥(7,2)朝右优先补治疗；常规直接医疗(8,2)朝下须实际覆盖EW(6,3)、B承伤(7,4)、副输出(7,2)及C承伤(9,2)。排除当前群奶组中非普通持续主奶成员。思衡托仍有治疗能力，但本场精一S2不单独视为主治疗职责已满足，低优先保留技能支援。没有主奶不阻止其余合法职责继续部署。",
+        "机械师(9,1)及结构性原理(9,2)保留；另有持久三挡可在(9,2)朝左承担C局部分摊与蓝门前拦截，不能把单个盾重复分配B和C。B到C距离5，半径2的两个局部分摊区没有共同站位。",
+        "缺遥时，(7,2)朝下可由当前精英基础射程确实覆盖B(6,5)的独立副输出使用，最低精一。新约能天使精一3-3通过；酒神y-2在此位不够B，不能仅凭名字强放。遥和副输出同格互斥，不同时计齐；(6,3)EW替补也不算独立补充输出。",
+        "正确ro6_b_4中(7,3)禁止部署，不能将遥直接移到EW右侧该格。A点本候选仍可能缺局部承伤对象而触发全场痛吼；三挡与奶覆盖仅是基础资格，不证明N10承伤、治疗量、技能伤害、魂灵迷彩或通关。当前实败阵容没有遥和机械师，不能当作完整阵容。",
+        "普通元素医疗的3-17在(8,2)朝下可覆盖EW与B/C承伤点，但不覆盖(6,2)右路输出；不把通过主奶四格门说成全队均在奶内。遥7,2朝右和思衡托y-6另有覆盖，实际治疗能力与技能窗口仍须验证。"
     ],
     "deploy_plan_only": true,
     "reserve_deploy_cost": true,
@@ -19,29 +20,58 @@
             "minimum_elite": 1
         },
         {
-            "groups": ["机械师"],
-            "operator_names": ["机械师"],
-            "location": [9, 1],
-            "direction": "down",
+            "groups": ["重装", "奶盾", "地面阻挡", "机械师"],
+            "location": [7, 4],
+            "direction": "right",
             "prefer_group_order": true,
             "minimum_elite": 1,
             "require_persistent_blocking": true,
-            "required_attack_tiles": [[9, 1]]
+            "minimum_base_block_count": 3,
+            "required_attack_tiles": [[7, 4]]
         },
         {
-            "groups": ["群奶"],
-            "operator_names": ["凯尔希·思衡托"],
-            "location": [8, 2],
-            "direction": "down",
+            "groups": ["群奶", "辅助"],
+            "operator_names": ["遥"],
+            "location": [7, 2],
+            "direction": "right",
             "prefer_group_order": true,
             "minimum_elite": 1,
             "required_range_tiles": [
+                [6, 2],
+                [8, 2],
                 [9, 1],
                 [9, 2],
-                [6, 2],
+                [8, 3],
+                [6, 3],
+                [7, 4]
+            ],
+            "required_selected_skill": 2
+        },
+        {
+            "groups": ["元素奶", "单奶", "群奶"],
+            "excluded_operator_names": [
+                "遥",
+                "凯尔希·思衡托",
+                "淬羽赫默",
+                "月禾",
+                "九色鹿",
+                "夏栎",
+                "波登可",
+                "浊心斯卡蒂",
+                "魔王",
+                "海蒂",
+                "三角初华",
+                "空"
+            ],
+            "location": [8, 2],
+            "direction": "down",
+            "minimum_elite": 1,
+            "prefer_group_order": true,
+            "required_range_tiles": [
                 [6, 3],
                 [7, 2],
-                [8, 3]
+                [7, 4],
+                [9, 2]
             ]
         },
         {
@@ -56,6 +86,26 @@
                 [4, 2],
                 [4, 4]
             ]
+        },
+        {
+            "groups": ["机械师"],
+            "operator_names": ["机械师"],
+            "location": [9, 1],
+            "direction": "down",
+            "prefer_group_order": true,
+            "minimum_elite": 1,
+            "require_persistent_blocking": true,
+            "required_attack_tiles": [[9, 1]]
+        },
+        {
+            "groups": ["重装", "奶盾", "近卫", "地面阻挡"],
+            "location": [9, 2],
+            "direction": "left",
+            "prefer_group_order": true,
+            "minimum_elite": 1,
+            "require_persistent_blocking": true,
+            "minimum_base_block_count": 3,
+            "required_attack_tiles": [[9, 2]]
         },
         {
             "groups": ["其他地面"],
@@ -74,19 +124,45 @@
             "required_attack_tiles": [[8, 3]]
         },
         {
-            "groups": ["群奶", "辅助"],
-            "operator_names": ["遥"],
-            "location": [7, 2],
+            "groups": ["狙击", "术师", "高台输出"],
+            "exclude_starting_core": true,
+            "excluded_operator_names": ["维什戴尔"],
+            "location": [6, 2],
             "direction": "right",
+            "minimum_elite": 1,
+            "required_attack_tiles": [
+                [10, 2],
+                [8, 1]
+            ],
+            "prefer_group_order": true
+        },
+        {
+            "groups": ["群奶"],
+            "operator_names": ["凯尔希·思衡托"],
+            "location": [8, 2],
+            "direction": "down",
             "prefer_group_order": true,
             "minimum_elite": 1,
             "required_range_tiles": [
-                [6, 2],
-                [8, 2],
                 [9, 1],
+                [9, 2],
+                [6, 2],
+                [6, 3],
+                [7, 2],
                 [8, 3],
-                [6, 3]
-            ]
+                [7, 4]
+            ],
+            "required_selected_skill": 2
+        },
+        {
+            "groups": ["新能", "元素", "辅助", "术师", "狙击", "高台输出"],
+            "location": [7, 2],
+            "direction": "down",
+            "minimum_elite": 1,
+            "prefer_group_order": true,
+            "required_attack_tiles": [[6, 5]],
+            "exclude_starting_core": true,
+            "excluded_operator_names": ["维什戴尔"]
         },
         {
             "groups": ["术师"],
@@ -119,31 +195,6 @@
             "exclude_starting_core": true
         },
         {
-            "groups": ["狙击", "术师", "高台输出"],
-            "exclude_starting_core": true,
-            "excluded_operator_names": ["维什戴尔"],
-            "location": [6, 2],
-            "direction": "right",
-            "minimum_elite": 1,
-            "required_attack_tiles": [
-                [10, 2],
-                [8, 1]
-            ],
-            "prefer_group_order": true
-        },
-        {
-            "groups": ["单奶", "群奶", "凯尔希"],
-            "location": [8, 2],
-            "direction": "left",
-            "minimum_elite": 1,
-            "prefer_group_order": true,
-            "required_range_tiles": [
-                [6, 2],
-                [8, 3],
-                [6, 3]
-            ]
-        },
-        {
             "groups": ["提丰"],
             "operator_names": ["提丰"],
             "location": [6, 2],
@@ -154,16 +205,6 @@
                 [10, 2],
                 [8, 1]
             ],
-            "exclude_starting_core": true
-        },
-        {
-            "groups": ["新能", "元素", "辅助"],
-            "operator_names": ["新约能天使", "酒神"],
-            "location": [6, 3],
-            "direction": "down",
-            "minimum_elite": 2,
-            "prefer_group_order": true,
-            "required_attack_tiles": [[6, 5]],
             "exclude_starting_core": true
         },
         {
@@ -184,20 +225,26 @@
         },
         {
             "id": "blocking",
-            "plans": [1]
+            "plans": [1, 5, 6],
+            "preferred_plans": [1, 6]
         },
         {
             "id": "medical",
-            "plans": [2, 6, 11]
+            "plans": [2, 3],
+            "preferred_plans": [2]
         },
         {
             "id": "primary_output",
-            "plans": [3]
+            "plans": [4]
         },
         {
             "id": "supplemental_output",
-            "plans": [5, 8, 9, 10, 12],
-            "preferred_plans": [5, 8, 12]
+            "plans": [8, 9, 11, 13, 14, 15],
+            "preferred_plans": [9, 11]
+        },
+        {
+            "id": "supportive_output",
+            "plans": [10]
         }
     ]
 }

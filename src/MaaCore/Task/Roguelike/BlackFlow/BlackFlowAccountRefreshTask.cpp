@@ -19,6 +19,7 @@
 #include "Task/Roguelike/RoguelikeRecruitPolicy.h"
 #include "Utils/Logger.hpp"
 #include "Utils/WorkingDir.hpp"
+#include "Vision/Roguelike/BlackFlow/BlackFlowAccountListDisplayAnalyzer.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowAccountListOrderAnalyzer.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowAccountTargetLocator.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowAccountTrainingAnalyzer.h"
@@ -112,13 +113,6 @@ bool BlackFlowAccountRefreshTask::visit_page(const std::vector<OperBoxInfo>& pag
     // Scanner pages are multi-frame unions. Only a full verified single frame
     // from this visit may become reusable geometry; no page cache crosses a swipe.
     m_verified_page.clear();
-    // A full below-gate page may end either pass; unknown levels never prove it.
-    if (page.size() >= 14 && std::ranges::all_of(page, [](const auto& oper) {
-            return oper.own && oper.level > 0 && oper.level < 55 && oper.elite != 2;
-        })) {
-        m_scan_stop_reason = "descending_page_below_training_gate";
-        return true;
-    }
     for (const auto& oper : page) {
         if (need_exit()) {
             return false;
@@ -130,17 +124,19 @@ bool BlackFlowAccountRefreshTask::visit_page(const std::vector<OperBoxInfo>& pag
         if (m_attempted.contains(oper.name)) {
             continue;
         }
-        if (!is_account_training_scan_candidate(oper.own, oper.elite, oper.level)) {
-            if (oper.own && oper.level > 0) {
+        const auto module = std::ranges::find_if(m_targets, [&](const auto& target) {
+            return oper.id == target.operator_id && oper.name == target.operator_name;
+        });
+        // Exact required-module cards must reach detail identity verification
+        // even when the list strength crop is unreadable or below the gate.
+        if (!account_scan_should_open_detail(oper, module != m_targets.end())) {
+            if (module == m_targets.end() && oper.own && oper.level > 0) {
                 m_priority_remaining.erase(oper.name);
             }
             LogTrace << __FUNCTION__ << "Skip detail visit below observed recruitment strength" << oper.name << "owned"
                      << oper.own << "elite" << oper.elite << "level" << oper.level;
             continue;
         }
-        const auto module = std::ranges::find_if(m_targets, [&](const auto& target) {
-            return oper.id == target.operator_id && oper.name == target.operator_name;
-        });
         const bool priority = module != m_targets.end() || m_opening_training_names.contains(oper.name);
         if (m_priority_only && !priority) {
             continue;
@@ -174,6 +170,33 @@ bool BlackFlowAccountRefreshTask::ensure_descending_order()
         }
     }
     LogWarn << __FUNCTION__ << "Descending level order could not be positively verified";
+    return false;
+}
+
+bool BlackFlowAccountRefreshTask::ensure_batch_edit_disabled()
+{
+    for (int attempt = 0; attempt < 2 && !need_exit(); ++attempt) {
+        const auto observed = BlackFlowAccountListDisplayAnalyzer(ctrler()->get_image()).analyze();
+        if (!observed) {
+            break;
+        }
+        if (observed->batch_edit == AccountListBatchEdit::Disabled) {
+            return true;
+        }
+        auto toggle = Task.get("BlackFlowAccountScan@CloseBatchEdit");
+        if (!toggle || attempt != 0) {
+            break;
+        }
+        const auto previous = toggle->specific_rect;
+        const auto& glyph = observed->toggle_rect;
+        toggle->specific_rect = { glyph.x + glyph.width / 2, glyph.y + glyph.height / 2, 1, 1 };
+        const bool clicked = action("BlackFlowAccountScan@CloseBatchEdit");
+        toggle->specific_rect = previous;
+        if (!clicked) {
+            break;
+        }
+    }
+    LogWarn << __FUNCTION__ << "Disabled operator-list batch display could not be positively verified";
     return false;
 }
 
@@ -229,6 +252,12 @@ bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const Ac
     const bool opened = action(selection_task, strength_observer);
     if (const auto& strength = strength_observer->observation(); strength) {
         m_observation.verified_strengths.emplace(oper_name, *strength);
+        // A strict same-frame detail supersedes an unreadable list crop and
+        // seeds the roster row required by the cache's typed merge validation.
+        auto verified_oper = oper;
+        verified_oper.elite = strength->observation.elite;
+        verified_oper.level = strength->observation.level;
+        m_observation.strengths.insert_or_assign(oper_name, std::move(verified_oper));
         persist_frame("detail-strength.png", strength->source_image);
     }
     if (!module && opened) {
@@ -317,7 +346,7 @@ bool BlackFlowAccountRefreshTask::_run()
         std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
             .count();
     if (m_observation.uid.empty() || m_targets.empty() || ctrler()->get_client_type() != m_observation.client ||
-        !action("BlackFlowAccountScan@Enter") || !ensure_descending_order()) {
+        !action("BlackFlowAccountScan@Enter") || !ensure_batch_edit_disabled() || !ensure_descending_order()) {
         return false;
     }
     const auto configure_training_scan = [this](OperBoxRecognitionTask& task, std::size_t analyses) {

@@ -1,7 +1,10 @@
 #include "BlackFlowScrapTradeTaskPlugin.h"
+#include "BlackFlowMovementCapacity.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
+#include <limits>
 #include <string_view>
 
 #include "Config/Roguelike/RoguelikeShoppingConfig.h"
@@ -28,6 +31,8 @@ constexpr std::string_view ScrapTradeSoldBadgeTask = "BlackFlow@Roguelike@ScrapT
 constexpr std::string_view ScrapTradeBuyConfirmTask = "BlackFlow@Roguelike@ScrapTradeBuyConfirm";
 constexpr std::string_view ScrapTradeRefreshEntry = "BlackFlow@Roguelike@ScrapTradeRefresh-Enter";
 constexpr std::string_view ScrapTradeRefreshConfirmTask = "BlackFlow@Roguelike@ScrapTradeRefreshConfirm";
+constexpr std::string_view ScrapTradeRefreshWaitTask = "BlackFlow@Roguelike@ScrapTradeRefreshReceiptWait";
+constexpr std::string_view ScrapTradeCapacityTask = "BlackFlow@Roguelike@CurrentMovementCapacity";
 constexpr std::string_view ScrapTradeLeaveEntry = "BlackFlow@Roguelike@ScrapTradeLeave-Enter";
 constexpr std::string_view ScrapTradeCultivateEntry = "BlackFlow@Roguelike@ScrapTradeCultivate-Enter";
 constexpr std::string_view ScrapTradeCultivateAtMostTask = "BlackFlow@Roguelike@ScrapTradeCultivateAtMost";
@@ -67,7 +72,7 @@ bool BlackFlowScrapTradeTaskPlugin::verify(AsstMsg msg, const json::value& detai
             return true;
         }
         if (task == ScrapTradeRefreshConfirmTask) {
-            m_pending = PendingWork::RefreshConfirmed;
+            m_pending = PendingWork::RefreshInputObserved;
             return true;
         }
     }
@@ -99,8 +104,10 @@ bool BlackFlowScrapTradeTaskPlugin::_run()
     case PendingWork::PurchaseInputObserved:
         m_purchase.note_confirmation_input();
         break;
-    case PendingWork::RefreshConfirmed:
-        on_refresh_confirmed();
+    case PendingWork::RefreshInputObserved:
+        if (m_refresh.intent()) {
+            m_refresh.note_confirmation_input(m_refresh.intent()->frame_sequence);
+        }
         break;
     case PendingWork::None:
         break;
@@ -121,7 +128,11 @@ void BlackFlowScrapTradeTaskPlugin::enter()
     m_inventory.invalidate();
     m_inventory_last_task.clear();
     m_purchase = {};
-    m_pending_refresh = false;
+    m_refresh = {};
+    m_frame_sequence = 0;
+    m_inventory_total.reset();
+    m_inventory_complete = false;
+    m_refresh_search_target.clear();
     m_purchased_rects.clear();
     m_kept.clear();
     m_shop_type.reset();
@@ -150,7 +161,15 @@ void BlackFlowScrapTradeTaskPlugin::decide()
     }
 
     const cv::Mat image = ctrler()->get_image();
+    if (m_frame_sequence == std::numeric_limits<std::uint64_t>::max()) {
+        abort_trade("capture_sequence_exhausted");
+        return;
+    }
+    ++m_frame_sequence;
     if (reconcile_purchase(image)) {
+        return;
+    }
+    if (reconcile_refresh(image)) {
         return;
     }
     const bool selling = on_selling_page(image);
@@ -183,6 +202,9 @@ void BlackFlowScrapTradeTaskPlugin::decide()
                 return;
             }
             m_ledger.reset(survey->items, survey->exact_counts);
+            m_inventory_complete = survey->exact_counts && survey->unknown_slots == 0 && survey->items.size() <= 64;
+            m_inventory_total =
+                m_inventory_complete ? std::optional<int>(static_cast<int>(survey->items.size())) : std::nullopt;
             LogInfo << __FUNCTION__ << "BlackFlow scrap trade survey" << "items" << survey->items << "exact counts"
                     << survey->exact_counts << "unknown" << survey->unknown_slots << "processing"
                     << m_ledger.held_in(ScrapCategory::Processing, BlackFlowScrapMarket) << "growth"
@@ -212,15 +234,19 @@ void BlackFlowScrapTradeTaskPlugin::decide()
                 RoguelikeParameterAnalyzer analyzer(image);
                 const auto observed_wallet =
                     RoguelikeParameterAnalyzer::read_number(image, std::string(ScrapTradeWalletTask));
-                if (!observed_wallet || !on_buying_page(image)) {
+                if (!observed_wallet || *observed_wallet < 0 || !on_buying_page(image)) {
                     abort_trade("purchase_page_or_wallet_unknown");
                     return;
                 }
                 const int wallet = *observed_wallet;
                 const int reserved = m_session->reserved_amount("ingots");
+                if (reserved < 0) {
+                    abort_trade("reserved_budget_invalid");
+                    return;
+                }
                 const Funds funds { wallet, reserved, std::max(0, wallet - reserved) };
                 std::vector<std::string> skipped;
-                if (buy(image, funds, skipped) || refresh(funds)) {
+                if (buy(image, funds, skipped) || refresh(image, funds)) {
                     return;
                 }
                 LogInfo << __FUNCTION__ << "BlackFlow scrap trade buying finished"
@@ -324,10 +350,23 @@ bool BlackFlowScrapTradeTaskPlugin::buy(const cv::Mat& image, const Funds& funds
 
     if (!m_shop_type && m_purchased_rects.empty()) {
         std::vector<std::string> shelf_names;
-        for (const auto& offer : shelf) {
-            shelf_names.emplace_back(offer.text);
+        // A partial OCR subset is insufficient evidence of the current pool.
+        if (const auto complete = observe_refresh_shelf(image)) {
+            for (const auto& slot : complete->slots) {
+                shelf_names.emplace_back(slot.canonical_name);
+            }
+            m_shop_type = infer_scrap_shop_type(shelf_names, BlackFlowScrapMarket);
+            if (m_shop_type) {
+                const auto& types = BlackFlowScrapMarket.shop_types();
+                const auto type = std::ranges::find(types, *m_shop_type, &ScrapShopType::id);
+                if (type == types.end() || !std::ranges::all_of(shelf_names, [&](const auto& name) {
+                        const auto rate = type->offer_rates.find(name);
+                        return rate != type->offer_rates.end() && std::isfinite(rate->second) && rate->second > 0;
+                    })) {
+                    m_shop_type.reset();
+                }
+            }
         }
-        m_shop_type = infer_scrap_shop_type(shelf_names, BlackFlowScrapMarket);
         LogInfo << __FUNCTION__ << "BlackFlow scrap shop type" << m_shop_type.value_or("unknown") << "shelf"
                 << shelf_names;
     }
@@ -365,6 +404,25 @@ bool BlackFlowScrapTradeTaskPlugin::buy(const cv::Mat& image, const Funds& funds
                    ? "keep limit reached"
                    : "shapes covered";
     };
+    if (!m_refresh_search_target.empty()) {
+        const auto offer = std::ranges::find(shelf, m_refresh_search_target, &TextRect::text);
+        const auto item = BlackFlowScrapMarket.find(m_refresh_search_target);
+        if (offer != shelf.end() && item && item->get().price && skip_reason(item->get(), false).empty()) {
+            const auto capacity = observe_capacity(image);
+            if (!m_inventory_complete || !capacity ||
+                !scrap_refresh_capacity_can_fit(
+                    capacity->first,
+                    capacity->second,
+                    m_inventory_total,
+                    scrap_acquisitions(item->get()))) {
+                abort_trade("refresh_target_capacity_unknown", m_refresh_search_target);
+                return true;
+            }
+            return issue_purchase(*offer, true, funds, *item->get().price);
+        }
+        // The paid search can miss its target. It never authorizes another roll.
+        m_refresh_search_target.clear();
+    }
     const auto& table = m_config->status().shopping_buy_table;
     for (const auto& goods : RoguelikeShopping.get_goods(m_config->get_theme(), table)) {
         const auto offer = std::ranges::find(shelf, goods.name, &TextRect::text);
@@ -410,11 +468,10 @@ bool BlackFlowScrapTradeTaskPlugin::buy(const cv::Mat& image, const Funds& funds
     return issue_purchase(*best, false, funds, *BlackFlowScrapMarket.find(best->text)->get().price);
 }
 
-bool BlackFlowScrapTradeTaskPlugin::refresh(const Funds& funds)
+bool BlackFlowScrapTradeTaskPlugin::refresh(const cv::Mat& image, const Funds& funds)
 {
     const auto& costs = BlackFlowScrapMarket.refresh_costs();
-    // 非兑现店只交易首页，攒下的估价留到兑现店卖出。
-    if (!m_liquidating || !m_shop_type || m_refresh_count >= static_cast<int>(costs.size())) {
+    if (!m_shop_type || m_refresh_count < 0 || m_refresh_count >= static_cast<int>(costs.size())) {
         return false;
     }
     const auto& types = BlackFlowScrapMarket.shop_types();
@@ -423,17 +480,76 @@ bool BlackFlowScrapTradeTaskPlugin::refresh(const Funds& funds)
         return false;
     }
     const int cost = costs[static_cast<std::size_t>(m_refresh_count)];
-    const int growth = m_ledger.growth(BlackFlowScrapMarket);
-    const double expected = expected_scrap_page_profit(*type, growth, BlackFlowScrapMarket);
-    const auto cheapest = cheapest_profitable_price(*type, growth, BlackFlowScrapMarket);
-    const bool worth = cheapest && expected > cost && funds.budget >= cost + *cheapest;
-    LogInfo << __FUNCTION__ << "BlackFlow scrap trade refresh" << "worth" << worth << "expected" << expected << "cost"
-            << cost << "growth" << growth << "budget" << funds.budget << "wallet" << funds.wallet << "reserved"
+    std::string reason;
+    std::string target_name;
+    bool worth = false;
+    if (m_liquidating) {
+        // Preserve the liquidation policy; only its execution receipt changes.
+        const int growth = m_ledger.growth(BlackFlowScrapMarket);
+        const double expected = expected_scrap_page_profit(*type, growth, BlackFlowScrapMarket);
+        const auto cheapest = cheapest_profitable_price(*type, growth, BlackFlowScrapMarket);
+        worth = cheapest && cost > 0 && expected > cost &&
+                static_cast<std::int64_t>(funds.budget) >= static_cast<std::int64_t>(cost) + *cheapest;
+        reason = "liquidation_expected_profit";
+    }
+    else {
+        const auto capacity = observe_capacity(image);
+        const bool inventory_verified =
+            m_inventory_complete && m_inventory_total && capacity && capacity->first == *m_inventory_total;
+        ScrapMovementRefreshContext context;
+        context.wallet = funds.wallet;
+        context.reserved = funds.reserved;
+        context.maximum_cost = cost;
+        context.refresh_index = m_refresh_count;
+        context.inventory_complete = inventory_verified;
+        context.capacity_known_and_available = capacity && capacity->first < capacity->second;
+        context.shop_pool_known = true;
+        std::vector<ScrapMovementRefreshTarget> targets;
+        const auto& table = m_config->status().shopping_buy_table;
+        for (const auto& goods : RoguelikeShopping.get_goods(m_config->get_theme(), table)) {
+            const auto item = BlackFlowScrapMarket.find(goods.name);
+            if (!item || item->get().category != ScrapCategory::Processing || item->get().covers.empty() ||
+                !item->get().price) {
+                continue;
+            }
+            const auto pool = type->offer_rates.find(goods.name);
+            const bool in_pool = pool != type->offer_rates.end() && std::isfinite(pool->second) && pool->second > 0;
+            const bool fits = inventory_verified && scrap_refresh_capacity_can_fit(
+                                                        capacity->first,
+                                                        capacity->second,
+                                                        m_inventory_total,
+                                                        scrap_acquisitions(item->get()));
+            targets.push_back(
+                { goods.name,
+                  item->get().price,
+                  true,
+                  scrap_keep_wanted(item->get(), m_ledger, BlackFlowScrapMarket),
+                  m_kept.contains(goods.name),
+                  in_pool,
+                  fits });
+        }
+        const auto decision = decide_scrap_movement_refresh(context, targets);
+        worth = decision.allow;
+        reason = decision.reason;
+        target_name = decision.canonical_name;
+    }
+    LogInfo << __FUNCTION__ << "BlackFlow scrap trade refresh" << "worth" << worth << "reason" << reason << "target"
+            << target_name << "cost" << cost << "budget" << funds.budget << "wallet" << funds.wallet << "reserved"
             << funds.reserved;
     if (!worth) {
         return false;
     }
-    m_pending_refresh = true;
+    const auto before = observe_refresh_shelf(image);
+    if (!before || !m_refresh.begin({ funds.wallet, cost, m_refresh_count, m_frame_sequence, *before })) {
+        abort_trade("refresh_intent_or_complete_shelf_unknown");
+        return true;
+    }
+    m_refresh_search_target = std::move(target_name);
+    auto info = basic_info_with_what("BlackFlowScrapRefreshPlanned");
+    info["details"] = json::object { { "reason", reason },       { "target", m_refresh_search_target },
+                                     { "maximum_cost", cost },   { "refresh_index", m_refresh_count },
+                                     { "wallet", funds.wallet }, { "reserved", funds.reserved } };
+    callback(AsstMsg::SubTaskExtraInfo, info);
     set_action(ScrapTradeRefreshEntry);
     return true;
 }
@@ -513,6 +629,98 @@ bool BlackFlowScrapTradeTaskPlugin::on_buying_page(const cv::Mat& image) const
     return matcher.analyze().has_value();
 }
 
+std::optional<std::pair<int, int>> BlackFlowScrapTradeTaskPlugin::observe_capacity(const cv::Mat& image) const
+{
+    const auto task = Task.get<OcrTaskInfo>(std::string(ScrapTradeCapacityTask));
+    if (!task || image.empty() || image.cols != 1280 || image.rows != 720) {
+        return std::nullopt;
+    }
+    OCRer analyzer(image);
+    analyzer.set_task_info(task);
+    const auto results = analyzer.analyze();
+    if (!results) {
+        return std::nullopt;
+    }
+    std::vector<MovementCapacityTextFragment> fragments;
+    for (const auto& text : *results) {
+        const auto& rect = text.rect;
+        if (!std::isfinite(text.score) || text.score < 0.9 || rect.x < task->roi.x || rect.y < task->roi.y ||
+            rect.x + rect.width > task->roi.x + task->roi.width ||
+            rect.y + rect.height > task->roi.y + task->roi.height) {
+            return std::nullopt;
+        }
+        fragments.push_back({ rect.x, rect.y, rect.width, rect.height, text.text });
+    }
+    return movement_capacity_from_fragments(std::move(fragments));
+}
+
+std::optional<ScrapRefreshShelf> BlackFlowScrapTradeTaskPlugin::observe_refresh_shelf(const cv::Mat& image) const
+{
+    if (image.empty() || image.cols != 1280 || image.rows != 720 || !on_buying_page(image)) {
+        return std::nullopt;
+    }
+    const auto names = recognize(image, m_inventory_names);
+    if (names.size() != 6) {
+        return std::nullopt;
+    }
+    ScrapRefreshShelf shelf;
+    std::array<bool, 6> seen {};
+    for (const auto& offer : names) {
+        const auto item = BlackFlowScrapMarket.find(offer.text);
+        const auto slot =
+            scrap_refresh_slot_from_title(offer.rect.x, offer.rect.y, offer.rect.width, offer.rect.height);
+        if (!item || !item->get().price || !std::isfinite(offer.score) || offer.score < 0.9 || !slot ||
+            seen[static_cast<std::size_t>(*slot)]) {
+            return std::nullopt;
+        }
+        seen[static_cast<std::size_t>(*slot)] = true;
+        shelf.slots[static_cast<std::size_t>(*slot)] = { *slot, item->get().name, sold_at(image, offer.rect) };
+    }
+    shelf.complete = true;
+    return shelf;
+}
+
+bool BlackFlowScrapTradeTaskPlugin::reconcile_refresh(const cv::Mat& image)
+{
+    if (!m_refresh.intent()) {
+        return false;
+    }
+    Matcher dialog(image);
+    dialog.set_task_info(std::string(ScrapTradeRefreshConfirmTask));
+    const bool confirmation_visible = dialog.analyze().has_value();
+    const bool buying = on_buying_page(image);
+    const auto wallet = buying && !confirmation_visible
+                            ? RoguelikeParameterAnalyzer::read_number(image, std::string(ScrapTradeWalletTask))
+                            : std::nullopt;
+    const auto shelf = buying && !confirmation_visible ? observe_refresh_shelf(image) : std::nullopt;
+    const auto state = m_refresh.observe({ m_frame_sequence, buying, confirmation_visible, wallet, shelf });
+    if (state == ScrapRefreshState::Confirmed) {
+        const auto receipt = m_refresh.take_confirmed();
+        ++m_refresh_count;
+        // Only shelf generation changes. Keep held inventory and visit limits.
+        m_purchased_rects.clear();
+        auto info = basic_info_with_what("BlackFlowScrapRefreshConfirmed");
+        info["details"] = json::object { { "refresh_index", receipt->intent.refresh_index },
+                                         { "paid", receipt->paid },
+                                         { "count", m_refresh_count },
+                                         { "target", m_refresh_search_target },
+                                         { "complete_shelf_changed", true } };
+        callback(AsstMsg::SubTaskExtraInfo, info);
+        LogInfo << __FUNCTION__ << "BlackFlow scrap trade refresh receipt confirmed" << "count" << m_refresh_count
+                << "spent" << receipt->paid;
+        return false;
+    }
+    if (state == ScrapRefreshState::Failed) {
+        abort_trade(
+            m_refresh.failure() == ScrapRefreshFailure::InvalidDebit ? "refresh_invalid_debit"
+                                                                     : "refresh_receipt_unconfirmed");
+    }
+    else {
+        set_action(ScrapTradeRefreshWaitTask);
+    }
+    return true;
+}
+
 bool BlackFlowScrapTradeTaskPlugin::sold_at(const cv::Mat& image, const Rect& title) const
 {
     const auto region = scrap_purchase_sold_region(title, image.cols, image.rows);
@@ -534,6 +742,14 @@ void BlackFlowScrapTradeTaskPlugin::apply_purchase(const ScrapPurchaseReceipt& r
         return;
     }
     m_ledger.record_purchase(item->get());
+    const int acquired = scrap_acquisitions(item->get());
+    if (m_inventory_total && acquired > 0 && acquired <= 64 - *m_inventory_total) {
+        *m_inventory_total += acquired;
+    }
+    else {
+        m_inventory_total.reset();
+        m_inventory_complete = false;
+    }
     // 新获得的物品可能插入不同分类，下一次出售前重建位置，保留进店账本。
     m_inventory.invalidate();
     if (purchase.keep) {
@@ -574,6 +790,13 @@ bool BlackFlowScrapTradeTaskPlugin::complete_sale(const ScrapTradeInventoryTarge
         return true;
     }
     m_ledger.record_sale(target.text.text);
+    if (m_inventory_total && *m_inventory_total > 0) {
+        --*m_inventory_total;
+    }
+    else {
+        m_inventory_total.reset();
+        m_inventory_complete = false;
+    }
     if (sell_back) {
         m_sell_backs.pop_front();
     }
@@ -581,17 +804,6 @@ bool BlackFlowScrapTradeTaskPlugin::complete_sale(const ScrapTradeInventoryTarge
             << m_ledger.held(target.text.text) << "growth" << m_ledger.growth(BlackFlowScrapMarket);
     set_action(ScrapTradeContinueTask);
     return true;
-}
-
-void BlackFlowScrapTradeTaskPlugin::on_refresh_confirmed()
-{
-    if (!m_pending_refresh) {
-        return;
-    }
-    m_pending_refresh = false;
-    ++m_refresh_count;
-    m_purchased_rects.clear();
-    LogInfo << __FUNCTION__ << "BlackFlow scrap trade refresh confirmed" << "count" << m_refresh_count;
 }
 
 cv::Mat BlackFlowScrapTradeTaskPlugin::capture() const

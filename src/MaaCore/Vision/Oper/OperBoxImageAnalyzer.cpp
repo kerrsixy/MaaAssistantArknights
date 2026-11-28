@@ -158,11 +158,32 @@ bool asst::OperBoxImageAnalyzer::opers_analyze()
             name_analyzer.set_bottom_line_height(params[4]);
             name_analyzer.set_width_threshold(params[5]);
             if (auto ocr_opt = name_analyzer.analyze()) {
+                Rect flag_rect(grid_x, grid_y, 30, 30);
+                // A swipe changes the card phase relative to the fixed OCR
+                // grid. The crop admits a name, but is not its card origin.
+                // Re-anchor promoted cards to the positively matched icon.
+                const auto promotion_task = Task.get("OperBoxFlagElite");
+                BestMatcher promotion(m_image);
+                promotion.set_task_info(promotion_task);
+                promotion.append_templ("OperBoxFlagElite1.png");
+                promotion.append_templ("OperBoxFlagElite2.png");
+                const int left = std::max(0, grid_x - 35);
+                promotion.set_roi(Rect(
+                    left,
+                    grid_y + promotion_task->roi.y,
+                    std::min(90, m_image.cols - left),
+                    promotion_task->roi.height));
+                if (promotion.analyze()) {
+                    const auto& matched = promotion.get_result().rect;
+                    // OperBoxFlagElite's ROI adds two pixels around the icon.
+                    flag_rect.x = matched.x - promotion_task->roi.x - 2;
+                    flag_rect.y = matched.y - promotion_task->roi.y - 2;
+                }
                 results.emplace_back(
                     OperResult { ocr_opt->rect,
                                  ocr_opt->score,
                                  std::move(ocr_opt->text),
-                                 Rect(grid_x, grid_y, 30, 30),
+                                 flag_rect,
                                  0.0,
                                  battle::Role::Unknown });
             }
@@ -201,6 +222,12 @@ bool asst::OperBoxImageAnalyzer::opers_analyze()
 
         box.rect = flag_rect;
         box.own = true;
+        if (std::ranges::any_of(m_result, [&](const auto& seen) {
+                return seen.id == box.id && std::abs(seen.rect.x - box.rect.x) <= 35 &&
+                       std::abs(seen.rect.y - box.rect.y) <= 10;
+            })) {
+            continue;
+        }
 
 #ifdef ASST_DEBUG
         cv::rectangle(m_image_draw, make_rect<cv::Rect>(flag_rect), cv::Scalar(0, 255, 0), 1);
@@ -278,7 +305,7 @@ bool asst::OperBoxImageAnalyzer::elite_analyze()
         }
         elite_analyzer.set_roi(roi);
         if (!elite_analyzer.analyze()) {
-            box.elite = 0;
+            box.elite = -1;
             continue;
         }
         const auto& elite_templ = elite_analyzer.get_result();

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BlackFlowScrapPurchase.h"
+#include "BlackFlowScrapRefresh.h"
 
 #include <deque>
 #include <optional>
@@ -35,7 +36,7 @@ private:
         Decide,
         ClickAtMost,
         PurchaseInputObserved,
-        RefreshConfirmed,
+        RefreshInputObserved,
     };
 
     enum class Phase
@@ -60,8 +61,8 @@ private:
     void decide();
     void apply_purchase(const ScrapPurchaseReceipt& receipt);
     [[nodiscard]] bool reconcile_purchase(const cv::Mat& image);
+    [[nodiscard]] bool reconcile_refresh(const cv::Mat& image);
     bool issue_purchase(const TextRect& offer, bool keep, const Funds& funds, int maximum_price);
-    void on_refresh_confirmed();
 
     // 当前页面与所需页面不同时切换，返回是否已安排切换动作。
     [[nodiscard]] bool switch_tab(bool want_selling, bool selling);
@@ -71,13 +72,15 @@ private:
     [[nodiscard]] bool buy(const cv::Mat& image, const Funds& funds, std::vector<std::string>& skipped);
     bool complete_sale(const ScrapTradeInventoryTarget& target, bool sell_back);
     void click_at_most();
-    [[nodiscard]] bool refresh(const Funds& funds);
+    [[nodiscard]] bool refresh(const cv::Mat& image, const Funds& funds);
     void leave();
     // 交易无法继续时上报原因再离店；用户停止任务时只离店。
     void abort_trade(std::string_view reason, const std::string& item = {});
 
     [[nodiscard]] bool on_buying_page(const cv::Mat& image) const;
     [[nodiscard]] bool sold_at(const cv::Mat& image, const Rect& title) const;
+    [[nodiscard]] std::optional<ScrapRefreshShelf> observe_refresh_shelf(const cv::Mat& image) const;
+    [[nodiscard]] std::optional<std::pair<int, int>> observe_capacity(const cv::Mat& image) const;
     [[nodiscard]] bool on_selling_page(const cv::Mat& image) const;
     [[nodiscard]] std::vector<TextRect> recognize(const cv::Mat& image, const std::vector<std::string>& names) const;
     [[nodiscard]] bool already_purchased(const Rect& rect) const;
@@ -103,7 +106,11 @@ private:
     std::deque<std::string> m_sell_backs;
     std::string m_inventory_last_task;
     ScrapPurchaseTransaction m_purchase;
-    bool m_pending_refresh = false;
+    ScrapRefreshTransaction m_refresh;
+    std::uint64_t m_frame_sequence = 0;
+    std::optional<int> m_inventory_total;
+    bool m_inventory_complete = false;
+    std::string m_refresh_search_target;
     std::vector<Rect> m_purchased_rects;
     std::unordered_set<std::string> m_kept;
     std::optional<std::string> m_shop_type;

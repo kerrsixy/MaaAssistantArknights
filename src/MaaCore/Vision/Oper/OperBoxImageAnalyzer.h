@@ -10,7 +10,7 @@ struct OperBoxInfo
     std::string id;
     std::string name;
     int level = 0;     // 等级
-    int elite = 0;     // 精英度
+    int elite = -1;    // 精英度；未正向识别时未知
     int potential = 0; // 潜能
     int rarity = 0;    // 稀有度
     int main_skill_level = 0;

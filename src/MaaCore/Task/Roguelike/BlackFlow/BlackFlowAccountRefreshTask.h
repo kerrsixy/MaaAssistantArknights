@@ -10,12 +10,18 @@
 #include "Config/Roguelike/BlackFlow/BlackFlowAccountTraining.h"
 #include "MaaUtils/NoWarningCVMat.hpp"
 #include "Task/AbstractTask.h"
+#include "Task/Roguelike/RoguelikeRecruitPolicy.h"
 #include "Vision/Oper/OperBoxImageAnalyzer.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowDetailStrengthAnalyzer.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowModulePanelAnalyzer.h"
 
 namespace asst::blackflow
 {
+inline bool account_scan_should_open_detail(const OperBoxInfo& oper, bool exact_required_module)
+{
+    return oper.own && (exact_required_module || is_account_training_scan_candidate(oper.own, oper.elite, oper.level));
+}
+
 struct FreshAccountModulePanel
 {
     std::string operator_name;
@@ -64,6 +70,7 @@ protected:
 private:
     bool visit_page(const std::vector<OperBoxInfo>& page);
     bool ensure_descending_order();
+    bool ensure_batch_edit_disabled();
     bool visit_target(const OperBoxInfo& oper, const AccountModuleScanTarget* module);
     bool action(const std::string& task, const std::shared_ptr<AbstractTaskPlugin>& observer = nullptr);
     std::vector<AccountModuleScanTarget> m_targets;
