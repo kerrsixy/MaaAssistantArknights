@@ -1439,3 +1439,7 @@ RecoveryPending은 옛0/1/2를 보존하고 배치 성공·진도를 확정하�
 ### 2026-11-28 작업 그래프 환경 변수 읽기의 플랫폼 호환성 수정
 
 실제 Android ARM64와 Linux 빌드가 TaskData.cpp에서 Windows 전용 _dupenv_s를 무조건 호출하여 실패했다. Windows 읽기 방식을 유지하고 다른 플랫폼에서는 표준 getenv를 사용하며 UTF-8 경로는 utils::path로 변환한다. 실제 제품 소스의 Windows Debug 번역 단위는 컴파일했지만 Android 전체 빌드는 CI 결과를 확인해야 한다. 진단 출력의 이식성 수정이며 EW 배치, 희망 예산 또는 N10 통과를 증명하지 않는다.
+
+### 2026-11-28 릴리스 조건식 우선순위 명시
+
+Android x64 및 macOS Clang 빌드가 StrongholdProtocolEquipment.cpp의 Wlogical-op-parentheses로 실패했다. 기존 joint 모드의 논리곱에 괄호만 추가하여 원래 우선순위와 동작을 유지한다. 실제 제품 소스의 Windows Debug 번역 단위 컴파일은 통과했다. 전체 플랫폼 패키지는 실제 CI 결과로 확인하며 컴파일 성공을 게임 검증으로 간주하지 않는다.

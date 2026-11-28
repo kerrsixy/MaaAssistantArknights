@@ -1439,3 +1439,7 @@ RecoveryPending保留舊0/1/2，不稱部署成功或提交進度，也不誤耗
 ### 2026-11-28 任務圖匯出環境變數的跨平台建置修正
 
 真實Android ARM64與Linux建置在TaskData.cpp失敗：無條件呼叫Windows專用_dupenv_s。Windows保留原讀取方式，其他平台改用標準getenv，UTF-8路徑統一經utils::path處理。目前來源檔的Windows Debug翻譯單元編譯通過；Android完整建置仍須由流程結果確認。這只修正診斷匯出的可移植性，不修復EW或希望預算，也不證明N10通關。
+
+### 2026-11-28 發布建置的條件優先序標註
+
+Android x64與macOS的Clang建置在StrongholdProtocolEquipment.cpp出現Wlogical-op-parentheses錯誤。僅為既有joint模式的且條件加上括號，維持原運算優先序與行為；該來源檔的Windows Debug翻譯單位編譯通過。各平台完整套件仍以CI實際結果為準，編譯通過不等於遊戲驗收。

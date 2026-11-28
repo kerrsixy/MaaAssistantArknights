@@ -1439,3 +1439,7 @@ RecoveryPendingは旧0/1/2を保持し配置成功や進度を確定しない。
 ### 2026-11-28 タスクグラフ出力の環境変数取得を可搬化
 
 実際のAndroid ARM64とLinuxビルドはTaskData.cppの無条件なWindows専用_dupenv_s呼び出しで失敗した。Windowsの読み取り方式を維持し、他の環境では標準getenvを使い、UTF-8パスをutils::path経由で変換する。対象製品ソースのWindows Debug翻訳単位はコンパイル済みだが、Android全体のビルドはCIで確認する必要がある。診断出力の可搬性修正であり、EW配置、希望予算、N10通過を証明しない。
+
+### 2026-11-28 リリース条件式の優先順位を明示
+
+Android x64とmacOSのClangビルドがStrongholdProtocolEquipment.cppのWlogical-op-parenthesesで失敗した。既存jointモードの論理積を括弧で囲み、元の優先順位と動作を維持した。対象製品ソースのWindows Debug翻訳単位はコンパイル済み。各プラットフォームの完全パッケージはCI実結果で確認し、コンパイル成功をゲーム検証と見なさない。

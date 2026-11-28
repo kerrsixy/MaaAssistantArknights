@@ -787,7 +787,7 @@ bool asst::StrongholdProtocolTask::handle_preparation_summons(const json::value&
     const int round = state.get("round", -1);
     const int remaining = state.get("remaining_deployment", -1);
     if (round < 1 || remaining < 0 || remaining > 8 || !m_auto_run || m_decision_only || m_stop_before_battle ||
-        m_mode == "joint" && state.get("preparation_seconds_remaining", 0) < 30 || m_pending_spatial_orientation ||
+        (m_mode == "joint" && state.get("preparation_seconds_remaining", 0) < 30) || m_pending_spatial_orientation ||
         m_pending_field_replacement || m_field_checkpoint_loaded ||
         m_growth_population_poses != m_auto_deploy_positions ||
         m_population_grid_members.size() != static_cast<size_t>(8 - remaining)) {

@@ -1621,3 +1621,7 @@ Debug按真实依赖先重编库存3消费者，再重编训练12消费者；323
 ### 2026-11-28 任务图导出环境变量的跨平台构建修正
 
 真实Android ARM64与Linux构建在TaskData.cpp报错：无条件调用Windows专有_dupenv_s。为Windows保留原读取方式，其他平台使用标准getenv，并统一经utils::path处理UTF-8路径。当前源文件的Windows Debug翻译单元已编译通过；Android完整构建仍须以流水线结果确认。这只修正任务图诊断导出的可移植性，不修复EW、希望预算或证明N10通关。
+
+### 2026-11-28 发布构建的条件优先级标注
+
+Android x64与macOS的Clang构建在StrongholdProtocolEquipment.cpp报Wlogical-op-parentheses错误。仅为既有joint模式的与条件添加括号，保持原有运算优先级和行为；该源文件的Windows Debug翻译单元已编译通过。各平台完整包仍以CI实际结果为准，不将编译通过等同于游戏验收。
