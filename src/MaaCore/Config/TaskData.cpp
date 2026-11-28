@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <boost/regex.hpp>
+#include <cstdlib>
 #include <meojson/json.hpp>
 
 #ifdef ASST_DEBUG
@@ -295,12 +296,18 @@ bool asst::TaskData::load(const std::filesystem::path& path)
     }
 #endif
     // 阶段 D：设定环境变量 MAA_DUMP_TASKS=<输出路径>，资源加载结束后导出真实任务图。
+#ifdef _WIN32
     char* dump_env = nullptr;
     size_t dump_len = 0;
     if (_dupenv_s(&dump_env, &dump_len, "MAA_DUMP_TASKS") == 0 && dump_env != nullptr) {
-        dump_json_tasks(dump_env);
-        free(dump_env);
+        dump_json_tasks(utils::path(dump_env));
+        std::free(dump_env);
     }
+#else
+    if (const auto* dump_env = std::getenv("MAA_DUMP_TASKS")) {
+        dump_json_tasks(utils::path(dump_env));
+    }
+#endif
     return parsed_ok;
 }
 

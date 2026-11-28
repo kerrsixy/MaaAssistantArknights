@@ -1483,3 +1483,7 @@ Run106 showed hope2/6 while Typhon was selected and rejected EW at price4. After
 ### 2026-11-28 Release packaging preflight repair
 
 The release pipeline failed its five-language localization key-order check and skipped platform builds. Run the repository sorter and independently verify that every key and value remains unchanged. Rerun order, stub, reference, and documentation checks. This packaging repair changes no BlackFlow combat behavior and provides no N10 clear evidence.
+
+### 2026-11-28 Portable task-dump environment lookup
+
+Actual Android ARM64 and Linux builds failed in TaskData.cpp because _dupenv_s was called unconditionally. Preserve the Windows lookup, use standard getenv elsewhere, and convert UTF-8 paths through utils::path. The current production translation unit compiles in Windows Debug; the full Android build still requires CI confirmation. This repairs diagnostic task-dump portability, not EW deployment, hope budgeting, or N10 completion.
