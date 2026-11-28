@@ -73,5 +73,7 @@ private:
     std::vector<OperBoxInfo> m_verified_page;
     std::chrono::steady_clock::time_point m_scan_deadline;
     std::string m_scan_stop_reason;
+    bool m_priority_only = false;
+    std::set<std::string> m_priority_remaining;
 };
 }
