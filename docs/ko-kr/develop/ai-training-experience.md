@@ -1451,3 +1451,5 @@ Android x64 및 macOS Clang 빌드가 StrongholdProtocolEquipment.cpp의 Wlogica
 Android 및 macOS 빌드에서 BlackFlowRecruitmentQuoteLedger의 u8path 두 호출이 사용 중단 경고로 실패했다. 저장소 규칙에 따라 리소스 지문 경로와 임시 파일 접미사에 utils::path를 사용하여 UTF-8 의미를 유지했다. 해당 제품 소스의 Windows Debug 컴파일은 통과했다. 모집 예산, 가격 결정과 실기 결과는 바뀌지 않았으며 전체 패키지는 검증이 필요하다.
 
 후속 Android 컴파일이 BlackFlowTaskPort의 사용되지 않는 MovePreviewDisplayedNameTask 상수를 오류로 처리했다. 전체 참조 검색에서 선언만 확인하여 해당 선언만 삭제했다. 인식 작업이나 호출 흐름은 변경하지 않았으며 해당 제품 소스의 Windows Debug 컴파일은 통과했다.
+
+Windows 전체 배포 빌드에서 지역 변수 가림, Debug 전용 매개변수 및 정수 축소 변환이 드러났다. 지역 이름을 변경하고 진단 매개변수에 maybe_unused를 지정했으며 정예 캐시를 유일한 입력원 RoguelikeOper.elite와 같은 int로 통일했다. 편성 인원은 ptrdiff_t로 비교하여 사전 축소를 피한다. 유효 입력의 판단, 값과 흐름은 유지하며 관련 제품 번역 단위 다섯 개가 Debug W4/WX 컴파일을 통과했다. 전체 배포 코어의 링크 및 로드 검증은 여전히 필요하다.

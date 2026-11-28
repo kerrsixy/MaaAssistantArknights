@@ -111,7 +111,7 @@ void asst::RoguelikeBattleTaskPlugin::reset_in_run_variables()
     flush_pause_classification("run_reset");
 }
 
-bool asst::RoguelikeBattleTaskPlugin::load_params(const json::value& params)
+bool asst::RoguelikeBattleTaskPlugin::load_params([[maybe_unused]] const json::value& params)
 {
     invalidate_prepared_primary();
 #ifdef ASST_DEBUG

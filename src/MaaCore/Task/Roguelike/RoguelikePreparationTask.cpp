@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <filesystem>
 #include <functional>
 #include <unordered_set>
@@ -603,7 +604,8 @@ bool preserves_group_needs(const std::vector<std::string>& old_members, const st
                 return std::ranges::any_of(rule.groups, [&](const auto& g) { return member_of(name, g); });
             });
         };
-        if (std::min<int>(count(new_members), rule.threshold) < std::min<int>(count(old_members), rule.threshold)) {
+        if (std::min<std::ptrdiff_t>(count(new_members), rule.threshold) <
+            std::min<std::ptrdiff_t>(count(old_members), rule.threshold)) {
             return false;
         }
     }

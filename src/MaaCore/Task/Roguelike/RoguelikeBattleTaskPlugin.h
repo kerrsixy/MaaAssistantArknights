@@ -324,7 +324,7 @@ protected:
     std::unordered_map<Point, int> m_death_count;
 
     // 缓存干员精英
-    std::unordered_map<std::string, int64_t> m_oper_elite;
+    std::unordered_map<std::string, int> m_oper_elite;
     // 缓存干员精英情况
     void cache_oper_elite_status();
 

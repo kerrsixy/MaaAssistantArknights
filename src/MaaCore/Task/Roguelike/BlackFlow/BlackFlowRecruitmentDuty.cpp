@@ -1369,16 +1369,16 @@ RecruitmentDutyDecision choose_recruitment_duty(
             }
             output_candidates.push_back(i);
         }
-        std::vector<std::size_t> frontier;
+        std::vector<std::size_t> output_frontier;
         for (const auto i : output_candidates) {
             if (std::ranges::none_of(output_candidates, [&](const auto j) {
                     return i != j && output_better(offers[j], offers[i]);
                 })) {
-                frontier.push_back(i);
+                output_frontier.push_back(i);
             }
         }
-        if (frontier.size() == 1) {
-            result.selected_offer = frontier[0];
+        if (output_frontier.size() == 1) {
+            result.selected_offer = output_frontier[0];
             result.adjusted = true;
             result.reason = "same_duty_frontier_bounded_primary_gain_nonincreasing_hope_not_team_dominance";
         }

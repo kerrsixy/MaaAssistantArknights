@@ -39,7 +39,7 @@ InventoryDiscardOutcome discard_inventory_item(
     std::string* error)
 {
     constexpr int MaxReadyObservations = 3;
-    constexpr unsigned SettleDelay = 300;
+    constexpr unsigned DiscardSettleDelay = 300;
     const auto fail = [&](std::string reason) {
         if (error != nullptr) {
             *error = std::move(reason);
@@ -61,7 +61,7 @@ InventoryDiscardOutcome discard_inventory_item(
         fail("failed to click the scrap card: " + scrap.name);
         return InventoryDiscardOutcome::ActionFailed;
     }
-    context.wait(SettleDelay);
+    context.wait(DiscardSettleDelay);
     for (int observation = 0; observation < MaxReadyObservations; ++observation) {
         if (interrupted()) {
             return InventoryDiscardOutcome::Interrupted;
@@ -90,7 +90,7 @@ InventoryDiscardOutcome discard_inventory_item(
             return InventoryDiscardOutcome::Discarded;
         }
         if (observation + 1 < MaxReadyObservations) {
-            context.wait(SettleDelay);
+            context.wait(DiscardSettleDelay);
         }
     }
     fail("discard readiness remained unresolved after bounded observations: " + scrap.name);

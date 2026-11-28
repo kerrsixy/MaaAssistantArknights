@@ -246,8 +246,8 @@ bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const Ac
         return false;
     }
     std::set<std::string> after;
-    for (const auto& oper : restored.get_result()) {
-        after.insert(oper.id);
+    for (const auto& restored_oper : restored.get_result()) {
+        after.insert(restored_oper.id);
     }
     // Preserve the existing strict same-page membership guard. Only its freshly
     // reanalyzed coordinates may be considered by the next target's fresh crop.
