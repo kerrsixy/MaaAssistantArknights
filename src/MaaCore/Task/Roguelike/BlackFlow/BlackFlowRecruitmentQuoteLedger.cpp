@@ -21,6 +21,7 @@
 #endif
 
 #include "Config/Roguelike/RoguelikeTrainingConfig.h"
+#include "Utils/Platform.hpp"
 
 namespace asst::blackflow::recruitment_quote_detail
 
@@ -300,7 +301,7 @@ std::string RecruitmentQuoteLedger::source_cohort(const std::filesystem::path& r
                              "roguelike/BlackFlow/recruitment.json",
 
                              "roguelike/BlackFlow/recruitment_duties.json" }) {
-        std::ifstream stream(resource / std::filesystem::u8path(name), std::ios::binary);
+        std::ifstream stream(resource / utils::path(name), std::ios::binary);
 
         if (!stream) {
             return {};
@@ -659,7 +660,7 @@ bool RecruitmentQuoteLedger::save(const std::filesystem::path& path, std::string
 
     staged = path;
 
-    staged += std::filesystem::u8path(
+    staged += utils::path(
 
         ".staged-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "-" +
 
