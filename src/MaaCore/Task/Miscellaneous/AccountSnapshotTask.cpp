@@ -79,6 +79,13 @@ bool asst::AccountSnapshotTask::_run()
         std::optional<Rect> uid_rect;
 
         for (const auto& res : *result_opt) {
+            // Account IDs belong to the lower-left player card. Small home
+            // widget captions can hallucinate long digit strings elsewhere.
+            // Reject those before considering the bounded card-ROI fallback.
+            if (res.score < 0.95 || res.rect.x < 0 || res.rect.x + res.rect.width > 300 || res.rect.y < 300 ||
+                res.rect.y + res.rect.height > 500) {
+                continue;
+            }
             auto candidate = normalize_uid_text(res.text);
             if (std::regex_search(candidate, match, uid_re) && match.size() > 1) {
                 m_uid = trim_spaces(match[1].str());
