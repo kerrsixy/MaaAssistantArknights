@@ -1491,3 +1491,5 @@ Actual Android ARM64 and Linux builds failed in TaskData.cpp because _dupenv_s w
 ### 2026-11-28 Release guard precedence annotation
 
 Android x64 and macOS Clang builds rejected StrongholdProtocolEquipment.cpp with Wlogical-op-parentheses. Parenthesize the existing joint-mode conjunction without changing precedence or behavior. The production translation unit compiles in Windows Debug. Complete platform packages still require actual CI results; compilation is not gameplay acceptance.
+
+Subsequent Android and macOS compilation exposed two signedness comparisons of known nonnegative counts in SPAEgirPolicy and a mixed conjunction in SPADifficultyTaskPlugin. Explicitly cast the positive threshold and nonnegative count to size_t and parenthesize the existing conjunction without changing semantics. Both production translation units compile in Windows Debug; full builds still await CI validation.

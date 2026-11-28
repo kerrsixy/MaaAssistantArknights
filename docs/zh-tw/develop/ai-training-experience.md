@@ -1443,3 +1443,5 @@ RecoveryPending保留舊0/1/2，不稱部署成功或提交進度，也不誤耗
 ### 2026-11-28 發布建置的條件優先序標註
 
 Android x64與macOS的Clang建置在StrongholdProtocolEquipment.cpp出現Wlogical-op-parentheses錯誤。僅為既有joint模式的且條件加上括號，維持原運算優先序與行為；該來源檔的Windows Debug翻譯單位編譯通過。各平台完整套件仍以CI實際結果為準，編譯通過不等於遊戲驗收。
+
+後續Android與macOS完整編譯在SPAEgirPolicy的兩個已知非負計數比較及SPADifficultyTaskPlugin的混合條件處繼續失敗。將正數門檻與非負計數明確轉換為size_t，並為既有且條件加括號，不改變語義。兩個來源檔的Windows Debug翻譯單位編譯通過，最終完整建置仍待CI驗證。

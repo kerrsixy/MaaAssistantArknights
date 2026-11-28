@@ -594,7 +594,7 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
                         row_names.insert(units[other].entity.name);
                     }
                 }
-                row_triggers += row_names.size() >= units[index].same_row_recruitment_members;
+                row_triggers += row_names.size() >= static_cast<size_t>(units[index].same_row_recruitment_members);
             }
         }
         auto projection = project_egir_mark_closure(entities, true, context.six_member_rule);
@@ -628,7 +628,8 @@ asst::spa::EgirFormationPlan asst::spa::plan_egir_core_chain(
             context.boss_movement_waypoints.begin(),
             context.boss_movement_waypoints.end(),
             [&](auto cell) { return boss_attack_overlaps_cell(candidate[*core], cell); }));
-        if (aim_at_boss ? !egir_boss_pose_reaches(candidate[*core], context) : guarded != context.lanes.size()) {
+        if (aim_at_boss ? !egir_boss_pose_reaches(candidate[*core], context)
+                        : static_cast<size_t>(guarded) != context.lanes.size()) {
             return;
         }
         const int distance = std::abs(root.first - context.home.first) + std::abs(root.second - context.home.second);

@@ -230,7 +230,7 @@ bool asst::spa::DifficultyTaskPlugin::_run()
             selection_wait_frames = 0;
             continue;
         }
-        if (find_max && (!visible.empty() && visible.rbegin()->first == cap || unchanged >= 2)) {
+        if (find_max && ((!visible.empty() && visible.rbegin()->first == cap) || unchanged >= 2)) {
             std::vector<int> unlocked;
             for (const auto& [level, available] : seen) {
                 if (available) {

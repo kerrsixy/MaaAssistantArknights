@@ -1625,3 +1625,5 @@ Debug按真实依赖先重编库存3消费者，再重编训练12消费者；323
 ### 2026-11-28 发布构建的条件优先级标注
 
 Android x64与macOS的Clang构建在StrongholdProtocolEquipment.cpp报Wlogical-op-parentheses错误。仅为既有joint模式的与条件添加括号，保持原有运算优先级和行为；该源文件的Windows Debug翻译单元已编译通过。各平台完整包仍以CI实际结果为准，不将编译通过等同于游戏验收。
+
+后续Android与macOS完整编译在SPAEgirPolicy的两个已知非负计数比较及SPADifficultyTaskPlugin的混合条件处继续报错。将正数门槛和非负计数显式转换为size_t，并为既有与条件加括号；不改变比较与条件语义。两个源文件的Windows Debug翻译单元编译通过，最终完整构建仍待CI验证。

@@ -1443,3 +1443,5 @@ RecoveryPendingは旧0/1/2を保持し配置成功や進度を確定しない。
 ### 2026-11-28 リリース条件式の優先順位を明示
 
 Android x64とmacOSのClangビルドがStrongholdProtocolEquipment.cppのWlogical-op-parenthesesで失敗した。既存jointモードの論理積を括弧で囲み、元の優先順位と動作を維持した。対象製品ソースのWindows Debug翻訳単位はコンパイル済み。各プラットフォームの完全パッケージはCI実結果で確認し、コンパイル成功をゲーム検証と見なさない。
+
+続くAndroidとmacOS全体のコンパイルで、SPAEgirPolicyの非負数比較2件とSPADifficultyTaskPluginの混在条件が失敗した。正の閾値と非負カウントをsize_tに明示変換し、既存の論理積を括弧で囲んで意味を維持した。両製品ソースのWindows Debug翻訳単位はコンパイル済みだが、全体ビルドはCI確認待ち。
