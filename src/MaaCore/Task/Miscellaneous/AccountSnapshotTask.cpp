@@ -94,15 +94,13 @@ bool asst::AccountSnapshotTask::_run()
             }
         }
 
-        // Full-screen OCR often drops the first/last UID glyph under the
-        // player-card artwork.  A raw, detector-free pass over the fixed
-        // lower-left card recovers the complete number without affecting the
-        // general OCR path used for the nickname.
+        // Read only the account-ID row. Including the nickname makes the
+        // recognition-only model merge two lines and lose the numeric field.
         if (m_uid.empty()) {
-            RegionOCRer uid_analyzer(image, Rect { 0, 390, 230, 75 });
+            RegionOCRer uid_analyzer(image, Rect { 60, 423, 115, 26 });
             uid_analyzer.set_use_raw(true);
             uid_analyzer.set_bin_threshold(80, 255);
-            if (const auto uid_result = uid_analyzer.analyze(); uid_result.has_value()) {
+            if (const auto uid_result = uid_analyzer.analyze(); uid_result && uid_result->score >= 0.95) {
                 auto candidate = normalize_uid_text(uid_result->text);
                 if (std::regex_search(candidate, match, uid_re) && match.size() > 1) {
                     m_uid = trim_spaces(match[1].str());
