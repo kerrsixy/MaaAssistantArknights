@@ -13,7 +13,7 @@ import blackflow_auto_rounds as rounds
 import blackflow_live_run as live
 
 
-def terminal_outcome(uid="280875771", game_pass=False, difficulty=9):
+def terminal_outcome(uid="90000002", game_pass=False, difficulty=9):
     return {
         "task_exit_code": 0,
         "finished": True,
@@ -377,7 +377,7 @@ class TerminalBatchTests(unittest.TestCase):
 
     def test_account_change_is_rejected_within_and_between_rounds(self):
         with self.assertRaises(ValueError):
-            rounds.verified_round(terminal_outcome("other"), "Official", "280875771")
+            rounds.verified_round(terminal_outcome("other"), "Official", "90000002")
         outcome = terminal_outcome()
         outcome["account_bindings"].append(
             {"uid": "other", "client": "Official", "cache_file": "other.json"}

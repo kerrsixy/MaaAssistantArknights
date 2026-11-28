@@ -39,7 +39,7 @@ int wmain(int argc, wchar_t** argv)
     check(catalog.configure(*facts, *training, *battle), "actual production-Nov1-bound catalog loads");
     std::string error;
     const auto account =
-        BlackFlowAccountProfile::load(candidate / L"inputs/account_217_official.json", "Official", "280875771", &error);
+        BlackFlowAccountProfile::load(candidate / L"inputs/account_217_official.json", "Official", "90000002", &error);
     check(account.has_value(), "exact frozen account profile parses without cache mutation");
     std::unordered_map<std::string, RoguelikeOper> empty;
     json::array pages;
@@ -49,7 +49,7 @@ int wmain(int argc, wchar_t** argv)
         RoguelikeRecruitImageAnalyzer analyzer(frame);
         check(analyzer.analyze(), "real analyzer succeeds " + fixture);
         RecruitmentDutyContext context { .client = "Official",
-                                         .uid = fixture.starts_with("live112") ? "280875771" : "",
+                                         .uid = fixture.starts_with("live112") ? "90000002" : "",
                                          .observed_at = "offline_replay_not_actor117",
                                          .hope = 20,
                                          .mode = 0 };
@@ -146,7 +146,7 @@ int wmain(int argc, wchar_t** argv)
                           const std::unordered_map<std::string, RoguelikeOper>& roster) {
         RecruitmentDutyOffer x;
         x.client = "Official";
-        x.uid = "280875771";
+        x.uid = "90000002";
         x.name = name;
         x.id = RoguelikeTraining.unique_identity(name);
         x.elite = elite;
@@ -297,7 +297,7 @@ int wmain(int argc, wchar_t** argv)
         auto low = *account_json;
         low["operators"]["维什戴尔"]["skill_training"]["mastery_levels"][2] = 0;
         low["operators"]["纯烬艾雅法拉"]["skill_training"]["mastery_levels"][0] = 0;
-        const auto lower_training = BlackFlowAccountProfile::parse(low, "Official", "280875771", &error);
+        const auto lower_training = BlackFlowAccountProfile::parse(low, "Official", "90000002", &error);
         check(
             lower_training && lower_training->skill_level_for_run("维什戴尔", 3, 2, 90) == 7,
             "counterfactual same account less mastery changes actual effective row instead of a bonus");

@@ -107,7 +107,7 @@ int wmain(int argc, wchar_t** argv)
     const auto account = BlackFlowAccountProfile::load(
         data / utils::path("inputs/account_217_official.json"),
         "Official",
-        "280875771",
+        "90000002",
         &error);
     check(account.has_value(), "frozen217 fixture account parses; not a claim about current live cache count");
     std::array<SkillAvailability, 3> ew_e1;
@@ -129,11 +129,11 @@ int wmain(int argc, wchar_t** argv)
     check(
         config->verify_and_load_params(json::object { { "theme", "BlackFlow" }, { "mode", 0 } }),
         "real recruitment config");
-    config->bind_account("Official", "280875771");
+    config->bind_account("Official", "90000002");
     config->status().run_id = "offline127-real-lifecycle-fixture";
     RoguelikeRecruitmentTestAccess actor(config);
     const RecruitmentDutyContext context { .client = "Official",
-                                           .uid = "280875771",
+                                           .uid = "90000002",
                                            .run_id = config->status().run_id,
                                            .observed_at = "offline-real-frame-replay-not-current-run",
                                            .hope = 30,
@@ -386,7 +386,7 @@ int wmain(int argc, wchar_t** argv)
                 config->status().opers.at(old.name).elite == before.at(old.name).elite &&
                 config->status().opers.at(old.name).level == before.at(old.name).level,
             "actual pending commit refuses cross-UID confirmation before merging");
-        config->bind_account("Official", "280875771");
+        config->bind_account("Official", "90000002");
         actor.pending(old, prior, true);
         config->status().run_id = "another-offline-exploration";
         check(
@@ -404,7 +404,7 @@ int wmain(int argc, wchar_t** argv)
             const auto saved_legacy = raw.at(raw_index).legacy_temporary_flag;
             for (const auto& kind :
                  std::vector<std::string> { "no_prior", "ordinary_prior", "temporary_prior", "positive_conflict" }) {
-                config->bind_account("Official", "280875771");
+                config->bind_account("Official", "90000002");
                 config->status().run_id = context.run_id;
                 actor.reset_in_run_variables();
                 config->status().opers.clear();
@@ -481,7 +481,7 @@ int wmain(int argc, wchar_t** argv)
     }
     RecruitmentOriginLedger empty_run;
     check(
-        !empty_run.bind("Official", "280875771", "") && empty_run.size() == 0,
+        !empty_run.bind("Official", "90000002", "") && empty_run.size() == 0,
         "empty restored run ID remains unknown and is never fabricated");
     json::object report { { "checks", checks },
                           { "failures", failures },

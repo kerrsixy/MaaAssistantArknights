@@ -77,7 +77,7 @@ def accept_summary(summary):
     # inventing those unrelated messages in each classification case.
     for key in ("settlements", "account_bindings", "fresh_exploration_starts"):
         outcome[key] = terminal_outcome()[key]
-    return rounds.verified_round(outcome, "Official", "280875771", 9)
+    return rounds.verified_round(outcome, "Official", "90000002", 9)
 
 
 class PendingLedgerTests(unittest.TestCase):
@@ -88,7 +88,7 @@ class PendingLedgerTests(unittest.TestCase):
         return summary
 
     def test_legacy_no_pending_remains_accepted(self):
-        rounds.verified_round(terminal_outcome(), "Official", "280875771", 9)
+        rounds.verified_round(terminal_outcome(), "Official", "90000002", 9)
 
     def test_versioned_empty_is_accepted(self):
         accept_summary(summarize([]))

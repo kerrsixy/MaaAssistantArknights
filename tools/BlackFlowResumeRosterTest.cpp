@@ -15,7 +15,7 @@ int wmain(int argc, wchar_t** argv)
         return 3;
     }
     std::string error;
-    const auto profile = BlackFlowAccountProfile::parse(*account, "Official", "280875771", &error);
+    const auto profile = BlackFlowAccountProfile::parse(*account, "Official", "90000002", &error);
     if (!profile) {
         return 4;
     }
@@ -109,7 +109,7 @@ int wmain(int argc, wchar_t** argv)
     auto lower_account = *account;
     lower_account["operators"]["罗小黑"]["elite"] = 1;
     lower_account["operators"]["罗小黑"]["level"] = 60;
-    const auto lower_profile = BlackFlowAccountProfile::parse(lower_account, "Official", "280875771", &error);
+    const auto lower_profile = BlackFlowAccountProfile::parse(lower_account, "Official", "90000002", &error);
     expect(lower_profile.has_value(), "controlled E1 account fixture is valid");
     if (lower_profile) {
         solo["elite"] = 2;
@@ -134,7 +134,7 @@ int wmain(int argc, wchar_t** argv)
     auto limited = *account;
     limited["operators"]["罗小黑"]["elite"] = 1;
     limited["operators"]["罗小黑"]["level"] = 60;
-    const auto limited_profile = BlackFlowAccountProfile::parse(limited, "Official", "280875771", &error);
+    const auto limited_profile = BlackFlowAccountProfile::parse(limited, "Official", "90000002", &error);
     expect(limited_profile.has_value(), "lower-promotion account fixture remains valid");
     solo["elite"] = 2;
     solo["level"] = 1;

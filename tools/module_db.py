@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""模组库查询 CLI（数据来自 数据/accounts/modules_11979813.json）。
+"""模组库查询 CLI（数据来自 数据/accounts/modules_example.json）。
 
 用法::
 
@@ -16,7 +16,7 @@ import json
 import pathlib
 import sys
 
-DB = pathlib.Path(r"D:\dsh\明日方舟\数据\accounts\modules_11979813.json")
+DB = pathlib.Path(r"D:\dsh\明日方舟\数据\accounts\modules_example.json")
 
 
 def load():

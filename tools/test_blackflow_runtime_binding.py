@@ -108,12 +108,12 @@ class RuntimeBindingTests(unittest.TestCase):
         )
 
     def test_identity_uses_content_even_with_legacy_filename(self):
-        self.roster("bilibili_280875771.json", "280875771")
+        self.roster("bilibili_90000002.json", "90000002")
         self.assertEqual(
-            pick.load_account("280875771", "Official")[0]["account"]["uid"], "280875771"
+            pick.load_account("90000002", "Official")[0]["account"]["uid"], "90000002"
         )
         with self.assertRaises(SystemExit):
-            pick.load_account("280875771", "Bilibili")
+            pick.load_account("90000002", "Bilibili")
 
     def test_uid_must_match_exactly(self):
         self.roster("123.json", "123")

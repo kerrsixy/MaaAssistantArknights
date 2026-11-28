@@ -16,8 +16,8 @@ import pathlib
 import shutil
 
 ACCOUNTS = pathlib.Path(r"D:\dsh\明日方舟\数据\accounts")
-SNAP = ACCOUNTS / "bilibili_11979813.json"
-MODDB = ACCOUNTS / "modules_11979813.json"
+SNAP = ACCOUNTS / "bilibili_example.json"
+MODDB = ACCOUNTS / "modules_example.json"
 
 
 def main():

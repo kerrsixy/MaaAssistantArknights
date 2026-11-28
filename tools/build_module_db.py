@@ -13,8 +13,8 @@ import csv
 import json
 import pathlib
 
-OUT_JSON = pathlib.Path(r"D:\dsh\明日方舟\数据\accounts\modules_11979813.json")
-OUT_CSV = pathlib.Path(r"D:\dsh\明日方舟\数据\accounts\modules_11979813.csv")
+OUT_JSON = pathlib.Path(r"D:\dsh\明日方舟\数据\accounts\modules_example.json")
+OUT_CSV = pathlib.Path(r"D:\dsh\明日方舟\数据\accounts\modules_example.csv")
 
 # 名字: [(code, level), ...]  —— 只记已开启的槽位
 RAW = """
@@ -169,7 +169,7 @@ def main():
     stage3 = sum(1 for v in ops.values() for s in v if s["level"] == 3)
     doc = {
         "schema": "blackflow.modules.v1",
-        "account": {"uid": "11979813", "nick": "可儿四系楼", "server": "bilibili"},
+        "account": {"uid": "", "nick": "", "server": "bilibili"},
         "scanned_at": "2026-11-03T23:55:00+08:00",
         "source": "游戏内 档案 > 模组陈列室 > 干员模组总览（全部 / 等级排序），逐页截图人工判读",
         "evidence_screens": [r"D:\dsh\eval\mod_pages", r"D:\dsh\eval\mod_pages2"],
