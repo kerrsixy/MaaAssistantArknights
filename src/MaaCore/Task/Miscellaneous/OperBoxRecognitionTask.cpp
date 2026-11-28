@@ -5,7 +5,9 @@
 #include <chrono>
 #include <cstdlib>
 #include <future>
+#include <optional>
 #include <ranges>
+#include <string_view>
 #include <thread>
 
 #include "Config/Miscellaneous/BattleDataConfig.h"
@@ -233,12 +235,24 @@ bool asst::OperBoxRecognitionTask::swipe_and_analyze()
         }
 
         // 调试用：设了 MAA_OPERBOX_MAX_PAGES 就只扫这么多页，方便快速验证识别率
-        char max_pages_buf[16] {};
-        std::size_t max_pages_len = 0;
-        if (getenv_s(&max_pages_len, max_pages_buf, sizeof(max_pages_buf), "MAA_OPERBOX_MAX_PAGES") == 0 &&
-            max_pages_len > 0) {
+        const auto max_pages = []() -> std::optional<int> {
+#ifdef _WIN32
+            char value[16] {};
+            std::size_t length = 0;
+            if (getenv_s(&length, value, sizeof(value), "MAA_OPERBOX_MAX_PAGES") != 0 || length == 0) {
+                return std::nullopt;
+            }
+#else
+            const auto* value = std::getenv("MAA_OPERBOX_MAX_PAGES");
+            if (value == nullptr || std::string_view(value).size() >= 16) {
+                return std::nullopt;
+            }
+#endif
+            return std::atoi(value);
+        }();
+        if (max_pages) {
             static int page_no = 0;
-            if (++page_no >= std::atoi(max_pages_buf)) {
+            if (++page_no >= *max_pages) {
                 LogInfo << __FUNCTION__ << "debug stop after pages" << page_no;
                 break;
             }

@@ -1445,3 +1445,5 @@ RecoveryPending은 옛0/1/2를 보존하고 배치 성공·진도를 확정하�
 Android x64 및 macOS Clang 빌드가 StrongholdProtocolEquipment.cpp의 Wlogical-op-parentheses로 실패했다. 기존 joint 모드의 논리곱에 괄호만 추가하여 원래 우선순위와 동작을 유지한다. 실제 제품 소스의 Windows Debug 번역 단위 컴파일은 통과했다. 전체 플랫폼 패키지는 실제 CI 결과로 확인하며 컴파일 성공을 게임 검증으로 간주하지 않는다.
 
 후속 Android 및 macOS 컴파일에서 SPAEgirPolicy의 음수가 아닌 개수 비교 두 곳과 SPADifficultyTaskPlugin의 혼합 조건이 실패했다. 양수 임계값과 음수가 아닌 개수를 size_t로 명시 변환하고 기존 논리곱에 괄호를 추가해 의미를 유지했다. 두 제품 소스의 Windows Debug 번역 단위 컴파일은 통과했으며 전체 빌드는 CI 검증을 기다린다.
+
+후속 Android 컴파일에서 OperBoxRecognitionTask의 진단 페이지 제한에 Windows getenv_s를 무조건 사용하는 문제가 드러났다. Windows의 기존 16바이트 경계를 유지하고 다른 플랫폼에서는 같은 길이 제한과 페이지 비교로 표준 getenv를 사용한다. 해당 제품 소스의 Windows Debug 컴파일은 통과했다. 스캔 흐름이나 전체 계정 스캔 상한은 수정하지 않았다.
