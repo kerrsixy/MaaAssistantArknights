@@ -1,4 +1,9 @@
 {
+    "BlackFlowRecruitScanMaxPageObservations": {
+        "Doc": "Safety ceiling only: raw card and price geometry still stops unchanged pages early. Five observations can stop before the unaffordable cards sorted after payable operators.",
+        "algorithm": "JustReturn",
+        "maxTimes": 16
+    },
     "BlackFlow@Roguelike@ResumeSavedPreparation": {
         "algorithm": "MatchTemplate",
         "template": "Roguelike@QuickFormation.png",

@@ -75,7 +75,8 @@ private:
     enum class VoucherStashReason
     {
         NoSuitableCandidate,
-        PreserveExpectedOutputHope
+        PreserveExpectedOutputHope,
+        PreserveVoucherOpportunity
     };
     bool start_voucher_stash_transaction(
         const cv::Mat& image,

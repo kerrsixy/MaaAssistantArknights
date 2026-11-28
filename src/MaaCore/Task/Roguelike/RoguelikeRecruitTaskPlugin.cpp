@@ -1,5 +1,6 @@
 #include "Task/Roguelike/RoguelikeRecruitTaskPlugin.h"
 #include "BlackFlow/BlackFlowRecruitmentTerminalDuty.h"
+#include "BlackFlow/BlackFlowVoucherOpportunity.h"
 #include "Config/Miscellaneous/BattleDataConfig.h"
 #include "Config/Roguelike/BlackFlow/BlackFlowAccountProfile.h"
 #include "RoguelikeOperEvidence.h"
@@ -287,11 +288,17 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
 
     // 候选干员
     std::vector<RoguelikeRecruitInfo> recruit_list;
+    std::vector<blackflow::VoucherOptionPreference> deferred_preferences;
 
     // 干员名字的识别位置
     std::unordered_map<std::string, Rect> last_oper_rects;
 
     int SwipeTimes = Task.get("RoguelikeRecruitSwipeMaxTime")->max_times;
+    if (theme == RoguelikeTheme::BlackFlow) {
+        if (const auto limit = Task.get("BlackFlowRecruitScanMaxPageObservations")) {
+            SwipeTimes = blackflow::recruitment_scan_observation_limit(SwipeTimes, limit->max_times);
+        }
+    }
     int i = 0;
     std::unordered_set<std::string> pre_oper_names;
     const bool raw_paging = theme == RoguelikeTheme::BlackFlow;
@@ -520,6 +527,23 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                 team_full_without_rookie);
             quote_eligibility.push_back(assessed.quote_eligibility);
             append_payable_candidate(assessed, recruit_list);
+            if (theme == RoguelikeTheme::BlackFlow && assessed.eligible_without_budget &&
+                assessed.quote_eligibility.non_economic_eligible == std::optional<bool>(true) &&
+                !assessed.quote_eligibility.affordable && oper_info.hope_cost && *oper_info.hope_cost > cur_hope &&
+                oper_info.level > 0 && is_recruitment_strength_sufficient(oper_info.elite, oper_info.level) &&
+                !oper_info.temporary && !chars_map.contains(oper_info.name)) {
+                const auto linked = std::ranges::find_if(duty_offers, [&](const auto& value) {
+                    return value.analysis_id == analyzer.get_analysis_id() &&
+                           value.observation_index == assessed.quote_eligibility.observation_index &&
+                           value.price_index && value.hope_cost == oper_info.hope_cost && value.replacement_valid &&
+                           !value.id.empty();
+                });
+                if (linked != duty_offers.end()) {
+                    const auto& qualified = *assessed.eligible_without_budget;
+                    deferred_preferences.push_back(
+                        { qualified.name, qualified.tier, qualified.priority, oper_info.hope_cost });
+                }
+            }
             if (assessed.eligible_without_budget && assessed.quote_eligibility.affordable) {
                 LogInfo << __FUNCTION__ << "| Operator" << assessed.eligible_without_budget->name
                         << "priority:" << assessed.eligible_without_budget->priority;
@@ -777,6 +801,86 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
                     before,
                     VoucherStashReason::PreserveExpectedOutputHope);
             }
+        }
+    }
+
+    if (theme == RoguelikeTheme::BlackFlow && mode == RoguelikeMode::Exp && !duty_intent && !terminal_intent) {
+        const auto in_group = [&](const std::string& name, const std::vector<std::string>& groups) {
+            const auto ids = RoguelikeRecruit.get_group_ids_of_oper(theme, name);
+            return std::ranges::any_of(groups, [&](const auto& group) {
+                const int id = RoguelikeRecruit.get_group_id_from_name(theme, group);
+                return id >= 0 && std::ranges::find(ids, id) != ids.end();
+            });
+        };
+        const std::vector<std::string> heal_groups { "奶", "单奶", "群奶", "元素奶" };
+        const std::vector<std::string> output_groups { "高台输出" };
+        bool core_present = false;
+        bool blocker_present = false;
+        bool healer_present = false;
+        int outputs_present = 0;
+        for (const auto& [name, oper] : chars_map) {
+            if (oper.level <= 0 || !is_recruitment_strength_sufficient(oper.elite, oper.level)) {
+                continue;
+            }
+            const auto body = duty_catalog.body(name, oper.elite, oper.level);
+            core_present |= name == m_config->get_core_char();
+            blocker_present |= body[0].lower > 0;
+            healer_present |= body[1].lower > 0 || in_group(name, heal_groups);
+            outputs_present += in_group(name, output_groups) ? 1 : 0;
+        }
+        const auto offer = std::ranges::find_if(duty_offers, [&](const auto& value) {
+            return value.name == selected_oper->name && value.page_index == selected_oper->page_index;
+        });
+        blackflow::VoucherOpportunityContext context {
+            .hope = cur_hope,
+            .selected_offer_verified = offer != duty_offers.end() && offer->feasible && !offer->run_id.empty() &&
+                                       offer->run_id == m_config->status().run_id,
+            .fixed_opening = m_initail_recruit,
+            .baseline_roles_present = duty_catalog.valid() && core_present && blocker_present && outputs_present >= 2,
+            .selected_fills_immediate_need =
+                (!healer_present && in_group(selected_oper->name, heal_groups)) ||
+                (offer != duty_offers.end() && (offer->marginal[0].lower > 0 || offer->marginal[1].lower > 0)),
+            .selected_is_promotion = chars_map.contains(selected_oper->name),
+            .selected_is_temporary = offer != duty_offers.end() && offer->positive_temporary,
+        };
+        auto preference = [&](const RoguelikeRecruitInfo& value, std::optional<int> price) {
+            return blackflow::VoucherOptionPreference { value.name, value.tier, oper_score(value), price };
+        };
+        for (auto& future : deferred_preferences) {
+            const RoguelikeRecruitInfo value { .name = future.name, .priority = future.score, .tier = future.tier };
+            future.score = oper_score(value);
+        }
+        const auto selected = preference(*selected_oper, offer == duty_offers.end() ? std::nullopt : offer->hope_cost);
+        auto opportunity = blackflow::choose_voucher_opportunity(context, selected, deferred_preferences);
+        cv::Mat before_image;
+        blackflow::VoucherStashObservation before;
+        if (opportunity.needs_storage_observation) {
+            before_image = ctrler()->get_image();
+            context.hope = read_current_hope(before_image);
+            before = blackflow::BlackFlowVoucherStash(before_image).observe();
+            context.storage_observed = true;
+            context.can_store = before.can_store();
+            opportunity = blackflow::choose_voucher_opportunity(context, selected, deferred_preferences);
+        }
+        auto receipt = basic_info_with_what("BlackFlowVoucherOpportunityDecision");
+        receipt["details"] = json::object {
+            { "reason", opportunity.reason },
+            { "request_stash", opportunity.request_stash },
+            { "selected", selected.name },
+            { "deferred", opportunity.deferred_name },
+            { "qualified_unaffordable_observations", deferred_preferences.size() },
+            { "hope", context.hope },
+            { "baseline_roles_present", context.baseline_roles_present },
+            { "selected_fills_immediate_need", context.selected_fills_immediate_need },
+            { "future_hope_or_reappearance_guaranteed", false },
+            { "click_attempted", false },
+        };
+        callback(AsstMsg::SubTaskExtraInfo, receipt);
+        if (opportunity.request_stash) {
+            return start_voucher_stash_transaction(
+                before_image,
+                before,
+                VoucherStashReason::PreserveVoucherOpportunity);
         }
     }
 
@@ -1291,6 +1395,8 @@ bool asst::RoguelikeRecruitTaskPlugin::verify_voucher_stash()
                 { "reason",
                   m_stash_reason == VoucherStashReason::PreserveExpectedOutputHope
                       ? "preserve_expected_terminal_output_hope"
+                  : m_stash_reason == VoucherStashReason::PreserveVoucherOpportunity
+                      ? "preserve_voucher_for_observed_preferred_option"
                       : "no_suitable_candidate" },
                 { "proof",
                   proof == blackflow::VoucherStashProof::CounterIncreased ? "counter_increased" : "successor_page" },
@@ -1318,7 +1424,9 @@ bool asst::RoguelikeRecruitTaskPlugin::verify_voucher_stash()
         { "status", "unconfirmed" },
         { "reason",
           m_stash_reason == VoucherStashReason::PreserveExpectedOutputHope ? "preserve_expected_terminal_output_hope"
-                                                                           : "no_suitable_candidate" },
+          : m_stash_reason == VoucherStashReason::PreserveVoucherOpportunity
+              ? "preserve_voucher_for_observed_preferred_option"
+              : "no_suitable_candidate" },
         { "stored_before", m_voucher_stash.before()->count->used },
         { "capacity", m_voucher_stash.before()->count->capacity },
         { "repeat_click_permitted", false },
@@ -1409,6 +1517,11 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_appointed_char(
     }
     // 最大滑动次数
     int SwipeTimes = Task.get("RoguelikeRecruitSwipeMaxTime")->max_times;
+    if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
+        if (const auto limit = Task.get("BlackFlowRecruitScanMaxPageObservations")) {
+            SwipeTimes = blackflow::recruitment_scan_observation_limit(SwipeTimes, limit->max_times);
+        }
+    }
     std::unordered_set<std::string> pre_oper_names;
     bool has_been_same = false;
     int i = 0;
