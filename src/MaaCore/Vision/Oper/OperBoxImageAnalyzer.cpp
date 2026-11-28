@@ -30,7 +30,7 @@ bool asst::OperBoxImageAnalyzer::analyze()
 int asst::OperBoxImageAnalyzer::level_num(const std::string& level)
 {
     if (level.empty() || !std::ranges::all_of(level, [](const char& c) -> bool { return std::isdigit(c); })) {
-        return 1;
+        return 0;
     }
     return std::stoi(level);
 }
@@ -239,7 +239,7 @@ bool asst::OperBoxImageAnalyzer::level_analyze()
         }
         level_analyzer.set_roi(roi);
         if (!level_analyzer.analyze()) {
-            box.level = 1;
+            box.level = 0;
             continue;
         }
         const auto& ocr_result = level_analyzer.get_result();

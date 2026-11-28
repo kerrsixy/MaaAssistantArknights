@@ -89,11 +89,20 @@ std::optional<int>
     int baseline = -1;
     for (int label = 1; label < count; ++label) {
         const int height = stats.at<int>(label, cv::CC_STAT_HEIGHT);
+        const int width = stats.at<int>(label, cv::CC_STAT_WIDTH);
+        // Do not silently strip a possible minus sign from a selected-card
+        // preview. The fill bar is tall; triangular separators are not wide.
+        if (recruitment && height <= 5 && width >= 5 && width >= height * 2) {
+            return std::nullopt;
+        }
+        if (recruitment && height < 14 && stats.at<int>(label, cv::CC_STAT_AREA) > 3 &&
+            !(width <= 7 && height >= 6 && height <= 10 && width <= height)) {
+            return std::nullopt;
+        }
         if (height < 14 || height > 24) {
             continue;
         }
         const int left = stats.at<int>(label, cv::CC_STAT_LEFT);
-        const int width = stats.at<int>(label, cv::CC_STAT_WIDTH);
         const int bottom = stats.at<int>(label, cv::CC_STAT_TOP) + height;
         if (left == 0 || left + width == mask.cols || width > 18 ||
             (baseline >= 0 && std::abs(bottom - baseline) > 2)) {

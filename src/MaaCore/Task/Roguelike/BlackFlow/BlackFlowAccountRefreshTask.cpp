@@ -15,8 +15,10 @@
 #include "Task/Miscellaneous/AccountSnapshotTask.h"
 #include "Task/Miscellaneous/OperBoxRecognitionTask.h"
 #include "Task/ProcessTask.h"
+#include "Task/Roguelike/RoguelikeRecruitPolicy.h"
 #include "Utils/Logger.hpp"
 #include "Utils/WorkingDir.hpp"
+#include "Vision/Roguelike/BlackFlow/BlackFlowAccountListOrderAnalyzer.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowAccountTargetLocator.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowAccountTrainingAnalyzer.h"
 
@@ -108,7 +110,19 @@ bool BlackFlowAccountRefreshTask::visit_page(const std::vector<OperBoxInfo>& pag
     // from this visit may become reusable geometry; no page cache crosses a swipe.
     m_verified_page.clear();
     for (const auto& oper : page) {
+        if (need_exit()) {
+            return false;
+        }
+        if (std::chrono::steady_clock::now() >= m_scan_deadline) {
+            m_scan_stop_reason = "deadline_at_verified_list_checkpoint";
+            break;
+        }
         if (m_attempted.contains(oper.name)) {
+            continue;
+        }
+        if (!is_account_training_scan_candidate(oper.own, oper.elite, oper.level)) {
+            LogTrace << __FUNCTION__ << "Skip detail visit below observed recruitment strength" << oper.name << "owned"
+                     << oper.own << "elite" << oper.elite << "level" << oper.level;
             continue;
         }
         const auto module = std::ranges::find_if(m_targets, [&](const auto& target) {
@@ -126,6 +140,21 @@ bool BlackFlowAccountRefreshTask::visit_page(const std::vector<OperBoxInfo>& pag
         }
     }
     return true;
+}
+
+bool BlackFlowAccountRefreshTask::ensure_descending_order()
+{
+    for (int attempt = 0; attempt < 2 && !need_exit(); ++attempt) {
+        const auto order = BlackFlowAccountListOrderAnalyzer(ctrler()->get_image()).analyze();
+        if (order == AccountListOrder::Descending) {
+            return true;
+        }
+        if (order != AccountListOrder::Ascending || attempt != 0 || !action("BlackFlowAccountScan@SortLevel")) {
+            break;
+        }
+    }
+    LogWarn << __FUNCTION__ << "Descending level order could not be positively verified";
+    return false;
 }
 
 bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const AccountModuleScanTarget* module)
@@ -261,32 +290,66 @@ bool BlackFlowAccountRefreshTask::visit_target(const OperBoxInfo& oper, const Ac
 
 bool BlackFlowAccountRefreshTask::_run()
 {
+    const auto scan_started = std::chrono::steady_clock::now();
+    m_scan_deadline = scan_started + std::chrono::minutes(5);
+    m_scan_stop_reason.clear();
     const auto scan_started_us =
         std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
             .count();
     if (m_observation.uid.empty() || m_targets.empty() || ctrler()->get_client_type() != m_observation.client ||
-        !action("BlackFlowAccountScan@Enter")) {
+        !action("BlackFlowAccountScan@Enter") || !ensure_descending_order()) {
         return false;
     }
     OperBoxRecognitionTask scanner(m_callback, m_inst, m_task_chain);
     scanner.set_retry_times(0);
     scanner.set_page_guard([this] { return action("OperProgress@ReturnToOperBox"); });
+    OperBoxRecognitionTask::TraversalProfile primary_traversal;
+    primary_traversal.forward_task = "OperBoxSlowlySwipeToTheRight";
+    primary_traversal.backtrack_task = "OperBoxSlowlySwipeToTheLeft";
+    primary_traversal.maximum_page_analyses = 64;
+    primary_traversal.maximum_backtracks = 0;
+    primary_traversal.emit_roster_callbacks = false;
+    scanner.set_traversal_profile(std::move(primary_traversal));
     std::set<std::string> primary_seen_required_ids;
-    scanner.set_page_visitor([this, &primary_seen_required_ids](const auto& page) {
-        for (const auto& oper : page) {
-            for (const auto& target : m_targets) {
-                if (oper.id == target.operator_id && oper.name == target.operator_name) {
-                    primary_seen_required_ids.insert(oper.id);
+    std::set<std::string> scanned_ids;
+    int pages_without_progress = 0;
+    scanner.set_page_visitor(
+        [this, &primary_seen_required_ids, &scanned_ids, &pages_without_progress](const auto& page) {
+            const auto previous_count = scanned_ids.size();
+            for (const auto& oper : page) {
+                if (!oper.id.empty()) {
+                    scanned_ids.insert(oper.id);
+                }
+                for (const auto& target : m_targets) {
+                    if (oper.id == target.operator_id && oper.name == target.operator_name) {
+                        primary_seen_required_ids.insert(oper.id);
+                    }
                 }
             }
-        }
-        return visit_page(page);
-    });
+            pages_without_progress = scanned_ids.size() == previous_count ? pages_without_progress + 1 : 0;
+            if (pages_without_progress >= 3) {
+                m_scan_stop_reason = "no_new_canonical_ids";
+            }
+            // A full page below the trained-recruitment gate ends this partial scan.
+            // Unknown level (zero) cannot establish that boundary.
+            if (page.size() >= 14 && std::ranges::all_of(page, [](const auto& oper) {
+                    return oper.own && oper.level > 0 && oper.level < 55 && oper.elite != 2;
+                })) {
+                m_scan_stop_reason = "descending_page_below_training_gate";
+            }
+            if (!m_scan_stop_reason.empty()) {
+                return true;
+            }
+            return visit_page(page);
+        });
+    scanner.set_stop_after_page([this] { return !m_scan_stop_reason.empty(); });
     // Continue the normal roster pass after the module watchlist: relevant
     // recruitment and configured opening operators also need outside training.
     const bool scanned = scanner.run();
     for (const auto& [name, oper] : scanner.own_operators()) {
-        m_observation.strengths.emplace(name, oper);
+        if (oper.level > 0) {
+            m_observation.strengths.emplace(name, oper);
+        }
     }
     m_observation.stopped_at_repeated_page = scanner.stopped_at_repeated_page();
     // Repeated pages can also mean a stalled swipe in the middle. Without a
@@ -300,7 +363,8 @@ bool BlackFlowAccountRefreshTask::_run()
     const auto missing =
         required_module_repair_targets(required, m_observation.unknown_targets, primary_seen_required_ids, m_attempted);
     const auto repair_scanner_budget = required_repair_scanner_budget(missing.size());
-    if (scanned && !missing.empty() && repair_scanner_budget > 0 && !need_exit()) {
+    if (scanned && m_scan_stop_reason.empty() && !missing.empty() && repair_scanner_budget > 0 && !need_exit() &&
+        std::chrono::steady_clock::now() < m_scan_deadline) {
         // A second pass locates only required targets never admitted by the first
         // list pass. It does not repeat relevant/opening training visits.
         std::set<std::string> encountered;
@@ -318,7 +382,8 @@ bool BlackFlowAccountRefreshTask::_run()
             }
             return visit_page(selected);
         });
-        locating.set_stop_after_page([&] { return encountered.size() == missing.size(); });
+        locating.set_stop_after_page(
+            [&] { return encountered.size() == missing.size() || !m_scan_stop_reason.empty(); });
         const auto evidence_root = UserDir.get() / utils::path("BlackFlowEvidence/account_required_repair");
         std::error_code directory_error;
         std::filesystem::create_directories(evidence_root, directory_error);
@@ -405,15 +470,20 @@ bool BlackFlowAccountRefreshTask::_run()
         };
         locating.set_traversal_profile(std::move(traversal));
         const bool located = locating.run();
+        if (!located) {
+            LogWarn << __FUNCTION__ << "Required locating did not restore a safe list; discard refresh";
+            if (!need_exit()) {
+                action("BlackFlowAccountScan@ReturnHome");
+            }
+            return false;
+        }
         for (const auto& [name, oper] : locating.own_operators()) {
-            if (std::ranges::any_of(missing, [&](const auto& target) {
+            if (oper.level > 0 && std::ranges::any_of(missing, [&](const auto& target) {
                     return oper.id == target.id && name == target.name;
                 })) {
                 m_observation.strengths.emplace(name, oper);
             }
         }
-        // Failed optional locating preserves the initial verified observations;
-        // publication still requires the same positive home UID below.
         LogInfo << __FUNCTION__ << "Required locating pass finished" << located << "eligible" << missing.size()
                 << "encountered" << encountered.size() << "unknown" << m_observation.unknown_targets.size()
                 << "total list frame cap" << 128 << "scanner frame cap" << repair_scanner_budget;
@@ -427,6 +497,11 @@ bool BlackFlowAccountRefreshTask::_run()
     account.set_retry_times(0);
     m_observation.returned_same_uid =
         account.run() && account.uid() == m_observation.uid && ctrler()->get_client_type() == m_observation.client;
+    LogInfo << __FUNCTION__ << "Account training partial scan finished" << "reason"
+            << (m_scan_stop_reason.empty() ? "bounded_scanner_finished" : m_scan_stop_reason) << "elapsed seconds"
+            << std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - scan_started).count()
+            << "details attempted" << m_attempted.size() << "details verified"
+            << m_observation.verified_strengths.size() << "returned same account" << m_observation.returned_same_uid;
     return scanned && m_observation.returned_same_uid;
 }
 } // namespace asst::blackflow

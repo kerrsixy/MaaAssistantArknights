@@ -3719,6 +3719,16 @@
         "specificRect": [445, 95, 10, 10],
         "postDelay": 300
     },
+    "BlackFlowAccountScan@SortLevel": {
+        "algorithm": "OcrDetect",
+        "roi": [820, 15, 90, 35],
+        "text": ["等级"],
+        "fullMatch": true,
+        "action": "ClickSelf",
+        "postDelay": 500,
+        "next": [],
+        "Doc": "Click only after same-frame blue upward chevron proves ascending order; caller re-verifies descending before scanning."
+    },
     "BlackFlowAccountScan@Enter": {
         "algorithm": "JustReturn",
         "action": "DoNothing",
@@ -4052,6 +4062,19 @@
         "text": [],
         "withoutDet": true,
         "action": "DoNothing"
+    },
+    "BlackFlow@Roguelike@RecruitUnselectedInstruction": {
+        "algorithm": "OcrDetect",
+        "roi": [0, 180, 355, 90],
+        "text": ["轻触右侧干员以查看详情"],
+        "fullMatch": true,
+        "Doc": "Positive no-selection receipt: yellow hope is an actual balance rather than a selected-card remainder."
+    },
+    "BlackFlow@Roguelike@RecruitSelectedName": {
+        "algorithm": "OcrDetect",
+        "roi": [0, 68, 335, 55],
+        "text": [],
+        "Doc": "Selected detail identity must bind to exactly one same-frame card and its independently verified price."
     },
     "BlackFlow@Roguelike@RecruitHopeHeader": {
         "algorithm": "MatchTemplate",

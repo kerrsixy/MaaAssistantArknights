@@ -1,4 +1,5 @@
 #include "RoguelikeRecruitImageAnalyzer.h"
+#include "RoguelikeParameterAnalyzer.h"
 #include "RoguelikeRecruitEvidence.h"
 
 #include <algorithm>
@@ -10,8 +11,70 @@
 #include "Utils/Logger.hpp"
 #include "Vision/Matcher.h"
 #include "Vision/MultiMatcher.h"
+#include "Vision/OCRer.h"
 #include "Vision/RegionOCRer.h"
 #include "Vision/TemplDetOCRer.h"
+
+asst::blackflow::RecruitmentHopeReading
+    asst::RoguelikeRecruitImageAnalyzer::read_blackflow_hope_balance(const cv::Mat& image)
+{
+    blackflow::RecruitmentHopeReading reading;
+    reading.displayed = RoguelikeParameterAnalyzer::read_blackflow_hope(
+        image,
+        RoguelikeParameterAnalyzer::BlackFlowHopeLayout::RecruitmentHeader);
+    if (!reading.displayed) {
+        return reading;
+    }
+    OCRer empty_selection(image);
+    empty_selection.set_task_info("BlackFlow@Roguelike@RecruitUnselectedInstruction");
+    if (const auto empty = empty_selection.analyze(); empty && empty->size() == 1 && empty->front().score >= 0.9) {
+        reading.state = blackflow::RecruitmentHopeState::UnselectedBalance;
+        return reading;
+    }
+
+    OCRer title(image);
+    title.set_task_info("BlackFlow@Roguelike@RecruitSelectedName");
+    title.set_replace(
+        Task.get<OcrTaskInfo>("CharsNameOcrReplace")->replace_map,
+        Task.get<OcrTaskInfo>("CharsNameOcrReplace")->replace_full);
+    const auto names = title.analyze();
+    MultiMatcher flags(image);
+    flags.set_task_info("RoguelikeRecruitOcrFlag");
+    const auto anchors = flags.analyze();
+    if (!names || !anchors) {
+        return reading;
+    }
+    std::optional<int> selected_price;
+    for (const auto& anchor : *anchors) {
+        // Selected cards are tinted blue. The legacy binarized name/level
+        // reader can clip their white name; read the raw name at the exact
+        // currency anchor without weakening the ordinary candidate analyzer.
+        OCRer card_name(image);
+        card_name.set_task_info("RoguelikeRecruitOcr");
+        card_name.set_roi(anchor.rect.move(Task.get("RoguelikeRecruitOcr")->roi));
+        const auto card_names = card_name.analyze();
+        if (!card_names || card_names->size() != 1 || card_names->front().score < 0.9) {
+            continue;
+        }
+        const auto matches = std::ranges::count_if(*names, [&](const auto& name) {
+            return name.score >= 0.9 && name.text == card_names->front().text;
+        });
+        if (matches == 0) {
+            continue;
+        }
+        const auto price = analyze_hope_cost(image, anchor.rect, anchor.score);
+        if (matches != 1 || selected_price || !price.hope_cost) {
+            return reading;
+        }
+        selected_price = price.hope_cost;
+    }
+    if (!selected_price) {
+        return reading;
+    }
+    reading.state = blackflow::RecruitmentHopeState::SelectedRemaining;
+    reading.selected_cost = selected_price;
+    return reading;
+}
 
 bool asst::RoguelikeRecruitImageAnalyzer::analyze()
 {

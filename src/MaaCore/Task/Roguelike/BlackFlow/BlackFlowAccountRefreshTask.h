@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <map>
 #include <set>
 #include <string>
@@ -62,6 +63,7 @@ protected:
 
 private:
     bool visit_page(const std::vector<OperBoxInfo>& page);
+    bool ensure_descending_order();
     bool visit_target(const OperBoxInfo& oper, const AccountModuleScanTarget* module);
     bool action(const std::string& task, const std::shared_ptr<AbstractTaskPlugin>& observer = nullptr);
     std::vector<AccountModuleScanTarget> m_targets;
@@ -69,5 +71,7 @@ private:
     std::set<std::string> m_opening_training_names;
     AccountRefreshObservation m_observation;
     std::vector<OperBoxInfo> m_verified_page;
+    std::chrono::steady_clock::time_point m_scan_deadline;
+    std::string m_scan_stop_reason;
 };
 }

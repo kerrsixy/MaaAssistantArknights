@@ -609,7 +609,7 @@ bool asst::RoguelikeRecruitTaskPlugin::_run()
     // 加分数值来自资源 opening.role_diversity_bonus（缺省 500），C++ 不硬编码玩法策略。
     const bool opening_phase = m_initail_recruit;
     const int role_bonus = RoguelikeRecruit.get_opening_role_bonus(theme);
-    auto oper_score = [hope_rich, opening_phase, role_bonus, &theme, this](const RoguelikeRecruitInfo& info) {
+    auto oper_score = [hope_rich, opening_phase, role_bonus, this](const RoguelikeRecruitInfo& info) {
         int bonus = 0;
         if (hope_rich && BattleDataConfig::get_instance().get_rarity(battle::Role::Unknown, info.name) >= 5) {
             bonus = SixStarBonus;
@@ -1740,14 +1740,13 @@ bool asst::RoguelikeRecruitTaskPlugin::recruit_own_char(const std::string& name)
 int asst::RoguelikeRecruitTaskPlugin::read_current_hope(const cv::Mat& image)
 {
     if (m_config->get_theme() == RoguelikeTheme::BlackFlow) {
-        const auto hope = RoguelikeParameterAnalyzer::read_blackflow_hope(
-            image,
-            RoguelikeParameterAnalyzer::BlackFlowHopeLayout::RecruitmentHeader);
-        const int current = hope.value_or(-1);
+        const auto reading = RoguelikeRecruitImageAnalyzer::read_blackflow_hope_balance(image);
+        const int current = reading.balance().value_or(-1);
         // Invalidate a stale balance when this exact page is unreadable.
         m_config->status().hope = current;
-        LogInfo << __FUNCTION__ << "Recruitment current hope" << current << "source"
-                << "anchored yellow current-value glyphs";
+        LogInfo << __FUNCTION__ << "Recruitment current hope" << current << "displayed"
+                << reading.displayed.value_or(-1) << "selection state" << static_cast<int>(reading.state)
+                << "selected card price" << reading.selected_cost.value_or(-1);
         return current;
     }
     int cur_hope = -1;

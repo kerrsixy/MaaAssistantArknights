@@ -4,6 +4,7 @@
 #include <functional>
 
 #include "Common/AsstBattleDef.h"
+#include "Vision/Roguelike/BlackFlow/BlackFlowRecruitmentHope.h"
 
 namespace asst
 {
@@ -65,6 +66,10 @@ public:
     virtual ~RoguelikeRecruitImageAnalyzer() noexcept override = default;
 
     bool analyze();
+
+    // Resolve a real pre-payment balance from one frame, never a gray cap or
+    // another candidate's price. Unverified selection/price remains unknown.
+    static blackflow::RecruitmentHopeReading read_blackflow_hope_balance(const cv::Mat& image);
 
     const auto& get_result() const noexcept { return m_result; }
 

@@ -8,6 +8,13 @@ constexpr bool is_recruitment_strength_sufficient(int elite, int level)
     return elite == 2 || (elite == 1 && (level >= 55 || level == 0));
 }
 
+// Account-list observations must be positive before spending a detail visit.
+// Unlike the in-run compatibility gate, level zero means unknown here.
+constexpr bool is_account_training_scan_candidate(bool owned, int elite, int level)
+{
+    return owned && level > 0 && is_recruitment_strength_sufficient(elite, level);
+}
+
 // Promotion value ranks suitable new recruits; it cannot establish suitability.
 constexpr int score_elite_two_recruit(int suitability, int promotion_value)
 {
