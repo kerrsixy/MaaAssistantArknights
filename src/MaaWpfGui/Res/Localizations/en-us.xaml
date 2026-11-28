@@ -2315,6 +2315,8 @@ Right-clicking other options will check/uncheck this option simultaneously</syst
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.JointMax">Max (终极模拟)</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.JointTitle">Co-op difficulty</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Max">Max (20)</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.JointCommendation">Commend at settlement</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.JointEmotes">Send emotes</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Independent">独立模拟 (independent solo)</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Joint">联合模拟 (co-op)</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Quick">极速模拟 (quick solo)</system:String>
@@ -2322,8 +2324,6 @@ Right-clicking other options will check/uncheck this option simultaneously</syst
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Default">Default (automatic)</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Tip">Banned strategy or faction choices fall back to automatic planning. Secondary pacts follow the primary faction and available cards.</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Title">Primary faction</system:String>
-    <system:String x:Key="TaskQueue.StrongholdProtocol.JointEmotes">Send emotes</system:String>
-    <system:String x:Key="TaskQueue.StrongholdProtocol.JointCommendation">Commend at settlement</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.RunCount.Tip">Counts settled runs that return to the lobby, not victories. Starts the next run after settlement and stops when the limit is reached.</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.RunCount.Title">Runs</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Strategy.Default">Default (ignore strategy badges)</system:String>

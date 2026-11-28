@@ -2316,6 +2316,8 @@ DEBUG 目录下保存的图片有数量限制，超出后会自动清理旧图�
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.JointMax">Max（终极模拟）</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.JointTitle">联合难度</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Max">Max（20）</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.JointCommendation">结算点赞</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.JointEmotes">发表情包</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Independent">独立模拟</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Joint">联合模拟</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Quick">极速模拟</system:String>
@@ -2323,8 +2325,6 @@ DEBUG 目录下保存的图片有数量限制，超出后会自动清理旧图�
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Default">默认（智能规划）</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Tip">指定的策略或阵营被禁用时，使用默认智能规划。副阵营随主阵营和实际发牌情况搭配。</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Title">主阵营</system:String>
-    <system:String x:Key="TaskQueue.StrongholdProtocol.JointEmotes">发表情包</system:String>
-    <system:String x:Key="TaskQueue.StrongholdProtocol.JointCommendation">结算点赞</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.RunCount.Tip">按已结算并返回大厅的局数计次，不以胜利次数计数。每局结束后继续下一局，达到次数后停止。</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.RunCount.Title">运行次数</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Strategy.Default">默认策略（不考虑策略章）</system:String>

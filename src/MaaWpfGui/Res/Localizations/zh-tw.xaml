@@ -2316,6 +2316,8 @@ DEBUG 目錄下儲存的圖片有數量限制，超出後會自動清理舊圖�
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.JointMax">Max（終極模擬）</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.JointTitle">聯合難度</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Max">Max（20）</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.JointCommendation">結算按讚</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.JointEmotes">發表情包</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Independent">獨立模擬</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Joint">聯合模擬</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Quick">極速模擬</system:String>
@@ -2323,8 +2325,6 @@ DEBUG 目錄下儲存的圖片有數量限制，超出後會自動清理舊圖�
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Default">預設（智慧規劃）</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Tip">指定的策略或陣營被禁用時，使用預設智慧規劃。副陣營隨主陣營與實際發牌情況搭配。</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Title">主陣營</system:String>
-    <system:String x:Key="TaskQueue.StrongholdProtocol.JointEmotes">發表情包</system:String>
-    <system:String x:Key="TaskQueue.StrongholdProtocol.JointCommendation">結算按讚</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.RunCount.Tip">以已結算並返回大廳的局數計次，不以勝利次數計數。每局結束後繼續下一局，達到次數後停止。</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.RunCount.Title">執行次數</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Strategy.Default">預設策略（不考慮策略章）</system:String>

@@ -2317,6 +2317,8 @@ MAA は非インストール型のアプリケーションであり、レジス�
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.JointMax">Max（终极模拟）</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.JointTitle">協力演算の難易度</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Max">Max（20）</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.JointCommendation">結果画面で仲間を称賛</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.JointEmotes">スタンプを送る</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Independent">独立模拟（ソロ）</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Joint">联合模拟（協力）</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Quick">极速模拟（短時間ソロ）</system:String>
@@ -2324,8 +2326,6 @@ MAA は非インストール型のアプリケーションであり、レジス�
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Default">デフォルト（自動）</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Tip">指定した策略や陣営が禁止されている場合は自動選択に切り替わります。副盟約は主陣営と入手できるオペレーターに合わせます。</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Title">主陣営</system:String>
-    <system:String x:Key="TaskQueue.StrongholdProtocol.JointEmotes">スタンプを送る</system:String>
-    <system:String x:Key="TaskQueue.StrongholdProtocol.JointCommendation">結果画面で仲間を称賛</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.RunCount.Tip">リザルトを確認してロビーに戻った回数を数えます。勝利回数ではありません。終了後に次の実行を開始し、指定回数で停止します。</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.RunCount.Title">実行回数</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Strategy.Default">既定（戦略章を考慮しない）</system:String>

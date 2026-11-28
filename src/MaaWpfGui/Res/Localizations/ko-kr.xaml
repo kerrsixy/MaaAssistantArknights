@@ -2316,6 +2316,8 @@ MAA는 비설치형 응용 프로그램으로, 삭제 시 레지스트리 항목
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.JointMax">Max (终极模拟)</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.JointTitle">협동 난이도</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Difficulty.Max">Max (20)</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.JointCommendation">결산에서 팀원 칭찬</system:String>
+    <system:String x:Key="TaskQueue.StrongholdProtocol.JointEmotes">이모티콘 보내기</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Independent">独立模拟 (싱글)</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Joint">联合模拟 (협동)</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Mode.Quick">极速模拟 (빠른 싱글)</system:String>
@@ -2323,8 +2325,6 @@ MAA는 비설치형 응용 프로그램으로, 삭제 시 레지스트리 항목
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Default">기본 (자동 계획)</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Tip">지정한 전략이나 진영이 금지된 경우 자동 계획으로 전환합니다. 보조 맹약은 주 진영과 등장한 오퍼레이터에 맞춥니다。</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Pact.Title">주 진영</system:String>
-    <system:String x:Key="TaskQueue.StrongholdProtocol.JointEmotes">이모티콘 보내기</system:String>
-    <system:String x:Key="TaskQueue.StrongholdProtocol.JointCommendation">결산에서 팀원 칭찬</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.RunCount.Tip">결산 후 로비로 돌아온 판을 셉니다. 승리 횟수가 아닙니다. 각 판이 끝나면 다음 판을 시작하고 지정한 횟수에 도달하면 중지합니다。</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.RunCount.Title">실행 횟수</system:String>
     <system:String x:Key="TaskQueue.StrongholdProtocol.Strategy.Default">기본 (전략 배지 무관)</system:String>
