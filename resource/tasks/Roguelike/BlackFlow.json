@@ -316,18 +316,22 @@
             "BlackFlow@Roguelike@AccountDailySupply",
             "BlackFlow@Roguelike@AccountMonthlySignInClose",
             "BlackFlow@Roguelike@AccountAnnouncementClose",
+            "BlackFlow@Roguelike@CurrentHomeEntry",
             "BlackFlow@Roguelike"
         ]
     },
     "BlackFlow@Roguelike@AccountHomeCurrent": {
         "Doc": "Current home layout: require both the operator entry and terminal title in the same frame; preserve the original theme matcher separately.",
+        "baseTask": "BlackFlow@Roguelike@AccountHomeOperator",
+        "requiredPage": "BlackFlow@Roguelike@AccountHomeTerminal",
+        "next": ["BlackFlow@Roguelike@AccountRead"]
+    },
+    "BlackFlow@Roguelike@AccountHomeOperator": {
         "algorithm": "OcrDetect",
         "text": ["干员", "Operator"],
         "fullMatch": true,
         "roi": [900, 280, 300, 150],
-        "requiredPage": "BlackFlow@Roguelike@AccountHomeTerminal",
-        "action": "DoNothing",
-        "next": ["BlackFlow@Roguelike@AccountRead"]
+        "action": "DoNothing"
     },
     "BlackFlow@Roguelike@AccountHomeTerminal": {
         "algorithm": "OcrDetect",
@@ -335,6 +339,23 @@
         "fullMatch": true,
         "roi": [850, 85, 250, 100],
         "action": "DoNothing"
+    },
+    "BlackFlow@Roguelike@CurrentHomeEntry": {
+        "baseTask": "BlackFlow@Roguelike@AccountHomeCurrent",
+        "sub": ["BlackFlow@Roguelike@CurrentHomeTerminalClick"],
+        "next": [
+            "BlackFlow@Roguelike@CloseAnnos#next",
+            "BlackFlow@Roguelike@TodoEnter",
+            "BlackFlow@Roguelike@IntegratedStrategies",
+            "BlackFlow@Roguelike@ReturnButtons#next"
+        ]
+    },
+    "BlackFlow@Roguelike@CurrentHomeTerminalClick": {
+        "baseTask": "BlackFlow@Roguelike@AccountHomeTerminal",
+        "requiredPage": "BlackFlow@Roguelike@AccountHomeOperator",
+        "action": "ClickSelf",
+        "postDelay": 1500,
+        "next": []
     },
     "BlackFlow@Roguelike@AccountDailySupply": {
         "baseTask": "BlackFlow@Roguelike@BeginRecovery_DailySupply",
@@ -3778,10 +3799,15 @@
     "BlackFlowAccountScan@CurrentModuleStage": {
         "algorithm": "OcrDetect",
         "roi": [1152, 526, 88, 36],
-        "withoutDet": true,
+        "withoutDet": false,
         "text": [],
         "action": "DoNothing",
         "next": []
+    },
+    "BlackFlowAccountScan@CurrentModuleCodeContrast": {
+        "baseTask": "BlackFlowAccountScan@CurrentModuleCode",
+        "binThreshold": [120, 255],
+        "useRaw": false
     },
     "BlackFlowAccountScan@SetDefaultWords": {
         "algorithm": "OcrDetect",

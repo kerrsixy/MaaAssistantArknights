@@ -3,6 +3,7 @@
 #include "MaaUtils/Encoding.h"
 #include "MaaUtils/ImageIo.h"
 #include "Task/Roguelike/BlackFlow/BlackFlowAccountSnapshotStore.h"
+#include "Utils/Platform.hpp"
 #include "Vision/Roguelike/BlackFlow/BlackFlowCurrentModuleAnalyzer.h"
 #include "Vision/Roguelike/BlackFlow/BlackFlowModulePanelAnalyzer.h"
 #include <filesystem>
@@ -52,6 +53,20 @@ int wmain(int argc, wchar_t** argv)
                              .analyze(target);
     ck(preview && preview->module_id == "uniequip_002_typhon",
        "merely previewing special card does not change current default");
+    for (const auto& required : catalog->targets()) {
+        const auto image = MAA_NS::imread(
+            fixtures / L"b_default_switch_scan_only_05c/BlackFlowEvidence/account_refresh" /
+            utils::path(required.operator_id) / L"detail-strength.png");
+        const auto current = BlackFlowCurrentModuleAnalyzer(image).analyze(required);
+        const auto expected =
+            required.operator_id == "char_2012_typhon" ? "uniequip_002_typhon" : required.panel.module_id;
+        ck(current && current->module_id == expected && current->level == 3,
+           "real scan detail verifies its current module without lowering confidence");
+        auto without_stage = image.clone();
+        without_stage(cv::Rect(1152, 526, 88, 36)).setTo(cv::Scalar(0, 0, 0));
+        ck(!BlackFlowCurrentModuleAnalyzer(without_stage).analyze(required),
+           "module code without its current stage cannot establish readiness");
+    }
     auto wrong = target;
     wrong.operator_id = "char_4039_horn";
     wrong.operator_name = "号角";
