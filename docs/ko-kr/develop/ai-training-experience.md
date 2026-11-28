@@ -1449,3 +1449,5 @@ Android x64 및 macOS Clang 빌드가 StrongholdProtocolEquipment.cpp의 Wlogica
 후속 Android 컴파일에서 OperBoxRecognitionTask의 진단 페이지 제한에 Windows getenv_s를 무조건 사용하는 문제가 드러났다. Windows의 기존 16바이트 경계를 유지하고 다른 플랫폼에서는 같은 길이 제한과 페이지 비교로 표준 getenv를 사용한다. 해당 제품 소스의 Windows Debug 컴파일은 통과했다. 스캔 흐름이나 전체 계정 스캔 상한은 수정하지 않았다.
 
 Android 및 macOS 빌드에서 BlackFlowRecruitmentQuoteLedger의 u8path 두 호출이 사용 중단 경고로 실패했다. 저장소 규칙에 따라 리소스 지문 경로와 임시 파일 접미사에 utils::path를 사용하여 UTF-8 의미를 유지했다. 해당 제품 소스의 Windows Debug 컴파일은 통과했다. 모집 예산, 가격 결정과 실기 결과는 바뀌지 않았으며 전체 패키지는 검증이 필요하다.
+
+후속 Android 컴파일이 BlackFlowTaskPort의 사용되지 않는 MovePreviewDisplayedNameTask 상수를 오류로 처리했다. 전체 참조 검색에서 선언만 확인하여 해당 선언만 삭제했다. 인식 작업이나 호출 흐름은 변경하지 않았으며 해당 제품 소스의 Windows Debug 컴파일은 통과했다.

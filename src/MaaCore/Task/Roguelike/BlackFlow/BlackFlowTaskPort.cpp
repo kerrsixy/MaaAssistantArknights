@@ -46,7 +46,6 @@ constexpr std::string_view MovePreviewEnterCraftedTask = "BlackFlow@Roguelike@Mo
 constexpr std::string_view MovePreviewCannotEnterTask = "BlackFlow@Roguelike@MovePreviewCannotEnter";
 constexpr std::string_view MovePreviewCostTask = "BlackFlow@Roguelike@MovePreviewCost";
 constexpr std::string_view MovePreviewCostCraftedTask = "BlackFlow@Roguelike@MovePreviewCostCrafted";
-constexpr std::string_view MovePreviewDisplayedNameTask = "BlackFlow@Roguelike@MovePreviewDisplayedName";
 constexpr std::string_view MovePreviewIdealSourceTask = "BlackFlow@Roguelike@MovePreviewIdealSource";
 constexpr std::string_view MovePreviewConfirmTask = "BlackFlow@Roguelike@MovePreviewConfirm";
 constexpr std::string_view MovePreviewConfirmCompletedTask = "BlackFlow@Roguelike@MovePreviewConfirmCompleted";

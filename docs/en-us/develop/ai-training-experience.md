@@ -1497,3 +1497,5 @@ Subsequent Android and macOS compilation exposed two signedness comparisons of k
 The next Android build exposed another unconditional Windows getenv_s call in OperBoxRecognitionTask's diagnostic page limit. Preserve the Windows 16-byte boundary; use standard getenv elsewhere with the same length limit and page comparison. The production translation unit compiles in Windows Debug. This does not change scanning or repair the overall account-scan bound.
 
 Android and macOS builds rejected two deprecated u8path calls in BlackFlowRecruitmentQuoteLedger. Use the repository's utils::path for resource fingerprint paths and staged-file suffixes, preserving UTF-8 semantics. The production translation unit compiles in Windows Debug. Recruitment budgets, quote decisions, and live outcomes are unchanged; full packages still require verification.
+
+The next Android compilation rejected BlackFlowTaskPort's unused MovePreviewDisplayedNameTask constant. A repository-wide reference check found only its declaration; remove that dead declaration without deleting the recognition task or changing call flow. The production translation unit compiles in Windows Debug.
