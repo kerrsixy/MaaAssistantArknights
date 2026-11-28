@@ -6,7 +6,7 @@
     },
     "inventory_cleanup_policy": {
         "discard_max_rank": 17,
-        "extra_discards_after_clear": 1,
+        "extra_discards_after_clear": 0,
         "rescan_after_rank": 4,
         "max_attempts_per_rank": 3,
         "discard_priority": [
